@@ -68,8 +68,8 @@ impl<'w> DeferredWorld<'w> {
         unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities()) }
     }
 
-    /// Retrieves a mutable reference to the given `entity`'s [`Component`](`crate::prelude::Component`) of the given type.
-    /// Returns `None` if the `entity` does not have a [`Component`](`crate::prelude::Component`) of the given type.
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
