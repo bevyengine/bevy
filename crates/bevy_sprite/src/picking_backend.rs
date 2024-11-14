@@ -22,7 +22,7 @@ use bevy_window::PrimaryWindow;
 pub struct SpriteBackendSettings {
     /// When set to `true` picking will ignore any part of a sprite which is transparent
     /// Off by default for backwards compatibility. This setting is provided to give you fine-grained
-    /// control over if transparncy on sprites is ignored.
+    /// control over if transparency on sprites is ignored.
     pub passthrough_transparency: bool,
     /// How Opaque does part of a sprite need to be in order count as none-transparent (defaults to 10)
     pub transparency_cutoff: u8,
