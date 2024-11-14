@@ -123,7 +123,8 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 ..Default::default()
             },
             push_constant_ranges: Vec::new(),
-            multiview: key.multiview,
+            multiview: None,
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

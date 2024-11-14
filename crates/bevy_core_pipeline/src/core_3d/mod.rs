@@ -65,14 +65,15 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_asset::{AssetId, UntypedAssetId};
-use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_image::{BevyDefault, Image};
 use bevy_math::FloatOrd;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -91,7 +92,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::RenderEntity,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
+    texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };

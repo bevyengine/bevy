@@ -173,7 +173,7 @@ fn resolve_vertex_output(view_index: i32, frag_coord: vec4<f32>) -> VertexOutput
         ddy_uv,
         world_tangent,
         instance_uniform.flags,
-        cluster_id,
+        instance_id ^ meshlet_id,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
         motion_vector,

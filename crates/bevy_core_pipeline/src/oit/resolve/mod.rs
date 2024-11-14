@@ -9,6 +9,7 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
@@ -18,7 +19,6 @@ use bevy_render::{
         Shader, ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
@@ -121,7 +121,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
     hdr: bool,
-    layer_count: u8,
+    layer_count: i32,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -208,6 +208,7 @@ fn specialize_oit_resolve_pipeline(
         depth_stencil: None,
         multisample: MultisampleState::default(),
         push_constant_ranges: vec![],
+        zero_initialize_workgroup_memory: false,
         multiview: None,
     }
 }

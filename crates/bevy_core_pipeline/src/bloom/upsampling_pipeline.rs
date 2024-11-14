@@ -156,6 +156,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
             multiview: key.multiview,
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

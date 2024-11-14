@@ -28,7 +28,6 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
@@ -264,6 +263,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

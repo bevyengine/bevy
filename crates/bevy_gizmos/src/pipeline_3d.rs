@@ -17,6 +17,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -26,7 +27,6 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -158,6 +158,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo Pipeline".into()),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
             multiview: None,
         }
     }
@@ -258,6 +259,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             label: Some("LineJointGizmo Pipeline".into()),
             push_constant_ranges: vec![],
             multiview: None,
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

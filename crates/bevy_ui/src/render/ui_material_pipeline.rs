@@ -11,6 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -21,7 +22,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -199,6 +199,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_material_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
             multiview: None,
         };
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -655,6 +656,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: 1.,
         });
     }
 }

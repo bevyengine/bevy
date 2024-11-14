@@ -15,13 +15,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
+    texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{Msaa, RenderVisibilityRanges, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
 };
 use core::{array, num::NonZero};
@@ -224,6 +225,7 @@ fn layout_entries(
             // Point Shadow Texture Array Comparison Sampler
             (3, sampler(SamplerBindingType::Comparison)),
             // Point Shadow Texture Array Linear Sampler
+            #[cfg(feature = "experimental_pbr_pcss")]
             (4, sampler(SamplerBindingType::Filtering)),
             // Directional Shadow Texture Array
             (
@@ -240,6 +242,7 @@ fn layout_entries(
             // Directional Shadow Texture Array Comparison Sampler
             (6, sampler(SamplerBindingType::Comparison)),
             // Directional Shadow Texture Array Linear Sampler
+            #[cfg(feature = "experimental_pbr_pcss")]
             (7, sampler(SamplerBindingType::Filtering)),
             // PointLights
             (
@@ -372,7 +375,10 @@ fn layout_entries(
                 // oit_layer_ids,
                 (32, storage_buffer_sized(false, None)),
                 // oit_layer_count
-                (33, uniform_buffer::<i32>(true)),
+                (
+                    33,
+                    uniform_buffer::<OrderIndependentTransparencySettings>(true),
+                ),
             ));
         }
     }
@@ -571,9 +577,11 @@ pub fn prepare_mesh_view_bind_groups(
                 (1, light_binding.clone()),
                 (2, &shadow_bindings.point_light_depth_texture_view),
                 (3, &shadow_samplers.point_light_comparison_sampler),
+                #[cfg(feature = "experimental_pbr_pcss")]
                 (4, &shadow_samplers.point_light_linear_sampler),
                 (5, &shadow_bindings.directional_light_depth_texture_view),
                 (6, &shadow_samplers.directional_light_comparison_sampler),
+                #[cfg(feature = "experimental_pbr_pcss")]
                 (7, &shadow_samplers.directional_light_linear_sampler),
                 (8, clusterable_objects_binding.clone()),
                 (
@@ -687,16 +695,16 @@ pub fn prepare_mesh_view_bind_groups(
                 if let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),
-                    Some(oit_layers_count_uniforms_binding),
+                    Some(oit_settings_binding),
                 ) = (
                     oit_buffers.layers.binding(),
                     oit_buffers.layer_ids.binding(),
-                    oit_buffers.layers_count_uniforms.binding(),
+                    oit_buffers.settings.binding(),
                 ) {
                     entries = entries.extend_with_indices((
                         (31, oit_layers_binding.clone()),
                         (32, oit_layer_ids_binding.clone()),
-                        (33, oit_layers_count_uniforms_binding.clone()),
+                        (33, oit_settings_binding.clone()),
                     ));
                 }
             }

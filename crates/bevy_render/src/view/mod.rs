@@ -18,8 +18,8 @@ use crate::{
     render_resource::{DynamicArrayUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
-        OutputColorAttachment, TextureCache,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
+        TextureCache,
     },
     Render, RenderApp, RenderSet,
 };
@@ -28,6 +28,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
@@ -146,14 +147,14 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+/// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
+/// for a [`Camera`](crate::camera::Camera).
 ///
-/// The number of samples to run for Multi-Sample Anti-Aliasing for a given camera. Higher numbers
-/// result in smoother edges.
+/// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
-/// Defaults to 4 samples. Some advanced rendering features may require that MSAA be disabled.
+/// Some advanced rendering features may require that MSAA is disabled.
 ///
-/// Note that web currently only supports 1 or 4 samples.
+/// Note that the web currently only supports 1 or 4 samples.
 #[derive(
     Component,
     Default,

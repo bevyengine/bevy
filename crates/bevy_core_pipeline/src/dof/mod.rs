@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
@@ -48,7 +49,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{CachedTexture, TextureCache},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
@@ -807,6 +808,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 },
                 targets,
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -13,7 +13,7 @@
     meshlet_software_raster_indirect_args,
     meshlet_hardware_raster_indirect_args,
     meshlet_raster_clusters,
-    meshlet_raster_cluster_rightmost_slot,
+    constants,
     MeshletBoundingSphere,
 }
 #import bevy_render::maths::affine3_to_square
@@ -32,7 +32,7 @@ fn cull_clusters(
 ) {
     // Calculate the cluster ID for this thread
     let cluster_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
-    if cluster_id >= arrayLength(&meshlet_cluster_meshlet_ids) { return; }
+    if cluster_id >= constants.scene_cluster_count { return; }
 
 #ifdef MESHLET_SECOND_CULLING_PASS
     if !cluster_is_second_pass_candidate(cluster_id) { return; }
@@ -126,17 +126,19 @@ fn cull_clusters(
     aabb_width_pixels = (aabb.z - aabb.x) * view.viewport.z;
     aabb_height_pixels = (aabb.w - aabb.y) * view.viewport.w;
 #endif
-    let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(32.0)); // TODO: Nanite does something different. Come up with my own heuristic.
+    let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(64.0));
 
-    // TODO: Also check if needs depth clipping
+    // Let the hardware rasterizer handle near-plane clipping
+    let not_intersects_near_plane = dot(view.frustum[4u], culling_bounding_sphere_center) > culling_bounding_sphere_radius;
+
     var buffer_slot: u32;
-    if cluster_is_small {
+    if cluster_is_small && not_intersects_near_plane {
         // Append this cluster to the list for software rasterization
         buffer_slot = atomicAdd(&meshlet_software_raster_indirect_args.x, 1u);
     } else {
         // Append this cluster to the list for hardware rasterization
         buffer_slot = atomicAdd(&meshlet_hardware_raster_indirect_args.instance_count, 1u);
-        buffer_slot = meshlet_raster_cluster_rightmost_slot - buffer_slot;
+        buffer_slot = constants.meshlet_raster_cluster_rightmost_slot - buffer_slot;
     }
     meshlet_raster_clusters[buffer_slot] = cluster_id;
 }

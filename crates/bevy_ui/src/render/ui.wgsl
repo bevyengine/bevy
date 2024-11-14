@@ -22,6 +22,7 @@ struct VertexOutput {
 
     // Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
+    @location(7) @interpolate(flat) scale_factor: f32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -39,6 +40,7 @@ fn vertex(
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) point: vec2<f32>,
+    @location(8) scale_factor: f32,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -49,6 +51,7 @@ fn vertex(
     out.size = size;
     out.border = border;
     out.point = point;
+    out.scale_factor = scale_factor;
 
     return out;
 }
@@ -115,10 +118,9 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 }
 
 // get alpha for antialiasing for sdf
-fn antialias(distance: f32) -> f32 {
+fn antialias(distance: f32, scale_factor: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    // This antialiases between the distance values of 0.25 and -0.25
-    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
+    return clamp(0.0, 1.0, (0.5 - scale_factor * distance));
 }
 
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
@@ -149,7 +151,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present, otherwise an outline about the external boundary would be drawn even without 
     // a border.
-    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance, in.scale_factor), external_distance < internal_distance);
 #else
     let t = 1.0 - step(0.0, border_distance);
 #endif
@@ -165,7 +167,7 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
 #ifdef ANTI_ALIAS
-    let t = antialias(internal_distance);
+    let t = antialias(internal_distance, in.scale_factor);
 #else
     let t = 1.0 - step(0.0, internal_distance);
 #endif

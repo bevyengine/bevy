@@ -5,9 +5,11 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-#[cfg(target_os = "linux")]
-use bevy_utils::warn_once;
-use bevy_utils::{default, tracing::debug, HashSet};
+use bevy_utils::{
+    default,
+    tracing::{debug, warn},
+    HashSet,
+};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -193,9 +195,6 @@ impl WindowSurfaces {
     }
 }
 
-#[cfg(target_os = "linux")]
-const NVIDIA_VENDOR_ID: u32 = 0x10DE;
-
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
@@ -250,60 +249,35 @@ pub fn prepare_windows(
                 })
         };
 
-        #[cfg(target_os = "linux")]
-        let is_nvidia = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
-        };
-
-        let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
-
         let surface = &surface_data.surface;
-        if not_already_configured || window.size_changed || window.present_mode_changed {
-            match surface.get_current_texture() {
-                Ok(frame) => window.set_swapchain_texture(frame),
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(err) => panic!("Error configuring surface: {err}"),
-            };
-        } else {
-            match surface.get_current_texture() {
-                Ok(frame) => {
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_data.configuration);
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface");
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                    bevy_utils::tracing::trace!(
-                        "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux GPU driver, so it can be safely ignored."
-                    );
-                }
-                Err(err) => {
-                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
-                }
+        match surface.get_current_texture() {
+            Ok(frame) => {
+                window.set_swapchain_texture(frame);
             }
-        };
+            Err(wgpu::SurfaceError::Outdated) => {
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    Ok(frame) => frame,
+                    Err(err) => {
+                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
+                        // when opening and resizing the window.
+                        warn!("Couldn't get swap chain texture after configuring. Cause: '{err}'");
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
+            }
+            #[cfg(target_os = "linux")]
+            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                bevy_utils::tracing::trace!(
+                    "Couldn't get swap chain texture. This is probably a quirk \
+                        of your Linux GPU driver, so it can be safely ignored."
+                );
+            }
+            Err(err) => {
+                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+            }
+        }
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
     }
 }
@@ -431,5 +405,7 @@ pub fn create_surfaces(
             };
             render_device.configure_surface(&data.surface, &data.configuration);
         }
+
+        window_surfaces.configured_windows.insert(window.entity);
     }
 }

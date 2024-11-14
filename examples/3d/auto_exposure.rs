@@ -115,8 +115,8 @@ fn setup(
     ));
 
     commands.spawn((
-        UiImage {
-            texture: metering_mask,
+        ImageNode {
+            image: metering_mask,
             ..default()
         },
         Node {
@@ -162,7 +162,7 @@ struct ExampleResources {
 fn example_control_system(
     camera: Single<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
-    mut mask_image: Single<&mut Node, With<UiImage>>,
+    mut mask_image: Single<&mut Node, With<ImageNode>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,

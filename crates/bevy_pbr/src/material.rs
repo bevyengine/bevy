@@ -60,8 +60,9 @@ use core::{
 /// ```
 /// # use bevy_pbr::{Material, MeshMaterial3d};
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};

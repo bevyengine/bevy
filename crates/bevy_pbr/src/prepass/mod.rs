@@ -218,7 +218,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]
@@ -585,6 +585,7 @@ where
             push_constant_ranges: vec![],
             multiview,
             label: Some("prepass_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         };
 
         // This is a bit risky because it's possible to change something that would

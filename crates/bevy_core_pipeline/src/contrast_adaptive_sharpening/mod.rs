@@ -8,6 +8,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -18,7 +19,6 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -259,6 +259,7 @@ impl SpecializedRenderPipeline for CasPipeline {
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
             multiview: key.multiview,
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

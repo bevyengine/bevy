@@ -31,7 +31,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-install-${{ hashFiles('**/Cargo.lock') }}
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
@@ -244,7 +244,7 @@ jobs:
 
       - name: First Wasm build
         run: |
-          cargo build --release --example ui --target wasm32-unknown-unknown
+          cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
       - name: Run examples
         shell: bash

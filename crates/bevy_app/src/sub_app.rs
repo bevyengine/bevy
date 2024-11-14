@@ -37,6 +37,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 ///
 /// // Create a sub-app with the same resource and a single schedule.
 /// let mut sub_app = SubApp::new();
+/// sub_app.update_schedule = Some(Main.intern());
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
