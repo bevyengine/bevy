@@ -16,22 +16,24 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// Runtime settings for the [`SpriteBackend`].
+/// Runtime settings for the [`SpritePickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpriteBackendSettings {
     /// When set to `true` picking will ignore any part of a sprite which is transparent
     /// Off by default for backwards compatibility. This setting is provided to give you fine-grained
     /// control over if transparency on sprites is ignored.
-    pub passthrough_transparency: bool,
+    pub transparency_passthrough: bool,
     /// How Opaque does part of a sprite need to be in order count as none-transparent (defaults to 10)
+    ///
+    /// This is on a scale from 0 - 255 representing the alpha channel value you'd get in most art programs.
     pub transparency_cutoff: u8,
 }
 
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            passthrough_transparency: false,
+            transparency_passthrough: false,
             transparency_cutoff: 10,
         }
     }
@@ -156,7 +158,7 @@ pub fn sprite_picking(
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                 let cursor_in_valid_pixels_of_sprite = is_cursor_in_sprite
-                    && (!settings.passthrough_transparency || {
+                    && (!settings.transparency_passthrough || {
                         let texture: &Image = images.get(&sprite.image)?;
                         // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
                         let texture_rect = sprite
