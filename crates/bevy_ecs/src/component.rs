@@ -674,10 +674,10 @@ impl ComponentInfo {
         &self.descriptor.name
     }
 
-    /// Returns `true` if the current component is immutable.
+    /// Returns `true` if the current component is mutable.
     #[inline]
-    pub fn immutable(&self) -> bool {
-        self.descriptor.immutable
+    pub fn mutable(&self) -> bool {
+        self.descriptor.mutable
     }
 
     /// Returns the [`TypeId`] of the underlying component type.
@@ -832,7 +832,7 @@ pub struct ComponentDescriptor {
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
-    immutable: bool,
+    mutable: bool,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -844,7 +844,7 @@ impl Debug for ComponentDescriptor {
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
-            .field("immutable", &self.immutable)
+            .field("mutable", &self.mutable)
             .finish()
     }
 }
@@ -869,7 +869,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            immutable: !T::Mutability::MUTABLE,
+            mutable: T::Mutability::MUTABLE,
         }
     }
 
@@ -891,7 +891,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
-            immutable: false,
+            mutable: true,
         }
     }
 
@@ -913,7 +913,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
-            immutable: true,
+            mutable: false,
         }
     }
 
@@ -930,7 +930,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            immutable: false,
+            mutable: true,
         }
     }
 
@@ -942,7 +942,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            immutable: false,
+            mutable: true,
         }
     }
 
@@ -965,10 +965,10 @@ impl ComponentDescriptor {
         self.name.as_ref()
     }
 
-    /// Returns whether this component is immutable.
+    /// Returns whether this component is mutable.
     #[inline]
-    pub fn immutable(&self) -> bool {
-        self.immutable
+    pub fn mutable(&self) -> bool {
+        self.mutable
     }
 }
 

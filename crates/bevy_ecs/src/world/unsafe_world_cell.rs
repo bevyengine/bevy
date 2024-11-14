@@ -1003,7 +1003,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .ok_or(GetEntityMutByIdError::InfoNotFound)?;
 
         // If a component is immutable then a mutable reference to it doesn't exist
-        if info.immutable() {
+        if !info.mutable() {
             return Err(GetEntityMutByIdError::ComponentIsImmutable);
         }
 
