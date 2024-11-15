@@ -19,7 +19,7 @@ struct View {
     world_from_clip: mat4x4<f32>,
     world_from_view: mat4x4<f32>,
     view_from_world: mat4x4<f32>,
-    // Right-handed projection matrix
+    // Typically a right-handed projection matrix, one of either:
     //
     // Perspective (infinite reverse z)
     // ```
@@ -44,6 +44,10 @@ struct View {
     // ⎢      0       0     1 / d  0 ⎥
     // ⎣ cw / w  ch / h  near / d  1 ⎦
     // ```
+    //
+    // `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    // 
+    // Custom projections are also possible however.
     clip_from_view: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
     world_position: vec3<f32>,

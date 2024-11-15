@@ -186,7 +186,7 @@ impl Msaa {
 
 #[derive(Component)]
 pub struct ExtractedView {
-    /// Right-handed projection matrix
+    /// Typically a right-handed projection matrix, one of either:
     ///
     /// Perspective (infinite reverse z)
     /// ```text
@@ -211,6 +211,10 @@ pub struct ExtractedView {
     /// ⎢      0       0     1 / d  0 ⎥
     /// ⎣ cw / w  ch / h  near / d  1 ⎦
     /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub world_from_view: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
@@ -448,7 +452,7 @@ pub struct ViewUniform {
     pub world_from_clip: Mat4,
     pub world_from_view: Mat4,
     pub view_from_world: Mat4,
-    /// Right-handed projection matrix
+    /// Typically a right-handed projection matrix, one of either:
     ///
     /// Perspective (infinite reverse z)
     /// ```text
@@ -473,6 +477,10 @@ pub struct ViewUniform {
     /// ⎢      0       0     1 / d  0 ⎥
     /// ⎣ cw / w  ch / h  near / d  1 ⎦
     /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
