@@ -855,7 +855,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
-    /// - The component `T` is mutable
+    /// - the component `T` is mutable
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
