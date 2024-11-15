@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_phase::PhaseItemBinKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -167,6 +168,14 @@ pub struct OpaqueNoLightmap3dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
+impl PhaseItemBinKey for OpaqueNoLightmap3dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
+    }
+}
+
 impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn entity(&self) -> Entity {
@@ -194,7 +203,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -268,7 +277,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]

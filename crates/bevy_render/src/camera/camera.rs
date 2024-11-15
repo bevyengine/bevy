@@ -1,13 +1,12 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::TemporaryRenderEntity,
-    sync_world::{RenderEntity, SyncToRenderWorld},
+    sync_world::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
@@ -1156,8 +1155,9 @@ pub fn extract_cameras(
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
             }
+
             if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                if gpu_preprocessing_support.max_supported_mode == GpuPreprocessingMode::Culling {
                     commands.insert(GpuCulling);
                 } else {
                     warn_once!(

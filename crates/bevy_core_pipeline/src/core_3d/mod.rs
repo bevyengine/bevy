@@ -65,6 +65,10 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
+use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
+use bevy_render::mesh::allocator::SlabId;
+use bevy_render::render_phase::PhaseItemBinKey;
+use bevy_render::view::GpuCulling;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -224,28 +228,57 @@ pub struct Opaque3d {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-/// Data that must be identical in order to batch phase items together.
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set*.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Opaque3dBinKey {
+pub struct Opaque3dBatchSetKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The asset that this phase item is associated with.
-    ///
-    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
-    /// the ID of another type of asset.
-    pub asset_id: UntypedAssetId,
-
     /// The ID of a bind group specific to the material.
     ///
     /// In the case of PBR, this is the `MaterialBindGroupId`.
     pub material_bind_group_id: Option<BindGroupId>,
 
+    /// The ID of the slab of GPU memory that contains vertex data.
+    ///
+    /// For non-mesh items, you can fill this with 0 if your items can be
+    /// multi-drawn, or with a unique value if they can't.
+    pub vertex_slab: SlabId,
+
+    /// The ID of the slab of GPU memory that contains index data, if present.
+    ///
+    /// For non-mesh items, you can safely fill this with `None`.
+    pub index_slab: Option<SlabId>,
+
     /// The lightmap, if present.
     pub lightmap_image: Option<AssetId<Image>>,
+}
+
+/// Data that must be identical in order to batch phase items together.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Opaque3dBinKey {
+    pub batch_set_key: Opaque3dBatchSetKey,
+
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItemBinKey for Opaque3dBinKey {
+    type BatchSetKey = Opaque3dBatchSetKey;
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        Some(self.batch_set_key.clone())
+    }
 }
 
 impl PhaseItem for Opaque3d {
@@ -261,7 +294,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -275,7 +308,7 @@ impl PhaseItem for Opaque3d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -305,7 +338,7 @@ impl BinnedPhaseItem for Opaque3d {
 impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 
@@ -343,7 +376,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -426,7 +459,7 @@ impl PhaseItem for Transmissive3d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -493,7 +526,7 @@ impl PhaseItem for Transparent3d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -529,18 +562,27 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<GpuCulling>), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_3d {
+    for (entity, camera, has_gpu_culling) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
-        opaque_3d_phases.insert_or_clear(entity);
-        alpha_mask_3d_phases.insert_or_clear(entity);
+        // If GPU culling is in use, use it (and indirect mode); otherwise, just
+        // preprocess the meshes.
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
+            GpuPreprocessingMode::Culling
+        } else {
+            GpuPreprocessingMode::PreprocessingOnly
+        });
+
+        opaque_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+        alpha_mask_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
         transmissive_3d_phases.insert_or_clear(entity);
         transparent_3d_phases.insert_or_clear(entity);
 
@@ -554,6 +596,8 @@ pub fn extract_core_3d_camera_phases(
 }
 
 // Extract the render phases for the prepass
+
+#[allow(clippy::too_many_arguments)]
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -565,6 +609,7 @@ pub fn extract_camera_prepass_phase(
             (
                 RenderEntity,
                 &Camera,
+                Has<GpuCulling>,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
@@ -574,27 +619,43 @@ pub fn extract_camera_prepass_phase(
         >,
     >,
     mut live_entities: Local<EntityHashSet>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        entity,
+        camera,
+        gpu_culling,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
         }
 
+        // If GPU culling is in use, use it (and indirect mode); otherwise, just
+        // preprocess the meshes.
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if gpu_culling {
+            GpuPreprocessingMode::Culling
+        } else {
+            GpuPreprocessingMode::PreprocessingOnly
+        });
+
         if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(entity);
-            alpha_mask_3d_prepass_phases.insert_or_clear(entity);
+            opaque_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            alpha_mask_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
         } else {
             opaque_3d_prepass_phases.remove(&entity);
             alpha_mask_3d_prepass_phases.remove(&entity);
         }
 
         if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(entity);
-            alpha_mask_3d_deferred_phases.insert_or_clear(entity);
+            opaque_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            alpha_mask_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
         } else {
             opaque_3d_deferred_phases.remove(&entity);
             alpha_mask_3d_deferred_phases.remove(&entity);

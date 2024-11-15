@@ -137,9 +137,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         // This plugin does nothing if GPU instance buffer building isn't in
         // use.
         let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
-        if !self.use_gpu_instance_buffer_builder
-            || *gpu_preprocessing_support == GpuPreprocessingSupport::None
-        {
+        if !self.use_gpu_instance_buffer_builder || !gpu_preprocessing_support.is_available() {
             return;
         }
 
