@@ -122,7 +122,7 @@ fn draw_example_collection(
     gizmos.cross(Vec3::new(-1., 1., 1.), 0.5, FUCHSIA);
 
     let domain = Interval::EVERYWHERE;
-    let curve = function_curve(domain, |t| {
+    let curve = FunctionCurve::new(domain, |t| {
         (Vec2::from(ops::sin_cos(t * 10.0))).extend(t - 6.0)
     });
     let resolution = ((ops::sin(time.elapsed_secs()) + 1.0) * 100.0) as usize;

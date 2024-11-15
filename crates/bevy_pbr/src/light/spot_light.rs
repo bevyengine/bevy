@@ -57,6 +57,7 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
@@ -115,12 +116,13 @@ impl Default for SpotLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
             outer_angle: core::f32::consts::FRAC_PI_4,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: false,
         }
     }
 }
