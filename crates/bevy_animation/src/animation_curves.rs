@@ -386,7 +386,7 @@ pub struct TranslationCurveEvaluator {
 /// You shouldn't need to interact with this type unless you're manually evaluating animation
 /// curves.
 #[derive(Reflect)]
-pub struct TranslationCurveSample(Vec3);
+pub struct TranslationCurveSample(pub Vec3);
 
 impl<C> AnimationCurve for TranslationCurve<C>
 where
@@ -497,7 +497,7 @@ pub struct RotationCurveEvaluator {
 /// You shouldn't need to interact with this type unless you're manually evaluating animation
 /// curves.
 #[derive(Reflect)]
-pub struct RotationCurveSample(Quat);
+pub struct RotationCurveSample(pub Quat);
 
 impl<C> AnimationCurve for RotationCurve<C>
 where
@@ -608,7 +608,7 @@ pub struct ScaleCurveEvaluator {
 /// You shouldn't need to interact with this type unless you're manually evaluating animation
 /// curves.
 #[derive(Reflect)]
-pub struct ScaleCurveSample(Vec3);
+pub struct ScaleCurveSample(pub Vec3);
 
 impl<C> AnimationCurve for ScaleCurve<C>
 where
@@ -746,7 +746,7 @@ struct WeightsCurveEvaluator {
 /// You shouldn't need to interact with this type unless you're manually evaluating animation
 /// curves.
 #[derive(Reflect)]
-pub struct WeightsCurveSample(Vec<f32>);
+pub struct WeightsCurveSample(pub Vec<f32>);
 
 impl<C> AnimationCurve for WeightsCurve<C>
 where
@@ -1094,6 +1094,44 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
 
+    /// Provides a type-erased API for sampling an [`AnimationCurve`]. This is not usually
+    /// needed if you're using the animation system normally, but can be useful as an integration
+    /// point for animation plugins.
+    ///
+    /// Example usage:
+    /// ```rust
+    /// # use bevy_math::Vec3;
+    /// # use bevy_animation::prelude::{
+    /// #     TranslationCurve,
+    /// #     TranslationCurveSample,
+    /// #     VariableCurve,
+    /// #     AnimatableKeyframeCurve
+    /// # };
+    /// # use core::any::TypeId;
+    /// let translation_curve = TranslationCurve(
+    ///     AnimatableKeyframeCurve::new([
+    ///         (0., Vec3::splat(0.)),
+    ///         (1., Vec3::splat(1.)),
+    ///         (2., Vec3::splat(4.)),
+    ///         (3., Vec3::splat(3.)),
+    ///     ])
+    ///     .unwrap(),
+    /// );
+    ///
+    /// // Suppose we don't know the type of the curve
+    /// let curve = VariableCurve(Box::new(translation_curve));
+    ///
+    /// let curve_sample = curve.0.sample_clamped(2.);
+    ///
+    /// assert_eq!(
+    ///     TypeId::of::<TranslationCurveSample>(),
+    ///     curve_sample.as_ref().type_id()
+    /// );
+    ///
+    /// let translation_curve_sample = curve_sample.downcast::<TranslationCurveSample>().unwrap();
+    ///
+    /// assert_eq!(Vec3::splat(4.), translation_curve_sample.0);
+    /// ```
     fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
