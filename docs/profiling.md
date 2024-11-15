@@ -126,6 +126,7 @@ After closing your app, an interactive `svg` file will be produced:
 If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
 
 For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
+
 - NVIDIA - [Nsight Graphics](https://developer.nvidia.com/nsight-graphics)
 - AMD - [Radeon GPU Profiler](https://gpuopen.com/rgp)
 - Intel - [Graphics Frame Analyzer](https://www.intel.com/content/www/us/en/developer/tools/graphics-performance-analyzers/graphics-frame-analyzer.html)
