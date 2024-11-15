@@ -13,7 +13,6 @@ use bevy::{
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
-    math::{vec3, Vec3A},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -30,7 +29,6 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
@@ -343,6 +341,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

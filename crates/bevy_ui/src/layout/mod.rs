@@ -221,7 +221,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.measure.is_some())
+                        .map(|c| c.is_changed() || c.measure.is_some())
                         .unwrap_or(false)
                 {
                     let layout_context = LayoutContext::new(
@@ -278,7 +278,12 @@ with UI components as a child of an entity without UI components, your UI layout
 
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
+    ui_surface.remove_entities(
+        removed_components
+            .removed_nodes
+            .read()
+            .filter(|entity| !node_query.contains(*entity)),
+    );
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
@@ -296,12 +301,11 @@ with UI components as a child of an entity without UI components, your UI layout
             update_uinode_geometry_recursive(
                 &mut commands,
                 *root,
-                &ui_surface,
+                &mut ui_surface,
                 None,
                 &mut node_transform_query,
                 &ui_children,
                 inverse_target_scale_factor,
-                Vec2::ZERO,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -315,7 +319,7 @@ with UI components as a child of an entity without UI components, your UI layout
     fn update_uinode_geometry_recursive(
         commands: &mut Commands,
         entity: Entity,
-        ui_surface: &UiSurface,
+        ui_surface: &mut UiSurface,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
@@ -329,7 +333,6 @@ with UI components as a child of an entity without UI components, your UI layout
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        mut absolute_location: Vec2,
     ) {
         if let Ok((
             mut node,
@@ -340,28 +343,24 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok(layout) = ui_surface.get_layout(entity) else {
+            let Ok((layout, unrounded_unscaled_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
 
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+            let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
             let layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
-            absolute_location += layout_location;
-
-            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
-                - approx_round_layout_coords(absolute_location);
-
-            let rounded_location =
-                approx_round_layout_coords(layout_location - parent_scroll_position)
-                    + 0.5 * (rounded_size - parent_size);
+            // The position of the center of the node, stored in the node's transform
+            let node_center =
+                layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
-                node.calculated_size = rounded_size;
-                node.unrounded_size = layout_size;
+            if node.size != layout_size || node.unrounded_size != unrounded_size {
+                node.size = layout_size;
+                node.unrounded_size = unrounded_size;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
@@ -374,12 +373,12 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let viewport_size = root_size.unwrap_or(node.calculated_size);
+            let viewport_size = root_size.unwrap_or(node.size);
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.calculated_size, viewport_size);
+                    border_radius.resolve(node.size, viewport_size);
             }
 
             if let Some(outline) = maybe_outline {
@@ -402,8 +401,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
-            if transform.translation.truncate() != rounded_location {
-                transform.translation = rounded_location.extend(0.);
+            if transform.translation.truncate() != node_center {
+                transform.translation = node_center.extend(0.);
             }
 
             let scroll_position: Vec2 = maybe_scroll_position
@@ -423,11 +422,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let round_content_size = approx_round_layout_coords(
-                Vec2::new(layout.content_size.width, layout.content_size.height)
-                    * inverse_target_scale_factor,
-            );
-            let max_possible_offset = (round_content_size - rounded_size).max(Vec2::ZERO);
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height)
+                * inverse_target_scale_factor;
+            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
             if clamped_scroll_position != scroll_position {
@@ -445,33 +442,11 @@ with UI components as a child of an entity without UI components, your UI layout
                     node_transform_query,
                     ui_children,
                     inverse_target_scale_factor,
-                    rounded_size,
+                    layout_size,
                     clamped_scroll_position,
-                    absolute_location,
                 );
             }
         }
-    }
-}
-
-#[inline]
-/// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn approx_round_ties_up(value: f32) -> f32 {
-    (value + 0.5).floor()
-}
-
-#[inline]
-/// Rounds layout coordinates by rounding ties upwards.
-///
-/// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
-///
-/// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
-/// - `f32::round`: width becomes 101 (rounds to -51 and 50).
-/// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn approx_round_layout_coords(value: Vec2) -> Vec2 {
-    Vec2 {
-        x: approx_round_ties_up(value.x),
-        y: approx_round_ties_up(value.y),
     }
 }
 
@@ -493,11 +468,11 @@ mod tests {
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
-    use bevy_math::{vec2, Rect, UVec2, Vec2};
+    use bevy_image::Image;
+    use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
         prelude::Camera,
-        texture::Image,
     };
     use bevy_transform::{
         prelude::GlobalTransform,
@@ -510,20 +485,9 @@ mod tests {
     };
 
     use crate::{
-        layout::{approx_round_layout_coords, ui_surface::UiSurface},
-        prelude::*,
-        ui_layout_system,
-        update::update_target_camera_system,
-        ContentSize, LayoutContext,
+        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
+        update::update_target_camera_system, ContentSize, LayoutContext,
     };
-
-    #[test]
-    fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(
-            approx_round_layout_coords(vec2(-50.5, 49.5)),
-            vec2(-50., 50.)
-        );
-    }
 
     // these window dimensions are easy to convert to and from percentage values
     const WINDOW_WIDTH: f32 = 1000.;
@@ -598,10 +562,10 @@ mod tests {
         world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
 
         for ui_entity in [ui_root, ui_child] {
-            let layout = ui_surface.get_layout(ui_entity).unwrap();
+            let layout = ui_surface.get_layout(ui_entity).unwrap().0;
             assert_eq!(layout.size.width, WINDOW_WIDTH);
             assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
@@ -812,6 +776,38 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.is_empty());
     }
 
+    /// bugfix test, see [#16288](https://github.com/bevyengine/bevy/pull/16288)
+    #[test]
+    fn node_removal_and_reinsert_should_work() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+
+        let ui_entity = world.spawn(Node::default()).id();
+
+        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+
+        // remove and re-insert Node to trigger removal code in `ui_layout_system`
+        world.entity_mut(ui_entity).remove::<Node>();
+        world.entity_mut(ui_entity).insert(Node::default());
+
+        // `ui_layout_system` should still have `ui_entity`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+    }
+
     /// regression test for >=0.13.1 root node layouts
     /// ensure root nodes act like they are absolutely positioned
     /// without explicitly declaring it.
@@ -955,11 +951,12 @@ mod tests {
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
-            let ui_surface = world.resource::<UiSurface>();
+            let mut ui_surface = world.resource_mut::<UiSurface>();
 
             let layout = ui_surface
                 .get_layout(ui_node_entity)
-                .expect("failed to get layout");
+                .expect("failed to get layout")
+                .0;
 
             // negative test for #12255
             assert_eq!(Vec2::new(layout.location.x, layout.location.y), new_pos);
@@ -1043,8 +1040,8 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
 
         // the node should takes its size from the fixed size measure func
         assert_eq!(layout.size.width, content_size.x);
@@ -1068,12 +1065,12 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
         // a node with a content size should have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
 
@@ -1081,12 +1078,12 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
         // a node without a content size should not have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
     }
@@ -1123,15 +1120,16 @@ mod tests {
             .collect::<Vec<Entity>>();
 
         for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
-            let mut s = r;
+            // This fails with very small / unrealistic scale values
+            let mut s = 1. - r;
             while s <= 5. {
                 world.resource_mut::<UiScale>().0 = s;
                 ui_schedule.run(&mut world);
                 let width_sum: f32 = children
                     .iter()
-                    .map(|child| world.get::<ComputedNode>(*child).unwrap().calculated_size.x)
+                    .map(|child| world.get::<ComputedNode>(*child).unwrap().size.x)
                     .sum();
-                let parent_width = world.get::<ComputedNode>(parent).unwrap().calculated_size.x;
+                let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
                 assert!((width_sum - 320.).abs() <= 1.);
                 s += r;

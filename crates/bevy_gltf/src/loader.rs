@@ -15,6 +15,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+    ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
+};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
@@ -31,10 +35,6 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
-    texture::{
-        CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
-        ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
-    },
     view::Visibility,
 };
 use bevy_scene::Scene;
@@ -275,7 +275,7 @@ async fn load_gltf<'a, 'b, 'c>(
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
         use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
-        use bevy_math::curve::{constant_curve, Interval, UnevenSampleAutoCurve};
+        use bevy_math::curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
         use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
@@ -313,7 +313,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, translations[0]))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, translations[0]))
                                     .map(TranslationCurve)
                                     .map(VariableCurve::new)
                             } else {
@@ -348,7 +348,7 @@ async fn load_gltf<'a, 'b, 'c>(
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, rotations[0]))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, rotations[0]))
                                     .map(RotationCurve)
                                     .map(VariableCurve::new)
                             } else {
@@ -385,7 +385,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, scales[0]))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, scales[0]))
                                     .map(ScaleCurve)
                                     .map(VariableCurve::new)
                             } else {
@@ -419,7 +419,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, weights))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
                             } else {

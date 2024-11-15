@@ -4,18 +4,11 @@ mod texture_attachment;
 mod texture_cache;
 
 pub use crate::render_resource::DefaultImageSampler;
-#[cfg(feature = "exr")]
-pub use bevy_image::ExrTextureLoader;
-#[cfg(feature = "hdr")]
-pub use bevy_image::HdrTextureLoader;
-pub use bevy_image::{
-    BevyDefault, CompressedImageFormats, FileTextureError, Image, ImageAddressMode,
-    ImageFilterMode, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderError,
-    ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError,
-    TextureError, TextureFormatPixelInfo,
-};
 #[cfg(feature = "basis-universal")]
-pub use bevy_image::{CompressedImageSaver, CompressedImageSaverError};
+use bevy_image::CompressedImageSaver;
+#[cfg(feature = "hdr")]
+use bevy_image::HdrTextureLoader;
+use bevy_image::{CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor};
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use texture_attachment::*;
@@ -39,7 +32,7 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
-    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    /// The default image sampler to use when [`bevy_image::ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
 }
 
@@ -69,7 +62,7 @@ impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "exr")]
         {
-            app.init_asset_loader::<ExrTextureLoader>();
+            app.init_asset_loader::<bevy_image::ExrTextureLoader>();
         }
 
         #[cfg(feature = "hdr")]

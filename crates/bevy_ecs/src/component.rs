@@ -487,7 +487,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_add(hook)
-            .expect("Component id: {:?}, already has an on_add hook")
+            .expect("Component already has an on_add hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
@@ -505,7 +505,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
-            .expect("Component id: {:?}, already has an on_insert hook")
+            .expect("Component already has an on_insert hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
@@ -527,7 +527,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_replace` hook
     pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_replace(hook)
-            .expect("Component id: {:?}, already has an on_replace hook")
+            .expect("Component already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -538,7 +538,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_remove(hook)
-            .expect("Component id: {:?}, already has an on_remove hook")
+            .expect("Component already has an on_remove hook")
     }
 
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
@@ -1512,8 +1512,11 @@ impl<'a> TickCells<'a> {
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
-    pub(crate) added: Tick,
-    pub(crate) changed: Tick,
+    /// Tick recording the time this component or resource was added.
+    pub added: Tick,
+
+    /// Tick recording the time this component or resource was most recently changed.
+    pub changed: Tick,
 }
 
 impl ComponentTicks {
@@ -1531,19 +1534,8 @@ impl ComponentTicks {
         self.changed.is_newer_than(last_run, this_run)
     }
 
-    /// Returns the tick recording the time this component or resource was most recently changed.
-    #[inline]
-    pub fn last_changed_tick(&self) -> Tick {
-        self.changed
-    }
-
-    /// Returns the tick recording the time this component or resource was added.
-    #[inline]
-    pub fn added_tick(&self) -> Tick {
-        self.added
-    }
-
-    pub(crate) fn new(change_tick: Tick) -> Self {
+    /// Creates a new instance with the same change tick for `added` and `changed`.
+    pub fn new(change_tick: Tick) -> Self {
         Self {
             added: change_tick,
             changed: change_tick,

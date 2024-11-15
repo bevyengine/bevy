@@ -4,13 +4,10 @@ use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_image::Image;
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    render_asset::RenderAssets,
-    render_resource::*,
-    texture::{GpuImage, Image},
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3253086872234592509);

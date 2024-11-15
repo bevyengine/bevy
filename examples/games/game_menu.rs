@@ -86,7 +86,7 @@ mod splash {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    UiImage::new(icon),
+                    ImageNode::new(icon),
                     Node {
                         // This will set the logo to be 200px wide, and auto adjust its height
                         width: Val::Px(200.0),
@@ -444,7 +444,7 @@ mod menu {
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/right.png");
-                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("New Game"),
                                     button_text_font.clone(),
@@ -460,7 +460,7 @@ mod menu {
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/wrench.png");
-                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
+                                parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("Settings"),
                                     button_text_font.clone(),
@@ -476,7 +476,7 @@ mod menu {
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                                parent.spawn((UiImage::new(icon), button_icon_node));
+                                parent.spawn((ImageNode::new(icon), button_icon_node));
                                 parent.spawn((
                                     Text::new("Quit"),
                                     button_text_font,
