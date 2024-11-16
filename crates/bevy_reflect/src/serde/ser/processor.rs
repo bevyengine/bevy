@@ -137,9 +137,8 @@ pub trait ReflectSerializerProcessor {
     /// If you don't want to override the serialization, return ownership of
     /// the serializer back via `Ok(Err(serializer))`.
     ///
-    /// To get useful info about the type of value you're serializing, you will
-    /// likely want to convert it to a [`Reflect`] and read its type info from
-    /// the given registry:
+    /// You can use the type registry to read info about the type you're
+    /// serializing, or just try to downcast the value directly:
     ///
     /// ```
     /// # use bevy_reflect::{TypeRegistration, TypeRegistry, PartialReflect};
