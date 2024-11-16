@@ -97,7 +97,7 @@ serialize = [
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
-  "bevy_window/serialize",
+  "bevy_window?/serialize",
   "bevy_winit?/serialize",
 ]
 multi_threaded = [
@@ -162,6 +162,7 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -248,7 +249,7 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
+bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
@@ -266,7 +267,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
 bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.15.0-dev", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 # bevy (optional)
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.15.0-dev" }
