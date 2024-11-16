@@ -124,6 +124,8 @@ use crate::{PartialReflect, TypeRegistry};
 /// }
 /// ```
 ///
+/// [`ReflectSerializer`]: crate::serde::ReflectSerializer
+/// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
 /// [`try_serialize`]: Self::try_serialize
 /// [`SerializeWithRegistry`]: crate::serde::SerializeWithRegistry
 /// [`ReflectDeserializerProcessor`]: crate::serde::ReflectDeserializerProcessor
@@ -167,6 +169,7 @@ pub trait ReflectSerializerProcessor {
     /// }
     /// ```
     ///
+    /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
     /// [`Reflect`]: crate::Reflect
     fn try_serialize<S>(
         &self,
