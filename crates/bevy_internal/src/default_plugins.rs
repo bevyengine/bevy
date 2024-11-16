@@ -13,7 +13,11 @@ plugin_group! {
         bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        #[custom(cfg(not(feature = "bevy_window")))]
+        bevy_app:::ScheduleRunnerPlugin,
+        #[cfg(feature = "bevy_window")]
         bevy_window:::WindowPlugin,
+        #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
         #[custom(cfg(not(target_arch = "wasm32")))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
