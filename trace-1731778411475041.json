@@ -1,0 +1,4 @@
+[
+{"args":{"name":"main"},"name":"thread_name","ph":"M","pid":1,"tid":0},
+{".file":"crates/bevy_render/src/renderer/mod.rs",".line":199,"cat":"bevy_render::renderer","name":"event crates/bevy_render/src/renderer/mod.rs:199","ph":"i","pid":1,"s":"t","tid":0,"ts":745812.167}
+]

@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["http"]
-http = ["dep:async-io", "dep:smol-hyper"]
+http = ["dep:hyper", "dep:http-body-util", "dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
@@ -26,11 +26,13 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 anyhow = "1"
-hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
-http-body-util = "0.1"
 async-channel = "2"
+
+# http
+hyper = { version = "1", features = ["server", "http1"], optional = true }
+http-body-util = { version = "0.1", optional = true }
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
