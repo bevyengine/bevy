@@ -32,6 +32,10 @@ use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 /// [`DeserializeWithRegistry`] implementation, so this is also useful for
 /// overriding deserialization behavior if you need to do something custom.
 ///
+/// # Serialization equivalent
+///
+/// The serialization equivalent of this is [`ReflectSerializerProcessor`].
+///
 /// # Examples
 ///
 /// Deserializing a reflected value in an asset loader, and replacing asset
@@ -134,6 +138,7 @@ use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`try_deserialize`]: Self::try_deserialize
 /// [`DeserializeWithRegistry`]: crate::serde::DeserializeWithRegistry
+/// [`ReflectSerializerProcessor`]: crate::serde::ReflectSerializerProcessor
 pub trait ReflectDeserializerProcessor {
     /// Attempts to deserialize the value which a [`TypedReflectDeserializer`]
     /// is currently looking at, and knows the type of.

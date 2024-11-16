@@ -1,3 +1,4 @@
+pub use processor::*;
 pub use serializable::*;
 pub use serialize_with_registry::*;
 pub use serializer::*;
@@ -8,6 +9,7 @@ mod enums;
 mod error_utils;
 mod lists;
 mod maps;
+mod processor;
 mod serializable;
 mod serialize_with_registry;
 mod serializer;
