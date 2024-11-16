@@ -504,7 +504,7 @@ mod tests {
 
                 let type_id = value.reflect_type_info().type_id();
                 if type_id == TypeId::of::<i64>() {
-                    serializer.serialize_str("custom!").map(Ok)
+                    Ok(Ok(serializer.serialize_str("custom!")?))
                 } else {
                     Ok(Err(serializer))
                 }
@@ -563,9 +563,9 @@ mod tests {
 
                 let type_id = value.reflect_type_info().type_id();
                 if type_id == TypeId::of::<i32>() {
-                    serializer.serialize_str("an i32").map(Ok)
+                    Ok(Ok(serializer.serialize_str("an i32")?))
                 } else if type_id == TypeId::of::<SubFoo>() {
-                    serializer.serialize_str("a SubFoo").map(Ok)
+                    Ok(Ok(serializer.serialize_str("a SubFoo")?))
                 } else {
                     Ok(Err(serializer))
                 }
