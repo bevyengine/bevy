@@ -22,7 +22,7 @@ use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{error_codes, BrpError, BrpResult};
+use crate::{error_codes, BrpError, BrpResult, RemoteWatchingSystemParams};
 
 /// The method path for a `bevy/get` request.
 pub const BRP_GET_METHOD: &str = "bevy/get";
@@ -348,7 +348,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 
 /// Handles a `bevy/get+watch` request coming from a client.
 pub fn process_remote_get_watching_request(
-    In(params): In<Option<Value>>,
+    In((_, params)): In<RemoteWatchingSystemParams>,
     world: &World,
     mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
@@ -749,7 +749,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
 
 /// Handles a `bevy/list` request (list all components) coming from a client.
 pub fn process_remote_list_watching_request(
-    In(params): In<Option<Value>>,
+    In((_, params)): In<RemoteWatchingSystemParams>,
     world: &World,
     mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {

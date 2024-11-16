@@ -306,7 +306,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     schedule::{IntoSystemConfigs, ScheduleLabel},
-    system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, Local, ResMut, Resource, System, SystemId},
     world::World,
 };
 use bevy_utils::{prelude::default, HashMap};
@@ -359,7 +359,7 @@ impl RemotePlugin {
     pub fn with_watching_method<M>(
         mut self,
         name: impl Into<String>,
-        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+        handler: impl IntoSystem<In<RemoteWatchingSystemParams>, BrpResult<Option<Value>>, M>,
     ) -> Self {
         self.methods.get_mut().unwrap().push((
             name.into(),
@@ -464,7 +464,7 @@ pub enum RemoteMethodHandler {
     /// A handler that only runs once and returns one response.
     Instant(Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>),
     /// A handler that watches for changes and response when a change is detected.
-    Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
+    Watching(Box<dyn System<In = In<RemoteWatchingSystemParams>, Out = BrpResult<Option<Value>>>>),
 }
 
 /// The [`SystemId`] of a function that implements a remote instant method (`bevy/get`, `bevy/query`, etc.)
@@ -478,13 +478,22 @@ pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 
 /// The [`SystemId`] of a function that implements a remote watching method (`bevy/get+watch`, `bevy/list+watch`, etc.)
 ///
-/// The first parameter is the JSON value of the `params`. Typically, an
-/// implementation will deserialize these as the first thing they do.
+/// The first parameter is the [`RemoteWatchingSystemParams`].
 ///
 /// The optional returned JSON value will be sent as a response. If no
 /// changes were detected this should be [`None`]. Re-running of this
 /// handler is done in the [`RemotePlugin`].
-pub type RemoteWatchingMethodSystemId = SystemId<In<Option<Value>>, BrpResult<Option<Value>>>;
+pub type RemoteWatchingMethodSystemId =
+    SystemId<In<RemoteWatchingSystemParams>, BrpResult<Option<Value>>>;
+
+/// The parameters passed as [`In`] params to a remote watching handler system.
+///
+/// Tuple of:
+/// - The [`RemoteWatchingRequestId`] of this watching request.
+///   It can be used to distinguish different running watches of the same method.
+/// - The JSON value of the `params`. Typically, an
+///   implementation will deserialize these as the first thing they do.
+pub type RemoteWatchingSystemParams = (RemoteWatchingRequestId, Option<Value>);
 
 /// The [`SystemId`] of a function that can be used as a remote method.
 #[derive(Debug, Clone, Copy)]
@@ -524,9 +533,38 @@ impl RemoteMethods {
     }
 }
 
-/// Holds the [`BrpMessage`]'s of all ongoing watching requests along with their handlers.
+/// A server owned ID identifying a `+watch`-suffixed request.
+///
+/// Sent in the initial response of all watching requests.
+///
+/// Not to be confused with the `id` field in JSON-RPC 2.0, which is a client owned ID that might be unset or contain duplicates.
+pub type RemoteWatchingRequestId = u32;
+
+/// Holds the [`BrpMessage`]'s of all ongoing watching requests along with their IDs and handlers.
 #[derive(Debug, Resource, Default)]
-pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)>);
+pub struct RemoteWatchingRequests(
+    Vec<(
+        RemoteWatchingRequestId,
+        BrpMessage,
+        RemoteWatchingMethodSystemId,
+    )>,
+);
+
+/// A result for starting a watching request.
+///
+/// Sent as the first message in the watch stream.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub struct BrpWatchResult {
+    /// The server owned ID identifying the request.
+    watch_id: RemoteWatchingRequestId,
+}
+
+impl BrpWatchResult {
+    fn new(watch_id: RemoteWatchingRequestId) -> Self {
+        BrpWatchResult { watch_id }
+    }
+}
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -766,7 +804,7 @@ fn setup_mailbox_channel(mut commands: Commands) {
 ///
 /// This needs exclusive access to the [`World`] because clients can manipulate
 /// anything in the ECS.
-fn process_remote_requests(world: &mut World) {
+fn process_remote_requests(world: &mut World, mut watch_id_counter: Local<u32>) {
     if !world.contains_resource::<BrpReceiver>() {
         return;
     }
@@ -783,9 +821,9 @@ fn process_remote_requests(world: &mut World) {
             return;
         };
 
-        match handler {
+        let result = match handler {
             RemoteMethodSystemId::Instant(id) => {
-                let result = match world.run_system_with_input(id, message.params) {
+                match world.run_system_with_input(id, message.params) {
                     Ok(result) => result,
                     Err(error) => {
                         let _ = message.sender.force_send(Err(BrpError {
@@ -795,17 +833,23 @@ fn process_remote_requests(world: &mut World) {
                         }));
                         continue;
                     }
-                };
-
-                let _ = message.sender.force_send(result);
+                }
             }
             RemoteMethodSystemId::Watching(id) => {
-                world
-                    .resource_mut::<RemoteWatchingRequests>()
-                    .0
-                    .push((message, id));
+                *watch_id_counter += 1;
+                let watch_id = *watch_id_counter;
+
+                world.resource_mut::<RemoteWatchingRequests>().0.push((
+                    watch_id,
+                    message.clone(),
+                    id,
+                ));
+
+                Ok(serde_json::to_value(BrpWatchResult::new(watch_id)).unwrap())
             }
-        }
+        };
+
+        let _ = message.sender.force_send(result);
     }
 }
 
@@ -813,8 +857,9 @@ fn process_remote_requests(world: &mut World) {
 /// and handles it if so.
 fn process_ongoing_watching_requests(world: &mut World) {
     world.resource_scope::<RemoteWatchingRequests, ()>(|world, requests| {
-        for (message, system_id) in requests.0.iter() {
-            let handler_result = process_single_ongoing_watching_request(world, message, system_id);
+        for (watch_id, message, system_id) in requests.0.iter() {
+            let handler_result =
+                process_single_ongoing_watching_request(world, *watch_id, message, system_id);
             let sender_result = match handler_result {
                 Ok(Some(value)) => message.sender.try_send(Ok(value)),
                 Err(err) => message.sender.try_send(Err(err)),
@@ -831,11 +876,12 @@ fn process_ongoing_watching_requests(world: &mut World) {
 
 fn process_single_ongoing_watching_request(
     world: &mut World,
+    watch_id: RemoteWatchingRequestId,
     message: &BrpMessage,
     system_id: &RemoteWatchingMethodSystemId,
 ) -> BrpResult<Option<Value>> {
     world
-        .run_system_with_input(*system_id, message.params.clone())
+        .run_system_with_input(*system_id, (watch_id, message.params.clone()))
         .map_err(|error| BrpError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Failed to run method handler: {error}"),
@@ -845,7 +891,7 @@ fn process_single_ongoing_watching_request(
 
 fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
     for i in (0..requests.0.len()).rev() {
-        let Some((message, _)) = requests.0.get(i) else {
+        let Some((_, message, _)) = requests.0.get(i) else {
             unreachable!()
         };
 
