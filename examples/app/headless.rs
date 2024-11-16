@@ -9,7 +9,7 @@
 //! ```
 //!
 //! And then enabling the features you need.
-//! See the full list: https://docs.rs/bevy/latest/bevy/#cargo-features
+//! See the full list: <https://docs.rs/bevy/latest/bevy/#cargo-features>
 use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*, utils::Duration};
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
         println!("This example is running with the bevy_window feature enabled and will not run headless.");
         println!("Disable the default features and rerun the example to run headless.");
         println!("To do so, run:");
-        println!("");
+        println!();
         println!("    cargo run --example headless --no-default-features");
         return;
     }
