@@ -423,6 +423,10 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_LIST_AND_WATCH_METHOD,
                 builtin_methods::process_remote_list_watching_request,
             )
+            .with_method(
+                builtin_methods::BRP_UNWATCH_METHOD,
+                builtin_methods::process_unwatch_request,
+            )
     }
 }
 
