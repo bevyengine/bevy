@@ -46,8 +46,7 @@ fn on_a_enter(mut commands: Commands) {
     ));
 }
 
-fn on_a_exit(mut commands: Commands)
-{
+fn on_a_exit(mut commands: Commands) {
     info!("on_a_exit");
     commands.spawn((
         DespawnOnStateEnter(GameState::A),
@@ -85,8 +84,7 @@ fn on_b_enter(mut commands: Commands) {
     ));
 }
 
-fn on_b_exit(mut commands: Commands)
-{
+fn on_b_exit(mut commands: Commands) {
     info!("on_b_exit");
     commands.spawn((
         DespawnOnStateEnter(GameState::B),
