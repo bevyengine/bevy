@@ -256,6 +256,17 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
+//! ### bevy/unwatch
+//!
+//! Cancels the watcher (`+watch`-suffixed request) with the supplied `watch_id`.
+//!
+//! When `params` is not provided, all running watchers will be canceled.
+//!
+//! `params`:
+//! - `watch_id`: The ID of request to unwatch.
+//!
+//! `result`: null.
+//!
 //!
 //! ## Custom methods
 //!

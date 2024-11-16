@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent},
     removal_detection::RemovedComponentEntity,
-    system::{In, Local},
+    system::{In, Local, Res},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildChildren as _;
@@ -22,7 +22,10 @@ use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{error_codes, BrpError, BrpResult, RemoteWatchingSystemParams};
+use crate::{
+    error_codes, BrpError, BrpResult, RemoteWatchingRequestId, RemoteWatchingRequests,
+    RemoteWatchingSystemParams,
+};
 
 /// The method path for a `bevy/get` request.
 pub const BRP_GET_METHOD: &str = "bevy/get";
@@ -53,6 +56,9 @@ pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
 
 /// The method path for a `bevy/list+watch` request.
 pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
+
+/// The method path for a `bevy/unwatch` request.
+pub const BRP_UNWATCH_METHOD: &str = "bevy/unwatch";
 
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
@@ -185,6 +191,16 @@ pub struct BrpReparentParams {
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
+}
+
+/// `bevy/unwatch`: Cancels the watcher with the supplied `watch_id`.
+/// If no `watch_id` is supplied, all running watchers will be canceled.
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BrpUnwatchParams {
+    /// The ID of the watcher to unwatch.
+    pub watch_id: Option<RemoteWatchingRequestId>,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -791,6 +807,28 @@ pub fn process_remote_list_watching_request(
             serde_json::to_value(response).map_err(BrpError::internal)?,
         ))
     }
+}
+
+/// Handles a `bevy/unwatch` request (unwatch a running `+watch`-suffixed request) coming from a client.
+pub fn process_unwatch_request(
+    In(params): In<Option<Value>>,
+    watching_requests: Res<RemoteWatchingRequests>,
+) -> BrpResult {
+    let params_watch_id = match params.map(parse::<BrpUnwatchParams>) {
+        Some(Ok(params)) => params.watch_id,
+        Some(Err(e)) => {
+            return Err(e);
+        }
+        _ => None,
+    };
+
+    for (watch_id, message, _) in watching_requests.0.iter() {
+        if params_watch_id.is_none() || params_watch_id.unwrap() == *watch_id {
+            message.sender.close();
+        }
+    }
+
+    Ok(Value::Null)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
