@@ -102,41 +102,34 @@ unused_qualifications = "warn"
 
 [features]
 default = [
-  "android-game-activity",
-  "android-game-activity",
-  "android_shared_stdcxx",
   "animation",
   "bevy_asset",
+  "bevy_state",
   "bevy_audio",
   "bevy_color",
-  "bevy_core_pipeline",
   "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
-  "bevy_mesh_picking_backend",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
+  "bevy_gltf",
   "bevy_render",
-  "bevy_scene",
   "bevy_sprite",
-  "bevy_sprite_picking_backend",
-  "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_ui_picking_backend",
-  "bevy_winit",
-  "custom_cursor",
-  "default_font",
-  "hdr",
   "multi_threaded",
   "png",
-  "smaa_luts",
-  "sysinfo_plugin",
-  "tonemapping_luts",
+  "hdr",
   "vorbis",
-  "webgl2",
   "x11",
+  "bevy_gizmos",
+  "android_shared_stdcxx",
+  "tonemapping_luts",
+  "smaa_luts",
+  "default_font",
+  "webgl2",
+  "sysinfo_plugin",
 ]
 
 # Provides an implementation for picking meshes
@@ -202,7 +195,6 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
-  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -215,7 +207,6 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
-  "bevy_ui_picking_backend",
 ]
 
 # winit window and input backend
@@ -840,6 +831,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmosphere"
+path = "examples/3d/atmosphere.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.atmosphere]
+name = "Atmosphere"
+description = "A scene showcasing pbr atmospheric scattering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 doc-scrape-examples = true
@@ -1219,7 +1221,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
   ],
 ]
 

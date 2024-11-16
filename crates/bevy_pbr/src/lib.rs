@@ -25,6 +25,7 @@ pub mod experimental {
     }
 }
 
+mod atmosphere;
 mod bundle;
 mod cluster;
 pub mod deferred;
@@ -46,6 +47,7 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 use core::marker::PhantomData;
 
+pub use atmosphere::*;
 pub use bundle::*;
 pub use cluster::*;
 pub use extended_material::*;
@@ -111,7 +113,7 @@ pub mod graph {
     }
 }
 
-use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+use crate::{atmosphere::AtmospherePlugin, deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -353,6 +355,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
             ))
+            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
