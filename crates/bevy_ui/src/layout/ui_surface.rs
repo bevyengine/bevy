@@ -7,7 +7,7 @@ use bevy_ecs::{
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_utils::default;
+use bevy_utils::{default, tracing::warn};
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_text::CosmicFontSystem;
@@ -127,6 +127,46 @@ impl UiSurface {
         self.taffy
             .set_children(*taffy_node, &self.taffy_children_scratch)
             .unwrap();
+    }
+
+    /// Tries to place a fixed-node as the children of an associated root node
+    pub fn try_update_fixed_node(&mut self, entity: &Entity, fixed_node: &Entity) {
+        let children_node;
+        if let Some(children) = self.entity_to_taffy.get(fixed_node) {
+            children_node = *children;
+        } else {
+            warn!(
+                "Unstyled child in a UI entity hierarchy. You are using an entity \
+without UI components as a child of an entity with UI components, results may be unexpected."
+            );
+            return;
+        }
+
+        let root_node;
+        if let Some(root) = self.entity_to_taffy.get(entity) {
+            root_node = *root;
+        } else {
+            warn!(
+                "Unstyled parent in a UI entity hierarchy. You are using an entity \
+without UI components as an \"root node\" of a fixed UI node, results may be unexpected."
+            );
+            return;
+        }
+
+        // Remove relation with previous parent if it exists
+        if let Some(parent) = self.taffy.parent(children_node) {
+            if parent != root_node && self.taffy.remove_child(parent, children_node).is_err() {
+                warn!("Failed to remove parent Taffy node.");
+            }
+        }
+
+        // Insert the fixed node as a child if not already the case
+        // this is used to dodge updates every frame
+        if let Ok(children_nodes) = self.taffy.children(root_node) {
+            if !children_nodes.contains(&children_node) {
+                self.taffy.add_child(root_node, children_node).unwrap();
+            }
+        }
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.

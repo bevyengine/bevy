@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale,
+    PositionType, ScrollPosition, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -17,7 +17,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
@@ -208,6 +208,9 @@ pub fn ui_layout_system(
         ui_surface.try_remove_node_context(entity);
     }
 
+    // Relationship with (Node { position_type: Fixed(Entity) })
+    let mut fixed_nodes: HashMap<Entity, Entity> = HashMap::new();
+
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
@@ -234,8 +237,13 @@ pub fn ui_layout_system(
             } else {
                 ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Node::default(), None);
             }
+
+            if let PositionType::Fixed(associated_root) = node.position_type {
+                fixed_nodes.insert(entity, associated_root);
+            }
         });
     scale_factor_events.clear();
+    let fixed_nodes = fixed_nodes;
 
     // clean up removed cameras
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
@@ -254,6 +262,10 @@ pub fn ui_layout_system(
     // update and remove children
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
+    }
+
+    for (fixed_node, associated_root) in fixed_nodes.iter() {
+        ui_surface.try_update_fixed_node(associated_root, fixed_node);
     }
 
     computed_node_query
@@ -292,6 +304,9 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     });
 
+    // Computed data of the entity referenced by a fixed_node
+    let mut associated_roots: HashMap<Entity, (Vec2, Vec2)> = HashMap::new();
+
     for (camera_id, mut camera) in camera_layout_info.drain() {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
@@ -307,6 +322,8 @@ with UI components as a child of an entity without UI components, your UI layout
                 &ui_children,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
+                &fixed_nodes,
+                &mut associated_roots,
                 Vec2::ZERO,
             );
         }
@@ -332,6 +349,8 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
+        fixed_nodes: &HashMap<Entity, Entity>,
+        associated_roots: &mut HashMap<Entity, (Vec2, Vec2)>,
         parent_scroll_position: Vec2,
     ) {
         if let Ok((
@@ -354,8 +373,30 @@ with UI components as a child of an entity without UI components, your UI layout
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node, stored in the node's transform
-            let node_center =
-                layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+            let node_center: Vec2;
+            if let Some(associated_root) = fixed_nodes.get(&entity) {
+                if let Some((root_scroll_position, root_size)) =
+                    associated_roots.get(associated_root)
+                {
+                    node_center =
+                        layout_location - root_scroll_position + 0.5 * (layout_size - root_size);
+
+                    dbg!(layout_location);
+                    dbg!(root_scroll_position, root_size);
+                    dbg!(node_center);
+                } else {
+                    warn!(
+                        "Could find the associated root of a fixed node,\
+ please ensure that your associated roots are direct ancestors.\
+ Result may be unexpected."
+                    );
+                    node_center = layout_location - parent_scroll_position
+                        + 0.5 * (layout_size - parent_size);
+                }
+            } else {
+                node_center =
+                    layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+            }
 
             // only trigger change detection when the new values are different
             if node.size != layout_size || node.unrounded_size != unrounded_size {
@@ -433,6 +474,10 @@ with UI components as a child of an entity without UI components, your UI layout
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
+            if fixed_nodes.values().any(|ar| ar == &entity) {
+                associated_roots.insert(entity, (clamped_scroll_position, node.size));
+            }
+
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
@@ -443,6 +488,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
+                    fixed_nodes,
+                    associated_roots,
                     clamped_scroll_position,
                 );
             }
