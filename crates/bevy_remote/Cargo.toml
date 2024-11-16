@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["http"]
 http = ["dep:hyper", "dep:http-body-util", "dep:async-io", "dep:smol-hyper"]
+websocket = ["http", "dep:tungstenite", "dep:hyper-tungstenite", "dep:futures-util"]
 
 [dependencies]
 # bevy
@@ -33,6 +34,11 @@ async-channel = "2"
 # http
 hyper = { version = "1", features = ["server", "http1"], optional = true }
 http-body-util = { version = "0.1", optional = true }
+
+# websocket
+tungstenite = { version = "0.24", optional = true }
+hyper-tungstenite = { version = "0.15", optional = true }
+futures-util = { version = "0.3", default-features = false, optional = true }
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
