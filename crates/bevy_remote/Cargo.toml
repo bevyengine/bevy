@@ -11,7 +11,12 @@ keywords = ["bevy"]
 [features]
 default = ["http"]
 http = ["dep:hyper", "dep:http-body-util", "dep:async-io", "dep:smol-hyper"]
-websocket = ["http", "dep:tungstenite", "dep:hyper-tungstenite", "dep:futures-util"]
+websocket = [
+  "http",
+  "dep:tungstenite",
+  "dep:hyper-tungstenite",
+  "dep:futures-util"
+]
 
 [dependencies]
 # bevy
