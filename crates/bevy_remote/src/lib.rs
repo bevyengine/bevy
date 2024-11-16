@@ -456,7 +456,7 @@ impl Plugin for RemotePlugin {
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-struct RemoteLast;
+pub struct RemoteLast;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
