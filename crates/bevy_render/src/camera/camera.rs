@@ -1,6 +1,4 @@
 use super::{ClearColorConfig, Projection};
-use crate::sync_world::TemporaryRenderEntity;
-use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -8,11 +6,12 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::TemporaryRenderEntity,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
-        VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -1065,6 +1064,7 @@ pub fn extract_cameras(
                 RenderLayers,
                 Projection,
                 GpuCulling,
+                ViewUniformOffset,
             )>();
             continue;
         }
