@@ -123,6 +123,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_window",
   "bevy_winit",
   "custom_cursor",
   "default_font",
@@ -215,6 +216,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_ui_picking_backend",
 ]
+
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
