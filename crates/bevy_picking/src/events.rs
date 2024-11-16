@@ -254,13 +254,49 @@ pub struct DragEntry {
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
 /// about pointer button presses.
 #[derive(Debug, Clone, Default)]
-pub struct PointerState {
+pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
     /// Stores  the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
+}
+
+/// State for all pointers.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct PointerState {
+    /// Pressing and dragging state, organized by pointer and button.
+    pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,
+}
+
+impl PointerState {
+    /// Retrieves the current state for a specific pointer and button, if it has been created.
+    pub fn get(&self, pointer_id: PointerId, button: PointerButton) -> Option<&PointerButtonState> {
+        self.pointer_buttons.get(&(pointer_id, button))
+    }
+
+    /// Provides write access to the state of a pointer and button, creating it if it does not yet exist.
+    pub fn get_mut(
+        &mut self,
+        pointer_id: PointerId,
+        button: PointerButton,
+    ) -> &mut PointerButtonState {
+        self.pointer_buttons
+            .entry((pointer_id, button))
+            .or_default()
+    }
+
+    /// Clears all the data assoceated with all of the buttons on a pointer. Does not free the underlying memory.
+    pub fn clear(&mut self, pointer_id: PointerId) {
+        for button in PointerButton::iter() {
+            if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
+                state.pressing.clear();
+                state.dragging.clear();
+                state.dragging_over.clear();
+            }
+        }
+    }
 }
 
 /// A helper system param for accessing the picking event writers.
@@ -285,28 +321,51 @@ pub struct PickingEventWriters<'w> {
 /// Dispatches interaction events to the target entities.
 ///
 /// Within a single frame, events are dispatched in the following order:
-/// + The sequence [`DragEnter`], [`Over`].
+/// + [`Out`] → [`DragLeave`].
+/// + [`DragEnter`] → [`Over`].
 /// + Any number of any of the following:
-///   + For each movement: The sequence [`DragStart`], [`Drag`], [`DragOver`], [`Move`].
-///   + For each button press: Either [`Down`], or the sequence [`Click`], [`Up`], [`DragDrop`], [`DragEnd`], [`DragLeave`].
-///   + For each pointer cancellation: Simply [`Cancel`].
-/// + Finally the sequence  [`Out`], [`DragLeave`].
+///   + For each movement: [`DragStart`] → [`Drag`] → [`DragOver`] → [`Move`].
+///   + For each button press: [`Down`] or [`Click`] → [`Up`] → [`DragDrop`] → [`DragEnd`] → [`DragLeave`].
+///   + For each pointer cancellation: [`Cancel`].
 ///
-/// Only the last event in a given sequence is garenteed to be present.
+/// Additionally, across multiple frames, the following are also strictly
+/// ordered by the interaction state machine:
+/// + When a pointer moves over the target:
+///   [`Over`], [`Move`], [`Out`].
+/// + When a pointer presses buttons on the target:
+///   [`Down`], [`Click`], [`Up`].
+/// + When a pointer drags the target:
+///   [`DragStart`], [`Drag`], [`DragEnd`].
+/// + When a pointer drags something over the target:
+///   [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
+/// + When a pointer is canceled:
+///   No other events will follow the [`Cancel`] event for that pointer.
 ///
-/// Additionally, across multiple frames, the following are also strictly ordered by the interaction state machine:
-/// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
-/// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
-/// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
-/// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
-/// + When a pointer is canceled: No other events will follow the [`Cancel`] event for that pointer.
+/// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`].
+/// The rest rely on additional data from the [`PointerInput`] event stream. To
+/// receive these events for a custom pointer, you must add [`PointerInput`]
+/// events.
 ///
-/// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`]. The rest rely on additional data from the
-/// [`PointerInput`] event stream. To receive these events for a custom pointer, you must add [`PointerInput`] events.
+/// When the pointer goes from hovering entity A to entity B, entity A will
+/// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
+/// receive both an [`Over`] and and a [`Out`] event during the same frame.
 ///
-/// Note: Though it is common for the [`PointerInput`] stream may contain multiple pointer movements and presses each frame,
-/// the hover state is determined only by the pointer's *final position*. Since the hover state ultimately determines which
-/// entities receive events, this may mean that an entity can receive events which occurred before it was actually hovered.
+/// When we account for event bubbling, this is no longer true. When focus shifts
+/// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
+/// In the context of UI, this is especially problematic. Additional hierarchy-aware
+/// events will be added in a future release.
+///
+/// Both [`Click`] and [`Up`] target the entity hovered in the *previous frame*,
+/// rather than the current frame. This is because touch pointers hover nothing
+/// on the frame they are released. The end effect is that these two events can
+/// be received sequentally after an [`Out`] event (but always on the same frame
+/// as the [`Out`] event).
+///
+/// Note: Though it is common for the [`PointerInput`] stream may contain
+/// multiple pointer movements and presses each frame, the hover state is
+/// determined only by the pointer's *final position*. Since the hover state
+/// ultimately determines which entities receive events, this may mean that an
+/// entity can receive events from before or after it was actually hovered.
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
@@ -316,8 +375,7 @@ pub fn pointer_events(
     pointer_map: Res<PointerMap>,
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
-    // Local state
-    mut pointer_state: Local<HashMap<(PointerId, PointerButton), PointerState>>,
+    mut pointer_state: ResMut<PointerState>,
     // Output
     mut commands: Commands,
     mut event_writers: PickingEventWriters,
@@ -330,6 +388,57 @@ pub fn pointer_events(
             .and_then(|entity| pointers.get(entity).ok())
             .and_then(|pointer| pointer.location.clone())
     };
+
+    // If the entity was hovered by a specific pointer last frame...
+    for (pointer_id, hovered_entity, hit) in previous_hover_map
+        .iter()
+        .flat_map(|(id, hashmap)| hashmap.iter().map(|data| (*id, *data.0, data.1.clone())))
+    {
+        // ...but is now not being hovered by that same pointer...
+        if !hover_map
+            .get(&pointer_id)
+            .iter()
+            .any(|e| e.contains_key(&hovered_entity))
+        {
+            let Some(location) = pointer_location(pointer_id) else {
+                debug!(
+                    "Unable to get location for pointer {:?} during pointer out",
+                    pointer_id
+                );
+                continue;
+            };
+
+            // Always send Out events
+            let out_event = Pointer::new(
+                pointer_id,
+                location.clone(),
+                hovered_entity,
+                Out { hit: hit.clone() },
+            );
+            commands.trigger_targets(out_event.clone(), hovered_entity);
+            event_writers.out_events.send(out_event);
+
+            // Possibly send DragLeave events
+            for button in PointerButton::iter() {
+                let state = pointer_state.get_mut(pointer_id, button);
+                state.dragging_over.remove(&hovered_entity);
+                for drag_target in state.dragging.keys() {
+                    let drag_leave_event = Pointer::new(
+                        pointer_id,
+                        location.clone(),
+                        hovered_entity,
+                        DragLeave {
+                            button,
+                            dragged: *drag_target,
+                            hit: hit.clone(),
+                        },
+                    );
+                    commands.trigger_targets(drag_leave_event.clone(), hovered_entity);
+                    event_writers.drag_leave_events.send(drag_leave_event);
+                }
+            }
+        }
+    }
 
     // If the entity is hovered...
     for (pointer_id, hovered_entity, hit) in hover_map
@@ -352,7 +461,7 @@ pub fn pointer_events(
 
             // Possibly send DragEnter events
             for button in PointerButton::iter() {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
 
                 for drag_target in state
                     .dragging
@@ -397,7 +506,7 @@ pub fn pointer_events(
         match action {
             // Pressed Button
             PointerAction::Pressed { direction, button } => {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
 
                 // The sequence of events emitted depends on if this is a press or a release
                 match direction {
@@ -519,7 +628,7 @@ pub fn pointer_events(
             PointerAction::Moved { delta } => {
                 // Triggers during movement even if not over an entity
                 for button in PointerButton::iter() {
-                    let state = pointer_state.entry((pointer_id, button)).or_default();
+                    let state = pointer_state.get_mut(pointer_id, button);
 
                     // Emit DragEntry and DragStart the first time we move while pressing an entity
                     for (press_target, (location, _, hit)) in state.pressing.iter() {
@@ -619,65 +728,8 @@ pub fn pointer_events(
                     commands.trigger_targets(cancel_event.clone(), hovered_entity);
                     event_writers.cancel_events.send(cancel_event);
                 }
-                // Clear the local state for the canceled pointer
-                for button in PointerButton::iter() {
-                    if let Some(state) = pointer_state.get_mut(&(pointer_id, button)) {
-                        state.pressing.clear();
-                        state.dragging.clear();
-                        state.dragging_over.clear();
-                    }
-                }
-            }
-        }
-    }
-
-    // If the entity was hovered by a specific pointer last frame...
-    for (pointer_id, hovered_entity, hit) in previous_hover_map
-        .iter()
-        .flat_map(|(id, hashmap)| hashmap.iter().map(|data| (*id, *data.0, data.1.clone())))
-    {
-        // ...but is now not being hovered by that same pointer...
-        if !hover_map
-            .get(&pointer_id)
-            .iter()
-            .any(|e| e.contains_key(&hovered_entity))
-        {
-            let Some(location) = pointer_location(pointer_id) else {
-                debug!(
-                    "Unable to get location for pointer {:?} during pointer out",
-                    pointer_id
-                );
-                continue;
-            };
-
-            // Always send Out events
-            let out_event = Pointer::new(
-                pointer_id,
-                location.clone(),
-                hovered_entity,
-                Out { hit: hit.clone() },
-            );
-            commands.trigger_targets(out_event.clone(), hovered_entity);
-            event_writers.out_events.send(out_event);
-
-            // Possibly send DragLeave events
-            for button in PointerButton::iter() {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
-                state.dragging_over.remove(&hovered_entity);
-                for drag_target in state.dragging.keys() {
-                    let drag_leave_event = Pointer::new(
-                        pointer_id,
-                        location.clone(),
-                        hovered_entity,
-                        DragLeave {
-                            button,
-                            dragged: *drag_target,
-                            hit: hit.clone(),
-                        },
-                    );
-                    commands.trigger_targets(drag_leave_event.clone(), hovered_entity);
-                    event_writers.drag_leave_events.send(drag_leave_event);
-                }
+                // Clear the state for the canceled pointer
+                pointer_state.clear(pointer_id);
             }
         }
     }

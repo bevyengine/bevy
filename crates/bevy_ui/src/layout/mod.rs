@@ -221,7 +221,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.measure.is_some())
+                        .map(|c| c.is_changed() || c.measure.is_some())
                         .unwrap_or(false)
                 {
                     let layout_context = LayoutContext::new(
@@ -278,7 +278,12 @@ with UI components as a child of an entity without UI components, your UI layout
 
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
+    ui_surface.remove_entities(
+        removed_components
+            .removed_nodes
+            .read()
+            .filter(|entity| !node_query.contains(*entity)),
+    );
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
@@ -463,11 +468,11 @@ mod tests {
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
+    use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
         prelude::Camera,
-        texture::Image,
     };
     use bevy_transform::{
         prelude::GlobalTransform,
@@ -769,6 +774,38 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    /// bugfix test, see [#16288](https://github.com/bevyengine/bevy/pull/16288)
+    #[test]
+    fn node_removal_and_reinsert_should_work() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+
+        let ui_entity = world.spawn(Node::default()).id();
+
+        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+
+        // remove and re-insert Node to trigger removal code in `ui_layout_system`
+        world.entity_mut(ui_entity).remove::<Node>();
+        world.entity_mut(ui_entity).insert(Node::default());
+
+        // `ui_layout_system` should still have `ui_entity`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
     }
 
     /// regression test for >=0.13.1 root node layouts

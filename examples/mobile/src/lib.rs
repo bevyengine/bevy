@@ -162,7 +162,7 @@ fn button_handler(
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn((
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP,
     ));
 }
@@ -171,12 +171,8 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
     mut lifecycle_events: EventReader<AppLifecycle>,
-    music_controller: Query<&AudioSink>,
+    music_controller: Single<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller.get_single() else {
-        return;
-    };
-
     for event in lifecycle_events.read() {
         match event {
             AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}

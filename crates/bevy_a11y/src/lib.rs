@@ -6,14 +6,19 @@
 )]
 
 //! Accessibility for Bevy
+//!
+//! As of Bevy version 0.15 `accesskit` is no longer re-exported from this crate.
+//!
+//! If you need to use `accesskit`, you will need to add it as a separate dependency in your `Cargo.toml`.
+//!
+//! Make sure to use the same version of `accesskit` as Bevy.
 
 extern crate alloc;
 
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-pub use accesskit;
-use accesskit::NodeBuilder;
+use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -84,10 +89,10 @@ impl ManageAccessibilityUpdates {
 /// If the entity doesn't have a parent, or if the immediate parent doesn't have
 /// an `AccessibilityNode`, its node will be an immediate child of the primary window.
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct AccessibilityNode(pub NodeBuilder);
+pub struct AccessibilityNode(pub Node);
 
-impl From<NodeBuilder> for AccessibilityNode {
-    fn from(node: NodeBuilder) -> Self {
+impl From<Node> for AccessibilityNode {
+    fn from(node: Node) -> Self {
         Self(node)
     }
 }
