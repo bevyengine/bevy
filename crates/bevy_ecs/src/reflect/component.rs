@@ -151,11 +151,17 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
+    ///
+    /// Will also panic if [`Component`] is immutable.
     pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn PartialReflect) {
         (self.0.apply)(entity.into(), component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
@@ -181,6 +187,10 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
     pub fn reflect_mut<'a>(
         &self,
         entity: impl Into<FilteredEntityMut<'a>>,
@@ -193,6 +203,10 @@ impl ReflectComponent {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method with a [`UnsafeEntityCell`] that may be used to mutably access the component on the entity `entity`
     /// * Don't call this method more than once in the same scope for a given [`Component`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Component`] is immutable.
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
         entity: UnsafeEntityCell<'a>,
