@@ -15,6 +15,8 @@ use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 /// deserializer and give back a [`Box<dyn PartialReflect>`], or return
 /// ownership of the deserializer back, and continue with the default logic.
 ///
+/// The serialization equivalent of this is [`ReflectSerializerProcessor`].
+///
 /// # Compared to [`DeserializeWithRegistry`]
 ///
 /// [`DeserializeWithRegistry`] allows you to define how your type will be
@@ -134,6 +136,7 @@ use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`try_deserialize`]: Self::try_deserialize
 /// [`DeserializeWithRegistry`]: crate::serde::DeserializeWithRegistry
+/// [`ReflectSerializerProcessor`]: crate::serde::ReflectSerializerProcessor
 pub trait ReflectDeserializerProcessor {
     /// Attempts to deserialize the value which a [`TypedReflectDeserializer`]
     /// is currently looking at, and knows the type of.
