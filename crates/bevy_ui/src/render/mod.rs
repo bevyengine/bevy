@@ -4,46 +4,49 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
-    DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
-    UiScale,
+    experimental::UiChildren, widget::ImageNode, BackgroundColor, BorderColor, CalculatedClip,
+    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
+    UiBoxShadowSamples, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
-use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_core_pipeline::{
+    core_2d::{
+        graph::{Core2d, Node2d},
+        Camera2d,
+    },
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d,
+    },
+};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
+use bevy_image::{Image, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_phase::{
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        ViewSortedRenderPhases,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSet,
-};
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::ViewVisibility,
-    ExtractSchedule, Render,
+    view::{ExtractedView, ViewUniforms, ViewVisibility},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteAssetEvents, TextureAtlasLayout};
 
 use crate::{Display, Node};
+#[cfg(feature = "bevy_text")]
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -128,25 +131,29 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractText,
             )
                 .chain(),
-        )
-        .add_systems(
-            ExtractSchedule,
-            (
-                extract_default_ui_camera_view,
-                extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
-                extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
-                extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
-                extract_text_sections.in_set(RenderUiSystem::ExtractText),
-            ),
-        )
-        .add_systems(
-            Render,
-            (
-                queue_uinodes.in_set(RenderSet::Queue),
-                sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
-                prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
-            ),
         );
+    render_app.add_systems(
+        ExtractSchedule,
+        (
+            extract_default_ui_camera_view,
+            extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
+            extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
+            extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+        ),
+    );
+    #[cfg(feature = "bevy_text")]
+    render_app.add_systems(
+        ExtractSchedule,
+        extract_text_sections.in_set(RenderUiSystem::ExtractText),
+    );
+    render_app.add_systems(
+        Render,
+        (
+            queue_uinodes.in_set(RenderSet::Queue),
+            sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
+            prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
+        ),
+    );
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -632,6 +639,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "bevy_text")]
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,

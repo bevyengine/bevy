@@ -2,19 +2,23 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, With},
     system::{Commands, Query},
 };
 use bevy_math::Rect;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
+
+#[cfg(feature = "bevy_render")]
+use {
+    crate::TargetCamera,
+    bevy_ecs::query::{Changed, With},
+};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -133,6 +137,7 @@ fn update_clipping(
     }
 }
 
+#[cfg(feature = "bevy_render")]
 pub fn update_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
@@ -145,7 +150,7 @@ pub fn update_target_camera_system(
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
-    let mut updated_entities = HashSet::new();
+    let mut updated_entities = bevy_utils::HashSet::new();
 
     // Assuming that TargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change
@@ -179,13 +184,14 @@ pub fn update_target_camera_system(
     }
 }
 
+#[cfg(feature = "bevy_render")]
 fn update_children_target_camera(
     entity: Entity,
     camera_to_set: Option<&TargetCamera>,
     node_query: &Query<(Entity, Option<&TargetCamera>), With<Node>>,
     ui_children: &UiChildren,
     commands: &mut Commands,
-    updated_entities: &mut HashSet<Entity>,
+    updated_entities: &mut bevy_utils::HashSet<Entity>,
 ) {
     for child in ui_children.iter_ui_children(entity) {
         // Skip if the child has already been updated or update is not needed

@@ -1,22 +1,18 @@
-use crate::{
-    experimental::UiChildren,
-    prelude::{Button, Label},
-    widget::{ImageNode, TextUiReader},
-    ComputedNode,
-};
+use crate::TextUiReader;
+use crate::{experimental::UiChildren, prelude::Button, widget::ImageNode};
+use crate::{prelude::Label, ComputedNode};
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity},
+    prelude::Entity,
     query::{Changed, Without},
-    schedule::IntoSystemConfigs,
     system::{Commands, Query},
-    world::Ref,
 };
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
 
-use accesskit::{Node, Rect, Role};
+use accesskit::Rect;
+use accesskit::{Node, Role};
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -39,10 +35,11 @@ fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
     mut nodes: Query<(
         &mut AccessibilityNode,
-        Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        bevy_ecs::world::Ref<ComputedNode>,
+        bevy_ecs::world::Ref<GlobalTransform>,
     )>,
 ) {
+    use bevy_ecs::change_detection::DetectChanges as _;
     if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
             if node.is_changed() || transform.is_changed() {
@@ -154,8 +151,9 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
+        use bevy_ecs::schedule::IntoSystemConfigs as _;
         app.add_systems(
-            PostUpdate,
+            bevy_app::PostUpdate,
             (
                 calc_bounds
                     .after(bevy_transform::TransformSystem::TransformPropagate)
