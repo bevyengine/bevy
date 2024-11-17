@@ -379,6 +379,7 @@ Example | Description
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 [Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases
+[UI Picking](../examples/picking/ui_picking.rs) | Demonstrates picking in a UI context
 
 ## Reflection
 
