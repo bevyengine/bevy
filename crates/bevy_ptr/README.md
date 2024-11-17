@@ -39,17 +39,17 @@ build these safety guarantees...
 
 ## Standard Pointers
 
-|Pointer Type       |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|-------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
-|`Box<T>`           |Owned      |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
-|`&'a mut T`        |Yes        |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
-|`&'a T`            |Yes        |No     |Yes           |Yes    |Yes     |No              |Yes               |
-|`&'a UnsafeCell<T>`|Yes        |Maybe  |Yes           |Yes    |Yes     |Yes             |Yes               |
-|`NonNull<T>`       |No         |Yes    |Yes           |No     |Yes     |No              |No                |
-|`*const T`         |No         |No     |Yes           |No     |No      |No              |No                |
-|`*mut T`           |No         |Yes    |Yes           |No     |No      |No              |No                |
-|`*const ()`        |No         |No     |No            |No     |No      |No              |No                |
-|`*mut ()`          |No         |Yes    |No            |No     |No      |No              |No                |
+| Pointer Type        | Lifetime'ed | Mutable | Strongly Typed | Aligned | Not Null | Forbids Aliasing | Forbids Arithmetic |
+| ------------------- | ----------- | ------- | -------------- | ------- | -------- | ---------------- | ------------------ |
+| `Box<T>`            | Owned       | Yes     | Yes            | Yes     | Yes      | Yes              | Yes                |
+| `&'a mut T`         | Yes         | Yes     | Yes            | Yes     | Yes      | Yes              | Yes                |
+| `&'a T`             | Yes         | No      | Yes            | Yes     | Yes      | No               | Yes                |
+| `&'a UnsafeCell<T>` | Yes         | Maybe   | Yes            | Yes     | Yes      | Yes              | Yes                |
+| `NonNull<T>`        | No          | Yes     | Yes            | No      | Yes      | No               | No                 |
+| `*const T`          | No          | No      | Yes            | No      | No       | No               | No                 |
+| `*mut T`            | No          | Yes     | Yes            | No      | No       | No               | No                 |
+| `*const ()`         | No          | No      | No             | No      | No       | No               | No                 |
+| `*mut ()`           | No          | Yes     | No             | No      | No       | No               | No                 |
 
 `&T`, `&mut T`, and `Box<T>` are by far the most common pointer types that Rust developers will see. They're the only ones in this list that are entirely usable
 without the use of `unsafe`.
@@ -74,10 +74,10 @@ all usage patterns. `*mut ()` should only be used to carry the mutability of the
 
 ## Available in Nightly
 
-|Pointer Type       |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|-------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
-|`Unique<T>`        |Owned      |Yes    |Yes           |Yes    |Yes     |Yes             |Yes               |
-|`Shared<T>`        |Owned*     |Yes    |Yes           |Yes    |Yes     |No              |Yes               |
+| Pointer Type | Lifetime'ed | Mutable | Strongly Typed | Aligned | Not Null | Forbids Aliasing | Forbids Arithmetic |
+| ------------ | ----------- | ------- | -------------- | ------- | -------- | ---------------- | ------------------ |
+| `Unique<T>`  | Owned       | Yes     | Yes            | Yes     | Yes      | Yes              | Yes                |
+| `Shared<T>`  | Owned*      | Yes     | Yes            | Yes     | Yes      | No               | Yes                |
 
 `Unique<T>` is currently available in `core::ptr` on nightly Rust builds. It's a pointer type that acts like it owns the value it points to. It can be thought of
 as a `Box<T>` that does not allocate on initialization or deallocated when it's dropped, and is in fact used to implement common types like `Box<T>`, `Vec<T>`,
@@ -92,13 +92,13 @@ multiple instances to collectively own the data it points to, and as a result, f
 
 ## Available in `bevy_ptr`
 
-|Pointer Type         |Lifetime'ed|Mutable|Strongly Typed|Aligned|Not Null|Forbids Aliasing|Forbids Arithmetic|
-|---------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
-|`ConstNonNull<T>`    |No         |No     |Yes           |No     |Yes     |No              |Yes               |
-|`ThinSlicePtr<'a, T>`|Yes        |No     |Yes           |Yes    |Yes     |Yes             |Yes               |
-|`OwningPtr<'a>`      |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
-|`Ptr<'a>`            |Yes        |No     |No            |Maybe  |Yes     |No              |No                |
-|`PtrMut<'a>`         |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
+| Pointer Type          | Lifetime'ed | Mutable | Strongly Typed | Aligned | Not Null | Forbids Aliasing | Forbids Arithmetic |
+| --------------------- | ----------- | ------- | -------------- | ------- | -------- | ---------------- | ------------------ |
+| `ConstNonNull<T>`     | No          | No      | Yes            | No      | Yes      | No               | Yes                |
+| `ThinSlicePtr<'a, T>` | Yes         | No      | Yes            | Yes     | Yes      | Yes              | Yes                |
+| `OwningPtr<'a>`       | Yes         | Yes     | No             | Maybe   | Yes      | Yes              | No                 |
+| `Ptr<'a>`             | Yes         | No      | No             | Maybe   | Yes      | No               | No                 |
+| `PtrMut<'a>`          | Yes         | Yes     | No             | Maybe   | Yes      | Yes              | No                 |
 
 `ConstNonNull<T>` is like `NonNull<T>` but disallows safe conversions into types that allow mutable access to the value it points to. It's the `*const T` to
 `NonNull<T>`'s `*mut T`.
