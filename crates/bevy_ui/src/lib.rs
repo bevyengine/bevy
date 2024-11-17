@@ -12,7 +12,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
-pub mod node_bundles;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -46,16 +45,12 @@ use widget::{ImageNode, ImageNodeSize};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::widget::TextBundle;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
-            node_bundles::*,
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label},

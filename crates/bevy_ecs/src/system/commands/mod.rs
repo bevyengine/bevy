@@ -312,32 +312,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
-    /// and returns its corresponding [`EntityCommands`].
-    ///
-    /// This method silently fails by returning [`EntityCommands`]
-    /// even if the given `Entity` cannot be spawned.
-    ///
-    /// See [`World::get_or_spawn`] for more details.
-    ///
-    /// # Note
-    ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
-    /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
-    /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
-    /// by default).
-    #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
-    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        self.queue(move |world: &mut World| {
-            #[allow(deprecated)]
-            world.get_or_spawn(entity);
-        });
-        EntityCommands {
-            entity,
-            commands: self.reborrow(),
-        }
-    }
-
     /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
     /// and returns its corresponding [`EntityCommands`].
     ///
@@ -595,7 +569,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Then, the `Bundle` is added to the entity.
     ///
     /// This method is equivalent to iterating `bundles_iter`,
-    /// calling [`get_or_spawn`](Self::get_or_spawn) for each bundle,
+    /// calling [`spawn`](Self::spawn) for each bundle,
     /// and passing it to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///

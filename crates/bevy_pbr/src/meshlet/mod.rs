@@ -1,4 +1,3 @@
-#![expect(deprecated)]
 //! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
 
 mod asset;
@@ -58,7 +57,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material, MeshMaterial3d, PreviousGlobalTransform};
+use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -67,7 +66,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     entity::Entity,
     prelude::With,
@@ -82,13 +80,10 @@ use bevy_render::{
     render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{
-        check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
-        Visibility, VisibilitySystems,
-    },
+    view::{check_visibility, prepare_view_targets, Msaa, Visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 use bevy_utils::tracing::error;
 use derive_more::From;
 
@@ -314,39 +309,6 @@ impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
 impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
     fn from(mesh: &MeshletMesh3d) -> Self {
         mesh.id()
-    }
-}
-
-/// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
-#[derive(Bundle, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `MeshletMesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
-)]
-pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: MeshletMesh3d,
-    pub material: MeshMaterial3d<M>,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    /// User indication of whether an entity is visible
-    pub visibility: Visibility,
-    /// Inherited visibility of an entity.
-    pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub view_visibility: ViewVisibility,
-}
-
-impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
-    fn default() -> Self {
-        Self {
-            meshlet_mesh: Default::default(),
-            material: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-        }
     }
 }
 

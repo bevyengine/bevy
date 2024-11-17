@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::{
     core_3d::graph::Core3d,
     tonemapping::{DebandDither, Tonemapping},
@@ -7,14 +5,11 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
+    camera::{Camera, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
-    primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
-    sync_world::SyncToRenderWorld,
-    view::{ColorGrading, Msaa, VisibleEntities},
+    view::ColorGrading,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
@@ -146,53 +141,4 @@ pub enum ScreenSpaceTransmissionQuality {
     ///
     /// `num_taps` = 32
     Ultra,
-}
-
-/// The camera coordinate space is right-handed x-right, y-up, z-back.
-/// This means "forward" is -Z.
-#[derive(Bundle, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `Camera3d` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct Camera3dBundle {
-    pub camera: Camera,
-    pub camera_render_graph: CameraRenderGraph,
-    pub projection: Projection,
-    pub visible_entities: VisibleEntities,
-    pub frustum: Frustum,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub camera_3d: Camera3d,
-    pub tonemapping: Tonemapping,
-    pub deband_dither: DebandDither,
-    pub color_grading: ColorGrading,
-    pub exposure: Exposure,
-    pub main_texture_usages: CameraMainTextureUsages,
-    pub msaa: Msaa,
-    /// Marker component that indicates that its entity needs to be synchronized to the render world
-    pub sync: SyncToRenderWorld,
-}
-
-// NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
-impl Default for Camera3dBundle {
-    fn default() -> Self {
-        Self {
-            camera_render_graph: CameraRenderGraph::new(Core3d),
-            camera: Default::default(),
-            projection: Default::default(),
-            visible_entities: Default::default(),
-            frustum: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            camera_3d: Default::default(),
-            tonemapping: Default::default(),
-            color_grading: Default::default(),
-            exposure: Default::default(),
-            main_texture_usages: Default::default(),
-            deband_dither: DebandDither::Enabled,
-            msaa: Default::default(),
-            sync: Default::default(),
-        }
-    }
 }
