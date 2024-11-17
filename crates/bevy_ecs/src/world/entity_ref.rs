@@ -860,7 +860,23 @@ pub struct EntityWorldMut<'w> {
 }
 
 impl<'w> EntityWorldMut<'w> {
+    #[track_caller]
+    #[inline(never)]
+    #[cold]
+    fn panic_despawned(&self) -> ! {
+        panic!("Entity {} has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn.", self.entity);
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    fn assert_not_despawned(&self) {
+        if self.location.archetype_id == ArchetypeId::INVALID {
+            self.panic_despawned();
+        }
+    }
+
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
+        self.assert_not_despawned();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell_readonly(),
             self.entity,
@@ -868,6 +884,7 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.assert_not_despawned();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
@@ -875,6 +892,7 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
+        self.assert_not_despawned();
         UnsafeEntityCell::new(
             self.world.as_unsafe_world_cell(),
             self.entity,
@@ -914,12 +932,14 @@ impl<'w> EntityWorldMut<'w> {
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
+        self.assert_not_despawned();
         self.location
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
+        self.assert_not_despawned();
         &self.world.archetypes[self.location.archetype_id]
     }
 
@@ -1208,6 +1228,7 @@ impl<'w> EntityWorldMut<'w> {
         mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
     ) -> &mut Self {
+        self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
@@ -1237,6 +1258,7 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
+        self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let bundle_id = self
             .world
@@ -1281,6 +1303,7 @@ impl<'w> EntityWorldMut<'w> {
         component_ids: &[ComponentId],
         iter_components: I,
     ) -> &mut Self {
+        self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let bundle_id = self
             .world
@@ -1315,6 +1338,7 @@ impl<'w> EntityWorldMut<'w> {
     // TODO: BundleRemover?
     #[must_use]
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
+        self.assert_not_despawned();
         let world = &mut self.world;
         let storages = &mut world.storages;
         let components = &mut world.components;
@@ -1584,6 +1608,7 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`EntityCommands::remove`](crate::system::EntityCommands::remove) for more details.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+        self.assert_not_despawned();
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.register_info::<T>(components, storages);
@@ -1597,6 +1622,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Removes all components in the [`Bundle`] and remove all required components for each component in the bundle
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+        self.assert_not_despawned();
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundles = &mut self.world.bundles;
@@ -1614,6 +1640,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+        self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -1646,6 +1673,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.assert_not_despawned();
         let components = &mut self.world.components;
 
         let bundle_id = self
@@ -1662,6 +1690,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Removes all components associated with the entity.
     pub fn clear(&mut self) -> &mut Self {
+        self.assert_not_despawned();
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
 
@@ -1681,6 +1710,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
+        self.assert_not_despawned();
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
 
