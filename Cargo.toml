@@ -125,6 +125,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_window",
   "bevy_winit",
   "custom_cursor",
   "default_font",
@@ -217,6 +218,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_ui_picking_backend",
 ]
+
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -405,7 +409,7 @@ pbr_multi_layer_material_textures = [
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
-pbr_pcss = ["bevy_internal/pbr_pcss"]
+experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
@@ -2707,6 +2711,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
@@ -3791,7 +3806,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["pbr_pcss"]
+required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
