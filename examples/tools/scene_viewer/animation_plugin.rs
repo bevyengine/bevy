@@ -114,14 +114,14 @@ fn assign_clips(
 
         let Some(ancestor_player) = ancestor_player else {
             warn!(
-                "Unexpected animation hierarchy for animation clip {:?}; ignoring.",
+                "Unexpected animation hierarchy for animation clip {}; ignoring.",
                 clip_id
             );
             continue;
         };
 
         let Some(clip_handle) = assets.get_id_handle(clip_id) else {
-            warn!("Clip {:?} wasn't loaded.", clip_id);
+            warn!("Clip {} wasn't loaded.", clip_id);
             continue;
         };
 

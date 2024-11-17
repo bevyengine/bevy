@@ -21,9 +21,9 @@ impl Visit for StringRecorder {
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
         if field.name() == "message" {
             if !self.0.is_empty() {
-                self.0 = format!("{:?}\n{}", value, self.0)
+                self.0 = format!("{}\n{}", value, self.0)
             } else {
-                self.0 = format!("{:?}", value)
+                self.0 = format!("{}", value)
             }
         } else {
             if self.1 {
@@ -33,7 +33,7 @@ impl Visit for StringRecorder {
                 // first arg
                 self.1 = true;
             }
-            write!(self.0, "{} = {:?};", field.name(), value).unwrap();
+            write!(self.0, "{} = {};", field.name(), value).unwrap();
         }
     }
 }

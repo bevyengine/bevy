@@ -225,7 +225,7 @@ mod tests {
             ),
         ] {
             let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {}",
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
@@ -279,7 +279,7 @@ mod tests {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
                     let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
+                        "Case:\n  origin: {}\n  Direction: {:?}\n  Max: {}",
                         origin, direction, max,
                     );
                     assert!(test.intersects(&volume), "{}", case);
@@ -332,7 +332,7 @@ mod tests {
             ),
         ] {
             let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {}",
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
@@ -386,7 +386,7 @@ mod tests {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
                     let case = format!(
-                        "Case:\n  origin: {:?}\n  Direction: {:?}\n  Max: {}",
+                        "Case:\n  origin: {}\n  Direction: {:?}\n  Max: {}",
                         origin, direction, max,
                     );
                     assert!(test.intersects(&volume), "{}", case);
@@ -442,7 +442,7 @@ mod tests {
             ),
         ] {
             let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {}",
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);
@@ -509,7 +509,7 @@ mod tests {
             ),
         ] {
             let case = format!(
-                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {:?}",
+                "Case:\n  Test: {:?}\n  Volume: {:?}\n  Expected distance: {}",
                 test, volume, expected_distance
             );
             assert!(test.intersects(volume), "{}", case);

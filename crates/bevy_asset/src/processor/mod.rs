@@ -381,7 +381,7 @@ impl AssetProcessor {
         // Therefore, we shouldn't automatically delete the asset ... that is a
         // user-initiated action.
         debug!(
-            "Meta for asset {:?} was removed. Attempting to re-process",
+            "Meta for asset {} was removed. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
         self.process_asset(source, path).await;
@@ -389,7 +389,10 @@ impl AssetProcessor {
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
     async fn handle_removed_folder(&self, source: &AssetSource, path: &Path) {
-        debug!("Removing folder {:?} because source was removed", path);
+        debug!(
+            "Removing folder {} because source was removed",
+            path.display()
+        );
         let processed_reader = source.processed_reader().unwrap();
         match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
@@ -739,7 +742,7 @@ impl AssetProcessor {
     ) -> Result<ProcessResult, ProcessError> {
         // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
-        debug!("Processing {:?}", asset_path);
+        debug!("Processing {}", asset_path);
         let server = &self.server;
         let path = asset_path.path();
         let reader = source.reader();
@@ -1237,7 +1240,7 @@ impl ProcessorAssetInfos {
     ) {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
-                debug!("Finished processing \"{:?}\"", asset_path);
+                debug!("Finished processing \"{}\"", asset_path);
                 // clean up old dependents
                 let old_processed_info = self
                     .infos
@@ -1260,7 +1263,7 @@ impl ProcessorAssetInfos {
                 }
             }
             Ok(ProcessResult::SkippedNotChanged) => {
-                debug!("Skipping processing (unchanged) \"{:?}\"", asset_path);
+                debug!("Skipping processing (unchanged) \"{}\"", asset_path);
                 let info = self.get_mut(&asset_path).expect("info should exist");
                 // NOTE: skipping an asset on a given pass doesn't mean it won't change in the future as a result
                 // of a dependency being re-processed. This means apps might receive an "old" (but valid) asset first.
@@ -1271,7 +1274,7 @@ impl ProcessorAssetInfos {
                 info.update_status(ProcessStatus::Processed).await;
             }
             Ok(ProcessResult::Ignored) => {
-                debug!("Skipping processing (ignored) \"{:?}\"", asset_path);
+                debug!("Skipping processing (ignored) \"{}\"", asset_path);
             }
             Err(ProcessError::ExtensionRequired) => {
                 // Skip assets without extensions

@@ -177,7 +177,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -193,7 +193,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
                             entity
                         );
                     }

@@ -49,9 +49,9 @@ impl AssetWatcher for FileWatcher {}
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
     let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
         panic!(
-            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}",
-            absolute_path,
-            root
+            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={}, root={}",
+            absolute_path.display(),
+            root.display()
         )
     });
     let is_meta = relative_path

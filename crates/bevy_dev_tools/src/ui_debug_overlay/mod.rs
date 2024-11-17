@@ -221,7 +221,7 @@ fn outline_roots(
         {
             let Ok(camera) = cam.cameras.get(camera_entity) else {
                 // The camera wasn't found. Either the Camera don't exist or the Camera is the debug Camera, that we want to skip and warn
-                warn_once!("Camera {:?} wasn't found for debug overlay", camera_entity);
+                warn_once!("Camera {} wasn't found for debug overlay", camera_entity);
                 continue;
             };
             match camera.target {
