@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["http"]
 http = ["dep:hyper", "dep:http-body-util", "dep:async-io", "dep:smol-hyper"]
-websocket = [
+remote_websocket = [
   "http",
   "dep:tungstenite",
   "dep:hyper-tungstenite",

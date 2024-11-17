@@ -217,7 +217,7 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 bevy_remote = ["dep:bevy_remote"]
 
 # Enable WebSocket support for Bevy Remote Protocol
-remote_websocket = ["bevy_remote/websocket"]
+remote_websocket = ["bevy_remote/remote_websocket"]
 
 # Provides picking functionality
 bevy_picking = [

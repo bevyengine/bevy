@@ -253,7 +253,7 @@ async fn handle_client(
             service::service_fn(|request| process_http_request(request, &request_sender, &headers)),
         );
 
-    #[cfg(feature = "websocket")]
+    #[cfg(feature = "remote_websocket")]
     let builder = builder.with_upgrades();
 
     builder.await?;
@@ -266,7 +266,7 @@ async fn process_http_request(
     request_sender: &Sender<BrpMessage>,
     headers: &Headers,
 ) -> AnyhowResult<Response<BrpHttpBody>> {
-    #[cfg(feature = "websocket")]
+    #[cfg(feature = "remote_websocket")]
     if hyper_tungstenite::is_upgrade_request(&request) {
         let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
 
@@ -313,7 +313,7 @@ async fn process_http_request(
     Ok(response)
 }
 
-#[cfg(feature = "websocket")]
+#[cfg(feature = "remote_websocket")]
 async fn handle_websocket_connection(
     ws: hyper_tungstenite::HyperWebsocket,
     request_sender: Sender<BrpMessage>,
