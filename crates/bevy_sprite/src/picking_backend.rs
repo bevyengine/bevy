@@ -20,21 +20,23 @@ use bevy_window::PrimaryWindow;
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpriteBackendSettings {
-    /// When set to `true` picking will ignore any part of a sprite which has an alpha lower than the cutoff
-    /// Off by default for backwards compatibility. This setting is provided to give you fine-grained
-    /// control over if transparency on sprites is ignored.
-    pub alpha_passthrough: bool,
-    /// How Opaque does part of a sprite need to be in order count as none-transparent (defaults to 10)
-    ///
-    /// This is on a scale from 0 - 255 representing the alpha channel value you'd get in most art programs.
-    pub alpha_cutoff: u8,
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to AlphaThreshold(10))
+    pub alpha_passthrough: SpriteBackendAlphaPassthrough,
+}
+
+#[derive(Debug, Clone, Copy, Reflect)]
+pub enum SpriteBackendAlphaPassthrough {
+    /// Even if a sprite is picked on a transparent pixel, it should still count within the backend
+    NoPassthrough,
+    /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
+    /// Threshold is given as a single u8 value (0-255) representing the alpha channel that you would see in most art programs
+    Threshold(u8),
 }
 
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            alpha_passthrough: false,
-            alpha_cutoff: 10,
+            alpha_passthrough: SpriteBackendAlphaPassthrough::Threshold(10),
         }
     }
 }
@@ -157,8 +159,8 @@ pub fn sprite_picking(
 
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
-                let cursor_in_valid_pixels_of_sprite = is_cursor_in_sprite
-                    && (!settings.alpha_passthrough || {
+                let cursor_in_valid_pixels_of_sprite = match settings.alpha_passthrough {
+                    SpriteBackendAlphaPassthrough::Threshold(cutoff) if is_cursor_in_sprite => {
                         let texture: &Image = images.get(&sprite.image)?;
                         // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
                         let texture_rect = sprite
@@ -180,11 +182,14 @@ pub fn sprite_picking(
                         // check transparency
                         match texture.data.get(pixel_index * 4..(pixel_index * 4 + 4)) {
                             // If possible check the alpha bit is above cutoff
-                            Some(pixel_data) if pixel_data[3] > settings.alpha_cutoff => true,
+                            Some(pixel_data) if pixel_data[3] > cutoff => true,
                             // If not possible, it's not in the sprite
                             _ => false,
                         }
-                    });
+                    }
+                    SpriteBackendAlphaPassthrough::NoPassthrough => is_cursor_in_sprite,
+                    _ => false,
+                };
 
                 blocked = cursor_in_valid_pixels_of_sprite
                     && picking_behavior
