@@ -203,8 +203,8 @@ impl<'w> DeferredWorld<'w> {
     /// #   DeferredWorld::from(&mut world);
     ///
     /// let ids = vec![e1, e2, e3];
-    /// for mut eref in world.entity_mut(&ids[..]) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    /// for mut entity_ref in world.entity_mut(&ids[..]) {
+    ///     let mut pos = entity_ref.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }
@@ -228,8 +228,8 @@ impl<'w> DeferredWorld<'w> {
     /// #   DeferredWorld::from(&mut world);
     ///
     /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for (_id, mut eref) in world.entity_mut(&ids) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    /// for (_id, mut entity_ref) in world.entity_mut(&ids) {
+    ///     let mut pos = entity_ref.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }

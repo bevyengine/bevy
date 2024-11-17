@@ -347,5 +347,5 @@ all_tuples!(
     15,
     S,
     s,
-    ereader
+    event_reader
 );

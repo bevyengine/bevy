@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn query_filtered_exactsizeiterator_len() {
+    fn query_filtered_exact_size_iterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
                 return 0;
@@ -349,14 +349,14 @@ mod tests {
         world.spawn(A(3));
         world.spawn(A(4));
 
-        let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
-        let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
+        let mut a_without_b = world.query_filtered::<&A, Without<B>>();
+        let values: HashSet<[&A; 2]> = a_without_b.iter_combinations(&world).collect();
         check_combinations(
             values,
             HashSet::from([[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]),
         );
 
-        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 3]> = a_without_b.iter_combinations(&world).collect();
         check_combinations(values, HashSet::from([[&A(2), &A(3), &A(4)]]));
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
@@ -381,7 +381,7 @@ mod tests {
             c.0 += 1000;
         }
 
-        let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
+        let values: HashSet<[&A; 3]> = a_without_b.iter_combinations(&world).collect();
         check_combinations(values, HashSet::from([[&A(12), &A(103), &A(1004)]]));
 
         // Check if Added<T>, Changed<T> works
@@ -490,7 +490,7 @@ mod tests {
 
     #[test]
     #[should_panic = "&mut bevy_ecs::query::tests::A conflicts with a previous access in this query."]
-    fn self_conflicting_worldquery() {
+    fn self_conflicting_world_query() {
         #[derive(QueryData)]
         #[query_data(mutable)]
         struct SelfConflicting {
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn derived_worldqueries() {
+    fn derived_world_queries() {
         let mut world = World::new();
 
         world.spawn((A(10), B(18), C(3), Sparse(4)));
@@ -728,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    fn mut_to_immut_query_methods_have_immut_item() {
+    fn mut_to_immutable_query_methods_have_immutable_item() {
         #[derive(Component)]
         struct Foo;
 

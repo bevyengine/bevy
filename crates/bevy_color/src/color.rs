@@ -174,7 +174,7 @@ impl Color {
 
     #[deprecated = "Use Color::linear_rgba instead."]
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
-    pub const fn rbga_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+    pub const fn rgba_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::linear_rgba(red, green, blue, alpha)
     }
 

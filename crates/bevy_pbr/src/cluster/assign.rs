@@ -838,10 +838,10 @@ fn cluster_space_clusterable_object_aabb(
     // such, projecting the min and max xy at both the closer and further z and taking
     // the min and max of those projected points addresses this.
     let (
-        clusterable_object_aabb_view_xymin_near,
-        clusterable_object_aabb_view_xymin_far,
-        clusterable_object_aabb_view_xymax_near,
-        clusterable_object_aabb_view_xymax_far,
+        clusterable_object_aabb_view_xy_min_near,
+        clusterable_object_aabb_view_xy_min_far,
+        clusterable_object_aabb_view_xy_max_near,
+        clusterable_object_aabb_view_xy_max_far,
     ) = (
         clusterable_object_aabb_view_min,
         clusterable_object_aabb_view_min
@@ -853,36 +853,36 @@ fn cluster_space_clusterable_object_aabb(
         clusterable_object_aabb_view_max,
     );
     let (
-        clusterable_object_aabb_clip_xymin_near,
-        clusterable_object_aabb_clip_xymin_far,
-        clusterable_object_aabb_clip_xymax_near,
-        clusterable_object_aabb_clip_xymax_far,
+        clusterable_object_aabb_clip_xy_min_near,
+        clusterable_object_aabb_clip_xy_min_far,
+        clusterable_object_aabb_clip_xy_max_near,
+        clusterable_object_aabb_clip_xy_max_far,
     ) = (
-        clip_from_view * clusterable_object_aabb_view_xymin_near.extend(1.0),
-        clip_from_view * clusterable_object_aabb_view_xymin_far.extend(1.0),
-        clip_from_view * clusterable_object_aabb_view_xymax_near.extend(1.0),
-        clip_from_view * clusterable_object_aabb_view_xymax_far.extend(1.0),
+        clip_from_view * clusterable_object_aabb_view_xy_min_near.extend(1.0),
+        clip_from_view * clusterable_object_aabb_view_xy_min_far.extend(1.0),
+        clip_from_view * clusterable_object_aabb_view_xy_max_near.extend(1.0),
+        clip_from_view * clusterable_object_aabb_view_xy_max_far.extend(1.0),
     );
     let (
-        clusterable_object_aabb_ndc_xymin_near,
-        clusterable_object_aabb_ndc_xymin_far,
-        clusterable_object_aabb_ndc_xymax_near,
-        clusterable_object_aabb_ndc_xymax_far,
+        clusterable_object_aabb_ndc_xy_min_near,
+        clusterable_object_aabb_ndc_xy_min_far,
+        clusterable_object_aabb_ndc_xy_max_near,
+        clusterable_object_aabb_ndc_xy_max_far,
     ) = (
-        clusterable_object_aabb_clip_xymin_near.xyz() / clusterable_object_aabb_clip_xymin_near.w,
-        clusterable_object_aabb_clip_xymin_far.xyz() / clusterable_object_aabb_clip_xymin_far.w,
-        clusterable_object_aabb_clip_xymax_near.xyz() / clusterable_object_aabb_clip_xymax_near.w,
-        clusterable_object_aabb_clip_xymax_far.xyz() / clusterable_object_aabb_clip_xymax_far.w,
+        clusterable_object_aabb_clip_xy_min_near.xyz() / clusterable_object_aabb_clip_xy_min_near.w,
+        clusterable_object_aabb_clip_xy_min_far.xyz() / clusterable_object_aabb_clip_xy_min_far.w,
+        clusterable_object_aabb_clip_xy_max_near.xyz() / clusterable_object_aabb_clip_xy_max_near.w,
+        clusterable_object_aabb_clip_xy_max_far.xyz() / clusterable_object_aabb_clip_xy_max_far.w,
     );
     let (clusterable_object_aabb_ndc_min, clusterable_object_aabb_ndc_max) = (
-        clusterable_object_aabb_ndc_xymin_near
-            .min(clusterable_object_aabb_ndc_xymin_far)
-            .min(clusterable_object_aabb_ndc_xymax_near)
-            .min(clusterable_object_aabb_ndc_xymax_far),
-        clusterable_object_aabb_ndc_xymin_near
-            .max(clusterable_object_aabb_ndc_xymin_far)
-            .max(clusterable_object_aabb_ndc_xymax_near)
-            .max(clusterable_object_aabb_ndc_xymax_far),
+        clusterable_object_aabb_ndc_xy_min_near
+            .min(clusterable_object_aabb_ndc_xy_min_far)
+            .min(clusterable_object_aabb_ndc_xy_max_near)
+            .min(clusterable_object_aabb_ndc_xy_max_far),
+        clusterable_object_aabb_ndc_xy_min_near
+            .max(clusterable_object_aabb_ndc_xy_min_far)
+            .max(clusterable_object_aabb_ndc_xy_max_near)
+            .max(clusterable_object_aabb_ndc_xy_max_far),
     );
 
     // clamp to ndc coords without depth

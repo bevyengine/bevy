@@ -627,10 +627,10 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
+        let z_slices_of_ln_z_far_over_z_near = (z_slices - 1.0) / ops::ln(far / near);
         Vec2::new(
-            z_slices_of_ln_zfar_over_znear,
-            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
+            z_slices_of_ln_z_far_over_z_near,
+            ops::ln(near) * z_slices_of_ln_z_far_over_z_near,
         )
     }
 }

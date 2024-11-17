@@ -45,7 +45,7 @@ use std::path::{Path, PathBuf};
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
 ///
-/// [`AssetServer`] can be cloned. It is backed by an [`Arc`] so clones will share state. Clones can be freely used in parallel.
+/// [`AssetServer`] can be cloned. It is backed by an [`Arc`], so clones will share state. Clones can be freely used in parallel.
 ///
 /// [`AssetApp::init_asset`]: crate::AssetApp::init_asset
 /// [`AssetApp::init_asset_loader`]: crate::AssetApp::init_asset_loader
@@ -574,7 +574,7 @@ impl AssetServer {
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
             (*meta_transform)(&mut *meta);
         }
-        // downgrade the input handle so we don't keep the asset alive just because we're loading it
+        // downgrade the input handle so that we don't keep the asset alive just because we're loading it
         // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform
         input_handle = input_handle.map(|h| h.clone_weak());
 
@@ -584,7 +584,7 @@ impl AssetServer {
         //    2. The asset has not been loaded yet, meaning there is no existing Handle for it
         //    3. The path has a label, meaning the AssetLoader's root asset type is not the path's asset type
         //
-        // In the None case, the only course of action is to wait for the asset to load so we can allocate the
+        // In the None case, the only course of action is to wait for the asset to load so that we can allocate the
         // handle for that type.
         //
         // TODO: Note that in the None case, multiple asset loads for the same path can happen at the same time
@@ -1349,7 +1349,7 @@ impl AssetServer {
     /// or if the asset has not been queued up to be loaded.
     pub async fn wait_for_asset<A: Asset>(
         &self,
-        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // NOTE: We take a reference to a handle so that we know it will outlive the future,
         // which ensures the handle won't be dropped while waiting for the asset.
         handle: &Handle<A>,
     ) -> Result<(), WaitForAssetError> {
@@ -1365,7 +1365,7 @@ impl AssetServer {
     /// or if the asset has not been queued up to be loaded.
     pub async fn wait_for_asset_untyped(
         &self,
-        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // NOTE: We take a reference to a handle so that we know it will outlive the future,
         // which ensures the handle won't be dropped while waiting for the asset.
         handle: &UntypedHandle,
     ) -> Result<(), WaitForAssetError> {
@@ -1384,7 +1384,7 @@ impl AssetServer {
     /// asset from being dropped.
     /// If you have access to an asset's strong [`Handle`], you should prefer to call
     /// [`AssetServer::wait_for_asset`]
-    /// or [`wait_for_assest_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes
+    /// or [`wait_for_asset_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes
     /// loading.
     ///
     /// # Errors

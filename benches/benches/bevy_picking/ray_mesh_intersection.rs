@@ -2,7 +2,7 @@ use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
+fn p_to_xz_norm(p: u32, size: u32) -> (f32, f32) {
     let ij = (p / (size), p % (size));
     (ij.0 as f32 / size as f32, ij.1 as f32 / size as f32)
 }
@@ -17,7 +17,7 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
     let mut positions = Vec::new();
     let mut normals = Vec::new();
     for p in 0..vertices_per_side.pow(2) {
-        let xz = ptoxznorm(p, vertices_per_side);
+        let xz = p_to_xz_norm(p, vertices_per_side);
         positions.push([xz.0 - 0.5, 0.0, xz.1 - 0.5]);
         normals.push([0.0, 1.0, 0.0]);
     }

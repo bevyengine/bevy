@@ -44,7 +44,7 @@
  * Here you'll find instructions to get the shader up and running as fast as
  * possible.
  *
- * IMPORTANTE NOTICE: when updating, remember to update both this file and the
+ * IMPORTANT NOTICE: when updating, remember to update both this file and the
  * precomputed textures! They may change from version to version.
  *
  * The shader has three passes, chained together as follows:
@@ -64,7 +64,7 @@
  *                           |output|
  *
  * Note that each [pass] has its own vertex and pixel shader. Remember to use
- * oversized triangles instead of quads to avoid overshading along the
+ * oversized triangles instead of quads to avoid extra shading along the
  * diagonal.
  *
  * You've three edge detection methods to choose from: luma, color or depth.
@@ -80,7 +80,7 @@
  * - Color edge detection is usually the most expensive one but catches
  *   chroma-only edges.
  *
- * For quickstarters: just use luma edge detection.
+ * For quick-starters: just use luma edge detection.
  *
  * The general advice is to not rush the integration process and ensure each
  * step is done correctly (don't try to integrate SMAA T2x with predicated edge
@@ -410,7 +410,7 @@ const SMAA_CORNER_ROUNDING: u32 = 25u;
  *
  * Range: [0, 20]
  *
- * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16 
+ * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16
  * steps), but it can have a significant impact on older machines.
  *
  * Define SMAA_DISABLE_DIAG_DETECTION to disable diagonal processing.
@@ -444,7 +444,7 @@ const SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR: f32 = 2.0;
 const SMAA_AREATEX_MAX_DISTANCE: f32 = 16.0;
 const SMAA_AREATEX_MAX_DISTANCE_DIAG: f32 = 20.0;
 const SMAA_AREATEX_PIXEL_SIZE: vec2<f32> = (1.0 / vec2<f32>(160.0, 560.0));
-const SMAA_AREATEX_SUBTEX_SIZE: f32 = (1.0 / 7.0);
+const SMAA_AREATEX_SUBTEXTURE_SIZE: f32 = (1.0 / 7.0);
 const SMAA_SEARCHTEX_SIZE: vec2<f32> = vec2(66.0, 33.0);
 const SMAA_SEARCHTEX_PACKED_SIZE: vec2<f32> = vec2(64.0, 16.0);
 
@@ -684,7 +684,7 @@ fn search_diag_2(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32
     return coord.zw;
 }
 
-/** 
+/**
  * Similar to SMAAArea, this calculates the area corresponding to a certain
  * diagonal distance and crossing edges 'e'.
  */
@@ -698,7 +698,7 @@ fn area_diag(dist: vec2<f32>, e: vec2<f32>, offset: f32) -> vec2<f32> {
     tex_coord.x += 0.5;
 
     // Move to proper place, according to the subpixel offset:
-    tex_coord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
+    tex_coord.y += SMAA_AREATEX_SUBTEXTURE_SIZE * offset;
 
     // Do it!
     return textureSampleLevel(area_texture, edges_sampler, tex_coord, 0.0).rg;
@@ -790,7 +790,7 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
 
 /**
  * This allows to determine how much length should we add in the last step
- * of the searches. It takes the bilinearly interpolated edge (see 
+ * of the searches. It takes the bilinearly interpolated edge (see
  * @PSEUDO_GATHER4), and adds 0, 1 or 2, depending on which edges and
  * crossing edges are active.
  */
@@ -804,7 +804,7 @@ fn search_length(e: vec2<f32>, offset: f32) -> f32 {
     scale += vec2(-1.0,  1.0);
     bias  += vec2( 0.5, -0.5);
 
-    // Convert from pixel coordinates to texcoords:
+    // Convert from pixel coordinates to texture coordinates:
     // (We use SMAA_SEARCHTEX_PACKED_SIZE because the texture is cropped)
     scale *= 1.0 / SMAA_SEARCHTEX_PACKED_SIZE;
     bias *= 1.0 / SMAA_SEARCHTEX_PACKED_SIZE;
@@ -879,7 +879,7 @@ fn search_y_down(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     return -smaa_info.rt_metrics.y * offset + tex_coord.y;
 }
 
-/** 
+/**
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
@@ -891,7 +891,7 @@ fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
     tex_coord = SMAA_AREATEX_PIXEL_SIZE * tex_coord + 0.5 * SMAA_AREATEX_PIXEL_SIZE;
 
     // Move to proper place, according to the subpixel offset:
-    tex_coord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
+    tex_coord.y += SMAA_AREATEX_SUBTEXTURE_SIZE * offset;
 
     // Do it!
     return textureSample(area_texture, edges_sampler, tex_coord).rg;
@@ -966,7 +966,7 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
         // one of the boundaries is enough.
         weights = vec4(calculate_diag_weights(in.tex_coord, e, subsample_indices), weights.ba);
 
-        // We give priority to diagonals, so if we find a diagonal we skip 
+        // We give priority to diagonals, so if we find a diagonal we skip
         // horizontal/vertical processing.
         if (weights.r + weights.g != 0.0) {
             return weights;

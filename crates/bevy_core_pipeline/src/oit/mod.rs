@@ -31,7 +31,7 @@ use crate::core_3d::{
     Camera3d,
 };
 
-/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen.
+/// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
 /// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
@@ -39,7 +39,7 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(404252
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
-// TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
+// TODO consider supporting multiple OIT techniques like Weighted Blended and Moment Based
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
@@ -147,7 +147,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
 // WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
 // but when multiple cameras are present on the same window
-// bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
+// bevy reuses the same depth texture, so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
     p: Query<Entity, With<PrimaryWindow>>,
     cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
@@ -185,8 +185,8 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
 }
 
 /// Holds the buffers that contain the data of all OIT layers.
-/// We use one big buffer for the entire app. Each camaera will reuse it so it will
-/// always be the size of the biggest OIT enabled camera.
+/// We use one big buffer for the entire app. Each camera will reuse it,
+/// so it will always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
     /// The OIT layers containing depth and color for each fragments.
@@ -203,7 +203,7 @@ impl FromWorld for OitBuffers {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
 
-        // initialize buffers with something so there's a valid binding
+        // initialize buffers with something so that there's a valid binding
 
         let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
         layers.set_label(Some("oit_layers"));

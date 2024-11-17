@@ -330,8 +330,8 @@ impl From<LinearRgba> for wgpu_types::Color {
     }
 }
 
-// [`LinearRgba`] is intended to be used with shaders
-// So it's the only color type that implements [`ShaderType`] to make it easier to use inside shaders
+// [`LinearRgba`] is intended to be used with shaders, which is why it's the only color
+// type that implements [`ShaderType`] to make it easier to use inside shaders
 impl encase::ShaderType for LinearRgba {
     type ExtraMetadata = ();
 

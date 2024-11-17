@@ -869,8 +869,8 @@ mod test {
             // SAFETY: reflect_from_ptr was constructed for the correct type
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
-                bevy_reflect::ReflectMut::Struct(strukt) => {
-                    strukt.field_mut("a").unwrap().apply(&2.0f32);
+                bevy_reflect::ReflectMut::Struct(r#struct) => {
+                    r#struct.field_mut("a").unwrap().apply(&2.0f32);
                 }
                 _ => panic!("invalid reflection"),
             }
@@ -880,8 +880,8 @@ mod test {
             // SAFETY: reflect_from_ptr was constructed for the correct type
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
-                bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt
+                bevy_reflect::ReflectRef::Struct(r#struct) => {
+                    let a = r#struct
                         .field("a")
                         .unwrap()
                         .try_downcast_ref::<f32>()

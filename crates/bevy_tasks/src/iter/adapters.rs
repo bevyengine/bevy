@@ -190,7 +190,7 @@ where
 #[derive(Debug)]
 pub struct Cycle<P> {
     pub(crate) iter: P,
-    pub(crate) curr: Option<P>,
+    pub(crate) current: Option<P>,
 }
 
 impl<B, P> ParallelIterator<B> for Cycle<P>
@@ -199,11 +199,11 @@ where
     P: ParallelIterator<B> + Clone,
 {
     fn next_batch(&mut self) -> Option<B> {
-        self.curr
+        self.current
             .as_mut()
             .and_then(ParallelIterator::next_batch)
             .or_else(|| {
-                self.curr = Some(self.iter.clone());
+                self.current = Some(self.iter.clone());
                 self.next_batch()
             })
     }

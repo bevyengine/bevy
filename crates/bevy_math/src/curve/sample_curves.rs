@@ -285,7 +285,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparameterize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
@@ -343,7 +343,7 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparameterize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so

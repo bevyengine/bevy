@@ -372,7 +372,7 @@ mod test {
         );
     }
     #[test]
-    fn reparented_usecase() {
+    fn reparented_use_case() {
         let t1 = GlobalTransform::from(Transform {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
             rotation: Quat::from_euler(XYZ, 0.8, 1.9, 2.1),

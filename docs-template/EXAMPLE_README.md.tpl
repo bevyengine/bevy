@@ -65,24 +65,24 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-Example | Description
---- | ---
-[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
+|Example | Description|
+|--- | ---|
+|[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"|
 
 # Cross-Platform Examples
 {% for category, details in all_examples %}
 ## {{ category }}
 
 {% if details.description is string %}{{ details.description }}
-{% endif %}Example | Description
---- | ---
-{% for example in details.examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
+{% endif %}|Example | Description|
+|--- | ---|
+{% for example in details.examples %}|[{{ example.name }}](../{{ example.path }}) | {{ example.description }}|
 {% endfor %}{% endfor %}
 # Tests
 
-Example | Description
---- | ---
-[How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
+|Example | Description|
+|--- | ---|
+|[How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources|
 
 # Platform-Specific Examples
 
@@ -157,7 +157,7 @@ adb uninstall org.bevyengine.example
 
 In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
@@ -171,9 +171,9 @@ Then build it as the [Build & Run](#build--run) section stated above.
 
 You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
-Example | File | Description
---- | --- | ---
-`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+|Example | File | Description|
+|--- | --- | ---|
+|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
 
 ## iOS
 
@@ -215,9 +215,9 @@ open bevy_mobile_example.xcodeproj/
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
 
-Example | File | Description
---- | --- | ---
-`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+|Example | File | Description|
+|--- | --- | ---|
+|`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
 
 ## Wasm
 
@@ -303,7 +303,7 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
+| profile                          | wasm-opt | no wasm-opt |
 |----------------------------------|----------|-------------|
 |Default                           | 8.5M     | 13.0M       |
 |opt-level = "z"                   | 6.1M     | 12.7M       |

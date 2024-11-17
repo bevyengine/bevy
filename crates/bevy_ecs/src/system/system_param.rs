@@ -67,9 +67,9 @@ use super::Populated;
 /// Local<'s, u8>,
 /// #    commands:
 /// Commands<'w, 's>,
-/// #    eventreader:
+/// #    event_reader:
 /// EventReader<'w, 's, SomeEvent>,
-/// #    eventwriter:
+/// #    event_writer:
 /// EventWriter<'w, SomeEvent>
 /// # }
 /// ```
@@ -238,7 +238,7 @@ pub unsafe trait SystemParam: Sized {
     /// ensures that the queried data will be the same in both calls.
     ///
     /// This method has to be called directly before [`SystemParam::get_param`] with no other (relevant)
-    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// world mutations in-between. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
     /// # Safety

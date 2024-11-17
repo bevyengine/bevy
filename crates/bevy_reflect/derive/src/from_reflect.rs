@@ -42,7 +42,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
 /// Implements `FromReflect` for the given enum type
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
-    let fqoption = FQOption.into_token_stream();
+    let fq_option = FQOption.into_token_stream();
 
     let enum_path = reflect_enum.meta().type_path();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -57,11 +57,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let match_branches = if reflect_enum.meta().is_remote_wrapper() {
         quote! {
-            #(#variant_names => #fqoption::Some(Self(#variant_constructors)),)*
+            #(#variant_names => #fq_option::Some(Self(#variant_constructors)),)*
         }
     } else {
         quote! {
-            #(#variant_names => #fqoption::Some(#variant_constructors),)*
+            #(#variant_names => #fq_option::Some(#variant_constructors),)*
         }
     };
 
@@ -74,7 +74,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
-            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
+            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #fq_option<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
                     #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
                 {
@@ -83,7 +83,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 } else {
-                    #FQOption::None
+                    #fq_option::None
                 }
             }
         }
@@ -104,7 +104,7 @@ fn impl_struct_internal(
     reflect_struct: &ReflectStruct,
     is_tuple: bool,
 ) -> proc_macro2::TokenStream {
-    let fqoption = FQOption.into_token_stream();
+    let fq_option = FQOption.into_token_stream();
 
     let struct_path = reflect_struct.meta().type_path();
     let remote_ty = reflect_struct.meta().remote_ty();
@@ -126,7 +126,7 @@ fn impl_struct_internal(
     let __this = Ident::new("__this", Span::call_site());
 
     // The reflected type: either `Self` or a remote type
-    let (reflect_ty, constructor, retval) = if let Some(remote_ty) = remote_ty {
+    let (reflect_ty, constructor, return_value) = if let Some(remote_ty) = remote_ty {
         let constructor = match remote_ty.as_expr_path() {
             Ok(path) => path,
             Err(err) => return err.into_compile_error(),
@@ -146,12 +146,12 @@ fn impl_struct_internal(
         quote! {
             let mut #__this = <#reflect_ty as #FQDefault>::default();
             #(
-                if let #fqoption::Some(__field) = #active_values() {
+                if let #fq_option::Some(__field) = #active_values() {
                     // Iff field exists -> use its value
                     #__this.#active_members = __field;
                 }
             )*
-            #FQOption::Some(#retval)
+            #fq_option::Some(#return_value)
         }
     } else {
         let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
@@ -161,7 +161,7 @@ fn impl_struct_internal(
                 #(#active_members: #active_values()?,)*
                 #(#ignored_members: #ignored_values,)*
             };
-            #FQOption::Some(#retval)
+            #fq_option::Some(#return_value)
         }
     };
 
@@ -178,13 +178,13 @@ fn impl_struct_internal(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #fq_option<Self> {
                 if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
                     = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
                 {
                     #constructor
                 } else {
-                    #FQOption::None
+                    #fq_option::None
                 }
             }
         }

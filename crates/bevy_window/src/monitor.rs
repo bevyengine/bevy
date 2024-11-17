@@ -31,7 +31,7 @@ pub struct Monitor {
     pub physical_width: u32,
     /// The position of the monitor in physical pixels
     pub physical_position: IVec2,
-    /// The refresh rate of the monitor in millihertz
+    /// The refresh rate of the monitor in mHz
     pub refresh_rate_millihertz: Option<u32>,
     /// The scale factor of the monitor
     pub scale_factor: f64,

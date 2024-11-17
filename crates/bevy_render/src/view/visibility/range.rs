@@ -90,7 +90,7 @@ impl Plugin for VisibilityRangePlugin {
 /// You can also use this feature to replace multiple meshes with a single mesh
 /// when the camera is distant. This is the reason for the term "*hierarchical*
 /// level of detail". Reducing the number of meshes can be useful for reducing
-/// drawcall count. Note that you must place the [`VisibilityRange`] component
+/// draw call count. Note that you must place the [`VisibilityRange`] component
 /// on each entity you want to be part of a LOD group, as [`VisibilityRange`]
 /// isn't automatically propagated down to children.
 ///
@@ -118,7 +118,7 @@ pub struct VisibilityRange {
     /// smoothly fade into view as the camera zooms out.
     ///
     /// If the start and end of this range are identical, the transition will be
-    /// abrupt, with no crossfading.
+    /// abrupt, with no cross-fading.
     ///
     /// `start_margin.end` must be less than or equal to `end_margin.start`.
     pub start_margin: Range<f32>,
@@ -127,7 +127,7 @@ pub struct VisibilityRange {
     /// smoothly fade out of view as the camera zooms out.
     ///
     /// If the start and end of this range are identical, the transition will be
-    /// abrupt, with no crossfading.
+    /// abrupt, with no cross-fading.
     ///
     /// `end_margin.start` must be greater than or equal to `start_margin.end`.
     pub end_margin: Range<f32>,
@@ -164,7 +164,7 @@ impl VisibilityRange {
     }
 
     /// Returns true if both the start and end transitions for this range are
-    /// abrupt: that is, there is no crossfading.
+    /// abrupt: that is, there is no cross-fading.
     #[inline]
     pub fn is_abrupt(&self) -> bool {
         self.start_margin.start == self.start_margin.end

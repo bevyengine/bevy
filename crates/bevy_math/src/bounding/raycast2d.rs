@@ -52,20 +52,20 @@ impl RayCast2d {
         // Calculate the minimum/maximum time for each axis based on how much the direction goes that
         // way. These values can get arbitrarily large, or even become NaN, which is handled by the
         // min/max operations below
-        let tmin_x = (min_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmin_y = (min_y - self.ray.origin.y) * self.direction_recip.y;
-        let tmax_x = (max_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmax_y = (max_y - self.ray.origin.y) * self.direction_recip.y;
+        let t_min_x = (min_x - self.ray.origin.x) * self.direction_recip.x;
+        let t_min_y = (min_y - self.ray.origin.y) * self.direction_recip.y;
+        let t_max_x = (max_x - self.ray.origin.x) * self.direction_recip.x;
+        let t_max_y = (max_y - self.ray.origin.y) * self.direction_recip.y;
 
         // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
         // to min/max is NaN, the other argument is used.
         // An axis for which the direction is the wrong way will return an arbitrarily large
         // negative value.
-        let tmin = tmin_x.max(tmin_y).max(0.);
-        let tmax = tmax_y.min(tmax_x).min(self.max);
+        let t_min = t_min_x.max(t_min_y).max(0.);
+        let t_max = t_max_y.min(t_max_x).min(self.max);
 
-        if tmin <= tmax {
-            Some(tmin)
+        if t_min <= t_max {
+            Some(t_min)
         } else {
             None
         }

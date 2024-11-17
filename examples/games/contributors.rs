@@ -84,16 +84,16 @@ fn setup_contributor_selection(
     asset_server: Res<AssetServer>,
     mut rng: ResMut<SharedRng>,
 ) {
-    let contribs = contributors_or_fallback();
+    let contributors = contributors_or_fallback();
 
     let texture_handle = asset_server.load("branding/icon.png");
 
     let mut contributor_selection = ContributorSelection {
-        order: Vec::with_capacity(contribs.len()),
+        order: Vec::with_capacity(contributors.len()),
         idx: 0,
     };
 
-    for (name, num_commits) in contribs {
+    for (name, num_commits) in contributors {
         let transform = Transform::from_xyz(
             rng.gen_range(-400.0..400.0),
             rng.gen_range(0.0..400.0),
@@ -245,7 +245,7 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     }
 }
 
-/// Checks for collisions of contributor-birbs.
+/// Checks for collisions of contributor-birds.
 ///
 /// On collision with left-or-right wall it resets the horizontal
 /// velocity. On collision with the ground it applies an upwards
@@ -259,7 +259,7 @@ fn collisions(
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 
-    // The maximum height the birbs should try to reach is one birb below the top of the window.
+    // The maximum height the birds should try to reach is one bird below the top of the window.
     let max_bounce_height = (window_size.y - SPRITE_SIZE * 2.0).max(0.0);
     let min_bounce_height = max_bounce_height * 0.4;
 
@@ -268,14 +268,14 @@ fn collisions(
         if transform.translation.y < collision_area.min.y {
             transform.translation.y = collision_area.min.y;
 
-            // How high this birb will bounce.
+            // How high this bird will bounce.
             let bounce_height = rng.gen_range(min_bounce_height..=max_bounce_height);
 
-            // Apply the velocity that would bounce the birb up to bounce_height.
+            // Apply the velocity that would bounce the bird up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
         }
 
-        // Birbs might hit the ceiling if the window is resized.
+        // birds might hit the ceiling if the window is resized.
         // If they do, bounce them.
         if transform.translation.y > collision_area.max.y {
             transform.translation.y = collision_area.max.y;

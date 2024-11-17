@@ -88,7 +88,7 @@ use std::path::{Path, PathBuf};
 /// A [`ProcessorTransactionLog`] is produced, which uses "write-ahead logging" to make the [`AssetProcessor`] crash and failure resistant. If a failed/unfinished
 /// transaction from a previous run is detected, the affected asset(s) will be re-processed.
 ///
-/// [`AssetProcessor`] can be cloned. It is backed by an [`Arc`] so clones will share state. Clones can be freely used in parallel.
+/// [`AssetProcessor`] can be cloned. It is backed by an [`Arc`], so clones will share state. Clones can be freely used in parallel.
 #[derive(Resource, Clone)]
 pub struct AssetProcessor {
     server: AssetServer,
@@ -276,7 +276,7 @@ impl AssetProcessor {
             AssetSourceEvent::AddedFolder(path) => {
                 self.handle_added_folder(source, path).await;
             }
-            // NOTE: As a heads up for future devs: this event shouldn't be run in parallel with other events that might
+            // NOTE: As a heads up for future developers: this event shouldn't be run in parallel with other events that might
             // touch this folder (ex: the folder might be re-created with new assets). Clean up the old state first.
             // Currently this event handler is not parallel, but it could be (and likely should be) in the future.
             AssetSourceEvent::RemovedFolder(path) => {
@@ -698,7 +698,7 @@ impl AssetProcessor {
     async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
-            error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
+            error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe, so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
@@ -924,11 +924,11 @@ impl AssetProcessor {
         if let Err(err) = ProcessorTransactionLog::validate().await {
             let state_is_valid = match err {
                 ValidateLogError::ReadLogError(err) => {
-                    error!("Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}");
+                    error!("Failed to read processor log file. Processed assets cannot be validated, so they must be re-generated {err}");
                     false
                 }
                 ValidateLogError::UnrecoverableError => {
-                    error!("Encountered an unrecoverable error in the last run. Processed assets cannot be validated so they must be re-generated");
+                    error!("Encountered an unrecoverable error in the last run. Processed assets cannot be validated, so they must be re-generated.");
                     false
                 }
                 ValidateLogError::EntryErrors(entry_errors) => {

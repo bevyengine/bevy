@@ -86,7 +86,7 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
+/// An opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an

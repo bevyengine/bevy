@@ -78,7 +78,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let position_b = view.world_from_clip * clip_b;
     let world_distance = length(position_a.xyz - position_b.xyz);
 
-    // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
+    // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is off-screen.
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
     uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
@@ -87,15 +87,15 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let camera_b = view.view_from_clip * clip_b;
 
     // This differentiates between orthographic and perspective cameras.
-    // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
-    var depth_adaptment: f32;
+    // For orthographic cameras no depth adaption (depth_adaption = 1) is needed.
+    var depth_adaption: f32;
     if (clip_b.w == 1.0) {
-        depth_adaptment = 1.0;
+        depth_adaption = 1.0;
     }
     else {
-        depth_adaptment = -camera_b.z;
+        depth_adaption = -camera_b.z;
     }
-    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
+    uv = position.y * depth_adaption * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
@@ -127,7 +127,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
-    // Move a if a is behind the near plane and b is in front. 
+    // Move a if a is behind the near plane and b is in front.
     if a.z > a.w && b.z <= b.w {
         // Interpolate a towards b until it's at the near plane.
         let distance_a = a.z - a.w;
@@ -162,6 +162,6 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
 #else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
 #endif
-    
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

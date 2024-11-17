@@ -467,7 +467,7 @@ impl PipelineCache {
         self.pipelines.iter()
     }
 
-    /// Returns a iterator of the IDs of all currently waiting pipelines.
+    /// Returns an iterator of the IDs of all currently waiting pipelines.
     pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> + '_ {
         self.waiting_pipelines.iter().copied()
     }

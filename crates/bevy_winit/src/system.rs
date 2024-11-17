@@ -31,7 +31,7 @@ use crate::{
         convert_enabled_buttons, convert_resize_direction, convert_window_level,
         convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor,
+    get_best_video_mode, get_fitting_video_mode, select_monitor,
     state::react_to_resize,
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WinitWindows,
@@ -290,8 +290,8 @@ pub(crate) fn changed_windows(
                     ))))
                 }
                 mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
-                    let videomode = match mode {
-                        WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
+                    let video_mode = match mode {
+                        WindowMode::Fullscreen(monitor_selection) => get_best_video_mode(
                             &select_monitor(
                                 &monitors,
                                 winit_window.primary_monitor(),
@@ -302,7 +302,7 @@ pub(crate) fn changed_windows(
                                 panic!("Could not find monitor for {:?}", monitor_selection)
                             }),
                         ),
-                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
+                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_video_mode(
                             &select_monitor(
                                 &monitors,
                                 winit_window.primary_monitor(),
@@ -318,7 +318,7 @@ pub(crate) fn changed_windows(
                         _ => unreachable!(),
                     };
 
-                    Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
+                    Some(Some(winit::window::Fullscreen::Exclusive(video_mode)))
                 }
                 WindowMode::Windowed => Some(None),
             };

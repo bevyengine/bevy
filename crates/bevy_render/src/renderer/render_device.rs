@@ -211,7 +211,7 @@ impl RenderDevice {
     ///
     /// # Panics
     ///
-    /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
+    /// - An old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
     /// - Texture format requested is unsupported on the surface.
     pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
         surface.configure(&self.device, config);

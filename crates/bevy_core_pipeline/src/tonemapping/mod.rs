@@ -431,8 +431,10 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
     ]
 }
 
-// allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "So that it doesn't complain when the tonemapping_luts feature is disabled"
+)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let image_sampler = ImageSampler::Descriptor(bevy_image::ImageSamplerDescriptor {
         label: Some("Tonemapping LUT sampler".to_string()),

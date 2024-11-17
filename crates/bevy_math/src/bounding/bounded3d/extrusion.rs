@@ -206,7 +206,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
         let cap_normal = isometry.rotation * Vec3A::Z;
         let conjugate_rot = isometry.rotation.conjugate();
 
-        // The `(halfsize, offset)` for each axis
+        // The `(half_size, offset)` for each axis
         let axis_values = Vec3A::AXES.map(|ax| {
             // This is the direction of the line of intersection of a plane with the `ax` normal and the plane containing the cap of the extrusion.
             let intersect_line = ax.cross(cap_normal);
@@ -218,7 +218,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             let line_normal = (conjugate_rot * intersect_line).yx();
             let angle = line_normal.to_angle();
 
-            // Since the plane containing the caps of the extrusion is not guaranteed to be orthgonal to the `ax` plane, only a certain "scale" factor
+            // Since the plane containing the caps of the extrusion is not guaranteed to be orthogonal to the `ax` plane, only a certain "scale" factor
             // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
             let scale = cap_normal.reject_from(ax).length();
 

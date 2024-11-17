@@ -2,7 +2,7 @@
 //! decorations.
 //!
 //! When window decorations are not present, the user cannot drag a window by
-//! its titlebar to change its position. The `start_drag_move()` function
+//! its title bar to change its position. The `start_drag_move()` function
 //! permits a users to drag a window by left clicking anywhere in the window;
 //! left click must be pressed and other constraints can be imposed. For
 //! instance an application could require a user to hold down alt and left click

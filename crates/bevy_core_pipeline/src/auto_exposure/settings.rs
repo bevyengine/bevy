@@ -35,8 +35,8 @@ pub struct AutoExposure {
 
     /// The portion of the histogram to consider when metering.
     ///
-    /// By default, the darkest 10% and the brightest 10% of samples are ignored,
-    /// so the default value is `0.10..=0.90`.
+    /// By default, the darkest 10% and the brightest 10% of samples are ignored;
+    /// therefore, the default value is `0.10..=0.90`.
     pub filter: RangeInclusive<f32>,
 
     /// The speed at which the exposure adapts from dark to bright scenes, in F-stops per second.

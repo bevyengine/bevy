@@ -31,7 +31,7 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
         1.0,
     );
 
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
+    // Transforming the view space ray direction by the skybox transform matrix, it is
     // equivalent to rotating the skybox itself.
     var view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
     view_ray_direction = (uniforms.transform * vec4(view_ray_direction, 1.0)).xyz;
@@ -77,7 +77,7 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_direction = coords_to_ray_direction(in.position.xy, view.viewport);
 
-    // Cube maps are left-handed so we negate the z coordinate.
+    // Cube maps are left-handed, so we negate the z coordinate.
     let out = textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
     return vec4(out.rgb * uniforms.brightness, out.a);
 }

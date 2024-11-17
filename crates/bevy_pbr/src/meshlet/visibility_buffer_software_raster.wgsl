@@ -16,7 +16,7 @@
     mesh_functions::mesh_position_local_to_world,
     view_transformations::ndc_to_uv,
 }
-#import bevy_render::maths::affine3_to_square
+#import bevy_render::math::affine3_to_square
 
 /// Compute shader for rasterizing small clusters into a visibility buffer.
 

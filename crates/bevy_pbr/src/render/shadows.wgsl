@@ -11,7 +11,7 @@
 
 #import bevy_render::{
     color_operations::hsv_to_rgb,
-    maths::PI_2
+    math::PI_2
 }
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);

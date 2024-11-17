@@ -129,7 +129,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// ```no_run
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component)] struct Player;
-    /// # fn store_but_dont_use<T>(_: T) {}
+    /// # fn store_but_do_not_use<T>(_: T) {}
     /// # let mut world = World::new();
     /// // Make an UnsafeWorldCell.
     /// let world_cell = world.as_unsafe_world_cell();
@@ -139,7 +139,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// let world_mut = unsafe { world_cell.world_mut() };
     ///
     /// // We can still use `world_cell` so long as we don't access the world with it.
-    /// store_but_dont_use(world_cell);
+    /// store_but_do_not_use(world_cell);
     ///
     /// // !!This is unsound!! Even though this method is safe, we cannot call it until
     /// // `world_mut` is no longer active.
@@ -638,7 +638,7 @@ impl Debug for UnsafeWorldCell<'_> {
     }
 }
 
-/// A interior-mutable reference to a particular [`Entity`] and all of its components
+/// An interior-mutable reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct UnsafeEntityCell<'w> {
     world: UnsafeWorldCell<'w>,

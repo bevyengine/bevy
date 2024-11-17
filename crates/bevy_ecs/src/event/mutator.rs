@@ -111,7 +111,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// # Example
     ///
     /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventMutator::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// [`EventMutator::clear()`] is used so that the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

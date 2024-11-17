@@ -896,7 +896,7 @@ impl From<Rectangle> for Mesh {
 pub struct Capsule2dMeshBuilder {
     /// The [`Capsule2d`] shape.
     pub capsule: Capsule2d,
-    /// The number of vertices used for one hemicircle.
+    /// The number of vertices used for one semicircle.
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     ///
     /// The default is `16`.
@@ -914,7 +914,7 @@ impl Default for Capsule2dMeshBuilder {
 
 impl Capsule2dMeshBuilder {
     /// Creates a new [`Capsule2dMeshBuilder`] from a given radius, length, and the number of vertices
-    /// used for one hemicircle. The total number of vertices for the capsule mesh will be two times the resolution.
+    /// used for one semicircle. The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
     pub fn new(radius: f32, length: f32, resolution: u32) -> Self {
         Self {
@@ -923,7 +923,7 @@ impl Capsule2dMeshBuilder {
         }
     }
 
-    /// Sets the number of vertices used for one hemicircle.
+    /// Sets the number of vertices used for one semicircle.
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
     pub const fn resolution(mut self, resolution: u32) -> Self {
@@ -938,7 +938,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         let resolution = self.resolution;
         let vertex_count = 2 * resolution;
 
-        // Six extra indices for the two triangles between the hemicircles
+        // Six extra indices for the two triangles between the semicircles
         let mut indices = Vec::with_capacity((resolution as usize - 2) * 2 * 3 + 6);
         let mut positions = Vec::with_capacity(vertex_count as usize);
         let normals = vec![[0.0, 0.0, 1.0]; vertex_count as usize];
@@ -955,8 +955,8 @@ impl MeshBuilder for Capsule2dMeshBuilder {
             0.0
         };
 
-        // How much the hemicircle radius is of the total half-height of the capsule.
-        // This is used to prevent the UVs from stretching between the hemicircles.
+        // How much the semicircle radius is of the total half-height of the capsule.
+        // This is used to prevent the UVs from stretching between the semicircles.
         let radius_frac = self.capsule.radius / (self.capsule.half_length + self.capsule.radius);
 
         // Create top semicircle
@@ -975,7 +975,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
-        // Add indices for top left triangle of the part between the hemicircles
+        // Add indices for top left triangle of the part between the semicircles
         indices.extend_from_slice(&[0, resolution - 1, resolution]);
 
         // Create bottom semicircle
@@ -994,7 +994,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
             indices.extend_from_slice(&[resolution, resolution + i, resolution + i + 1]);
         }
 
-        // Add indices for bottom right triangle of the part between the hemicircles
+        // Add indices for bottom right triangle of the part between the semicircles
         indices.extend_from_slice(&[resolution, vertex_count - 1, 0]);
 
         Mesh::new(

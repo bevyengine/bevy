@@ -248,7 +248,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 }
 
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
-    build_meshlets(indices, vertices, 255, 128, 0.0) // Meshoptimizer won't currently let us do 256 vertices
+    build_meshlets(indices, vertices, 255, 128, 0.0) // meshoptimizer won't currently let us do 256 vertices
 }
 
 fn find_connected_meshlets(
@@ -311,29 +311,34 @@ fn group_meshlets(
     connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
     simplification_queue: &[usize],
 ) -> Vec<SmallVec<[usize; TARGET_MESHLETS_PER_GROUP]>> {
-    let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
-    let mut adjncy = Vec::new();
-    let mut adjwgt = Vec::new();
+    let mut adjacency_offsets = Vec::with_capacity(simplification_queue.len() + 1);
+    let mut adjacent_nodes = Vec::new();
+    let mut adjacency_weights = Vec::new();
     for connected_meshlets in connected_meshlets_per_meshlet {
-        xadj.push(adjncy.len() as i32);
+        adjacency_offsets.push(adjacent_nodes.len() as i32);
         for (connected_meshlet_queue_id, shared_vertex_count) in connected_meshlets {
-            adjncy.push(*connected_meshlet_queue_id as i32);
-            adjwgt.push(*shared_vertex_count as i32);
+            adjacent_nodes.push(*connected_meshlet_queue_id as i32);
+            adjacency_weights.push(*shared_vertex_count as i32);
             // TODO: Additional weight based on meshlet spatial proximity
         }
     }
-    xadj.push(adjncy.len() as i32);
+    adjacency_offsets.push(adjacent_nodes.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
     let partition_count = simplification_queue
         .len()
         .div_ceil(TARGET_MESHLETS_PER_GROUP); // TODO: Nanite uses groups of 8-32, probably based on some kind of heuristic
-    Graph::new(1, partition_count as i32, &xadj, &adjncy)
-        .unwrap()
-        .set_option(metis::option::Seed(17))
-        .set_adjwgt(&adjwgt)
-        .part_kway(&mut group_per_meshlet)
-        .unwrap();
+    Graph::new(
+        1,
+        partition_count as i32,
+        &adjacency_offsets,
+        &adjacent_nodes,
+    )
+    .unwrap()
+    .set_option(metis::option::Seed(17))
+    .set_adjwgt(&adjacency_weights)
+    .part_kway(&mut group_per_meshlet)
+    .unwrap();
 
     let mut groups = vec![SmallVec::new(); partition_count];
     for (meshlet_queue_id, meshlet_group) in group_per_meshlet.into_iter().enumerate() {

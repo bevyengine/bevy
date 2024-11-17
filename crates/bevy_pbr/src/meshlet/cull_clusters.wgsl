@@ -16,7 +16,7 @@
     constants,
     MeshletBoundingSphere,
 }
-#import bevy_render::maths::affine3_to_square
+#import bevy_render::math::affine3_to_square
 
 /// Culls individual clusters (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which clusters survived.
 /// 1. The first pass tests instance visibility, frustum culling, LOD selection, and finally occlusion culling using last frame's depth pyramid.

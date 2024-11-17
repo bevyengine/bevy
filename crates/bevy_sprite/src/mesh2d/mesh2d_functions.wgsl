@@ -4,7 +4,7 @@
     mesh2d_view_bindings::view,
     mesh2d_bindings::mesh,
 }
-#import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::math::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
     return affine3_to_square(mesh[instance_index].world_from_local);

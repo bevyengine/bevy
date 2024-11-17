@@ -102,7 +102,7 @@ fn cycle_scenes(
     mut scene_id: Local<usize>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
-        // depsawn current scene
+        // despawn current scene
         for e in &q {
             commands.entity(e).despawn_recursive();
         }

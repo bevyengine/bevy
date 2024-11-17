@@ -335,7 +335,7 @@ fn prepare_bloom_textures(
             y: height,
         }) = camera.physical_viewport_size
         {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
+            // How many times we can halve the resolution minus one so that we don't go unnecessarily low
             let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
             let mip_height_ratio = if height != 0 {
                 bloom.max_mip_dimension as f32 / height as f32

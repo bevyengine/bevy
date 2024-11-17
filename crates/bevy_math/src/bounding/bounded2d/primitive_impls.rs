@@ -47,7 +47,7 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
         let angle = extremum.to_angle().rem_euclid(TAU);
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
-        // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
+        // There's a chance that this condition fails due to rounding error, if the endpoint angle is just shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
         #[allow(clippy::nonminimal_bool)]
         if !inverted && angle >= right_angle && angle <= left_angle
@@ -409,7 +409,7 @@ impl Bounded2d for Capsule2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         let isometry = isometry.into();
 
-        // Get the line segment between the hemicircles of the rotated capsule
+        // Get the line segment between the semicircles of the rotated capsule
         let segment = Segment2d {
             // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
             direction: isometry.rotation * Dir2::Y,

@@ -24,7 +24,7 @@ struct CASUniforms {
 };
 
 @group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(1) var textureSampler: sampler;
 @group(0) @binding(2) var<uniform> uniforms: CASUniforms;
 
 // This is set at the limit of providing unnatural results for sharpening.
@@ -38,7 +38,7 @@ const peakC = vec2<f32>(10.0, -40.0);
 // RCAS is based on the following logic.
 // RCAS uses a 5 tap filter in a cross pattern (same as CAS),
 //    W                b
-//  W 1 W  for taps  d e f 
+//  W 1 W  for taps  d e f
 //    W                h
 // Where 'W' is the negative lobe weight.
 //  output = (W*(b+d+f+h)+e)/(4*W+1)
@@ -50,7 +50,7 @@ const peakC = vec2<f32>(10.0, -40.0);
 // So RCAS uses 4x the maximum and 4x the minimum (depending on equation)in place of the individual taps.
 // As well as switching from 'e' to either the minimum or maximum (depending on side), to help in energy conservation.
 // This stabilizes RCAS.
-// RCAS does a simple highpass which is normalized against the local contrast then shaped,
+// RCAS does a simple high-pass which is normalized against the local contrast then shaped,
 //       0.25
 //  0.25  -1  0.25
 //       0.25
@@ -62,12 +62,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //    b
     //  d e f
     //    h
-    let b = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, -1)).rgb;
-    let d = textureSample(screenTexture, samp, in.uv, vec2<i32>(-1, 0)).rgb;
+    let b = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(0, -1)).rgb;
+    let d = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(-1, 0)).rgb;
     // We need the alpha value of the pixel we're working on for the output
-    let e = textureSample(screenTexture, samp, in.uv).rgbw;
-    let f = textureSample(screenTexture, samp, in.uv, vec2<i32>(1, 0)).rgb;
-    let h = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, 1)).rgb;
+    let e = textureSample(screenTexture, textureSampler, in.uv).rgbw;
+    let f = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(1, 0)).rgb;
+    let h = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(0, 1)).rgb;
     // Min and max of ring.
     let mn4 = min(min(b, d), min(f, h));
     let mx4 = max(max(b, d), max(f, h));

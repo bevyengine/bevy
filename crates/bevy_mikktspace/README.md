@@ -6,7 +6,7 @@
 [![Docs](https://docs.rs/bevy_mikktspace/badge.svg)](https://docs.rs/bevy_mikktspace/latest/bevy_mikktspace/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
-This is a fork of [https://github.com/gltf-rs/mikktspace](https://github.com/gltf-rs/mikktspace), which in turn is a port of the Mikkelsen Tangent Space Algorithm reference implementation to Rust. It has been forked for use in the bevy game engine to be able to update maths crate dependencies in lock-step with bevy releases. It is vendored in the bevy repository itself as [crates/bevy_mikktspace](https://github.com/bevyengine/bevy/tree/main/crates/bevy_mikktspace).
+This is a fork of [https://github.com/gltf-rs/mikktspace](https://github.com/gltf-rs/mikktspace), which in turn is a port of the Mikkelsen Tangent Space Algorithm reference implementation to Rust. It has been forked for use in the bevy game engine to be able to update math crate dependencies in lock-step with bevy releases. It is vendored in the bevy repository itself as [crates/bevy_mikktspace](https://github.com/bevyengine/bevy/tree/main/crates/bevy_mikktspace).
 
 Port of the [Mikkelsen Tangent Space Algorithm](https://archive.blender.org/wiki/2015/index.php/Dev:Shading/Tangent_Space_Normal_Maps/) reference implementation.
 

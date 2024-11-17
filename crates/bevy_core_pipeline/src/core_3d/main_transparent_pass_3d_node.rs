@@ -79,7 +79,7 @@ impl ViewNode for MainTransparentPass3dNode {
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
-        // reset for the next render pass so add an empty render pass without a custom viewport
+        // reset for the next render pass, so add an empty render pass without a custom viewport
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]

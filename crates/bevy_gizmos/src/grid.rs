@@ -408,11 +408,11 @@ fn draw_grid<Config, Clear>(
         cell_count: u32,
         start: Vec3,
     ) -> impl Iterator<Item = [Vec3; 2]> {
-        let dline = delta_a * cell_count as f32;
+        let delta_line = delta_a * cell_count as f32;
         (0..line_count.x).map(|v| v as f32).flat_map(move |b| {
             (0..line_count.y).map(|v| v as f32).map(move |c| {
                 let line_start = start + b * delta_b + c * delta_c;
-                let line_end = line_start + dline;
+                let line_end = line_start + delta_line;
                 [line_start, line_end]
             })
         })

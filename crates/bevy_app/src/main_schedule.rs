@@ -414,7 +414,7 @@ pub enum RunFixedMainLoopSystem {
     /// [`Time<Virtual>`] and [`Time::overstep`].
     ///
     /// Don't place systems here, use [`FixedUpdate`] and friends instead.
-    /// Use this system instead to order your systems to run specifically inbetween the fixed update logic and all
+    /// Use this system instead to order your systems to run specifically in-between the fixed update logic and all
     /// other systems that run in [`RunFixedMainLoopSystem::BeforeFixedMainLoop`] or [`RunFixedMainLoopSystem::AfterFixedMainLoop`].
     ///
     /// [`Time<Virtual>`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Virtual.html

@@ -15,7 +15,7 @@
 @group(0) @binding(10) var mip_10: texture_storage_2d<r32float, write>;
 @group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
-@group(0) @binding(13) var samplr: sampler;
+@group(0) @binding(13) var textureSampler: sampler;
 struct Constants { max_mip_level: u32, view_width: u32 }
 var<push_constant> constants: Constants;
 

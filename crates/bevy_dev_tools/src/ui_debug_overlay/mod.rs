@@ -68,7 +68,7 @@ impl UiDebugOptions {
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfigStore>,
     mut options: ResMut<UiDebugOptions>,
-    mut cmds: Commands,
+    mut commands: Commands,
     mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
 ) {
     if !options.is_changed() && !gizmo_config.is_changed() {
@@ -87,23 +87,24 @@ fn update_debug_camera(
         }
     } else {
         let spawn_cam = || {
-            cmds.spawn((
-                Camera2d,
-                OrthographicProjection {
-                    far: 1000.0,
-                    viewport_origin: Vec2::new(0.0, 0.0),
-                    ..OrthographicProjection::default_3d()
-                },
-                Camera {
-                    order: LAYOUT_DEBUG_CAMERA_ORDER,
-                    clear_color: ClearColorConfig::None,
-                    ..default()
-                },
-                LAYOUT_DEBUG_LAYERS.clone(),
-                DebugOverlayCamera,
-                Name::new("Layout Debug Camera"),
-            ))
-            .id()
+            commands
+                .spawn((
+                    Camera2d,
+                    OrthographicProjection {
+                        far: 1000.0,
+                        viewport_origin: Vec2::new(0.0, 0.0),
+                        ..OrthographicProjection::default_3d()
+                    },
+                    Camera {
+                        order: LAYOUT_DEBUG_CAMERA_ORDER,
+                        clear_color: ClearColorConfig::None,
+                        ..default()
+                    },
+                    LAYOUT_DEBUG_LAYERS.clone(),
+                    DebugOverlayCamera,
+                    Name::new("Layout Debug Camera"),
+                ))
+                .id()
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
@@ -269,7 +270,7 @@ impl Plugin for DebugUiPlugin {
                     update_debug_camera,
                     outline_roots
                         .after(TransformSystem::TransformPropagate)
-                        // This needs to run before VisibilityPropagate so it can relies on ViewVisibility
+                        // This needs to run before VisibilityPropagate so that it can rely on ViewVisibility
                         .before(VisibilitySystems::VisibilityPropagate),
                 )
                     .chain(),

@@ -18,7 +18,7 @@
     mesh_types::Mesh,
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
 }
-#import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
+#import bevy_render::math::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS

@@ -111,7 +111,7 @@ where
 
     /// The unbatchable bins.
     ///
-    /// Each entity here is rendered in a separate drawcall.
+    /// Each entity here is rendered in a separate draw call.
     pub unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
     /// Items in the bin that aren't meshes at all.
@@ -885,7 +885,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 ///     buffers, to work around uniform buffer size limitations.
 ///
 /// * The *indirect parameters index*: an index into the buffer that specifies
-///     the indirect parameters for this [`PhaseItem`]'s drawcall. This is used when
+///     the indirect parameters for this [`PhaseItem`]'s draw call. This is used when
 ///     indirect mode is on (as used for GPU culling).
 ///
 /// Note that our indirect draw functionality requires storage buffers, so it's
@@ -939,7 +939,7 @@ impl PhaseItemExtraIndex {
         *self != Self::NONE && (self.0 & Self::INDIRECT_PARAMETER_INDEX) != 0
     }
 
-    /// Packs a indirect parameters index into this extra index.
+    /// Packs an indirect parameters index into this extra index.
     #[inline]
     pub fn indirect_parameters_index(indirect_parameter_index: u32) -> PhaseItemExtraIndex {
         // Make sure we didn't overflow.
@@ -1114,8 +1114,7 @@ where
 }
 
 impl BinnedRenderPhaseType {
-    /// Creates the appropriate [`BinnedRenderPhaseType`] for a mesh, given its
-    /// batchability.
+    /// Creates the appropriate [`BinnedRenderPhaseType`] for a mesh based on whether it can be batched.
     pub fn mesh(batchable: bool) -> BinnedRenderPhaseType {
         if batchable {
             BinnedRenderPhaseType::BatchableMesh

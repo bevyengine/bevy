@@ -69,19 +69,20 @@ impl CI {
             Some(command) => command.prepare(sh, flags),
             None => {
                 // Note that we are running the subcommands directly rather than using any aliases
-                let mut cmds = vec![];
-                cmds.append(&mut commands::FormatCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::CompileCheckNoStdCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
-                cmds
+                let mut commands = vec![];
+                commands.append(&mut commands::FormatCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::TestCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
+                commands
+                    .append(&mut commands::CompileCheckNoStdCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
+                commands.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
+                commands
             }
         }
     }

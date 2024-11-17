@@ -5,7 +5,7 @@
     utils::interleaved_gradient_noise,
     utils,
 }
-#import bevy_render::maths::{orthonormalize, PI}
+#import bevy_render::math::{orthonormalize, PI}
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -90,7 +90,7 @@ const D3D_SAMPLE_POINT_POSITIONS: array<vec2<f32>, 8> = array(
 // And these are the coefficients corresponding to the probability distribution
 // function of a 2D Gaussian lobe with zero mean and the identity covariance
 // matrix at those points.
-const D3D_SAMPLE_POINT_COEFFS: array<f32, 8> = array(
+const D3D_SAMPLE_POINT_COEFFICIENTS: array<f32, 8> = array(
     0.157112,
     0.157112,
     0.138651,
@@ -374,7 +374,7 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
 
 fn sample_shadow_cubemap_at_offset(
     position: vec2<f32>,
-    coeff: f32,
+    coefficient: f32,
     x_basis: vec3<f32>,
     y_basis: vec3<f32>,
     light_local: vec3<f32>,
@@ -385,7 +385,7 @@ fn sample_shadow_cubemap_at_offset(
         light_local + position.x * x_basis + position.y * y_basis,
         depth,
         light_id
-    ) * coeff;
+    ) * coefficient;
 }
 
 // Computes the search position and performs one sample of the blocker search.
@@ -430,28 +430,28 @@ fn sample_shadow_cubemap_gaussian(
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[0], D3D_SAMPLE_POINT_COEFFS[0],
+        D3D_SAMPLE_POINT_POSITIONS[0], D3D_SAMPLE_POINT_COEFFICIENTS[0],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[1], D3D_SAMPLE_POINT_COEFFS[1],
+        D3D_SAMPLE_POINT_POSITIONS[1], D3D_SAMPLE_POINT_COEFFICIENTS[1],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[2], D3D_SAMPLE_POINT_COEFFS[2],
+        D3D_SAMPLE_POINT_POSITIONS[2], D3D_SAMPLE_POINT_COEFFICIENTS[2],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[3], D3D_SAMPLE_POINT_COEFFS[3],
+        D3D_SAMPLE_POINT_POSITIONS[3], D3D_SAMPLE_POINT_COEFFICIENTS[3],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[4], D3D_SAMPLE_POINT_COEFFS[4],
+        D3D_SAMPLE_POINT_POSITIONS[4], D3D_SAMPLE_POINT_COEFFICIENTS[4],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[5], D3D_SAMPLE_POINT_COEFFS[5],
+        D3D_SAMPLE_POINT_POSITIONS[5], D3D_SAMPLE_POINT_COEFFICIENTS[5],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[6], D3D_SAMPLE_POINT_COEFFS[6],
+        D3D_SAMPLE_POINT_POSITIONS[6], D3D_SAMPLE_POINT_COEFFICIENTS[6],
         basis[0], basis[1], light_local, depth, light_id);
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[7], D3D_SAMPLE_POINT_COEFFS[7],
+        D3D_SAMPLE_POINT_POSITIONS[7], D3D_SAMPLE_POINT_COEFFICIENTS[7],
         basis[0], basis[1], light_local, depth, light_id);
     return sum;
 }

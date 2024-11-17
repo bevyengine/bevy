@@ -17,14 +17,14 @@
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{globals, lights, view, clusterable_objects}
 #import bevy_pbr::mesh_view_types::{
-    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT, 
-    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT, 
+    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
+    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     ClusterableObject
 }
 #import bevy_pbr::shadow_sampling::{
-    sample_shadow_map_hardware, 
+    sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
@@ -338,8 +338,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let V = Rd_world;
             let L = normalize(light_to_frag);
             let distance_square = dot(light_to_frag, light_to_frag);
-            let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
-            var local_light_attenuation = distance_atten;
+            let distance_attenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
+            var local_light_attenuation = distance_attenuation;
             if (i < spot_light_start_index) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -369,7 +369,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
-            
+
             // Calculate absorption (amount of light absorbed by the fog) and
             // out-scattering (amount of light the fog scattered away).
             let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));

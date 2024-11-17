@@ -75,13 +75,13 @@ fn apply_armor_to_damage(
 // as long as the types (T) are different.
 fn apply_damage_to_health(
     mut dmg_events: EventReader<DealDamage>,
-    mut rcvd_events: EventWriter<DamageReceived>,
+    mut received_events: EventWriter<DamageReceived>,
 ) {
     for event in dmg_events.read() {
         info!("Applying {} damage", event.amount);
         if event.amount > 0 {
             // Events with a 'Default' implementation can be sent with 'send_default'
-            rcvd_events.send_default();
+            received_events.send_default();
         }
     }
 }

@@ -288,7 +288,7 @@ impl BlobVec {
         //   so adding a multiple of `size` will preserve alignment.
         // - The removed element lives as long as this vector's mutable reference.
         let p = unsafe { self.get_ptr_mut().byte_add(new_len * size) };
-        // SAFETY: The removed element is unreachable by this vector so it's safe to promote the
+        // SAFETY: The removed element is unreachable by this vector, so it's safe to promote the
         // `PtrMut` to an `OwningPtr`.
         unsafe { p.promote() }
     }
@@ -382,7 +382,7 @@ impl BlobVec {
                 // * `size` is a multiple of the erased type's alignment,
                 //   so adding a multiple of `size` will preserve alignment.
                 // * The item lives until it's dropped.
-                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                // * The item is left unreachable, so it can be safely promoted to an `OwningPtr`.
                 // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
                 // would panic due to `self.len` being set to 0.
                 let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };

@@ -191,11 +191,11 @@ mod test {
             }),
         );
         assert!(matches!(
-            ParsedPath::parse_static("y[badindex]"),
+            ParsedPath::parse_static("y[bad_index]"),
             Err(ReflectPathError::ParseError {
                 error: ParseError(Error::InvalidIndex(_)),
                 offset: 2,
-                path: "y[badindex]",
+                path: "y[bad_index]",
             }),
         ));
     }

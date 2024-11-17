@@ -350,7 +350,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
         }
 
         // This would ordinarily be the last segment, but we pick it out so that we can make it first
-        // in order to get a desirable parametrization where the first segment connects the first two
+        // in order to get a desirable parameterization where the first segment connects the first two
         // control points instead of the second and third.
         let first_segment = {
             // We take the indices mod `len` in case `len` is very small.
@@ -482,7 +482,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
             .map(|(&a, &b, &c, &d)| CubicSegment::coefficients([a, b, c, d], self.char_matrix()))
             .collect_vec();
 
-        // Note that the parametrization is consistent with the one for `to_curve` but with
+        // Note that the parameterization is consistent with the one for `to_curve` but with
         // the extra curve segments all tacked on at the end. This might be slightly counter-intuitive,
         // since it means the first segment doesn't go "between" the first two control points, but
         // between the second and third instead.
@@ -828,7 +828,7 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
                 let a = points[0];
                 let b = points[1];
                 CubicSegment {
-                    coeff: [a, b - a, P::default(), P::default()],
+                    coefficients: [a, b - a, P::default(), P::default()],
                 }
             })
             .collect_vec();
@@ -853,7 +853,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
             .iter()
             .circular_tuple_windows()
             .map(|(&a, &b)| CubicSegment {
-                coeff: [a, b - a, P::default(), P::default()],
+                coefficients: [a, b - a, P::default(), P::default()],
             })
             .collect_vec();
 
@@ -908,14 +908,14 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
-    pub coeff: [P; 4],
+    pub coefficients: [P; 4],
 }
 
 impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
-        let [a, b, c, d] = self.coeff;
+        let [a, b, c, d] = self.coefficients;
         // Evaluate `a + bt + ct^2 + dt^3`, avoiding exponentiation
         a + (b + (c + d * t) * t) * t
     }
@@ -923,7 +923,7 @@ impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous velocity of a point at parametric value `t`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
-        let [_, b, c, d] = self.coeff;
+        let [_, b, c, d] = self.coefficients;
         // Evaluate the derivative, which is `b + 2ct + 3dt^2`, avoiding exponentiation
         b + (c * 2.0 + d * 3.0 * t) * t
     }
@@ -931,7 +931,7 @@ impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous acceleration of a point at parametric value `t`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
-        let [_, _, c, d] = self.coeff;
+        let [_, _, c, d] = self.coefficients;
         // Evaluate the second derivative, which is `2c + 6dt`
         c * 2.0 + d * 6.0 * t
     }
@@ -942,13 +942,13 @@ impl<P: VectorSpace> CubicSegment<P> {
         let [c0, c1, c2, c3] = char_matrix;
         // These are the polynomial coefficients, computed by multiplying the characteristic
         // matrix by the point matrix.
-        let coeff = [
+        let coefficients = [
             p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
             p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
             p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
             p[0] * c3[0] + p[1] * c3[1] + p[2] * c3[2] + p[3] * c3[3],
         ];
-        Self { coeff }
+        Self { coefficients }
     }
 }
 
@@ -1003,7 +1003,7 @@ impl CubicSegment<Vec2> {
     /// y
     /// │         ●
     /// │       ⬈
-    /// │     ⬈    
+    /// │     ⬈
     /// │   ⬈
     /// │ ⬈
     /// ●─────────── x (time)
@@ -1017,8 +1017,8 @@ impl CubicSegment<Vec2> {
     /// ```text
     /// y
     ///          ⬈➔●
-    /// │      ⬈   
-    /// │     ↑      
+    /// │      ⬈
+    /// │     ↑
     /// │     ↑
     /// │    ⬈
     /// ●➔⬈───────── x (time)
@@ -1251,9 +1251,9 @@ pub trait RationalGenerator<P: VectorSpace> {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
-    pub coeff: [P; 4],
+    pub coefficients: [P; 4],
     /// The homogeneous weight coefficients.
-    pub weight_coeff: [f32; 4],
+    pub weight_coefficients: [f32; 4],
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
@@ -1262,8 +1262,8 @@ impl<P: VectorSpace> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
-        let [a, b, c, d] = self.coeff;
-        let [x, y, z, w] = self.weight_coeff;
+        let [a, b, c, d] = self.coefficients;
+        let [x, y, z, w] = self.weight_coefficients;
         // Compute a cubic polynomial for the control points
         let numerator = a + (b + (c + d * t) * t) * t;
         // Compute a cubic polynomial for the weights
@@ -1277,8 +1277,8 @@ impl<P: VectorSpace> RationalSegment<P> {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
         // curves and surfaces" by Choi et al. See equation 19.
 
-        let [a, b, c, d] = self.coeff;
-        let [x, y, z, w] = self.weight_coeff;
+        let [a, b, c, d] = self.coefficients;
+        let [x, y, z, w] = self.weight_coefficients;
         // Compute a cubic polynomial for the control points
         let numerator = a + (b + (c + d * t) * t) * t;
         // Compute a cubic polynomial for the weights
@@ -1305,8 +1305,8 @@ impl<P: VectorSpace> RationalSegment<P> {
         // + The first term has incorrect sign.
         // + The second term uses R when it should use the first derivative.
 
-        let [a, b, c, d] = self.coeff;
-        let [x, y, z, w] = self.weight_coeff;
+        let [a, b, c, d] = self.coefficients;
+        let [x, y, z, w] = self.weight_coefficients;
         // Compute a cubic polynomial for the control points
         let numerator = a + (b + (c + d * t) * t) * t;
         // Compute a cubic polynomial for the weights
@@ -1349,7 +1349,7 @@ impl<P: VectorSpace> RationalSegment<P> {
         let w = weights;
         // These are the control point polynomial coefficients, computed by multiplying the characteristic
         // matrix by the point matrix.
-        let coeff = [
+        let coefficients = [
             p[0] * c0[0] + p[1] * c0[1] + p[2] * c0[2] + p[3] * c0[3],
             p[0] * c1[0] + p[1] * c1[1] + p[2] * c1[2] + p[3] * c1[3],
             p[0] * c2[0] + p[1] * c2[1] + p[2] * c2[2] + p[3] * c2[3],
@@ -1357,15 +1357,15 @@ impl<P: VectorSpace> RationalSegment<P> {
         ];
         // These are the weight polynomial coefficients, computed by multiplying the characteristic
         // matrix by the weight matrix.
-        let weight_coeff = [
+        let weight_coefficients = [
             w[0] * c0[0] + w[1] * c0[1] + w[2] * c0[2] + w[3] * c0[3],
             w[0] * c1[0] + w[1] * c1[1] + w[2] * c1[2] + w[3] * c1[3],
             w[0] * c2[0] + w[1] * c2[1] + w[2] * c2[2] + w[3] * c2[3],
             w[0] * c3[0] + w[1] * c3[1] + w[2] * c3[2] + w[3] * c3[3],
         ];
         Self {
-            coeff,
-            weight_coeff,
+            coefficients,
+            weight_coefficients,
             knot_span,
         }
     }
@@ -1562,8 +1562,8 @@ impl<P: VectorSpace> IntoIterator for RationalCurve<P> {
 impl<P: VectorSpace> From<CubicSegment<P>> for RationalSegment<P> {
     fn from(value: CubicSegment<P>) -> Self {
         Self {
-            coeff: value.coeff,
-            weight_coeff: [1.0, 0.0, 0.0, 0.0],
+            coefficients: value.coefficients,
+            weight_coefficients: [1.0, 0.0, 0.0, 0.0],
             knot_span: 1.0, // Cubic curves are uniform, so every segment has domain [0, 1).
         }
     }

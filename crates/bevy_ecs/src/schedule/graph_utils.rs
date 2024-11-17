@@ -149,16 +149,16 @@ where
 
     let n = graph.node_count();
 
-    // build a copy of the graph where the nodes and edges appear in topsorted order
+    // build a copy of the graph where the nodes and edges appear in topologically-sorted order
     let mut map = HashMap::with_capacity(n);
-    let mut topsorted = DiGraphMap::<V, ()>::new();
+    let mut topologically_sorted = DiGraphMap::<V, ()>::new();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
-        topsorted.add_node(node);
+        topologically_sorted.add_node(node);
         // insert nodes as successors to their predecessors
         for pred in graph.neighbors_directed(node, Incoming) {
-            topsorted.add_edge(pred, node, ());
+            topologically_sorted.add_edge(pred, node, ());
         }
     }
 
@@ -173,16 +173,16 @@ where
     let mut visited = FixedBitSet::with_capacity(n);
 
     // iterate nodes in topological order
-    for node in topsorted.nodes() {
+    for node in topologically_sorted.nodes() {
         transitive_reduction.add_node(node);
         transitive_closure.add_node(node);
     }
 
     // iterate nodes in reverse topological order
-    for a in topsorted.nodes().rev() {
+    for a in topologically_sorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Outgoing) {
+        for b in topologically_sorted.neighbors_directed(a, Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
@@ -214,7 +214,7 @@ where
 
     // partition pairs of nodes into "connected by path" and "not connected by path"
     for i in 0..(n - 1) {
-        // reachable is upper triangular because the nodes were topsorted
+        // reachable is upper triangular because the nodes were topologically sorted
         for index in index(i, i + 1, n)..=index(i, n - 1, n) {
             let (a, b) = row_col(index, n);
             let pair = (topological_order[a], topological_order[b]);

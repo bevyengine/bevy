@@ -522,7 +522,7 @@ pub(crate) fn clusterable_object_order(
     b: ClusterableObjectOrderData,
 ) -> core::cmp::Ordering {
     a.is_spot_light
-        .cmp(b.is_spot_light) // pointlights before spot lights
+        .cmp(b.is_spot_light) // point lights before spot lights
         .then_with(|| b.shadows_enabled.cmp(a.shadows_enabled)) // shadow casters before non-casters
         .then_with(|| b.is_volumetric_light.cmp(a.is_volumetric_light)) // volumetric lights before non-volumetric lights
         .then_with(|| a.entity.cmp(b.entity)) // stable

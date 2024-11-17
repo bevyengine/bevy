@@ -671,8 +671,8 @@ impl World {
     /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
     ///
     /// let ids = vec![e1, e2, e3];
-    /// for eref in world.entity(&ids[..]) {
-    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
+    /// for entity_reference in world.entity(&ids[..]) {
+    ///     assert_eq!(entity_reference.get::<Position>().unwrap().y, 1.0);
     /// }
     /// ```
     ///
@@ -692,8 +692,8 @@ impl World {
     /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
     ///
     /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for (_id, eref) in world.entity(&ids) {
-    ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
+    /// for (_id, entity_reference) in world.entity(&ids) {
+    ///     assert_eq!(entity_reference.get::<Position>().unwrap().y, 1.0);
     /// }
     /// ```
     #[inline]
@@ -798,8 +798,8 @@ impl World {
     /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
     ///
     /// let ids = vec![e1, e2, e3];
-    /// for mut eref in world.entity_mut(&ids[..]) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    /// for mut entity_reference in world.entity_mut(&ids[..]) {
+    ///     let mut pos = entity_reference.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }
@@ -821,8 +821,8 @@ impl World {
     /// let e3 = world.spawn(Position { x: 0.0, y: 1.0 }).id();
     ///
     /// let ids = EntityHashSet::from_iter([e1, e2, e3]);
-    /// for (_id, mut eref) in world.entity_mut(&ids) {
-    ///     let mut pos = eref.get_mut::<Position>().unwrap();
+    /// for (_id, mut entity_reference) in world.entity_mut(&ids) {
+    ///     let mut pos = entity_reference.get_mut::<Position>().unwrap();
     ///     pos.y = 2.0;
     ///     assert_eq!(pos.y, 2.0);
     /// }
@@ -1351,7 +1351,7 @@ impl World {
     ///             position: Position { x: 2.0, y: 2.0 },
     ///             velocity: Velocity { x: 0.0, y: 4.0 },
     ///         },
-    ///         Name("Elaina Proctor"),
+    ///         Name("Example Name"),
     ///     ))
     ///     // Calling id() will return the unique identifier for the spawned entity
     ///     .id();
@@ -3717,7 +3717,7 @@ impl World {
         &mut self,
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
-        self.try_schedule_scope(label, |world, sched| sched.run(world))
+        self.try_schedule_scope(label, |world, scheduled| scheduled.run(world))
     }
 
     /// Runs the [`Schedule`] associated with the `label` a single time.
@@ -3731,7 +3731,7 @@ impl World {
     ///
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.schedule_scope(label, |world, sched| sched.run(world));
+        self.schedule_scope(label, |world, scheduled| scheduled.run(world));
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.

@@ -1114,7 +1114,7 @@ mod tests {
                 ),
             ];
 
-            // ordering isn't stable so do this
+            // ordering isn't stable, so do this
             for entry in expected {
                 assert!(ambiguities.contains(entry));
             }

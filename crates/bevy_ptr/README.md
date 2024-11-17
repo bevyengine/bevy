@@ -9,7 +9,7 @@
 Pointers in computer programming are objects that store a memory address. They're a fundamental building block for constructing more
 complex data structures.
 
-They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying
+They're also *the* definitive source of memory safety bugs: you can dereference an invalid (null) pointer, access a pointer after the underlying
 memory has been freed, and even ignore type safety and misread or mutate the underlying memory improperly.
 
 Rust is a programming language that heavily relies on its types to enforce correctness, and by proxy, memory safety. As a result,

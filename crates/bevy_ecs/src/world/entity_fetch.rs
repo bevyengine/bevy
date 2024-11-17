@@ -20,7 +20,7 @@ use crate::{
 ///
 /// # Performance
 ///
-/// - The slice and array implementations perform an aliased mutabiltiy check
+/// - The slice and array implementations perform an aliased mutability check
 ///   in [`WorldEntityFetch::fetch_mut`] that is `O(N^2)`.
 /// - The [`EntityHashSet`] implementation performs no such check as the type
 ///   itself guarantees no duplicates.
@@ -111,9 +111,9 @@ unsafe impl WorldEntityFetch for Entity {
     type DeferredMut<'w> = EntityMut<'w>;
 
     unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity> {
-        let ecell = cell.get_entity(self).ok_or(self)?;
+        let entity_cell = cell.get_entity(self).ok_or(self)?;
         // SAFETY: caller ensures that the world cell has read-only access to the entity.
-        Ok(unsafe { EntityRef::new(ecell) })
+        Ok(unsafe { EntityRef::new(entity_cell) })
     }
 
     unsafe fn fetch_mut(
@@ -134,11 +134,11 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityFetchError> {
-        let ecell = cell
+        let entity_cell = cell
             .get_entity(self)
             .ok_or(EntityFetchError::NoSuchEntity(self))?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
-        Ok(unsafe { EntityMut::new(ecell) })
+        Ok(unsafe { EntityMut::new(entity_cell) })
     }
 }
 
@@ -182,9 +182,9 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity> {
         let mut refs = [MaybeUninit::uninit(); N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
-            let ecell = cell.get_entity(id).ok_or(id)?;
+            let entity_cell = cell.get_entity(id).ok_or(id)?;
             // SAFETY: caller ensures that the world cell has read-only access to the entity.
-            *r = MaybeUninit::new(unsafe { EntityRef::new(ecell) });
+            *r = MaybeUninit::new(unsafe { EntityRef::new(entity_cell) });
         }
 
         // SAFETY: Each item was initialized in the loop above.
@@ -208,11 +208,11 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
 
         let mut refs = [const { MaybeUninit::uninit() }; N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
-            let ecell = cell
+            let entity_cell = cell
                 .get_entity(id)
                 .ok_or(EntityFetchError::NoSuchEntity(id))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
-            *r = MaybeUninit::new(unsafe { EntityMut::new(ecell) });
+            *r = MaybeUninit::new(unsafe { EntityMut::new(entity_cell) });
         }
 
         // SAFETY: Each item was initialized in the loop above.
@@ -243,9 +243,9 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity> {
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
-            let ecell = cell.get_entity(id).ok_or(id)?;
+            let entity_cell = cell.get_entity(id).ok_or(id)?;
             // SAFETY: caller ensures that the world cell has read-only access to the entity.
-            refs.push(unsafe { EntityRef::new(ecell) });
+            refs.push(unsafe { EntityRef::new(entity_cell) });
         }
 
         Ok(refs)
@@ -266,11 +266,11 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
 
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
-            let ecell = cell
+            let entity_cell = cell
                 .get_entity(id)
                 .ok_or(EntityFetchError::NoSuchEntity(id))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
-            refs.push(unsafe { EntityMut::new(ecell) });
+            refs.push(unsafe { EntityMut::new(entity_cell) });
         }
 
         Ok(refs)
@@ -298,9 +298,9 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity> {
         let mut refs = EntityHashMap::with_capacity_and_hasher(self.len(), EntityHash);
         for &id in self {
-            let ecell = cell.get_entity(id).ok_or(id)?;
+            let entity_cell = cell.get_entity(id).ok_or(id)?;
             // SAFETY: caller ensures that the world cell has read-only access to the entity.
-            refs.insert(id, unsafe { EntityRef::new(ecell) });
+            refs.insert(id, unsafe { EntityRef::new(entity_cell) });
         }
         Ok(refs)
     }
@@ -311,11 +311,11 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     ) -> Result<Self::Mut<'_>, EntityFetchError> {
         let mut refs = EntityHashMap::with_capacity_and_hasher(self.len(), EntityHash);
         for &id in self {
-            let ecell = cell
+            let entity_cell = cell
                 .get_entity(id)
                 .ok_or(EntityFetchError::NoSuchEntity(id))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
-            refs.insert(id, unsafe { EntityMut::new(ecell) });
+            refs.insert(id, unsafe { EntityMut::new(entity_cell) });
         }
         Ok(refs)
     }

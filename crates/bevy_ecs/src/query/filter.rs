@@ -499,7 +499,7 @@ macro_rules! impl_or_query_filter {
         }
 
             $(#[$meta])*
-            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+            // SAFETY: This only performs access that subqueries perform. The subqueries implement `QueryFilter`, thus perform no mutable access.
             unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
@@ -522,7 +522,7 @@ macro_rules! impl_tuple_query_filter {
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         $(#[$meta])*
-        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        // SAFETY: This only performs access that subqueries perform. The subqueries implement `QueryFilter`, thus perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 

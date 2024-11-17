@@ -37,7 +37,7 @@ where
 #[derive(Debug, Error, Display)]
 pub enum MeshWindingInvertError {
     /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`](super::PrimitiveTopology::PointList).
-    #[display("Mesh winding invertation does not work for primitive topology `PointList`")]
+    #[display("Mesh winding inversion does not work for primitive topology `PointList`")]
     WrongTopology,
 
     /// This error occurs when you try to invert the winding for a mesh with

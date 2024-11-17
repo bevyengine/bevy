@@ -207,7 +207,7 @@ pub enum EaseFunction {
     /// `n` steps connecting the start and the end
     Steps(usize),
 
-    /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
+    /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parameterized by `omega`
     Elastic(f32),
 }
 

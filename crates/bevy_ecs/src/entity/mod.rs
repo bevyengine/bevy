@@ -350,7 +350,7 @@ impl Entity {
     /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
-        // Mask so not to expose any flags
+        // Mask so as not to expose any flags
         IdentifierMask::extract_value_from_high(self.generation.get())
     }
 }

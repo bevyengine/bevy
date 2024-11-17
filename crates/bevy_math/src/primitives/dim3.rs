@@ -250,10 +250,10 @@ impl InfinitePlane3d {
     ///
     /// * the rotation used is generally not unique
     /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
-    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   enforce some kind of alignment the user has to use an extra transformation on top of this
     ///   one
     ///
-    /// See [`isometries_xy`] for example usescases.
+    /// See [`isometries_xy`] for example use cases.
     ///
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
@@ -281,10 +281,10 @@ impl InfinitePlane3d {
     ///
     /// * the rotation used is generally not unique
     /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
-    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   enforce some kind of alignment the user has to use an extra transformation on top of this
     ///   one
     ///
-    /// See [`isometries_xy`] for example usescases.
+    /// See [`isometries_xy`] for example use cases.
     ///
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
@@ -1074,7 +1074,7 @@ impl Triangle3d {
     ///
     /// This function finds the geometric center of the triangle by averaging the vertices:
     /// `centroid = (a + b + c) / 3`.
-    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[doc(alias("center", "barycenter"))]
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
@@ -1203,7 +1203,7 @@ impl Tetrahedron {
     ///
     /// This function finds the geometric center of the tetrahedron
     /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
-    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[doc(alias("center", "barycenter"))]
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0

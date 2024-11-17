@@ -83,7 +83,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # Example
     ///
     /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// [`EventReader::clear()`] is used so that the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

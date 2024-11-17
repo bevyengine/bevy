@@ -468,7 +468,7 @@ impl World {
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.map.insert(observer_entity, observer_state.runner);
             } else if descriptor.components.is_empty() {
-                // Observer is not targeting any components so register it as an entity observer
+                // Observer is not targeting any components, so register it as an entity observer
                 for &watched_entity in &observer_state.descriptor.entities {
                     let map = cache.entity_observers.entry(watched_entity).or_default();
                     map.insert(observer_entity, observer_state.runner);

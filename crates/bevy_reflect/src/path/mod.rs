@@ -754,10 +754,10 @@ mod tests {
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
 
         assert_eq!(
-            a.reflect_path("x.notreal").err().unwrap(),
+            a.reflect_path("x.not_real").err().unwrap(),
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::MissingField(ReflectKind::Struct),
-                access: access_field("notreal"),
+                access: access_field("not_real"),
                 offset: Some(2),
             })
         );

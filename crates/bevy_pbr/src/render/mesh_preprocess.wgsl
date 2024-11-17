@@ -8,7 +8,7 @@
 // so that TAA works.
 
 #import bevy_pbr::mesh_types::Mesh
-#import bevy_render::maths
+#import bevy_render::math
 #import bevy_render::view::View
 
 // Per-frame data that the CPU supplies to the GPU.
@@ -79,7 +79,7 @@ struct IndirectParameters {
 @group(0) @binding(3) var<storage, read_write> output: array<Mesh>;
 
 #ifdef INDIRECT
-// The array of indirect parameters for drawcalls.
+// The array of indirect parameters for draw calls.
 @group(0) @binding(4) var<storage, read_write> indirect_parameters: array<IndirectParameters>;
 #endif
 
@@ -116,7 +116,7 @@ fn view_frustum_intersects_obb(
         );
 
         // Check the frustum plane.
-        if (!maths::sphere_intersects_plane_half_space(
+        if (!math::sphere_intersects_plane_half_space(
                 plane_normal, aabb_center, relative_radius)) {
             return false;
         }
@@ -140,7 +140,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let input_index = work_items[instance_index].input_index;
     let output_index = work_items[instance_index].output_index;
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
-    let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
+    let world_from_local = math::affine3_to_square(world_from_local_affine_transpose);
 
     // Cull if necessary.
 #ifdef FRUSTUM_CULLING
@@ -155,7 +155,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #endif
 
     // Calculate inverse transpose.
-    let local_from_world_transpose = transpose(maths::inverse_affine3(transpose(
+    let local_from_world_transpose = transpose(math::inverse_affine3(transpose(
         world_from_local_affine_transpose)));
 
     // Pack inverse transpose.

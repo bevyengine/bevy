@@ -20,7 +20,7 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     // islands, so there's no harm in using mip level 0 and it lets us avoid
     // control flow uniformity problems.
     //
-    // TODO(pcwalton): Consider bicubic filtering.
+    // TODO: Consider bicubic filtering.
     return textureSampleLevel(
         lightmaps_texture,
         lightmaps_sampler,

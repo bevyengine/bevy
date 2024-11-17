@@ -78,7 +78,7 @@ pub mod light_consts {
         pub const OFFICE: f32 = 320.;
         /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
-        /// The amount of light (lux) on a overcast day; typical TV studio lighting
+        /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
@@ -514,7 +514,7 @@ pub enum SimulationLightSystems {
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
