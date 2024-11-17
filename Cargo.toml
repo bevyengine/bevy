@@ -10,7 +10,6 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.82.0"
 
 [workspace]
 exclude = [
@@ -461,36 +460,36 @@ bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
+rand = "0.8.5"
 rand_chacha = "0.3.1"
-ron = "0.8.0"
+ron = "0.8.1"
 flate2 = "1.0"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-bytemuck = "1.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bytemuck = "1.19"
 bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
-futures-lite = "2.0.1"
+futures-lite = "2.5"
 async-std = "1.13"
-crossbeam-channel = "0.5.0"
+crossbeam-channel = "0.5.13"
 argh = "0.1.12"
-thiserror = "1.0"
-event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
-anyhow = "1"
-macro_rules_attribute = "0.2"
-accesskit = "0.17"
+thiserror = "2.0"
+event-listener = "5.3"
+hyper = { version = "1.5", features = ["server", "http1"] }
+http-body-util = "0.1.2"
+anyhow = "1.0"
+macro_rules_attribute = "0.2.0"
+accesskit = "0.17.0"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
-ureq = { version = "2.10.1", features = ["json"] }
+smol = "2.0"
+smol-macros = "0.1.1"
+smol-hyper = "0.1.1"
+ureq = { version = "2.10", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window"] }
+wasm-bindgen = { version = "0.2.95" }
+web-sys = { version = "0.3.72", features = ["Window"] }
 
 [[example]]
 name = "hello_world"

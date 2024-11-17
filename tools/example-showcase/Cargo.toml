@@ -1,19 +1,18 @@
 [package]
 name = "example-showcase"
 edition = "2021"
+version = "0.1.0"
 description = "Tool for running examples or generating a showcase page for the website."
 publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-xshell = "0.2"
-clap = { version = "4.0", features = ["derive"] }
-ron = "0.8"
-toml_edit = { version = "0.22.7", default-features = false, features = [
-  "parse",
-] }
+xshell = "0.2.7"
+clap = { version = "4.5", features = ["derive"] }
+ron = "0.8.1"
+toml_edit = { version = "0.22.22", default-features = false, features = ["parse"] }
 pbr = "1.1"
-regex = "1.10.5"
+regex = "1.11"
 
 [lints]
 workspace = true

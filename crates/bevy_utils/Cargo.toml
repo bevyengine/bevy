@@ -22,19 +22,19 @@ detailed_trace = []
 serde = ["hashbrown/serde"]
 
 [dependencies]
-ahash = { version = "0.8.7", default-features = false, features = [
+ahash = { version = "0.8.11", default-features = false, features = [
   "compile-time-rng",
 ] }
-tracing = { version = "0.1", default-features = false }
-hashbrown = { version = "0.14.2", default-features = false }
+tracing = { version = "0.1.40", default-features = false }
+hashbrown = { version = "0.14.5", default-features = false }
 bevy_utils_proc_macros = { version = "0.15.0-dev", path = "macros" }
-thread_local = { version = "1.0", optional = true }
+thread_local = { version = "1.1", optional = true }
 
 [dev-dependencies]
-static_assertions = "1.1.0"
+static_assertions = "1.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2.0", features = ["js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 web-time = { version = "1.1" }
 
 [lints]

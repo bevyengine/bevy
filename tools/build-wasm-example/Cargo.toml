@@ -1,14 +1,14 @@
 [package]
 name = "build-wasm-example"
 edition = "2021"
+version = "0.1.0"
 description = "Tool for building example for Wasm"
 publish = false
 license = "MIT OR Apache-2.0"
 
-
 [dependencies]
-xshell = "0.2"
-clap = { version = "4.0", features = ["derive"] }
+xshell = "0.2.7"
+clap = { version = "4.5", features = ["derive"] }
 
 [lints]
 workspace = true

@@ -47,23 +47,23 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 image = { version = "0.25.2", default-features = false }
 
 # misc
-bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5" }
+bitflags = { version = "2", features = ["serde"] }
+bytemuck = { version = "1.0" }
 wgpu = { version = "23", default-features = false }
-serde = { version = "1", features = ["derive"] }
-derive_more = { version = "1", default-features = false, features = [
+serde = { version = "1.0", features = ["derive"] }
+derive_more = { version = "1.0", default-features = false, features = [
   "error",
   "from",
   "display",
 ] }
-futures-lite = "2.0.1"
-ddsfile = { version = "0.5.2", optional = true }
-ktx2 = { version = "0.3.0", optional = true }
+futures-lite = "2"
+ddsfile = { version = "0.5", optional = true }
+ktx2 = { version = "0.3", optional = true }
 # For ktx2 supercompression
-flate2 = { version = "1.0.22", optional = true }
-ruzstd = { version = "0.7.0", optional = true }
+flate2 = { version = "1.0", optional = true }
+ruzstd = { version = "0.7", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.3.0", optional = true }
+basis-universal = { version = "0.3", optional = true }
 
 [lints]
 workspace = true

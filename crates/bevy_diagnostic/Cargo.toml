@@ -22,7 +22,7 @@ bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
-const-fnv1a-hash = "1.1.0"
+const-fnv1a-hash = "1.1"
 
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]

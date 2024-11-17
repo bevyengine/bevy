@@ -28,20 +28,20 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
 # other
-downcast-rs = "1.2.0"
-derive_more = { version = "1", default-features = false, features = [
+downcast-rs = "1.2"
+derive_more = { version = "1.0", default-features = false, features = [
   "error",
   "from",
   "display",
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-ctrlc = "3.4.4"
+ctrlc = "3.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Window"] }
-console_error_panic_hook = "0.1.6"
+wasm-bindgen = { version = "0.2.95" }
+web-sys = { version = "0.3.72", features = ["Window"] }
+console_error_panic_hook = "0.1.7"
 
 [lints]
 workspace = true

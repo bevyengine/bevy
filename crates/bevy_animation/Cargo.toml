@@ -30,19 +30,19 @@ bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 
 # other
-petgraph = { version = "0.6", features = ["serde-1"] }
-ron = "0.8"
-serde = "1"
-blake3 = { version = "1.0" }
-derive_more = { version = "1", default-features = false, features = [
+petgraph = { version = "0.6.5", features = ["serde-1"] }
+ron = "0.8.1"
+serde = "1.0"
+blake3 = { version = "1.5" }
+derive_more = { version = "1.0", default-features = false, features = [
   "error",
   "from",
   "display",
 ] }
 either = "1.13"
-thread_local = "1"
-uuid = { version = "1.7", features = ["v4"] }
-smallvec = "1"
+thread_local = "1.1"
+uuid = { version = "1.11", features = ["v4"] }
+smallvec = "1.13"
 
 [lints]
 workspace = true

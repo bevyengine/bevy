@@ -28,8 +28,8 @@ bevy_render = { path = "../bevy_render", version = "0.15.0-dev", optional = true
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-uuid = { version = "1.1", features = ["v4"] }
-derive_more = { version = "1", default-features = false, features = [
+uuid = { version = "1.11", features = ["v4"] }
+derive_more = { version = "1.0", default-features = false, features = [
   "error",
   "from",
   "display",
@@ -38,7 +38,7 @@ derive_more = { version = "1", default-features = false, features = [
 [dev-dependencies]
 postcard = { version = "1.0", features = ["alloc"] }
 bincode = "1.3"
-rmp-serde = "1.1"
+rmp-serde = "1.3"
 
 [lints]
 workspace = true

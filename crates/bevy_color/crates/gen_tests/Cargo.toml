@@ -7,4 +7,4 @@ publish = false
 [workspace]
 
 [dependencies]
-palette = "0.7.4"
+palette = "0.7.6"

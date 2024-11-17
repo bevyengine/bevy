@@ -22,12 +22,12 @@ bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # misc
-bitflags = { version = "2.3", features = ["serde"] }
-bytemuck = { version = "1.5" }
-wgpu = { version = "23", default-features = false }
-serde = { version = "1", features = ["derive"] }
+bitflags = { version = "2.6", features = ["serde"] }
+bytemuck = { version = "1.19" }
+wgpu = { version = "23.0", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
 hexasphere = "15.0"
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "1.0", default-features = false, features = [
   "error",
   "from",
   "display",
