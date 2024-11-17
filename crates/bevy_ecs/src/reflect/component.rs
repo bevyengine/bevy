@@ -277,7 +277,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
-                    panic!("This component is immutable, you cannot modify it through reflection");
+                    let name = disqualified::ShortName::of::<C>();
+                    panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
@@ -286,7 +287,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply_or_insert: |entity, reflected_component, registry| {
                 if !C::Mutability::MUTABLE {
-                    panic!("This component is immutable, you cannot modify it through reflection");
+                    let name = disqualified::ShortName::of::<C>();
+                    panic!("Cannot call `ReflectComponent::apply_or_insert` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
@@ -314,7 +316,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    panic!("This component is immutable, you cannot modify it through reflection");
+                    let name = disqualified::ShortName::of::<C>();
+                    panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
@@ -326,7 +329,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    panic!("This component is immutable, you cannot modify it through reflection");
+                    let name = disqualified::ShortName::of::<C>();
+                    panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
