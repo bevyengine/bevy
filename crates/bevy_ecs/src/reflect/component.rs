@@ -69,6 +69,7 @@ use crate::{
     },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
+use disqualified::ShortName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -291,7 +292,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
-                    let name = disqualified::ShortName::of::<C>();
+                    let name = ShortName::of::<C>();
                     panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -301,7 +302,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply_or_insert: |entity, reflected_component, registry| {
                 if !C::Mutability::MUTABLE {
-                    let name = disqualified::ShortName::of::<C>();
+                    let name = ShortName::of::<C>();
                     panic!("Cannot call `ReflectComponent::apply_or_insert` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -330,7 +331,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = disqualified::ShortName::of::<C>();
+                    let name = ShortName::of::<C>();
                     panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -343,7 +344,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = disqualified::ShortName::of::<C>();
+                    let name = ShortName::of::<C>();
                     panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
