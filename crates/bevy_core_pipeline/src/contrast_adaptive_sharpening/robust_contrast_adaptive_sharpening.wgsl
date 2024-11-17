@@ -23,8 +23,8 @@ struct CASUniforms {
     sharpness: f32,
 };
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var textureSampler: sampler;
+@group(0) @binding(0) var screen_texture: texture_2d<f32>;
+@group(0) @binding(1) var samplr: sampler;
 @group(0) @binding(2) var<uniform> uniforms: CASUniforms;
 
 // This is set at the limit of providing unnatural results for sharpening.
@@ -62,12 +62,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //    b
     //  d e f
     //    h
-    let b = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(0, -1)).rgb;
-    let d = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(-1, 0)).rgb;
+    let b = textureSample(screen_texture, samplr, in.uv, vec2<i32>(0, -1)).rgb;
+    let d = textureSample(screen_texture, samplr, in.uv, vec2<i32>(-1, 0)).rgb;
     // We need the alpha value of the pixel we're working on for the output
-    let e = textureSample(screenTexture, textureSampler, in.uv).rgbw;
-    let f = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(1, 0)).rgb;
-    let h = textureSample(screenTexture, textureSampler, in.uv, vec2<i32>(0, 1)).rgb;
+    let e = textureSample(screen_texture, samplr, in.uv).rgbw;
+    let f = textureSample(screen_texture, samplr, in.uv, vec2<i32>(1, 0)).rgb;
+    let h = textureSample(screen_texture, samplr, in.uv, vec2<i32>(0, 1)).rgb;
     // Min and max of ring.
     let mn4 = min(min(b, d), min(f, h));
     let mx4 = max(max(b, d), max(f, h));

@@ -104,14 +104,14 @@ impl AnimationInfo {
         // Each leg of the translation motion should take 3 seconds.
         let animation_domain = interval(0.0, 3.0).unwrap();
 
-        // The easing curve is parameterized over [0, 1], so we reparameterize it and
+        // The easing curve is parametrized over [0, 1], so we reparametrize it and
         // then ping-pong, which makes it spend another 3 seconds on the return journey.
         let translation_curve = EasingCurve::new(
             vec3(-6., 2., 0.),
             vec3(6., 2., 0.),
             EaseFunction::CubicInOut,
         )
-        .reparameterize_linear(animation_domain)
+        .reparametrize_linear(animation_domain)
         .expect("this curve has bounded domain, so this should never fail")
         .ping_pong()
         .expect("this curve has bounded domain, so this should never fail");
@@ -124,7 +124,7 @@ impl AnimationInfo {
             Quat::from_rotation_y(FRAC_PI_2),
             EaseFunction::ElasticInOut,
         )
-        .reparameterize_linear(interval(0.0, 4.0).unwrap())
+        .reparametrize_linear(interval(0.0, 4.0).unwrap())
         .expect("this curve has bounded domain, so this should never fail");
 
         animation_clip

@@ -288,7 +288,7 @@ fn calculate_diffuse_color(
 }
 
 // Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+// See https://google.github.io/filament/Filament.html#materialsystem/parametrization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }

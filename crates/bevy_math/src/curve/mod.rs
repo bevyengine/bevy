@@ -3,7 +3,7 @@
 //! ## Overview
 //!
 //! At a high level, [`Curve`] is a trait that abstracts away the implementation details of curves,
-//! which comprise any kind of data parameterized by a single continuous variable. For example, that
+//! which comprise any kind of data parametrized by a single continuous variable. For example, that
 //! variable could represent time, in which case a curve would represent a value that changes over
 //! time, as in animation; on the other hand, it could represent something like displacement or
 //! distance, as in graphs, gradients, and curves in space.
@@ -14,7 +14,7 @@
 //!
 //! A primary goal of the trait is to allow interfaces to simply accept `impl Curve<T>` as input
 //! rather than requiring for input curves to be defined in data in any particular way. This is
-//! supported by a number of interface methods which allow [changing parameterizations], [mapping output],
+//! supported by a number of interface methods which allow [changing parametrizations], [mapping output],
 //! and [rasterization].
 //!
 //! ## Analogy with `Iterator`
@@ -25,7 +25,7 @@
 //! |    Iterators     |     Curves      |
 //! | :--------------- | :-------------- |
 //! | `map`            | `map`           |
-//! | `skip`/`step_by` | `reparameterize` |
+//! | `skip`/`step_by` | `reparametrize` |
 //! | `enumerate`      | `graph`         |
 //! | `chain`          | `chain`         |
 //! | `zip`            | `zip`           |
@@ -118,7 +118,7 @@
 //! you would like to make use of an interface that requires a curve that bears some logical relationship
 //! to one that you already have access to, but with different requirements or expectations. For example,
 //! the output type of the curves may differ, or the domain may be expected to be different. The `map`
-//! and `reparameterize` methods can help address this.
+//! and `reparametrize` methods can help address this.
 //!
 //! As a simple example of the kind of thing that arises in practice, let's imagine that we have a
 //! `Curve<Vec2>` that we want to use to describe the motion of some object over time, but the interface
@@ -137,18 +137,18 @@
 //! ```
 //!
 //! We might imagine further still that the interface expects the curve to have domain `[0, 1]`. The
-//! `reparameterize` methods can address this:
+//! `reparametrize` methods can address this:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! # use std::f32::consts::TAU;
 //! # let ellipse_curve = FunctionCurve::new(interval(0.0, TAU).unwrap(), |t| vec2(t.cos(), t.sin() * 2.0));
 //! # let ellipse_motion_curve = ellipse_curve.map(|pos| pos.extend(0.0));
 //! // Change the domain to `[0, 1]` instead of `[0, TAU]`:
-//! let final_curve = ellipse_motion_curve.reparameterize_linear(Interval::UNIT).unwrap();
+//! let final_curve = ellipse_motion_curve.reparametrize_linear(Interval::UNIT).unwrap();
 //! ```
 //!
 //! Of course, there are many other ways of using these methods. In general, `map` is used for transforming
-//! the output and using it to drive something else, while `reparameterize` preserves the curve's shape but
+//! the output and using it to drive something else, while `reparametrize` preserves the curve's shape but
 //! changes the speed and direction in which it is traversed. For instance:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
@@ -161,12 +161,12 @@
 //! //
 //! // Start by stretching the line segment in parameter space so that it travels along its length
 //! // from `-1` to `1` instead of `0` to `1`:
-//! let stretched_segment = segment.reparameterize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
+//! let stretched_segment = segment.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
 //!
 //! // Now, the *output* of `f32::sin` in `[-1, 1]` corresponds to the *input* interval of
 //! // `stretched_segment`; the sinusoid output is mapped to the input parameter and controls how
 //! // far along the segment we are:
-//! let back_and_forth_curve = stretched_segment.reparameterize(Interval::EVERYWHERE, f32::sin);
+//! let back_and_forth_curve = stretched_segment.reparametrize(Interval::EVERYWHERE, f32::sin);
 //! ```
 //!
 //! ## Combining curves
@@ -269,7 +269,7 @@
 //!
 //! [domain]: Curve::domain
 //! [sampled]: Curve::sample
-//! [changing parameterizations]: Curve::reparameterize
+//! [changing parametrizations]: Curve::reparametrize
 //! [mapping output]: Curve::map
 //! [rasterization]: Curve::resample
 //! [functions]: FunctionCurve
@@ -306,14 +306,14 @@ use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
 use itertools::Itertools;
 
-/// A trait for a type that can represent values of type `T` parameterized over a fixed interval.
+/// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
 /// of output data can be represented as well. See the [module-level documentation] for details.
 ///
 /// [module-level documentation]: self
 pub trait Curve<T> {
-    /// The interval over which this curve is parameterized.
+    /// The interval over which this curve is parametrized.
     ///
     /// This is the range of values of `t` where we can sample the curve and receive valid output.
     fn domain(&self) -> Interval;
@@ -415,10 +415,10 @@ pub trait Curve<T> {
     /// ```
     /// # use bevy_math::curve::*;
     /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
-    /// let scaled_curve = my_curve.reparameterize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
+    /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
-    /// [`Curve::reparameterize_linear`], which requires only the desired domain for the new curve.
+    /// [`Curve::reparametrize_linear`], which requires only the desired domain for the new curve.
     ///
     /// # Examples
     /// ```
@@ -427,14 +427,14 @@ pub trait Curve<T> {
     /// # use bevy_math::vec2;
     /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
-    /// let reversed_curve = my_curve.reparameterize(domain, |t| domain.end() - (t - domain.start()));
+    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - (t - domain.start()));
     ///
     /// // Take a segment of a curve:
     /// # let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
-    /// let curve_segment = my_curve.reparameterize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
+    /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
     /// ```
     #[must_use]
-    fn reparameterize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
+    fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
         Self: Sized,
         F: Fn(f32) -> f32,
@@ -447,11 +447,11 @@ pub trait Curve<T> {
         }
     }
 
-    /// Linearly reparameterize this [`Curve`], producing a new curve whose domain is the given
+    /// Linearly reparametrize this [`Curve`], producing a new curve whose domain is the given
     /// `domain` instead of the current one. This operation is only valid for curves with bounded
     /// domains; if either this curve's domain or the given `domain` is unbounded, an error is
     /// returned.
-    fn reparameterize_linear(
+    fn reparametrize_linear(
         self,
         domain: Interval,
     ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError>
@@ -473,13 +473,13 @@ pub trait Curve<T> {
         })
     }
 
-    /// Reparameterize this [`Curve`] by sampling from another curve.
+    /// Reparametrize this [`Curve`] by sampling from another curve.
     ///
     /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which produces
     /// another sample time `s` which is then used to sample this curve. The domain of the resulting
     /// curve is the domain of `other`.
     #[must_use]
-    fn reparameterize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
+    fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
         Self: Sized,
         C: Curve<f32>,
@@ -870,7 +870,7 @@ pub trait Curve<T> {
     /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
     ///
     /// // Do something else with `my_curve` since we retained ownership:
-    /// let new_curve = my_curve.reparameterize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
+    /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
     /// ```
     fn by_ref(&self) -> &Self
     where
@@ -903,17 +903,17 @@ where
     }
 }
 
-/// An error indicating that a linear reparameterization couldn't be performed because of
+/// An error indicating that a linear reparametrization couldn't be performed because of
 /// malformed inputs.
 #[derive(Debug, Error, Display)]
-#[display("Could not build a linear function to reparameterize this curve")]
+#[display("Could not build a linear function to reparametrize this curve")]
 pub enum LinearReparamError {
-    /// The source curve that was to be reparameterized had unbounded domain.
+    /// The source curve that was to be reparametrized had unbounded domain.
     #[display("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
-    /// The target interval for reparameterization was unbounded.
-    #[display("The target interval for reparameterization is unbounded")]
+    /// The target interval for reparametrization was unbounded.
+    #[display("The target interval for reparametrization is unbounded")]
     TargetIntervalUnbounded,
 }
 
@@ -1176,22 +1176,22 @@ mod tests {
     }
 
     #[test]
-    fn reparameterization() {
+    fn reparametrization() {
         let curve = FunctionCurve::new(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
-        let reparameterized_curve = curve
+        let reparametrized_curve = curve
             .by_ref()
-            .reparameterize(interval(0.0, f32::INFINITY).unwrap(), ops::exp2);
-        assert_abs_diff_eq!(reparameterized_curve.sample_unchecked(3.5), 3.5);
-        assert_abs_diff_eq!(reparameterized_curve.sample_unchecked(100.0), 100.0);
+            .reparametrize(interval(0.0, f32::INFINITY).unwrap(), ops::exp2);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(3.5), 3.5);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(100.0), 100.0);
         assert_eq!(
-            reparameterized_curve.domain(),
+            reparametrized_curve.domain(),
             interval(0.0, f32::INFINITY).unwrap()
         );
 
-        let reparameterized_curve = curve.by_ref().reparameterize(Interval::UNIT, |t| t + 1.0);
-        assert_abs_diff_eq!(reparameterized_curve.sample_unchecked(0.0), 0.0);
-        assert_abs_diff_eq!(reparameterized_curve.sample_unchecked(1.0), 1.0);
-        assert_eq!(reparameterized_curve.domain(), Interval::UNIT);
+        let reparametrized_curve = curve.by_ref().reparametrize(Interval::UNIT, |t| t + 1.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(0.0), 0.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(1.0), 1.0);
+        assert_eq!(reparametrized_curve.domain(), Interval::UNIT);
     }
 
     #[test]
@@ -1206,11 +1206,11 @@ mod tests {
     }
 
     #[test]
-    fn multiple_reparameterizations() {
+    fn multiple_reparametrizations() {
         // Make sure these happen in the right order too.
         let curve = FunctionCurve::new(Interval::UNIT, ops::exp2);
-        let first_reparam = curve.reparameterize(interval(1.0, 2.0).unwrap(), ops::log2);
-        let second_reparam = first_reparam.reparameterize(Interval::UNIT, |t| t + 1.0);
+        let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);
+        let second_reparam = first_reparam.reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(1.0), 2.0);

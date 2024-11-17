@@ -350,7 +350,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
         }
 
         // This would ordinarily be the last segment, but we pick it out so that we can make it first
-        // in order to get a desirable parameterization where the first segment connects the first two
+        // in order to get a desirable parametrization where the first segment connects the first two
         // control points instead of the second and third.
         let first_segment = {
             // We take the indices mod `len` in case `len` is very small.
@@ -482,7 +482,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
             .map(|(&a, &b, &c, &d)| CubicSegment::coefficients([a, b, c, d], self.char_matrix()))
             .collect_vec();
 
-        // Note that the parameterization is consistent with the one for `to_curve` but with
+        // Note that the parametrization is consistent with the one for `to_curve` but with
         // the extra curve segments all tacked on at the end. This might be slightly counter-intuitive,
         // since it means the first segment doesn't go "between" the first two control points, but
         // between the second and third instead.

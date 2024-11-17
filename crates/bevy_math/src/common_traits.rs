@@ -180,7 +180,7 @@ impl NormedVectorSpace for f32 {
 ///
 /// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
 ///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
-///    interpolation curve between `p` and `q` must be the *linear* reparameterization of the original
+///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the original
 ///    interpolation curve restricted to the interval `[t0, t1]`.
 ///
 /// The last of these conditions is very strong and indicates something like constant speed. It
@@ -191,13 +191,13 @@ impl NormedVectorSpace for f32 {
 /// ```text
 /// top curve = u.interpolate_stable(v, t)
 ///
-///              t0 => p   t1 => q    
+///              t0 => p   t1 => q
 ///   |-------------|---------|-------------|
 /// 0 => u         /           \          1 => v
 ///              /               \
 ///            /                   \
 ///          /        linear         \
-///        /     reparameterization    \
+///        /     reparametrization    \
 ///      /   t = t0 * (1 - s) + t1 * s   \
 ///    /                                   \
 ///   |-------------------------------------|

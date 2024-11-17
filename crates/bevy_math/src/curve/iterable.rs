@@ -9,7 +9,7 @@ use super::{ConstantCurve, Interval};
 /// but side-stepping issues with allocation on sampling. This happens when the size of an output
 /// array cannot be known statically.
 pub trait IterableCurve<T> {
-    /// The interval over which this curve is parameterized.
+    /// The interval over which this curve is parametrized.
     fn domain(&self) -> Interval;
 
     /// Sample a point on this curve at the parameter value `t`, producing an iterator over values.

@@ -268,7 +268,7 @@ where
 }
 
 /// A curve whose sample space is mapped onto that of some base curve's before sampling.
-/// Curves of this type are produced by [`Curve::reparameterize`].
+/// Curves of this type are produced by [`Curve::reparametrize`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -362,8 +362,8 @@ where
     }
 }
 
-/// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
-/// Curves of this type are produced by [`Curve::reparameterize_linear`].
+/// A curve that has had its domain changed by a linear reparametrization (stretching and scaling).
+/// Curves of this type are produced by [`Curve::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -397,8 +397,8 @@ where
     }
 }
 
-/// A curve that has been reparameterized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparameterize_by_curve`].
+/// A curve that has been reparametrized by another curve, using that curve to transform the
+/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -497,7 +497,7 @@ where
 }
 
 /// The curve that results from chaining one curve with another. The second curve is
-/// effectively reparameterized so that its start is at the end of the first.
+/// effectively reparametrized so that its start is at the end of the first.
 ///
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.

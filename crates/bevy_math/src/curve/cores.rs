@@ -424,14 +424,14 @@ impl<T> UnevenCore<T> {
     }
 
     /// This core, but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparameterize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the set of sample times, otherwise
     /// data will be deleted.
     ///
-    /// [`Curve::reparameterize`]: crate::curve::Curve::reparameterize
+    /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
     #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
         let mut timed_samples = self
