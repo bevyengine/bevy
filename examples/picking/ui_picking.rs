@@ -168,8 +168,13 @@ fn drag_end() -> impl Fn(
 /// space, for example. Even though all of our hovered `Node`s receive picking events, we don't
 /// need to check the type of the `ev.target` because we've only attached this observer to
 /// `InventorySlot`s.
-fn set_drop_target() -> impl Fn(Trigger<Pointer<Over>>, ResMut<DragDetails>) {
-    move |ev, mut details| {
+fn set_drop_target(
+) -> impl Fn(Trigger<Pointer<Over>>, Query<(), With<Dragable>>, ResMut<DragDetails>) {
+    move |ev, draggables, mut details| {
+        // Don't try to drop the item on an existing item
+        if draggables.get(ev.target).is_ok() {
+            return;
+        }
         details.drop_target = Some(ev.target);
     }
 }
@@ -220,6 +225,8 @@ fn add_items_to_inventory(
                     // components.
                     Node::default(),
                     ImageNode::new(asset_server.load(paths[i])),
+                    // TODO: seems clumsy, better solution?
+                    ZIndex(99),
                 ))
                 .observe(drag_start())
                 .observe(drag_end());
