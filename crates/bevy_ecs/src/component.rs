@@ -1832,7 +1832,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn runtime_required_components() {
+    fn runtime_required_components_duplicate_registration() {
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        let mut world = World::new();
+        let duplicate_registration = world.try_register_required_components::<A, B>();
+        assert!(duplicate_registration.is_err());
+        let id = world.spawn(A).id();
+        assert!(world.entity(id).get::<B>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_abc_spawn_b_get_c() {
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+        world.register_required_components::<B, C>();
+        let id = world.spawn(B).id();
+        assert!(world.entity(id).get::<C>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_abc_spawn_a_get_c() {
         // `A` requires `B` directly.
         #[derive(Component)]
         #[require(B)]
@@ -1846,13 +1880,13 @@ mod tests {
 
         let mut world = World::new();
         world.register_required_components::<B, C>();
-        let _ = world.try_register_required_components::<A, B>();
         let entity = world.spawn(A).id();
         assert!(world.entity(entity).get::<C>().is_some());
     }
 
     #[test]
-    fn runtime_required_components_2() {
+    fn runtime_required_components_abcd_spawn_a_get_d() {
+        // `A` requires `B` directly.
         #[derive(Component)]
         #[require(B)]
         struct A;
@@ -1863,10 +1897,13 @@ mod tests {
         #[derive(Component, Default)]
         struct C;
 
+        #[derive(Component, Default)]
+        struct D;
+
         let mut world = World::new();
         world.register_required_components::<B, C>();
-        let _ = world.try_register_required_components::<A, B>();
-        let id = world.spawn(B).id();
-        assert!(world.entity(id).get::<C>().is_some());
+        world.register_required_components::<C, D>();
+        let entity = world.spawn(A).id();
+        assert!(world.entity(entity).get::<D>().is_some());
     }
 }
