@@ -2322,6 +2322,30 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_propagate_up() {
+        // `A` requires `B` directly.
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        // `B` requires `C` with a runtime registration.
+        // `A` should also require `C` because it requires `B`.
+        world.register_required_components::<B, C>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<C>().is_some());
+    }
+
+    #[test]
     fn runtime_required_components_existing_archetype() {
         #[derive(Component)]
         struct X;
