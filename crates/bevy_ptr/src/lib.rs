@@ -153,9 +153,9 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// This type tries to act "borrow-like" which means that:
 /// - It should be considered immutable: its target must not be changed while this pointer is alive.
-/// - It must always points to a valid value of whatever the pointed type is.
+/// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - Must be sufficiently aligned for the unknown pointed type.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
@@ -168,9 +168,9 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 /// This type tries to act "borrow-like" which means that:
 /// - Pointer is considered exclusive and mutable. It cannot be cloned as this would lead to
 ///   aliased mutability.
-/// - It must always points to a valid value of whatever the pointed type is.
+/// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - Must be sufficiently aligned for the unknown pointed type.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
@@ -188,9 +188,9 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// This type tries to act "borrow-like" like which means that:
 /// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
 ///   to aliased mutability and potentially use after free bugs.
-/// - It must always points to a valid value of whatever the pointed type is.
+/// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - Must be sufficiently aligned for the unknown pointed type.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
@@ -223,7 +223,7 @@ macro_rules! impl_ptr {
             /// # Safety
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
-            ///   be unaligned for the pointed type.
+            ///   be unaligned for the pointee type.
             /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
@@ -245,7 +245,7 @@ macro_rules! impl_ptr {
             /// # Safety
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
-            ///   be unaligned for the pointed type.
+            ///   be unaligned for the pointee type.
             /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
@@ -276,9 +276,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
-    /// - `inner` must point to valid value of whatever the pointed type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointed type.
-    /// - `inner` must have correct provenance to allow reads of the pointed type.
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointed while this [`Ptr`] is live except through an [`UnsafeCell`].
     #[inline]
@@ -298,9 +298,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
     /// # Safety
-    /// - `T` must be the erased pointed type for this [`Ptr`].
+    /// - `T` must be the erased pointee type for this [`Ptr`].
     /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
-    ///   for the pointed type `T`.
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -331,9 +331,9 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
-    /// - `inner` must point to valid value of whatever the pointed type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointed type.
-    /// - `inner` must have correct provenance to allow read and writes of the pointed type.
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
     ///   else can read or mutate the pointed while this [`PtrMut`] is live.
     #[inline]
@@ -353,9 +353,9 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
     ///
     /// # Safety
-    /// - `T` must be the erased pointed type for this [`PtrMut`].
+    /// - `T` must be the erased pointee type for this [`PtrMut`].
     /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
-    ///   for the pointed type `T`.
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -421,9 +421,9 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
-    /// - `inner` must point to valid value of whatever the pointed type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointed type.
-    /// - `inner` must have correct provenance to allow read and writes of the pointed type.
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
     ///   else can read or mutate the pointed while this [`OwningPtr`] is live.
     #[inline]
@@ -434,9 +434,9 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// - `T` must be the erased pointed type for this [`OwningPtr`].
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
     /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
-    ///   for the pointed type `T`.
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -447,9 +447,9 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// - `T` must be the erased pointed type for this [`OwningPtr`].
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
     /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
-    ///   for the pointed type `T`.
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -487,7 +487,7 @@ impl<'a> OwningPtr<'a, Unaligned> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// - `T` must be the erased pointed type for this [`OwningPtr`].
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
     pub unsafe fn read_unaligned<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>();
         // SAFETY: The caller ensure the pointed is of type `T` and uphold safety for `read_unaligned`.
