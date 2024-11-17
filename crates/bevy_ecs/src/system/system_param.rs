@@ -960,6 +960,50 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 }
 
+/// Types that represent a set of [`Resource`]s.
+///
+/// This is implemented for all types which implement [`Resource`],
+/// and tuples over [`Resource`].
+pub trait Resources<Marker>: sealed::Resources<Marker> {}
+impl<Marker, R> Resources<Marker> for R where R: sealed::Resources<Marker> {}
+
+mod sealed {
+    use super::Resource;
+    use crate::world::World;
+    use bevy_utils::all_tuples;
+
+    pub trait Resources<Marker> {
+        fn insert_into_world(self, world: &mut World);
+    }
+
+    pub struct ResourceMarker;
+    pub struct ResourceTupleMarker;
+
+    impl<R: Resource> Resources<ResourceMarker> for R {
+        #[track_caller]
+        fn insert_into_world(self, world: &mut World) {
+            world.insert_resource(self);
+        }
+    }
+
+    macro_rules! impl_resources_tuples {
+        ($(($R:ident, $r:ident)),*) => {
+            impl<$($R:Resource),*> Resources<ResourceTupleMarker> for ($($R,)*) {
+                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`world` is unused when implemented for the unit type `()`.")]
+                #[track_caller]
+                fn insert_into_world(self, world: &mut World){
+                    let ($($r,)*) = self;
+                    $(world.insert_resource($r);)*
+                }
+            }
+        }
+    }
+
+    all_tuples!(impl_resources_tuples, 0, 15, R, r);
+}
+
 /// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
