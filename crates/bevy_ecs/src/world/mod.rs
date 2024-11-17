@@ -1750,9 +1750,9 @@ impl World {
     /// you will overwrite any existing data.
     #[inline]
     #[track_caller]
-    pub fn insert_resource<R: Resource>(&mut self, value: R) {
-        self.insert_resource_with_caller(
-            value,
+    pub fn insert_resource<R>(&mut self, value: impl crate::system::Resources<R>) {
+        value.insert_into_world(
+            self,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -1763,21 +1763,14 @@ impl World {
     #[inline]
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
-        value: R,
+        value: impl crate::system::Resources<R>,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
-        let component_id = self.components.register_resource::<R>();
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R.
-            unsafe {
-                self.insert_resource_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_change_detection")]
-                    caller,
-                );
-            }
-        });
+        value.insert_into_world(
+            self,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        )
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.

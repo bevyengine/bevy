@@ -973,16 +973,34 @@ mod sealed {
     use bevy_utils::all_tuples;
 
     pub trait Resources<Marker> {
-        fn insert_into_world(self, world: &mut World);
+        fn insert_into_world(
+            self,
+            world: &mut World,
+            #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        );
     }
 
     pub struct ResourceMarker;
     pub struct ResourceTupleMarker;
 
     impl<R: Resource> Resources<ResourceMarker> for R {
-        #[track_caller]
-        fn insert_into_world(self, world: &mut World) {
-            world.insert_resource(self);
+        fn insert_into_world(
+            self,
+            world: &mut World,
+            #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        ) {
+            let component_id = world.components.register_resource::<R>();
+            bevy_ptr::OwningPtr::make(self, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
+                unsafe {
+                    world.insert_resource_by_id(
+                        component_id,
+                        ptr,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
+                }
+            });
         }
     }
 
@@ -992,10 +1010,9 @@ mod sealed {
                 // We use `allow` instead of `expect` here because the lint is not generated for all cases.
                 #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
                 #[allow(unused_variables, reason = "`world` is unused when implemented for the unit type `()`.")]
-                #[track_caller]
                 fn insert_into_world(self, world: &mut World){
                     let ($($r,)*) = self;
-                    $(world.insert_resource($r);)*
+                    $($r.insert_into_world(world);)*
                 }
             }
         }
@@ -2748,6 +2765,30 @@ mod tests {
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
+    }
+
+    #[derive(Resource)]
+    struct ResourceA(u32);
+
+    #[derive(Resource)]
+    struct ResourceB(bool);
+
+    #[test]
+    fn resource_single_insert(){
+        let mut world = World::new();
+        world.insert_resource(ResourceA(3));
+        let res = world.get_resource::<ResourceA>().unwrap();
+        assert_eq!(3, res.0);        
+    }
+
+    #[test]
+    fn resource_tuple_insert(){
+        let mut world = World::new();
+        world.insert_resource((ResourceA(3), ResourceB(true)));
+        let res = world.get_resource::<ResourceA>().unwrap();
+        assert_eq!(3u32, res.0);
+        let res = world.get_resource::<ResourceB>().unwrap();
+        assert_eq!(true, res.0);
     }
 
     fn _dyn_system_param_type_inference(mut p: DynSystemParam) {
