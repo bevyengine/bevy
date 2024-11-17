@@ -1826,3 +1826,57 @@ impl RequiredComponents {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_required_components() {
+        // `A` requires `B` directly.
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        // `B` requires `C` with runtime registration.
+        // This *fails*, but not when using `#[require(C)]` for `B`.
+        world.register_required_components::<B, C>();
+
+        // Adding runtime registration for `A -> B` also doesn't help if done after `B -> C`,
+        // but it *does* work if done before.
+        let _ = world.try_register_required_components::<A, B>();
+
+        let entity = world.spawn(A).id();
+        assert!(world.entity(entity).get::<C>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_2() {
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        world.register_required_components::<B, C>();
+
+        let _ = world.try_register_required_components::<A, B>();
+
+        let id = world.spawn(B).id();
+        assert!(world.entity(id).get::<C>().is_some());
+    }
+}
