@@ -20,7 +20,7 @@ use bevy_window::PrimaryWindow;
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpriteBackendSettings {
-    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to AlphaThreshold(10))
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to Threshold(10))
     pub alpha_passthrough: SpriteBackendAlphaPassthrough,
 }
 
