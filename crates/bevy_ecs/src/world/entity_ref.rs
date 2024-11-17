@@ -930,6 +930,10 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn location(&self) -> EntityLocation {
         self.assert_not_despawned();
@@ -937,6 +941,10 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the archetype that the current entity belongs to.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
         self.assert_not_despawned();
@@ -950,6 +958,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If you do not know the concrete type of a component, consider using
     /// [`Self::contains_id`] or [`Self::contains_type_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn contains<T: Component>(&self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
@@ -963,6 +975,10 @@ impl<'w> EntityWorldMut<'w> {
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
     ///     [`Self::contains_type_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.as_unsafe_entity_cell_readonly()
@@ -976,6 +992,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         self.as_unsafe_entity_cell_readonly()
@@ -984,6 +1004,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         EntityRef::from(self).get()
@@ -993,7 +1017,8 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Panics
     ///
-    /// If the entity does not have the components required by the query `Q`.
+    /// If the entity does not have the components required by the query `Q` or if the entity
+    /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
         EntityRef::from(self).components::<Q>()
@@ -1001,6 +1026,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         EntityRef::from(self).get_components::<Q>()
@@ -1009,6 +1038,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Consumes `self` and gets access to the component of type `T` with
     /// the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_borrow<T: Component>(self) -> Option<&'w T> {
         // SAFETY: consuming `self` implies exclusive access
@@ -1019,6 +1052,10 @@ impl<'w> EntityWorldMut<'w> {
     /// including change detection information as a [`Ref`].
     ///
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
         EntityRef::from(self).get_ref()
@@ -1029,6 +1066,10 @@ impl<'w> EntityWorldMut<'w> {
     /// including change detection information as a [`Ref`].
     ///
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_ref<T: Component>(self) -> Option<Ref<'w, T>> {
         EntityRef::from(self).get_ref()
@@ -1036,6 +1077,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
@@ -1045,6 +1090,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Consumes `self` and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
@@ -1053,6 +1102,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         EntityRef::from(self).get_change_ticks::<T>()
@@ -1064,6 +1117,10 @@ impl<'w> EntityWorldMut<'w> {
     /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         EntityRef::from(self).get_change_ticks_by_id(component_id)
@@ -1088,6 +1145,10 @@ impl<'w> EntityWorldMut<'w> {
     /// # Examples
     ///
     /// For examples on how to use this method, see [`EntityRef::get_by_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_by_id<F: DynamicComponentFetch>(
         &self,
@@ -1116,6 +1177,10 @@ impl<'w> EntityWorldMut<'w> {
     /// # Examples
     ///
     /// For examples on how to use this method, see [`EntityRef::get_by_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_borrow_by_id<F: DynamicComponentFetch>(
         self,
@@ -1148,6 +1213,10 @@ impl<'w> EntityWorldMut<'w> {
     /// # Examples
     ///
     /// For examples on how to use this method, see [`EntityMut::get_mut_by_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_mut_by_id<F: DynamicComponentFetch>(
         &mut self,
@@ -1181,6 +1250,10 @@ impl<'w> EntityWorldMut<'w> {
     /// # Examples
     ///
     /// For examples on how to use this method, see [`EntityMut::get_mut_by_id`].
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_mut_by_id<F: DynamicComponentFetch>(
         self,
@@ -1195,6 +1268,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         self.insert_with_caller(
@@ -1209,6 +1286,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This will leave any previous value(s) of the same component type
     /// unchanged.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         self.insert_with_caller(
@@ -1252,6 +1333,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub unsafe fn insert_by_id(
         &mut self,
@@ -1297,6 +1382,10 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
@@ -1335,6 +1424,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// **Note:** If the entity does not have every component in the bundle, this method will not
     /// remove any of them.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     // TODO: BundleRemover?
     #[must_use]
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
@@ -1606,6 +1699,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Removes any components in the [`Bundle`] from the entity.
     ///
     /// See [`EntityCommands::remove`](crate::system::EntityCommands::remove) for more details.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         self.assert_not_despawned();
@@ -1621,6 +1718,10 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes all components in the [`Bundle`] and remove all required components for each component in the bundle
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
@@ -1639,6 +1740,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
         self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
@@ -1671,7 +1776,8 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Panics
     ///
-    /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    /// Panics if the provided [`ComponentId`] does not exist in the [`World`] or if the
+    /// entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.assert_not_despawned();
         let components = &mut self.world.components;
@@ -1689,6 +1795,10 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes all components associated with the entity.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clear(&mut self) -> &mut Self {
         self.assert_not_despawned();
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
@@ -1709,6 +1819,10 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the current entity.
     ///
     /// See [`World::despawn`] for more details.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn despawn(self) {
         self.assert_not_despawned();
         let world = self.world;
@@ -1920,6 +2034,10 @@ impl<'w> EntityWorldMut<'w> {
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {
             Entry::Occupied(OccupiedEntry {
@@ -1935,7 +2053,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Triggers the given `event` for this entity, which will run any observers watching for it.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+        self.assert_not_despawned();
         self.world.trigger_targets(event, self.entity);
         self.world.flush();
         self.update_location();
@@ -1944,10 +2067,15 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
+        self.assert_not_despawned();
         self.world
             .spawn(Observer::new(observer).with_entity(self.entity));
         self.world.flush();
