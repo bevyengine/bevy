@@ -39,7 +39,7 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(404252
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
-// TODO consider supporting multiple OIT techniques like Weighted Blended and Moment Based
+// TODO consider supporting multiple OIT techniques like Weighted Blended OIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
