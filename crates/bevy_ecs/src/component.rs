@@ -1867,7 +1867,6 @@ mod tests {
 
     #[test]
     fn runtime_required_components_abc_spawn_a_get_c() {
-        // `A` requires `B` directly.
         #[derive(Component)]
         #[require(B)]
         struct A;
@@ -1886,7 +1885,6 @@ mod tests {
 
     #[test]
     fn runtime_required_components_abcd_spawn_a_get_d() {
-        // `A` requires `B` directly.
         #[derive(Component)]
         #[require(B)]
         struct A;
