@@ -125,14 +125,14 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
 // in use (mesh vs. meshlet).
 fn sample_texture(
     texture: texture_2d<f32>,
-    sampler: sampler,
+    textureSample: sampler,
     uv: vec2<f32>,
     bias: SampleBias,
 ) -> vec4<f32> {
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    return textureSampleGrad(texture, sampler, uv, bias.ddx_uv, bias.ddy_uv);
+    return textureSampleGrad(texture, textureSample, uv, bias.ddx_uv, bias.ddy_uv);
 #else
-    return textureSampleBias(texture, sampler, uv, bias.mip_bias);
+    return textureSampleBias(texture, textureSample, uv, bias.mip_bias);
 #endif
 }
 
