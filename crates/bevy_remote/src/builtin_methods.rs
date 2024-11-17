@@ -814,7 +814,7 @@ pub fn process_unwatch_request(
     In(params): In<Option<Value>>,
     watching_requests: Res<RemoteWatchingRequests>,
 ) -> BrpResult {
-    let params_watch_id = match params.map(parse::<BrpUnwatchParams>) {
+    let watch_id = match params.map(parse::<BrpUnwatchParams>) {
         Some(Ok(params)) => params.watch_id,
         Some(Err(e)) => {
             return Err(e);
@@ -822,9 +822,9 @@ pub fn process_unwatch_request(
         _ => None,
     };
 
-    for (watch_id, message, _) in watching_requests.0.iter() {
-        if params_watch_id.is_none() || params_watch_id.unwrap() == *watch_id {
-            message.sender.close();
+    for request in watching_requests.0.iter() {
+        if watch_id.is_none() || watch_id.unwrap() == request.watch_id {
+            request.message.sender.close();
         }
     }
 

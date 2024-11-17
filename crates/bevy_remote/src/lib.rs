@@ -555,15 +555,31 @@ impl RemoteMethods {
 /// Not to be confused with the `id` field in JSON-RPC 2.0, which is a client owned ID that might be unset or contain duplicates.
 pub type RemoteWatchingRequestId = u32;
 
-/// Holds the [`BrpMessage`]'s of all ongoing watching requests along with their IDs and handlers.
+/// An ongoing watching request. Holds the necessary details for processing and cleanup.
+#[derive(Debug)]
+pub struct RemoteWatchingRequest {
+    watch_id: RemoteWatchingRequestId,
+    message: BrpMessage,
+    system_id: RemoteWatchingMethodSystemId,
+}
+
+impl RemoteWatchingRequest {
+    fn new(
+        watch_id: RemoteWatchingRequestId,
+        message: BrpMessage,
+        system_id: RemoteWatchingMethodSystemId,
+    ) -> Self {
+        Self {
+            watch_id,
+            message,
+            system_id,
+        }
+    }
+}
+
+/// Holds the [`RemoteWatchingRequest`]'s of all ongoing watching requests with their IDs, messages and handlers.
 #[derive(Debug, Resource, Default)]
-pub struct RemoteWatchingRequests(
-    Vec<(
-        RemoteWatchingRequestId,
-        BrpMessage,
-        RemoteWatchingMethodSystemId,
-    )>,
-);
+pub struct RemoteWatchingRequests(Vec<RemoteWatchingRequest>);
 
 /// A result for starting a watching request.
 ///
@@ -854,11 +870,10 @@ fn process_remote_requests(world: &mut World, mut watch_id_counter: Local<u32>) 
                 *watch_id_counter += 1;
                 let watch_id = *watch_id_counter;
 
-                world.resource_mut::<RemoteWatchingRequests>().0.push((
-                    watch_id,
-                    message.clone(),
-                    id,
-                ));
+                world
+                    .resource_mut::<RemoteWatchingRequests>()
+                    .0
+                    .push(RemoteWatchingRequest::new(watch_id, message.clone(), id));
 
                 Ok(serde_json::to_value(BrpWatchResult::new(watch_id)).unwrap())
             }
@@ -872,7 +887,12 @@ fn process_remote_requests(world: &mut World, mut watch_id_counter: Local<u32>) 
 /// and handles it if so.
 fn process_ongoing_watching_requests(world: &mut World) {
     world.resource_scope::<RemoteWatchingRequests, ()>(|world, requests| {
-        for (watch_id, message, system_id) in requests.0.iter() {
+        for RemoteWatchingRequest {
+            watch_id,
+            message,
+            system_id,
+        } in requests.0.iter()
+        {
             let handler_result =
                 process_single_ongoing_watching_request(world, *watch_id, message, system_id);
             let sender_result = match handler_result {
@@ -906,11 +926,11 @@ fn process_single_ongoing_watching_request(
 
 fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
     for i in (0..requests.0.len()).rev() {
-        let Some((_, message, _)) = requests.0.get(i) else {
+        let Some(request) = requests.0.get(i) else {
             unreachable!()
         };
 
-        if message.sender.is_closed() {
+        if request.message.sender.is_closed() {
             requests.0.swap_remove(i);
         }
     }
