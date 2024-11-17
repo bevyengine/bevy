@@ -99,6 +99,34 @@ fn spawn_inventory_slot(mut commands: Commands, inventory: Single<Entity, With<I
     });
 }
 
+/// Spawn two arbitrary inventory items. Here we'll just pick the first two slots.
+fn add_items_to_inventory(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    slots: Query<Entity, With<InventorySlot>>,
+) {
+    let paths = [
+        "textures/rpg/props/generic-rpg-loot01.png",
+        "textures/rpg/props/generic-rpg-loot02.png",
+    ];
+    for (i, slot) in slots.iter().enumerate().take(2) {
+        commands.entity(slot).with_children(|parent| {
+            parent
+                .spawn((
+                    Draggable,
+                    // This node serves solely to be dragged! It provides the transform, using required
+                    // components.
+                    Node::default(),
+                    ImageNode::new(asset_server.load(paths[i])),
+                    // TODO: seems clumsy, better solution?
+                    ZIndex(99),
+                ))
+                .observe(drag_start())
+                .observe(drag_end());
+        });
+    }
+}
+
 /// This observer detects the beginning of a drag-and-drop motion and takes care of tasks such as
 /// detaching the target from its parent and allowing the node to be moved.
 fn drag_start() -> impl Fn(
@@ -204,34 +232,6 @@ fn drag_inventory_items(
     // thing.
     item_node.left = Val::Px(cursor_pos.x);
     item_node.top = Val::Px(cursor_pos.y);
-}
-
-/// Spawn two arbitrary inventory items. Here we'll just pick the first two slots.
-fn add_items_to_inventory(
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-    slots: Query<Entity, With<InventorySlot>>,
-) {
-    let paths = [
-        "textures/rpg/props/generic-rpg-loot01.png",
-        "textures/rpg/props/generic-rpg-loot02.png",
-    ];
-    for (i, slot) in slots.iter().enumerate().take(2) {
-        commands.entity(slot).with_children(|parent| {
-            parent
-                .spawn((
-                    Draggable,
-                    // This node serves solely to be dragged! It provides the transform, using required
-                    // components.
-                    Node::default(),
-                    ImageNode::new(asset_server.load(paths[i])),
-                    // TODO: seems clumsy, better solution?
-                    ZIndex(99),
-                ))
-                .observe(drag_start())
-                .observe(drag_end());
-        });
-    }
 }
 
 /// Display instructions.
