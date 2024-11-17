@@ -31,7 +31,7 @@ struct InventorySlot;
 
 /// Marker component for entities which can be dragged.
 #[derive(Component)]
-struct Dragable;
+struct Draggable;
 
 /// Marker component for entities which are currently being dragged, and should follow the pointer.
 #[derive(Component)]
@@ -104,11 +104,11 @@ fn spawn_inventory_slot(mut commands: Commands, inventory: Single<Entity, With<I
 fn drag_start() -> impl Fn(
     Trigger<Pointer<DragStart>>,
     Commands,
-    Query<(Entity, &mut Node, &mut Transform, &Parent), With<Dragable>>,
+    Query<(Entity, &mut Node, &mut Transform, &Parent), With<Draggable>>,
     ResMut<DragDetails>,
 ) {
-    move |ev, mut commands, mut dragable, mut drag_details| {
-        let Ok((item, mut item_node, mut transform, parent)) = dragable.get_mut(ev.target) else {
+    move |ev, mut commands, mut draggable, mut drag_details| {
+        let Ok((item, mut item_node, mut transform, parent)) = draggable.get_mut(ev.target) else {
             return;
         };
 
@@ -169,7 +169,7 @@ fn drag_end() -> impl Fn(
 /// need to check the type of the `ev.target` because we've only attached this observer to
 /// `InventorySlot`s.
 fn set_drop_target(
-) -> impl Fn(Trigger<Pointer<Over>>, Query<(), With<Dragable>>, ResMut<DragDetails>) {
+) -> impl Fn(Trigger<Pointer<Over>>, Query<(), With<Draggable>>, ResMut<DragDetails>) {
     move |ev, draggables, mut details| {
         // Don't try to drop the item on an existing item
         if draggables.get(ev.target).is_ok() {
@@ -220,7 +220,7 @@ fn add_items_to_inventory(
         commands.entity(slot).with_children(|parent| {
             parent
                 .spawn((
-                    Dragable,
+                    Draggable,
                     // This node serves solely to be dragged! It provides the transform, using required
                     // components.
                     Node::default(),
