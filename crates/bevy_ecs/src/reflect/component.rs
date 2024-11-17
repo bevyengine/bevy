@@ -266,7 +266,7 @@ impl ReflectComponent {
 
 impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
-        // TODO: Currently we panic of a component is immutable and you use
+        // TODO: Currently we panic if a component is immutable and you use
         // reflection to mutate it. Perhaps the mutation methods should be fallible?
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
