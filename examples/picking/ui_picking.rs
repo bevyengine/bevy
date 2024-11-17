@@ -227,9 +227,8 @@ fn drag_inventory_items(
     let Some(cursor_pos) = primary_window.cursor_position() else {
         return;
     };
-    // We can't assign exact values with a `PositionType::Absolute` UI node. However, we can use
-    // distance from top of viewport and distance from left of viewport to accomplish the same
-    // thing.
+    // We can use distance from top of viewport and distance from left of viewport to accurately
+    // position a `PositionType::Absolute` node.
     item_node.left = Val::Px(cursor_pos.x);
     item_node.top = Val::Px(cursor_pos.y);
 }
