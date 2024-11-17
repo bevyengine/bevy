@@ -88,6 +88,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
 |reflect_functions|Enable function reflection|
+|remote_websocket|WebSocket support for Bevy Remote Protocol|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
@@ -109,5 +110,4 @@ The default feature set enables most of the expected features of a game engine, 
 |wayland|Wayland display server support|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
-|websocket|WebSocket support for Bevy Remote Protocol|
 |zlib|For KTX2 supercompression|
