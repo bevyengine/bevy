@@ -289,9 +289,9 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                     panic!("This component is immutable, you cannot modify it through reflection");
                 }
 
-                if let Some(mut component) = entity.take::<C>() {
+                // SAFETY: guard ensures `C` is a mutable component
+                if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
                     component.apply(reflected_component.as_partial_reflect());
-                    entity.insert(component);
                 } else {
                     let component = entity.world_scope(|world| {
                         from_reflect_with_fallback::<C>(reflected_component, world, registry)

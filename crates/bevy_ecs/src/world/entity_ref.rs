@@ -1031,8 +1031,22 @@ impl<'w> EntityWorldMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.as_unsafe_entity_cell().get_mut() }
+        // SAFETY: trait bound `Mutability = Mutable` ensures `T` is mutable
+        unsafe { self.get_mut_assume_mutable() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY:
+        // - &mut self implies exclusive access for duration of returned value
+        // - caller ensures T is mutable
+        unsafe { self.as_unsafe_entity_cell().get_mut_assume_mutable() }
     }
 
     /// Consumes `self` and gets mutable access to the component of type `T`
