@@ -1843,6 +1843,18 @@ impl<'w> EntityWorldMut<'w> {
             .unwrap_or(EntityLocation::INVALID);
     }
 
+    /// Returns if the entity has been despawned.
+    ///
+    /// Normally it shouldn't be needed to explicitly check if the entity has been despawned
+    /// between commands as this shouldn't happen. However, for some special cases where it
+    /// is known that a hook or an observer might despawn the entity while a [`EntityWorldMut`]
+    /// reference is still held, this method can be used to check if the entity is still alive
+    /// to avoid panicing when calling further methods.
+    #[inline]
+    pub fn is_despawned(&self) -> bool {
+        self.location.archetype_id == ArchetypeId::INVALID
+    }
+
     /// Gets an Entry into the world for this entity and component for in-place manipulation.
     ///
     /// The type parameter specifies which component to get.
