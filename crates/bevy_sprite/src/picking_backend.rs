@@ -26,7 +26,8 @@ pub struct SpriteBackendSettings {
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum SpriteBackendAlphaPassthrough {
-    /// Even if a sprite is picked on a transparent pixel, it should still count within the backend
+    /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
+    /// Only consider the rect of a given sprite.
     NoPassthrough,
     /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
     /// Threshold is given as a single u8 value (0-255) representing the alpha channel that you would see in most art programs
