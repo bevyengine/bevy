@@ -15,7 +15,7 @@ remote_websocket = [
   "http",
   "dep:tungstenite",
   "dep:hyper-tungstenite",
-  "dep:futures-util"
+  "dep:futures-util",
 ]
 
 [dependencies]
