@@ -2774,13 +2774,19 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
+/// Error type returned by [`TryFrom`] conversions from filtered entity types
+/// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
+/// ([`EntityRef`]/[`EntityMut`]).
 #[derive(Error, Display, Debug)]
 pub enum TryFromFilteredError {
+    /// Error indicating that the filtered entity does not have read access to
+    /// all components.
     #[display(
         "Conversion failed, filtered entity ref does not have read access to all components"
     )]
     MissingReadAllAccess,
-
+    /// Error indicating that the filtered entity does not have write access to
+    /// all components.
     #[display(
         "Conversion failed, filtered entity ref does not have write access to all components"
     )]
