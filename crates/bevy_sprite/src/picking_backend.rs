@@ -16,14 +16,7 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// Runtime settings for the [`SpritePickingPlugin`].
-#[derive(Resource, Reflect)]
-#[reflect(Resource, Default)]
-pub struct SpriteBackendSettings {
-    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to Threshold(10))
-    pub alpha_passthrough: SpriteBackendAlphaPassthrough,
-}
-
+/// Should the backend count transparent pixels as part of the sprite for picking purposes
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum SpriteBackendAlphaPassthrough {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
@@ -32,6 +25,14 @@ pub enum SpriteBackendAlphaPassthrough {
     /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
     /// Threshold is given as a single u8 value (0-255) representing the alpha channel that you would see in most art programs
     Threshold(u8),
+}
+
+/// Runtime settings for the [`SpritePickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct SpriteBackendSettings {
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to Threshold(10))
+    pub alpha_passthrough: SpriteBackendAlphaPassthrough,
 }
 
 impl Default for SpriteBackendSettings {
