@@ -88,7 +88,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
 |reflect_functions|Enable function reflection|
-|remote_websocket|WebSocket support for Bevy Remote Protocol|
+|remote_websocket|Enable WebSocket support for Bevy Remote Protocol|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
