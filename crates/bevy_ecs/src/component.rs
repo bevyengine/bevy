@@ -1159,15 +1159,14 @@ impl Components {
     // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
     //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
     //       which is private, and could be equally risky to expose to users.
-    /// Registers the given component `R` as a [required component] for `T`,
-    /// and adds `T` to the list of requirees for `R`.
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
+    /// and adds `T` to their lists of requirees.
     ///
     /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
     /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
     /// Lower depths are more specific requirements, and can override existing less specific registrations.
     ///
-    /// This method does *not* recursively register required components for components required by `R`,
-    /// nor does it register them for components that require `T`.
+    /// This method does *not* register any components as required by components that require `T`.
     ///
     /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
     /// or the equivalent method in `bevy_app::App`.
@@ -1196,15 +1195,14 @@ impl Components {
         }
     }
 
-    /// Registers the given component `R` as a [required component] for `T`,
-    /// and adds `T` to the list of requirees for `R`.
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
+    /// and adds `T` to their lists of requirees.
     ///
     /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
     /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
     /// Lower depths are more specific requirements, and can override existing less specific registrations.
     ///
-    /// This method does *not* recursively register required components for components required by `R`,
-    /// nor does it register them for components that require `T`.
+    /// This method does *not* register any components as required by components that require `T`.
     ///
     /// [required component]: Component#required-components
     ///
@@ -1232,6 +1230,27 @@ impl Components {
         //         Assuming it is valid, the component is in the list of required components, so it must exist already.
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
+
+        // Register the inherited required components for the requiree.
+        let required: Vec<(ComponentId, RequiredComponent)> = self
+            .get_info(required)
+            .unwrap()
+            .required_components()
+            .0
+            .iter()
+            .map(|(id, component)| (*id, component.clone()))
+            .collect();
+
+        for (id, component) in required {
+            // Register the inherited required components for the requiree.
+            // The inheritance depth is increased by `1` since this is a component required by the original required component.
+            required_components.register_dynamic(
+                id,
+                component.constructor.clone(),
+                component.inheritance_depth + 1,
+            );
+            self.get_required_by_mut(id).unwrap().insert(requiree);
+        }
     }
 
     #[inline]
