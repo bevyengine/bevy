@@ -1,0 +1,132 @@
+//! Utilities for automatically updating components in response to other ECS data changing.
+
+use crate as bevy_ecs;
+use bevy_ecs::{
+    component::{ComponentHooks, StorageType, Tick},
+    prelude::*,
+};
+use bevy_ecs_macros::Resource;
+use bevy_utils::HashMap;
+use core::any::TypeId;
+
+/// TODO: Docs.
+pub struct ReactiveComponent<Input: Component, Output: Component> {
+    source: Entity,
+    expression: Option<Box<dyn (Fn(&Input) -> Output) + Send + Sync + 'static>>,
+}
+
+impl<Input: Component, Output: Component> ReactiveComponent<Input, Output> {
+    /// TODO: Docs.
+    pub fn new(
+        source: Entity,
+        expression: impl (Fn(&Input) -> Output) + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            source,
+            expression: Some(Box::new(expression)),
+        }
+    }
+
+    fn on_add_hook(entity: Entity, world: &mut World) {
+        let (source, expression) = {
+            let mut entity = world.entity_mut(entity);
+            let mut this = entity.get_mut::<Self>().unwrap();
+            (this.source, this.expression.take().unwrap())
+        };
+
+        // Compute and insert initial output
+        let input = world
+            .get_entity(source)
+            .expect("TODO: Source entity despawned")
+            .get::<Input>()
+            .expect("TODO: Source component removed");
+        let output = (expression)(input);
+        world.entity_mut(entity).insert(output);
+
+        // Register the subscription
+        let subscription = move |world: &mut World, last_run, this_run| {
+            let source_tick = world
+                .get_entity(source)
+                .expect("TODO: Source entity despawned")
+                .get_change_ticks::<Input>()
+                .expect("TODO: Source component removed");
+            let changed = source_tick.is_changed(last_run, this_run);
+            if changed {
+                let input = world
+                    .get_entity(source)
+                    .expect("TODO: Source entity despawned")
+                    .get::<Input>()
+                    .expect("TODO: Source component removed");
+                let output = (expression)(input);
+                world.entity_mut(entity).insert(output);
+            }
+            changed
+        };
+        world
+            .resource_mut::<ReactiveComponentExpressions>()
+            .0
+            .insert((entity, TypeId::of::<Self>()), Box::new(subscription));
+    }
+
+    fn on_remove_hook(entity: Entity, world: &mut World) {
+        // Deregister the subscription
+        world
+            .resource_mut::<ReactiveComponentExpressions>()
+            .0
+            .remove(&(entity, TypeId::of::<Self>()));
+
+        // Remove the computed output
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.remove::<Output>();
+        }
+    }
+}
+
+impl<Input: Component, Output: Component> Component for ReactiveComponent<Input, Output> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks
+            .on_add(|mut world, entity, _| {
+                world
+                    .commands()
+                    .queue(move |world: &mut World| Self::on_add_hook(entity, world));
+            })
+            .on_remove(|mut world, entity, _| {
+                world
+                    .commands()
+                    .queue(move |world: &mut World| Self::on_remove_hook(entity, world));
+            });
+    }
+}
+
+/// System to check for changes to [`ReactiveComponent`] expressions and if changed, recompute it.
+pub fn update_reactive_components(world: &mut World) {
+    world.resource_scope(|world, expressions: Mut<ReactiveComponentExpressions>| {
+        let mut last_run = world.change_tick();
+        let mut this_run = last_run;
+        loop {
+            let mut any_reaction = false;
+
+            for expression in expressions.0.values() {
+                any_reaction = any_reaction || (expression)(world, last_run, this_run);
+            }
+
+            if !any_reaction {
+                break;
+            } else {
+                last_run = this_run;
+                this_run.set(this_run.get().wrapping_add(1));
+            }
+        }
+    });
+}
+
+/// TODO: Docs.
+#[derive(Resource, Default)]
+pub struct ReactiveComponentExpressions(
+    HashMap<
+        (Entity, TypeId),
+        Box<dyn (Fn(&mut World, Tick, Tick) -> bool) + Send + Sync + 'static>,
+    >,
+);

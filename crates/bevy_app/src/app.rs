@@ -1,6 +1,6 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    First, Last, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState,
+    SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -97,6 +97,8 @@ impl Default for App {
         #[cfg(feature = "reflect_functions")]
         app.init_resource::<AppFunctionRegistry>();
 
+        app.init_resource::<bevy_ecs::reactivity::ReactiveComponentExpressions>();
+
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
@@ -104,6 +106,7 @@ impl Default for App {
                 .in_set(bevy_ecs::event::EventUpdates)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
+        app.add_systems(Last, bevy_ecs::reactivity::update_reactive_components);
         app.add_event::<AppExit>();
 
         app

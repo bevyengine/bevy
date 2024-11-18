@@ -27,6 +27,7 @@ pub mod intern;
 pub mod label;
 pub mod observer;
 pub mod query;
+pub mod reactivity;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
@@ -51,6 +52,7 @@ pub mod prelude {
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        reactivity::ReactiveComponent,
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
