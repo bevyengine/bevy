@@ -414,16 +414,12 @@ impl Gamepad {
 
     /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed.
     pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.pressed(button_type))
+        self.digital.any_pressed(button_inputs)
     }
 
-    /// Returns `true` if all items in [`GamepadButton`] have been pressed.
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have been pressed.
     pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.pressed(button_type))
+        self.digital.all_pressed(button_inputs)
     }
 
     /// Returns `true` if the [`GamepadButton`] has been pressed during the current frame.
@@ -433,18 +429,14 @@ impl Gamepad {
         self.digital.just_pressed(button_type)
     }
 
-    /// Returns `true` if any item in [`GamepadButton`] has been pressed during the current frame.
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed during the current frame.
     pub fn any_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.just_pressed(button_type))
+        self.digital.any_just_pressed(button_inputs)
     }
 
-    /// Returns `true` if all items in [`GamepadButton`] have been just pressed.
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have been just pressed.
     pub fn all_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.just_pressed(button_type))
+        self.digital.all_just_pressed(button_inputs)
     }
 
     /// Returns `true` if the [`GamepadButton`] has been released during the current frame.
@@ -454,24 +446,20 @@ impl Gamepad {
         self.digital.just_released(button_type)
     }
 
-    /// Returns `true` if any item in [`GamepadButton`] has just been released.
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has just been released.
     pub fn any_just_released(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButton>,
     ) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.just_released(button_type))
+        self.digital.any_just_released(button_inputs)
     }
 
-    /// Returns `true` if all items in [`GamepadButton`] have just been released.
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have just been released.
     pub fn all_just_released(
         &self,
         button_inputs: impl IntoIterator<Item = GamepadButton>,
     ) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.just_released(button_type))
+        self.digital.all_just_released(button_inputs)
     }
 
     /// Returns an iterator over all digital [button]s that are pressed.

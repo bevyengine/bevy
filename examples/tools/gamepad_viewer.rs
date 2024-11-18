@@ -393,12 +393,12 @@ fn update_buttons(
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
 ) {
-    for buttons in &gamepads {
+    for gamepad in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {
-            if buttons.just_pressed(**react_to) {
+            if gamepad.just_pressed(**react_to) {
                 *handle = materials.active.clone();
             }
-            if buttons.just_released(**react_to) {
+            if gamepad.just_released(**react_to) {
                 *handle = materials.normal.clone();
             }
         }
