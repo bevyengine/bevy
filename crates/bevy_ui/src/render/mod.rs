@@ -527,11 +527,6 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
-#[derive(Component)]
-pub struct ExtractedAA {
-    pub scale_factor: f32,
-}
-
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_default_ui_camera_view(
     mut commands: Commands,
@@ -557,7 +552,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, ExtractedAA, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -571,7 +566,6 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
-
             let default_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -596,8 +590,8 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if ui_anti_alias != Some(&UiAntiAlias::Off) {
-                entity_commands.insert(ExtractedAA { scale_factor: 1. });
+            if let Some(ui_anti_alias) = ui_anti_alias {
+                entity_commands.insert(*ui_anti_alias);
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
@@ -808,13 +802,13 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&ExtractedAA>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, extracted_aa)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -828,7 +822,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                anti_alias: extracted_aa.is_some(),
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );
         transparent_phase.add(TransparentUi {
