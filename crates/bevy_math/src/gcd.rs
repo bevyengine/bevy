@@ -6,7 +6,7 @@
 /// This method uses the [Euclidean Algorithm](https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations).
 /// Specifically, the division-based implementation proposed by D.E. Knuth in _The Art of Computer Programming_.
 #[inline(always)]
-pub const fn gcd(mut a: usize, mut b: usize) -> usize {
+pub const fn gcd(mut a: u64, mut b: u64) -> u64 {
     while b != 0 {
         (a, b) = (b, a % b);
     }
@@ -22,15 +22,16 @@ pub const fn gcd(mut a: usize, mut b: usize) -> usize {
 ///
 /// This method does _not_ panic.
 #[inline(always)]
-pub const fn gcd_by_table<const N: usize>(value: usize) -> usize {
-    const fn gcd_table<const N: usize>() -> [usize; N] {
-        let mut table: [usize; N] = [1; N];
-        let mut i = 0;
+pub const fn gcd_by_table<const N: usize>(value: u64) -> u64 {
+    const fn gcd_table<const N: usize>() -> [u64; N] {
+        let mut table: [u64; N] = [1; N];
+        let a = N as u64;
+        let mut b = 0;
 
-        while i < N {
-            table[i] = gcd(N, i);
+        while b < a {
+            table[b as usize] = gcd(a, b);
 
-            i += 1;
+            b += 1;
         }
 
         table
@@ -45,7 +46,7 @@ pub const fn gcd_by_table<const N: usize>(value: usize) -> usize {
         &gcd_table::<N>()
     };
 
-    table[value % N]
+    table[(value % N as u64) as usize]
 }
 
 /// Computes `N / gcd(N, value)`, where `gcd(N, value)` is the [Greatest Common Divisor](https://en.wikipedia.org/wiki/Greatest_common_divisor)
@@ -59,15 +60,16 @@ pub const fn gcd_by_table<const N: usize>(value: usize) -> usize {
 ///
 /// For the case where `N` is zero, the returned value is zero, instead of a runtime panic.
 #[inline(always)]
-pub const fn n_over_gcd_by_table<const N: usize>(value: usize) -> usize {
-    const fn n_over_gcd_table<const N: usize>() -> [usize; N] {
-        let mut table: [usize; N] = [1; N];
-        let mut i = 0;
+pub const fn n_over_gcd_by_table<const N: usize>(value: u64) -> u64 {
+    const fn n_over_gcd_table<const N: usize>() -> [u64; N] {
+        let mut table: [u64; N] = [1; N];
+        let a = N as u64;
+        let mut b = 0;
 
-        while i < N {
-            table[i] = N / gcd(N, i);
+        while b < a {
+            table[b as usize] = a / gcd(a, b);
 
-            i += 1;
+            b += 1;
         }
 
         table
@@ -82,7 +84,7 @@ pub const fn n_over_gcd_by_table<const N: usize>(value: usize) -> usize {
         &n_over_gcd_table::<N>()
     };
 
-    table[value % N]
+    table[(value % N as u64) as usize]
 }
 
 #[cfg(test)]

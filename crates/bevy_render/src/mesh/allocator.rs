@@ -957,7 +957,7 @@ impl ElementLayout {
     /// index) with the given byte size.
     fn new(class: ElementClass, size: u64) -> ElementLayout {
         let elements_per_slot =
-            n_over_gcd_by_table::<{ COPY_BUFFER_ALIGNMENT as usize }>(size as usize) as u32;
+            n_over_gcd_by_table::<{ COPY_BUFFER_ALIGNMENT as usize }>(size) as u32;
         ElementLayout {
             class,
             size,
