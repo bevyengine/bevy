@@ -326,7 +326,7 @@ pub enum ButtonSettingsError {
 ///         println!("{name}");
 ///
 ///         if gamepad.just_pressed(GamepadButton::North) {
-///             println!("{} just pressed North", gamepad.name())
+///             println!("{} just pressed North", name)
 ///         }
 ///
 ///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
