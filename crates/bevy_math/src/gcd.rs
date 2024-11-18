@@ -4,12 +4,11 @@
 /// between the supplied `value` and the constant parameter `N`.
 ///
 /// This method uses the [Euclidean Algorithm](https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations).
+/// Specifically, the division-based implementation proposed by D.E. Knuth in _The Art of Computer Programming_.
 #[inline(always)]
 pub const fn gcd(mut a: usize, mut b: usize) -> usize {
     while b != 0 {
-        let t = b;
-        b = a % b;
-        a = t;
+        (a, b) = (b, a % b);
     }
     a
 }
@@ -111,6 +110,15 @@ mod tests {
         assert_eq!(gcd(4, 2), 2);
         assert_eq!(gcd(4, 3), 1);
         assert_eq!(gcd(4, 4), 4);
+    }
+
+    #[test]
+    fn gcd_tests_symmetry() {
+        for a in 0..1000 {
+            for b in 0..1000 {
+                assert_eq!(gcd(a, b), gcd(b, a));
+            }
+        }
     }
 
     #[test]
