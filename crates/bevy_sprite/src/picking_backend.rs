@@ -16,29 +16,31 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// Should the backend count transparent pixels as part of the sprite for picking purposes
+/// How should the [`SpritePickingPlugin`] handle picking with tranparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
-pub enum SpriteBackendAlphaPassthrough {
+pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
     /// Only consider the rect of a given sprite.
-    NoPassthrough,
+    BoundingBox,
     /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
     /// Threshold is given as a single u8 value (0-255) representing the alpha channel that you would see in most art programs
-    Threshold(u8),
+    AlphaThreshold(u8),
 }
 
 /// Runtime settings for the [`SpritePickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpriteBackendSettings {
-    /// Should the backend count transparent pixels as part of the sprite for picking purposes (defaults to Threshold(10))
-    pub alpha_passthrough: SpriteBackendAlphaPassthrough,
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
+    ///
+    /// Defaults to an incusive alpha threshold of 10/255
+    pub picking_mode: SpritePickingMode,
 }
 
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            alpha_passthrough: SpriteBackendAlphaPassthrough::Threshold(10),
+            picking_mode: SpritePickingMode::AlphaThreshold(10),
         }
     }
 }
@@ -166,8 +168,8 @@ pub fn sprite_picking(
 
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
-                let cursor_in_valid_pixels_of_sprite = match settings.alpha_passthrough {
-                    SpriteBackendAlphaPassthrough::Threshold(cutoff) if is_cursor_in_sprite => {
+                let cursor_in_valid_pixels_of_sprite = match settings.picking_mode {
+                    SpritePickingMode::AlphaThreshold(cutoff) if is_cursor_in_sprite => {
                         let texture: &Image = images.get(&sprite.image)?;
                         // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
                         let texture_rect = sprite
@@ -194,7 +196,7 @@ pub fn sprite_picking(
                             _ => false,
                         }
                     }
-                    SpriteBackendAlphaPassthrough::NoPassthrough => is_cursor_in_sprite,
+                    SpritePickingMode::BoundingBox => is_cursor_in_sprite,
                     _ => false,
                 };
 
