@@ -372,7 +372,6 @@ pub fn queue_ui_slices(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: 1.,
         });
     }
 }

@@ -758,7 +758,6 @@ struct UiVertex {
     pub size: [f32; 2],
     /// Position relative to the center of the UI node.
     pub point: [f32; 2],
-    pub inverse_scale_factor: f32,
 }
 
 #[derive(Resource)]
@@ -843,7 +842,6 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: extracted_aa.map(|aa| aa.scale_factor).unwrap_or(1.),
         });
     }
 }
@@ -1114,7 +1112,6 @@ pub fn prepare_uinodes(
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
                                     point: points[i].into(),
-                                    inverse_scale_factor: item.inverse_scale_factor,
                                 });
                             }
 
@@ -1218,7 +1215,6 @@ pub fn prepare_uinodes(
                                         border: [0.0; 4],
                                         size: size.into(),
                                         point: [0.0; 2],
-                                        inverse_scale_factor: item.inverse_scale_factor,
                                     });
                                 }
 
