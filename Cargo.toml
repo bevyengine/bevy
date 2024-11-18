@@ -1637,8 +1637,8 @@ category = "Assets"
 wasm = false
 
 [[example]]
-name = "http_asset"
-path = "examples/asset/http_asset.rs"
+name = "http_source"
+path = "examples/asset/http_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.http_asset]
