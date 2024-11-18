@@ -14,6 +14,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::n_over_gcd_by_table;
 use bevy_utils::{
     hashbrown::{HashMap, HashSet},
     tracing::error,
@@ -955,12 +956,8 @@ impl ElementLayout {
     /// Creates an [`ElementLayout`] for mesh data of the given class (vertex or
     /// index) with the given byte size.
     fn new(class: ElementClass, size: u64) -> ElementLayout {
-        const {
-            assert!(4 == COPY_BUFFER_ALIGNMENT);
-        }
-        // this is equivalent to `4 / gcd(4,size)` but lets us not implement gcd.
-        // ping @atlv if above assert ever fails (likely never)
-        let elements_per_slot = [1, 4, 2, 4][size as usize & 3];
+        let elements_per_slot =
+            n_over_gcd_by_table::<{ COPY_BUFFER_ALIGNMENT as usize }>(size as usize) as u32;
         ElementLayout {
             class,
             size,
