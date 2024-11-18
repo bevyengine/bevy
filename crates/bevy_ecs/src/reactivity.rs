@@ -130,3 +130,39 @@ pub struct ReactiveComponentExpressions(
         Box<dyn (Fn(&mut World, Tick, Tick) -> bool) + Send + Sync + 'static>,
     >,
 );
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use bevy_ecs::{
+        prelude::*,
+        reactivity::{update_reactive_components, ReactiveComponentExpressions},
+    };
+
+    #[derive(Component)]
+    struct Foo(u32);
+
+    #[derive(Component, PartialEq, Eq, Debug)]
+    struct Bar(u32);
+
+    #[test]
+    fn test_reactive_component() {
+        let mut world = World::new();
+        world.init_resource::<ReactiveComponentExpressions>();
+
+        let source = world.spawn(Foo(0)).id();
+        let sink = world
+            .spawn(ReactiveComponent::new(source, |foo: &Foo| Bar(foo.0)))
+            .id();
+
+        world.flush();
+
+        assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(0)));
+
+        world.get_mut::<Foo>(source).unwrap().0 += 1;
+
+        update_reactive_components(&mut world);
+
+        assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(1)));
+    }
+}
