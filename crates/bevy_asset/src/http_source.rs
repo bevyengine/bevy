@@ -98,8 +98,8 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
-    use std::io;
     use crate::io::VecReader;
+    use std::io;
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -111,27 +111,23 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    let response = ureq::get(str_path).call()
-        .map_err(|err| {
-            AssetReaderError::Io(
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "unexpected error while loading {}: {}",
-                        path.display(),
-                        err,
-                    ),
-                )
-                .into(),
+    let response = ureq::get(str_path).call().map_err(|err| {
+        AssetReaderError::Io(
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("unexpected error while loading {}: {}", path.display(), err,),
             )
-        })?;
+            .into(),
+        )
+    })?;
 
     match response.status() {
         200 => {
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
-            Ok(Box::new(VecReader::new(buffer)))},
+            Ok(Box::new(VecReader::new(buffer)))
+        }
         404 => Err(AssetReaderError::NotFound(path)),
         code => Err(AssetReaderError::Io(
             io::Error::new(
