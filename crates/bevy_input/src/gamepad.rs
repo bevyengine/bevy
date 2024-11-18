@@ -307,13 +307,12 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the `name` and its [`GamepadButton`] and [`GamepadAxis`].
+/// Stores a connected gamepad's metadata such as the name and its [`GamepadButton`] and [`GamepadAxis`].
 ///
-/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](GamepadSettings) are automatically managed.
+/// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
+/// and updated by [`gamepad_event_processing_system`].
 ///
-/// # Usage
-///
-/// The only way to obtain a [`Gamepad`] is by [`query`](Query).
+/// See also [`GamepadSettings`] for configuration.
 ///
 /// # Examples
 ///
@@ -413,7 +412,7 @@ impl Gamepad {
         self.digital.pressed(button_type)
     }
 
-    /// Returns `true` if any item in [`GamepadButton`] has been pressed.
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed.
     pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         button_inputs
             .into_iter()
