@@ -140,7 +140,7 @@ mod tests {
         /// We compare [`n_over_gcd_by_table`] to [`gcd`], as [`gcd`] is tested above.
         const fn gcd_by_table_test<const N: usize>() {
             let mut i = 0;
-            while i <= 2*N {
+            while i <= 2 * N {
                 assert!(n_over_gcd_by_table::<N>(i) == N / gcd(N, i));
                 i += 1;
             }
