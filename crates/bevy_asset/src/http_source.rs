@@ -98,28 +98,8 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
-    use core::future::Future;
-    use core::pin::Pin;
-    use core::task::{Context, Poll};
     use std::io;
-
     use crate::io::VecReader;
-    use http_cache_surf::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
-    use surf::StatusCode;
-
-    #[pin_project::pin_project]
-    struct ContinuousPoll<T>(#[pin] T);
-
-    impl<T: Future> Future for ContinuousPoll<T> {
-        type Output = T::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            // Always wake - blocks on single threaded executor.
-            cx.waker().wake_by_ref();
-
-            self.project().0.poll(cx)
-        }
-    }
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -131,24 +111,15 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    let req = surf::get(str_path);
-    let middleware_client = surf::client().with(Cache(HttpCache {
-        mode: CacheMode::Default,
-        manager: CACacheManager::default(),
-        options: HttpCacheOptions::default(),
-    }));
-
-    let mut response = ContinuousPoll(middleware_client.send(req))
-        .await
+    let response = ureq::get(str_path).call()
         .map_err(|err| {
             AssetReaderError::Io(
                 io::Error::new(
                     io::ErrorKind::Other,
                     format!(
-                        "unexpected status code {} while loading {}: {}",
-                        err.status(),
+                        "unexpected error while loading {}: {}",
                         path.display(),
-                        err.into_inner(),
+                        err,
                     ),
                 )
                 .into(),
@@ -156,12 +127,12 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         })?;
 
     match response.status() {
-        StatusCode::Ok => Ok(Box::new(VecReader::new(
-            ContinuousPoll(response.body_bytes())
-                .await
-                .map_err(|_| AssetReaderError::NotFound(path.to_path_buf()))?,
-        )) as _),
-        StatusCode::NotFound => Err(AssetReaderError::NotFound(path)),
+        200 => {
+            let mut reader = response.into_reader();
+            let mut buffer = Vec::new();
+            reader.read_to_end(&mut buffer)?;
+            Ok(Box::new(VecReader::new(buffer)))},
+        404 => Err(AssetReaderError::NotFound(path)),
         code => Err(AssetReaderError::Io(
             io::Error::new(
                 io::ErrorKind::Other,
