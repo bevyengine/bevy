@@ -16,7 +16,7 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
-/// How should the [`SpritePickingPlugin`] handle picking with tranparent pixels
+/// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum SpritePickingMode {
     /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
