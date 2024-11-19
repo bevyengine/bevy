@@ -2346,6 +2346,60 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_propagate_up_even_more() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<D>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components_with::<D, Counter>(|| Counter(2));
+        // This should replace the require constructor in A since it is
+        // shallower.
+        world.register_required_components_with::<C, Counter>(|| Counter(1));
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
+    }
+
+    #[test]
     fn runtime_required_components_existing_archetype() {
         #[derive(Component)]
         struct X;
