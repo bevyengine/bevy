@@ -1065,6 +1065,10 @@ impl Components {
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
+            // `required` is now required by anything that `requiree` was required by.
+            self.get_required_by_mut(required)
+                .unwrap()
+                .extend(required_by.iter().copied());
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
@@ -1072,9 +1076,10 @@ impl Components {
                         .debug_checked_unwrap()
                 };
 
-                // Register the original required component for the requiree.
-                // The inheritance depth is `1` since this is a component required by the original requiree.
-                required_components.register_by_id(required, constructor, 1);
+                // Register the original required component in the "parent" of the requiree.
+                // The inheritance depth is 1 deeper than the `requiree` wrt `required_by_id`.
+                let depth = required_components.0.get(&requiree).expect("requiree is required by required_by_id, so its required_components must include requiree").inheritance_depth;
+                required_components.register_by_id(required, constructor, depth + 1);
 
                 for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
