@@ -87,8 +87,8 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
-        Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     sync_world::RenderEntity,

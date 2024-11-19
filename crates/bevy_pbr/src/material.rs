@@ -435,7 +435,7 @@ where
 
         M::specialize(self, &mut descriptor, layout, key)?;
 
-        // Add a `BINDLESS` define.
+        // If bindless mode is on, add a `BINDLESS` define.
         if self.bindless {
             descriptor.vertex.shader_defs.push("BINDLESS".into());
             if let Some(ref mut fragment) = descriptor.fragment {

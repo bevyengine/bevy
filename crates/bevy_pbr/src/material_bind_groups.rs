@@ -1,4 +1,8 @@
-//! Material bind group management.
+//! Material bind group management for bindless resources.
+//!
+//! In bindless mode, Bevy's renderer groups materials into small bind groups.
+//! This allocator manages each bind group, assigning slots to materials as
+//! appropriate.
 
 use crate::Material;
 use bevy_derive::{Deref, DerefMut};
@@ -23,37 +27,77 @@ use core::iter;
 use core::marker::PhantomData;
 use core::num::NonZero;
 
-/// An object that creates and stores bind groups for materials.
+/// An object that creates and stores bind groups for a single material type.
 ///
-/// This object groups bindless materials together as appropriate.
+/// This object collects bindless materials into groups as appropriate and
+/// assigns slots as materials are created.
 #[derive(Resource)]
 pub struct MaterialBindGroupAllocator<M>
 where
     M: Material,
 {
+    /// The data that the allocator keeps about each bind group.
     pub bind_groups: Vec<MaterialBindGroup<M>>,
+
+    /// Stores IDs of material bind groups that have at least one slot
+    /// available.
     free_bind_groups: Vec<u32>,
+
+    /// The layout for this bind group.
     bind_group_layout: BindGroupLayout,
+
+    /// Dummy buffers that are assigned to unused slots.
     fallback_buffers: MaterialFallbackBuffers,
+
+    /// Whether this material is actually using bindless resources.
+    ///
+    /// This takes the availability of bindless resources on this platform into
+    /// account.
     bindless_enabled: bool,
+
     phantom: PhantomData<M>,
 }
 
+/// Information that the allocator keeps about each bind group.
 pub struct MaterialBindGroup<M>
 where
     M: Material,
 {
+    /// The actual bind group.
     pub bind_group: Option<BindGroup>,
+
+    /// The bind group data for each slot.
+    ///
+    /// This is `None` if the slot is unallocated and `Some` if the slot is
+    /// full.
     unprepared_bind_groups: Vec<Option<UnpreparedBindGroup<M::Data>>>,
+
+    /// A bitfield that contains a 0 if the slot is free or a 1 if the slot is
+    /// full.
+    ///
+    /// We keep this value so that we can quickly find the next free slot when
+    /// we go to allocate.
     used_slot_bitmap: u32,
 }
 
+/// Where the GPU data for a material is located.
+///
+/// In bindless mode, materials are gathered into bind groups, and the slot is
+/// necessary to locate the material data within that group. If not in bindless
+/// mode, bind groups and materials are in 1:1 correspondence, and the slot
+/// index is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
 pub struct MaterialBindingId {
+    /// The index of the bind group (slab) where the GPU data is located.
     pub group: MaterialBindGroupIndex,
+    /// The slot within that bind group.
     pub slot: MaterialBindGroupSlot,
 }
 
+/// The index of each material bind group.
+///
+/// In bindless mode, each bind group contains multiple materials. In
+/// non-bindless mode, each bind group contains only one material.
 #[derive(Clone, Copy, Debug, Default, Reflect, PartialEq, Deref, DerefMut)]
 #[reflect(Default)]
 pub struct MaterialBindGroupIndex(pub u32);
@@ -64,6 +108,12 @@ impl From<u32> for MaterialBindGroupIndex {
     }
 }
 
+/// The index of the slot containing material data within each material bind
+/// group.
+///
+/// In bindless mode, this slot is needed to locate the material data in each
+/// bind group, since multiple materials are packed into a single slab. In
+/// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
 pub struct MaterialBindGroupSlot(pub u32);
@@ -74,25 +124,38 @@ impl From<u32> for MaterialBindGroupSlot {
     }
 }
 
+/// A temporary data structure that contains references to bindless resources.
+///
+/// We need this because the `wgpu` bindless API takes a slice of references.
+/// Thus we need to create intermediate vectors of bindless resources in order
+/// to satisfy the lifetime requirements.
 enum BindingResourceArray<'a> {
     Buffers(Vec<BufferBinding<'a>>),
     TextureViews(TextureViewDimension, Vec<&'a WgpuTextureView>),
     Samplers(Vec<&'a WgpuSampler>),
 }
 
+/// Contains dummy resources that we use to pad out bindless arrays.
+///
+/// On DX12, every binding array slot must be filled, so we have to fill unused
+/// slots.
 #[derive(Resource)]
 pub struct FallbackBindlessResources {
+    /// A dummy sampler that we fill unused slots in bindless sampler arrays
+    /// with.
     fallback_sampler: Sampler,
 }
 
 struct MaterialFallbackBuffers(HashMap<u32, Buffer>);
 
+/// The minimum byte size of each fallback buffer.
 const MIN_BUFFER_SIZE: u64 = 16;
 
 impl<M> MaterialBindGroupAllocator<M>
 where
     M: Material,
 {
+    /// Creates or recreates any bind groups that were modified this frame.
     pub(crate) fn prepare_bind_groups(
         &mut self,
         render_device: &RenderDevice,
@@ -111,11 +174,13 @@ where
         }
     }
 
+    /// Returns the bind group with the given index, if it exists.
     #[inline]
     pub(crate) fn get(&self, index: MaterialBindGroupIndex) -> Option<&MaterialBindGroup<M>> {
         self.bind_groups.get(index.0 as usize)
     }
 
+    /// Allocates a new binding slot and returns its ID.
     pub(crate) fn allocate(&mut self) -> MaterialBindingId {
         let group_index = self.free_bind_groups.pop().unwrap_or_else(|| {
             let group_index = self.bind_groups.len() as u32;
@@ -163,6 +228,7 @@ impl<M> MaterialBindGroup<M>
 where
     M: Material,
 {
+    /// Returns a new bind group.
     fn new(bindless_enabled: bool) -> MaterialBindGroup<M> {
         let count = if !bindless_enabled {
             1
@@ -177,6 +243,9 @@ where
         }
     }
 
+    /// Allocates a new slot and returns its index.
+    ///
+    /// This bind group must not be full.
     fn allocate(&mut self) -> MaterialBindGroupSlot {
         debug_assert!(!self.is_full());
 
@@ -186,6 +255,7 @@ where
         slot.into()
     }
 
+    /// Assigns the given unprepared bind group to the given slot.
     fn init(
         &mut self,
         slot: MaterialBindGroupSlot,
@@ -193,10 +263,11 @@ where
     ) {
         self.unprepared_bind_groups[slot.0 as usize] = Some(unprepared_bind_group);
 
-        // Invalidate cache.
+        // Invalidate the cached bind group.
         self.bind_group = None;
     }
 
+    /// Marks the given slot as free.
     fn free(&mut self, slot: MaterialBindGroupSlot) {
         self.unprepared_bind_groups[slot.0 as usize] = None;
         self.used_slot_bitmap &= !(1 << slot.0);
@@ -205,14 +276,19 @@ where
         self.bind_group = None;
     }
 
+    /// Returns true if all the slots are full or false if at least one slot in
+    /// this bind group is free.
     fn is_full(&self) -> bool {
         self.used_slot_bitmap == (1 << (self.unprepared_bind_groups.len() as u32)) - 1
     }
 
+    /// Returns the actual bind group, or `None` if it hasn't been created yet.
     pub fn get_bind_group(&self) -> Option<&BindGroup> {
         self.bind_group.as_ref()
     }
 
+    /// Recreates the bind group for this material bind group containing the
+    /// data for every material in it.
     fn rebuild_bind_group_if_necessary(
         &mut self,
         render_device: &RenderDevice,
@@ -234,6 +310,7 @@ where
             return;
         };
 
+        // If bindless isn't enabled, create a trivial bind group.
         if !bindless_enabled {
             let entries = first_bind_group
                 .bindings
@@ -249,6 +326,48 @@ where
             return;
         }
 
+        // Creates the intermediate binding resource vectors.
+        let Some(binding_resource_arrays) = self.recreate_binding_resource_arrays(
+            first_bind_group,
+            fallback_image,
+            fallback_bindless_resources,
+            fallback_buffers,
+        ) else {
+            return;
+        };
+
+        // Now build the actual resource arrays for `wgpu`.
+        let entries = binding_resource_arrays
+            .iter()
+            .map(|&(&binding, ref binding_resource_array)| BindGroupEntry {
+                binding,
+                resource: match *binding_resource_array {
+                    BindingResourceArray::Buffers(ref vec) => {
+                        BindingResource::BufferArray(&vec[..])
+                    }
+                    BindingResourceArray::TextureViews(_, ref vec) => {
+                        BindingResource::TextureViewArray(&vec[..])
+                    }
+                    BindingResourceArray::Samplers(ref vec) => {
+                        BindingResource::SamplerArray(&vec[..])
+                    }
+                },
+            })
+            .collect::<Vec<_>>();
+
+        self.bind_group =
+            Some(render_device.create_bind_group(M::label(), bind_group_layout, &entries));
+    }
+
+    /// Recreates the binding arrays for each material in this bind group.
+    fn recreate_binding_resource_arrays<'a>(
+        &'a self,
+        first_bind_group: &'a UnpreparedBindGroup<M::Data>,
+        fallback_image: &'a FallbackImage,
+        fallback_bindless_resources: &'a FallbackBindlessResources,
+        fallback_buffers: &'a MaterialFallbackBuffers,
+    ) -> Option<Vec<(&'a u32, BindingResourceArray<'a>)>> {
+        // Initialize the arrays.
         let mut binding_resource_arrays = first_bind_group
             .bindings
             .iter()
@@ -266,6 +385,7 @@ where
         for maybe_unprepared_bind_group in self.unprepared_bind_groups.iter() {
             match *maybe_unprepared_bind_group {
                 None => {
+                    // Push dummy resources for this slot.
                     for binding_resource_array in &mut binding_resource_arrays {
                         match *binding_resource_array {
                             (binding, BindingResourceArray::Buffers(ref mut vec)) => {
@@ -287,6 +407,7 @@ where
                 }
 
                 Some(ref unprepared_bind_group) => {
+                    // Push the resources for this slot.
                     for (&mut (binding, ref mut binding_resource_array), (_, binding_resource)) in
                         binding_resource_arrays
                             .iter_mut()
@@ -321,7 +442,7 @@ where
                                     "Mismatched bind group layouts; can't combine bind groups \
                                     into a single bindless bind group!"
                                 );
-                                return;
+                                return None;
                             }
                         }
                     }
@@ -329,28 +450,10 @@ where
             }
         }
 
-        let entries = binding_resource_arrays
-            .iter()
-            .map(|&(&binding, ref binding_resource_array)| BindGroupEntry {
-                binding,
-                resource: match *binding_resource_array {
-                    BindingResourceArray::Buffers(ref vec) => {
-                        BindingResource::BufferArray(&vec[..])
-                    }
-                    BindingResourceArray::TextureViews(_, ref vec) => {
-                        BindingResource::TextureViewArray(&vec[..])
-                    }
-                    BindingResourceArray::Samplers(ref vec) => {
-                        BindingResource::SamplerArray(&vec[..])
-                    }
-                },
-            })
-            .collect::<Vec<_>>();
-
-        self.bind_group =
-            Some(render_device.create_bind_group(M::label(), bind_group_layout, &entries));
+        Some(binding_resource_arrays)
     }
 
+    /// Returns the associated extra data for the material with the given slot.
     pub fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
         &self.unprepared_bind_groups[slot.0 as usize]
             .as_ref()
@@ -381,6 +484,7 @@ where
     }
 }
 
+/// Returns true if the material uses bindless resources or false if it doesn't.
 pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,
@@ -404,6 +508,7 @@ impl FromWorld for FallbackBindlessResources {
 }
 
 impl MaterialFallbackBuffers {
+    /// Creates a new set of fallback buffers containing dummy allocations.
     fn new(
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
