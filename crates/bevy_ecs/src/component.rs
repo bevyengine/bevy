@@ -1076,10 +1076,9 @@ impl Components {
                         .debug_checked_unwrap()
                 };
 
+                // Register the original required component in the "parent" of the requiree.
+                // The inheritance depth is 1 deeper than the `requiree` wrt `required_by_id`.
                 let depth = required_components.0.get(&requiree).expect("requiree is required by required_by_id, so its required_components must include requiree").inheritance_depth;
-
-                // Register the original required component for the requiree.
-                // The inheritance depth is `1` since this is a component required by the original requiree.
                 required_components.register_by_id(required, constructor, depth + 1);
 
                 for (component_id, component) in inherited_requirements.iter() {
