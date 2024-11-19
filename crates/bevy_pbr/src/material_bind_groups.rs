@@ -484,7 +484,11 @@ where
     }
 }
 
-/// Returns true if the material uses bindless resources or false if it doesn't.
+/// Returns true if the material will *actually* use bindless resources or false
+/// if it won't.
+///
+/// This takes the platform support (or lack thereof) for bindless resources
+/// into account.
 pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,

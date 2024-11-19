@@ -26,6 +26,7 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     AsBindGroupError(AsBindGroupError),
 }
 
+/// The system set during which we extract modified assets to the render world.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ExtractAssetsSet;
 
@@ -68,7 +69,17 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 
-    fn finalize_asset(_: AssetId<Self::SourceAsset>, _: &mut SystemParamItem<Self::Param>) {}
+    /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
+    ///
+    /// You can implement this method if you need to access ECS data (via
+    /// `_param`) in order to perform cleanup tasks when the asset is removed.
+    ///
+    /// The default implementation does nothing.
+    fn finalize_asset(
+        _source_asset: AssetId<Self::SourceAsset>,
+        _param: &mut SystemParamItem<Self::Param>,
+    ) {
+    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"

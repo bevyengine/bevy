@@ -52,6 +52,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let mut attr_prepared_data_ident = None;
     let mut attr_bindless_count = None;
 
+    // `actual_bindless_slot_count` holds the actual number of bindless slots
+    // per bind group, taking into account whether the current platform supports
+    // bindless resources.
     let actual_bindless_slot_count = Ident::new("actual_bindless_slot_count", Span::call_site());
 
     // Read struct-level attributes
@@ -427,6 +430,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let struct_name_literal = struct_name_literal.as_str();
     let mut field_struct_impls = Vec::new();
 
+    // The `BufferBindingType` and corresponding `BufferUsages` used for
+    // uniforms. We need this because bindless uniforms don't exist, so in
+    // bindless mode we must promote uniforms to storage buffers.
     let uniform_binding_type = Ident::new("uniform_binding_type", Span::call_site());
     let uniform_buffer_usages = Ident::new("uniform_buffer_usages", Span::call_site());
 
@@ -556,6 +562,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         (prepared_data.clone(), prepared_data)
     };
 
+    // Calculate the actual number of bindless slots, taking hardware
+    // limitations into account.
     let (bindless_slot_count, actual_bindless_slot_count_declaration) = match attr_bindless_count {
         Some(bindless_count) => (
             quote! { const BINDLESS_SLOT_COUNT: Option<u32> = Some(#bindless_count); },

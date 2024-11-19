@@ -394,6 +394,8 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
+    /// Whether this material *actually* uses bindless resources, taking the
+    /// platform support (or lack thereof) of bindless resources into account.
     pub bindless: bool,
     pub marker: PhantomData<M>,
 }
@@ -596,6 +598,7 @@ fn extract_mesh_materials<M: Material>(
         if view_visibility.get() {
             material_instances.insert(entity.into(), material.id());
 
+            // Allocate a slot for this material in the bind group.
             let material_id = material.id().untyped();
             material_ids
                 .mesh_to_material

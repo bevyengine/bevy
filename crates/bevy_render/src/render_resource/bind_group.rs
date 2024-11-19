@@ -257,6 +257,9 @@ impl Deref for BindGroup {
 ///       In your shader, the index of the element of each binding array
 ///       corresponding to the mesh currently being drawn can be retrieved with
 ///       `mesh[in.instance_index].material_bind_group_slot`.
+///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
+///       uniform buffers are automatically replaced with read-only storage
+///       buffers.
 ///     * The purpose of bindless mode is to improve performance by reducing
 ///       state changes. By grouping resources together into binding arrays, Bevy
 ///       doesn't have to modify GPU state as often, decreasing API and driver
@@ -327,6 +330,13 @@ pub trait AsBindGroup {
 
     type Param: SystemParam + 'static;
 
+    /// The number of slots per bind group, if bindless mode is enabled.
+    ///
+    /// If this bind group doesn't use bindless, then this will be `None`.
+    ///
+    /// Note that the *actual* slot count may be different from this value, due
+    /// to platform limitations. For example, if bindless resources aren't
+    /// supported on this platform, the actual slot count will be 1.
     const BINDLESS_SLOT_COUNT: Option<u32> = None;
 
     /// label
@@ -412,6 +422,8 @@ pub struct UnpreparedBindGroup<T> {
     pub data: T,
 }
 
+/// A pair of binding index and binding resource, used as part of
+/// [`PreparedBindGroup`] and [`UnpreparedBindGroup`].
 #[derive(Deref, DerefMut)]
 pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 

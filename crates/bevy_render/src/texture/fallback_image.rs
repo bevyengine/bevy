@@ -35,6 +35,7 @@ pub struct FallbackImage {
 }
 
 impl FallbackImage {
+    /// Returns the appropriate fallback image for the given texture dimension.
     pub fn get(&self, texture_dimension: TextureViewDimension) -> &GpuImage {
         match texture_dimension {
             TextureViewDimension::D1 => &self.d1,
