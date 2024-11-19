@@ -207,7 +207,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     fn try_new_uninitialized(world: &World) -> Option<Self> {
         let fetch_state = D::get_state(world.components())?;
         let filter_state = F::get_state(world.components())?;
-        Some(Self::from_states_uninitialized(world.id(), fetch_state, filter_state))
+        Some(Self::from_states_uninitialized(
+            world.id(),
+            fetch_state,
+            filter_state,
+        ))
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
