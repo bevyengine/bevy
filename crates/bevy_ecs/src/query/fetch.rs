@@ -1246,7 +1246,7 @@ impl<T: Component> Copy for RefFetch<'_, T> {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
+unsafe impl<T: Component> WorldQuery for Ref<'_, T> {
     type Item<'w> = Ref<'w, T>;
     type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
@@ -1408,12 +1408,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
+unsafe impl<T: Component> QueryData for Ref<'_, T> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
+unsafe impl<T: Component> ReadOnlyQueryData for Ref<'_, T> {}
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
@@ -1445,7 +1445,7 @@ impl<T: Component> Copy for WriteFetch<'_, T> {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
+unsafe impl<T: Component> WorldQuery for &mut T {
     type Item<'w> = Mut<'w, T>;
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -1607,8 +1607,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
-    type ReadOnly = &'__w T;
+unsafe impl<T: Component> QueryData for &mut T {
+    type ReadOnly = &'static T;
 }
 
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
@@ -1620,7 +1620,7 @@ unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
 /// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
+unsafe impl<T: Component> WorldQuery for Mut<'_, T> {
     type Item<'w> = Mut<'w, T>;
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -1712,8 +1712,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
-unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
-    type ReadOnly = Ref<'__w, T>;
+unsafe impl<T: Component> QueryData for Mut<'_, T> {
+    type ReadOnly = Ref<'static, T>;
 }
 
 #[doc(hidden)]
