@@ -1065,6 +1065,10 @@ impl Components {
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
+            // `required` is now required by anything that `requiree` was required by.
+            self.get_required_by_mut(required)
+                .unwrap()
+                .extend(required_by.iter().copied());
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
