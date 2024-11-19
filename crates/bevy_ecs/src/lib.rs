@@ -2346,6 +2346,33 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_propagate_up_multiple() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<B>().is_some());
+        assert!(world.entity(id).get::<C>().is_some());
+        assert!(world.entity(id).get::<D>().is_some());
+    }
+
+    #[test]
     fn runtime_required_components_existing_archetype() {
         #[derive(Component)]
         struct X;

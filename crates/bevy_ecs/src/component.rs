@@ -1064,11 +1064,17 @@ impl Components {
             unsafe { self.register_inherited_required_components(requiree, required) };
 
         // Propagate the new required components up the chain to all components that require the requiree.
-        if let Some(required_by) = self.get_required_by(requiree).cloned() {
-            for &required_by_id in required_by.iter() {
+        if let Some(requiree_required_by) = self.get_required_by(requiree).cloned() {
+            for &requiree_id in requiree_required_by.iter() {
+                // Add the requiree of `requiree` to the list of components that require the required component.
+                // SAFETY: The component is in the list of required components, so it must exist already.
+                let required_by =
+                    unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+                required_by.insert(requiree_id);
+
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
-                    self.get_required_components_mut(required_by_id)
+                    self.get_required_components_mut(requiree_id)
                         .debug_checked_unwrap()
                 };
 
