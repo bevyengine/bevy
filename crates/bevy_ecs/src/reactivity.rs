@@ -112,9 +112,9 @@ pub fn update_reactive_components(world: &mut World) {
 
             if !any_reaction {
                 break;
-            } else {
-                world.increment_change_tick();
             }
+
+            world.increment_change_tick();
         },
     );
 }
