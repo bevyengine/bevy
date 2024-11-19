@@ -44,12 +44,12 @@ pub struct ExtractedPointLight {
     pub radius: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
-    pub soft_shadows_enabled: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
+    pub soft_shadows_enabled: bool,
 }
 
 #[derive(Component, Debug)]
@@ -59,13 +59,13 @@ pub struct ExtractedDirectionalLight {
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
     pub volumetric: bool,
-    pub soft_shadow_size: Option<f32>,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
     pub render_layers: RenderLayers,
+    pub soft_shadow_size: Option<f32>,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -150,10 +150,10 @@ pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
     pub point_light_comparison_sampler: Sampler,
-    #[cfg(feature = "pbr_pcss")]
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub point_light_linear_sampler: Sampler,
     pub directional_light_comparison_sampler: Sampler,
-    #[cfg(feature = "pbr_pcss")]
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub directional_light_linear_sampler: Sampler,
 }
 
@@ -177,7 +177,7 @@ impl FromWorld for ShadowSamplers {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..base_sampler_descriptor
             }),
-            #[cfg(feature = "pbr_pcss")]
+            #[cfg(feature = "experimental_pbr_pcss")]
             point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
             directional_light_comparison_sampler: render_device.create_sampler(
                 &SamplerDescriptor {
@@ -185,7 +185,7 @@ impl FromWorld for ShadowSamplers {
                     ..base_sampler_descriptor
                 },
             ),
-            #[cfg(feature = "pbr_pcss")]
+            #[cfg(feature = "experimental_pbr_pcss")]
             directional_light_linear_sampler: render_device
                 .create_sampler(&base_sampler_descriptor),
         }
@@ -294,7 +294,6 @@ pub fn extract_lights(
             radius: point_light.radius,
             transform: *transform,
             shadows_enabled: point_light.shadows_enabled,
-            soft_shadows_enabled: point_light.soft_shadows_enabled,
             shadow_depth_bias: point_light.shadow_depth_bias,
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
@@ -303,6 +302,10 @@ pub fn extract_lights(
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: point_light.soft_shadows_enabled,
+            #[cfg(not(feature = "experimental_pbr_pcss"))]
+            soft_shadows_enabled: false,
         };
         point_lights_values.push((
             render_entity,
@@ -353,7 +356,6 @@ pub fn extract_lights(
                         radius: spot_light.radius,
                         transform: *transform,
                         shadows_enabled: spot_light.shadows_enabled,
-                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
                         shadow_depth_bias: spot_light.shadow_depth_bias,
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
@@ -362,6 +364,10 @@ pub fn extract_lights(
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                         volumetric: volumetric_light.is_some(),
+                        #[cfg(feature = "experimental_pbr_pcss")]
+                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
+                        #[cfg(not(feature = "experimental_pbr_pcss"))]
+                        soft_shadows_enabled: false,
                     },
                     render_visible_entities,
                     *frustum,
@@ -433,7 +439,10 @@ pub fn extract_lights(
                     illuminance: directional_light.illuminance,
                     transform: *transform,
                     volumetric: volumetric_light.is_some(),
+                    #[cfg(feature = "experimental_pbr_pcss")]
                     soft_shadow_size: directional_light.soft_shadow_size,
+                    #[cfg(not(feature = "experimental_pbr_pcss"))]
+                    soft_shadow_size: None,
                     shadows_enabled: directional_light.shadows_enabled,
                     shadow_depth_bias: directional_light.shadow_depth_bias,
                     // The factor of SQRT_2 is for the worst-case diagonal offset
@@ -915,17 +924,17 @@ pub fn prepare_lights(
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits(),
-            soft_shadow_size: if light.soft_shadows_enabled {
-                light.radius
-            } else {
-                0.0
-            },
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             shadow_map_near_z: light.shadow_map_near_z,
             spot_light_tan_angle,
             pad_a: 0.0,
             pad_b: 0.0,
+            soft_shadow_size: if light.soft_shadows_enabled {
+                light.radius
+            } else {
+                0.0
+            },
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
