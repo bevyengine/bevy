@@ -129,7 +129,7 @@ mod tests {
         const fn gcd_by_table_test<const N: usize>() {
             let mut i = 0;
             while i <= N {
-                assert!(gcd_by_table::<N>(i) == gcd(N, i));
+                assert!(gcd_by_table::<N>(i as u64) == gcd(N as u64, i as u64));
                 i += 1;
             }
         }
@@ -151,7 +151,7 @@ mod tests {
         const fn gcd_by_table_test<const N: usize>() {
             let mut i = 0;
             while i <= 2 * N {
-                assert!(n_over_gcd_by_table::<N>(i) == N / gcd(N, i));
+                assert!(n_over_gcd_by_table::<N>(i as u64) == N as u64 / gcd(N as u64, i as u64));
                 i += 1;
             }
         }
