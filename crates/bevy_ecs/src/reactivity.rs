@@ -45,19 +45,17 @@ impl<Input: Component, Output: Component> ReactiveComponent<Input, Output> {
 
         // Register the subscription
         let subscription = move |world: &mut World, last_run, this_run| {
-            let source_tick = world
+            let mut input = world
                 .get_entity(source)
                 .expect("TODO: Source entity despawned")
-                .get_change_ticks::<Input>()
+                .get_ref::<Input>()
                 .expect("TODO: Source component removed");
-            let changed = source_tick.is_changed(last_run, this_run);
+            input.ticks.last_run = last_run;
+            input.ticks.this_run = this_run;
+
+            let changed = input.is_changed();
             if changed {
-                let input = world
-                    .get_entity(source)
-                    .expect("TODO: Source entity despawned")
-                    .get::<Input>()
-                    .expect("TODO: Source component removed");
-                let output = (expression)(input);
+                let output = (expression)(&input);
                 world.entity_mut(entity).insert(output);
             }
             changed
@@ -102,10 +100,10 @@ impl<Input: Component, Output: Component> Component for ReactiveComponent<Input,
 
 /// System to check for changes to [`ReactiveComponent`] expressions and if changed, recompute it.
 pub fn update_reactive_components(world: &mut World) {
-    world.resource_scope(|world, expressions: Mut<ReactiveComponentExpressions>| {
-        let mut last_run = world.change_tick();
-        let mut this_run = last_run;
-        loop {
+    world.resource_scope(
+        |world, expressions: Mut<ReactiveComponentExpressions>| loop {
+            let last_run = world.last_change_tick();
+            let this_run = world.change_tick();
             let mut any_reaction = false;
 
             for expression in expressions.0.values() {
@@ -115,11 +113,10 @@ pub fn update_reactive_components(world: &mut World) {
             if !any_reaction {
                 break;
             } else {
-                last_run = this_run;
-                this_run.set(this_run.get().wrapping_add(1));
+                world.increment_change_tick();
             }
-        }
-    });
+        },
+    );
 }
 
 /// TODO: Docs.
@@ -159,9 +156,11 @@ mod tests {
 
         assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(0)));
 
+        let last_tick = world.increment_change_tick();
+
         world.get_mut::<Foo>(source).unwrap().0 += 1;
 
-        update_reactive_components(&mut world);
+        world.last_change_tick_scope(last_tick, update_reactive_components);
 
         assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(1)));
     }
