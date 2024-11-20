@@ -3,6 +3,7 @@ use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
+use bevy_utils::tracing::trace;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},

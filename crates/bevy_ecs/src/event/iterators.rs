@@ -2,6 +2,7 @@ use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
+use bevy_utils::tracing::trace;
 use core::{iter::Chain, slice::Iter};
 
 /// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or [`EventCursor`].
