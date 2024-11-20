@@ -509,7 +509,7 @@ impl AnimationClip {
         );
     }
 
-    /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an [`Event`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
@@ -530,7 +530,7 @@ impl AnimationClip {
         );
     }
 
-    /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
+    /// Add a untargeted event function to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
@@ -553,7 +553,7 @@ impl AnimationClip {
         self.add_event_internal(AnimationEventTarget::Root, time, func);
     }
 
-    /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an event function to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `func` will trigger on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
