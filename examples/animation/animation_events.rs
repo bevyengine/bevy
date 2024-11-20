@@ -30,9 +30,8 @@ fn edit_message(
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
-    let event = trigger.event();
-    text.0 = event.value.clone();
-    color.0 = event.color;
+    text.0 = trigger.event().value.clone();
+    color.0 = trigger.event().color;
 }
 
 fn setup(

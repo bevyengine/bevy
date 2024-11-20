@@ -494,9 +494,9 @@ impl AnimationClip {
             .push(variable_curve);
     }
 
-    /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
+    /// Add a untargeted [`Event`] to this [`AnimationClip`].
     ///
-    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
+    /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
@@ -511,7 +511,7 @@ impl AnimationClip {
 
     /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
-    /// The `event` will trigger on the entity matching the target once the `time` (in seconds)
+    /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
     ///
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
@@ -537,6 +537,14 @@ impl AnimationClip {
     ///
     /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event`].
     /// See also [`add_event_to_target`](Self::add_event_to_target).
+    ///
+    /// ```
+    /// # use bevy_animation::AnimationClip;
+    /// # let mut clip = AnimationClip::default();
+    /// clip.add_event_fn(1.0, |commands, entity, time, weight| {
+    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    /// })
+    /// ```
     pub fn add_event_fn(
         &mut self,
         time: f32,
@@ -552,6 +560,14 @@ impl AnimationClip {
     ///
     /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event_to_target`].
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
+    ///
+    /// ```
+    /// # use bevy_animation::{AnimationClip, AnimationTargetId};
+    /// # let mut clip = AnimationClip::default();
+    /// clip.add_event_fn_to_target(AnimationTargetId::from_iter(["Arm", "Hand"]), 1.0, |commands, entity, time, weight| {
+    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    /// })
+    /// ```
     pub fn add_event_fn_to_target(
         &mut self,
         target_id: AnimationTargetId,
