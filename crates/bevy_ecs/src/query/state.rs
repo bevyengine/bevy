@@ -163,8 +163,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result of `world.id()`.
     ///
-    /// This function can fail if, for example, one of the components
-    /// this query consists of is not registered into the world.
+    /// This function may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
     pub fn try_new(world: &World) -> Option<Self> {
         let mut state = Self::try_new_uninitialized(world)?;
         state.update_archetypes(world);
