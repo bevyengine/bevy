@@ -42,7 +42,15 @@ pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
 pub use time::*;
+
+#[cfg(feature = "tracing")]
 pub use tracing;
+
+#[cfg(not(feature = "tracing"))]
+// In cases where the tracing crate cannot be used, we can instead rely on log to
+// provide most of the required functionality.
+// Exporting log as tracing allows this decision to have minimal impact on consumers.
+pub use log as tracing;
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
