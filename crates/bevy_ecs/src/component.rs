@@ -1083,14 +1083,17 @@ impl Components {
 
                 for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
-                    // The inheritance depth is increased by `1` since this is a component required by the original required component.
+                    // The inheritance depth of inherited components is whatever the requiree's
+                    // depth is relative to `required_by_id`, plus the inheritance depth of the
+                    // inherited component relative to the requiree, plus 1 to account for the
+                    // requiree in between.
                     // SAFETY: Component ID and constructor match the ones on the original requiree.
                     //         The original requiree is responsible for making sure the registration is safe.
                     unsafe {
                         required_components.register_dynamic(
                             *component_id,
                             component.constructor.clone(),
-                            component.inheritance_depth + 1,
+                            component.inheritance_depth + depth + 1,
                         );
                     };
                 }
