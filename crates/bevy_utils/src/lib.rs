@@ -407,16 +407,6 @@ pub fn error<E: Debug>(result: Result<(), E>) {
     }
 }
 
-/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
-#[macro_export]
-macro_rules! detailed_trace {
-    ($($tts:tt)*) => {
-        if cfg!(detailed_trace) {
-            $crate::tracing::trace!($($tts)*);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

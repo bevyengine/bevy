@@ -3,7 +3,6 @@ use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
-use bevy_utils::detailed_trace;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -125,7 +124,7 @@ impl<E: Event> Events<E> {
             id: self.event_count,
             _marker: PhantomData,
         };
-        detailed_trace!("Events::send() -> id: {}", event_id);
+        trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -318,7 +317,7 @@ impl<E: Event> Extend<E> for Events<E> {
         self.events_b.extend(events);
 
         if old_count != event_count {
-            detailed_trace!(
+            trace!(
                 "Events::extend() -> ids: ({}..{})",
                 self.event_count,
                 event_count
