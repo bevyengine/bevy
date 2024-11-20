@@ -1681,30 +1681,41 @@ impl World {
     ///   y: f32,
     /// }
     ///
-    /// #[derive(Component)]
-    /// struct Velocity {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
     /// let mut world = World::new();
-    /// let entities = world.spawn_batch(vec![
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),
-    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
-    /// ]).collect::<Vec<Entity>>();
+    /// world.spawn_batch(vec![
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Position { x: 1.0, y: 1.0 },
+    /// ]);
     ///
-    /// let mut query = world.query::<(&mut Position, &Velocity)>();
-    /// for (mut position, velocity) in query.iter_mut(&mut world) {
-    ///    position.x += velocity.x;
-    ///    position.y += velocity.y;
+    /// fn get_positions(world: &World) -> Vec<(Entity, &Position)> {
+    ///     let mut query = world.try_query::<(Entity, &Position)>().unwrap();
+    ///     query.iter(world).collect()
     /// }
     ///
-    /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
-    /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
+    /// let positions = get_positions(&world);
+    ///
+    /// assert_eq!(world.get::<Position>(positions[0].0).unwrap(), positions[0].1);
+    /// assert_eq!(world.get::<Position>(positions[1].0).unwrap(), positions[1].1);
     /// ```
     ///
     /// Requires only an immutable world reference, but may fail if, for example,
     /// the components that make up this query have not been registered into the world.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let none_query = world.try_query::<&A>();
+    /// assert!(none_query.is_none());
+    ///
+    /// world.register_component::<A>();
+    ///
+    /// let some_query = world.try_query::<&A>();
+    /// assert!(some_query.is_some());
+    /// ```
     #[inline]
     pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
         self.try_query_filtered::<D, ()>()
@@ -1724,7 +1735,7 @@ impl World {
     /// let e1 = world.spawn(A).id();
     /// let e2 = world.spawn((A, B)).id();
     ///
-    /// let mut query = world.query_filtered::<Entity, With<B>>();
+    /// let mut query = world.try_query_filtered::<Entity, With<B>>().unwrap();
     /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
     ///
     /// assert_eq!(matching_entities, vec![e2]);
