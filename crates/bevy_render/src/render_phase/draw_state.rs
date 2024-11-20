@@ -8,7 +8,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_color::LinearRgba;
-use bevy_utils::default;
+use bevy_utils::{default, tracing::trace};
 use core::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
