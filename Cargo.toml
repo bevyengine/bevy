@@ -3409,17 +3409,6 @@ wasm = true
 
 # Math
 [[example]]
-name = "sampling_primitives"
-path = "examples/math/sampling_primitives.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.sampling_primitives]
-name = "Sampling Primitives"
-description = "Demonstrates all the primitives which can be sampled."
-category = "Math"
-wasm = true
-
-[[example]]
 name = "custom_primitives"
 path = "examples/math/custom_primitives.rs"
 doc-scrape-examples = true
