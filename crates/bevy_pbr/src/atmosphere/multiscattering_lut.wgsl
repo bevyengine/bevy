@@ -37,7 +37,7 @@ fn map_to_sphere(uv: vec2<f32>) -> vec3<f32> {
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let uv: vec2<f32> = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
 
-    //See Multiscattering LUT paramatrization
+    //See Multiscattering LUT parametrization
     let r_mu = multiscattering_lut_uv_to_r_mu(uv);
 
     //single directional light is oriented exactly along the z axis, 
