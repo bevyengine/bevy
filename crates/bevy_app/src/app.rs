@@ -362,7 +362,7 @@ impl App {
     /// struct MyCounter {
     ///     counter: usize,
     /// }
-    /// 
+    ///
     /// #[derive(Resource)]
     /// struct GamePaused {
     ///     paused: bool,
@@ -373,9 +373,12 @@ impl App {
     /// App::new()
     ///    .insert_resource((MyCounter { counter: 0}, GamePaused { paused: false}));
     /// ```
-    pub fn insert_resource<R>(&mut self, resource: impl bevy_ecs::system::Resources<R>) -> &mut Self {
+    pub fn insert_resource<R>(
+        &mut self,
+        resource: impl bevy_ecs::system::Resources<R>,
+    ) -> &mut Self {
         self.main_mut().insert_resource(resource);
-        self 
+        self
     }
 
     /// Inserts the [`Resource`], initialized with its default value, into the app,

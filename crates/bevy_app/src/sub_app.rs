@@ -166,7 +166,10 @@ impl SubApp {
     }
 
     /// See [`App::insert_resource`].
-    pub fn insert_resource<R>(&mut self, resource: impl bevy_ecs::system::Resources<R>) -> &mut Self {
+    pub fn insert_resource<R>(
+        &mut self,
+        resource: impl bevy_ecs::system::Resources<R>,
+    ) -> &mut Self {
         resource.insert_into_world(&mut self.world);
         self
     }
