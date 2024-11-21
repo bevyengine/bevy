@@ -24,7 +24,7 @@ pub enum SpritePickingMode {
     /// Only consider the rect of a given sprite.
     BoundingBox,
     /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
-    /// Threshold is given as an f32 representing the value you get from [`bevy_color::color::Color::alpha``]
+    /// Threshold is given as an f32 representing the value you get from [`bevy_color::color::Color::alpha`]
     AlphaThreshold(f32),
 }
 
