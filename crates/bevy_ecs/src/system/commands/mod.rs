@@ -772,7 +772,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[track_caller]
-    pub fn insert_resource<R: Resource>(&mut self, resource: R) {
+    pub fn insert_resource<R>(&mut self, resource: impl crate::system::Resources<R>) {
         self.queue(insert_resource(resource));
     }
 
@@ -2109,11 +2109,11 @@ fn remove_resource<R: Resource>(world: &mut World) {
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
 #[track_caller]
-fn insert_resource<R: Resource>(resource: R) -> impl Command {
+fn insert_resource<R>(resource: impl crate::system::Resources<R>) -> impl Command {
     #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
     move |world: &mut World| {
-        world.insert_resource_with_caller(
+        world.insert_resource(
             resource,
             #[cfg(feature = "track_change_detection")]
             caller,
@@ -2421,8 +2421,7 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_resource(W(123i32));
-            commands.insert_resource(W(456.0f64));
+            commands.insert_resource((W(123i32), W(456.0f64)));
         }
 
         queue.apply(&mut world);

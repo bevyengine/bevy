@@ -972,7 +972,7 @@ mod sealed {
     use crate::world::World;
     use bevy_utils::all_tuples;
 
-    pub trait Resources<Marker> {
+    pub trait Resources<Marker>: 'static + Send + Sync {
         fn insert_into_world(
             self,
             world: &mut World,
@@ -2774,15 +2774,15 @@ mod tests {
     struct ResourceB(bool);
 
     #[test]
-    fn resource_single_insert(){
+    fn resource_single_insert() {
         let mut world = World::new();
         world.insert_resource(ResourceA(3));
         let res = world.get_resource::<ResourceA>().unwrap();
-        assert_eq!(3, res.0);        
+        assert_eq!(3, res.0);
     }
 
     #[test]
-    fn resource_tuple_insert(){
+    fn resource_tuple_insert() {
         let mut world = World::new();
         world.insert_resource((ResourceA(3), ResourceB(true)));
         let res = world.get_resource::<ResourceA>().unwrap();

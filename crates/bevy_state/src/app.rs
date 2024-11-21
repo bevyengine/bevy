@@ -115,7 +115,7 @@ impl AppExtStates for SubApp {
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
-            self.insert_resource::<State<S>>(State::new(state.clone()))
+            self.insert_resource(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
@@ -128,7 +128,7 @@ impl AppExtStates for SubApp {
             });
         } else {
             // Overwrite previous state and initial event
-            self.insert_resource::<State<S>>(State::new(state.clone()));
+            self.insert_resource(State::new(state.clone()));
             self.world_mut()
                 .resource_mut::<Events<StateTransitionEvent<S>>>()
                 .clear();

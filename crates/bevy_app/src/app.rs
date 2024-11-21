@@ -373,7 +373,7 @@ impl App {
     /// App::new()
     ///    .insert_resource((MyCounter { counter: 0}, GamePaused { paused: false}));
     /// ```
-    pub fn insert_resource<R: Resource>(&mut self, resource: impl bevy_ecs::system::Resources<R>) -> &mut Self {
+    pub fn insert_resource<R>(&mut self, resource: impl bevy_ecs::system::Resources<R>) -> &mut Self {
         self.main_mut().insert_resource(resource);
         self 
     }

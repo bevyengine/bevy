@@ -1761,7 +1761,7 @@ impl World {
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
     #[inline]
-    pub(crate) fn insert_resource_with_caller<R: Resource>(
+    pub(crate) fn insert_resource_with_caller<R>(
         &mut self,
         value: impl crate::system::Resources<R>,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
