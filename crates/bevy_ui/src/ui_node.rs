@@ -56,6 +56,10 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) padding: BorderRect,
+    /// Inverse scale factor for this Node.
+    /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) inverse_scale_factor: f32,
 }
 
@@ -195,6 +199,13 @@ impl ComputedNode {
             top: self.border.top + self.padding.top,
             bottom: self.border.bottom + self.padding.bottom,
         }
+    }
+
+    /// Returns the inverse of the scale factor for this node.
+    /// To convert from physical coordinates to logical coordinates multiply by this value.
+    #[inline]
+    pub const fn inverse_scale_factor(&self) -> f32 {
+        self.inverse_scale_factor
     }
 }
 
