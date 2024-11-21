@@ -134,7 +134,68 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         .run();
 /// }
 /// ```
+/// # Example Setup
 ///
+/// For a quick setup that enables all your loggings,while not showing all your dependencies log data
+/// you can configuere the plugin as below.
+///
+/// ```no_run
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins.set(LogPlugin {
+///             filter: "warn,my_crate=trace".to_string(), //specific filters
+///             level: Level::TRACE,//Change this to be globally change levels
+///             ..Default::default()
+///         }))
+///         .add_systems(Startup, setup)
+///         .run();
+/// }
+/// ```
+/// The (Env) filter chooses whether to print the log, based on the most specific filters
+/// settings in the above case default is `warn` but a more specific case for `my_crate`
+/// is to use `trace`
+/// Since Logging can be quite in depth a brief overview follows
+///
+/// ## Log levels
+/// By using the appropriate macro we can log an event at an appropriate level
+/// that will only show at your configured level and the levels considered more important
+/// ```no_run
+///    // here is how you write new logs at each "log level" (in "most important" to
+///    // "least important" order)
+///    error!("something failed");
+///    warn!("something bad happened that isn't a failure, but thats worth calling out");
+///    info!("helpful information that is worth printing by default");
+///    debug!("helpful for debugging");
+///    trace!("very noisy");
+///    ```
+/// In addition to `format!` style arguments you can print a variables debug
+/// value by using syntax like `trace(?my_value)`
+///
+/// ## Per module logging levels
+/// Modules can have different logging levels, using syntax like `crate_name::module_name=debug`
+///
+///
+/// ```no_run
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins.set(LogPlugin {
+///             filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), //specific filters
+///             level: Level::TRACE,//Change this to be globally change levels
+///             ..Default::default()
+///         }))
+///         .add_systems(Startup, setup)
+///         .run();
+/// }
+/// ```
+/// The idea is that instead of deleting logs when they are no longer immediately applicable,
+/// you just hide them until they are
+/// ## Further reading
+/// The Tracing crate has lots more functionality then these examples can show.
+/// May of which can be done with layers in the log crate
+/// Some more features
+/// - Use spans to add more fine grained filters to logs
+/// - instruments to put more function information
+/// - layers to add addtional context such as line numbers
 /// # Panics
 ///
 /// This plugin should not be added multiple times in the same process. This plugin
