@@ -100,9 +100,9 @@ impl<Input: Component, Output: Component> Component for ReactiveComponent<Input,
 
 /// System to check for changes to [`ReactiveComponent`] expressions and if changed, recompute it.
 pub fn update_reactive_components(world: &mut World) {
-    world.resource_scope(
-        |world, expressions: Mut<ReactiveComponentExpressions>| loop {
-            let last_run = world.last_change_tick();
+    world.resource_scope(|world, expressions: Mut<ReactiveComponentExpressions>| {
+        let mut last_run = world.last_change_tick();
+        loop {
             let this_run = world.change_tick();
             let mut any_reaction = false;
 
@@ -114,9 +114,9 @@ pub fn update_reactive_components(world: &mut World) {
                 break;
             }
 
-            world.increment_change_tick();
-        },
-    );
+            last_run = world.increment_change_tick();
+        }
+    });
 }
 
 /// TODO: Docs.
