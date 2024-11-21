@@ -20,8 +20,6 @@ const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 
 // LUT UV PARAMATERIZATIONS
 
-const SQUASH_FACTOR: f32 = 2.0;
-
 fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
     let u = 0.5 + 0.5 * mu;
     let v = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius)); //TODO
