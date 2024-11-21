@@ -556,7 +556,7 @@ pub fn extract_default_ui_camera_view(
             continue;
         }
 
-        if let (Some(physical_viewport_rect),) = (camera.physical_viewport_rect(),) {
+        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
