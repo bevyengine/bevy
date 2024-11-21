@@ -154,11 +154,10 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// The filter (in this case an EnvFilter) chooses whether to print the log,the most specific filters apply
 /// in the above case default is `warn` but a more specific case for `my_crate`
 /// is to use `trace`
-/// Since Logging can be quite in depth a brief overview follows
 ///
 /// ## Log levels
-/// By using the appropriate macro we can log an event at an appropriate level
-/// that will only show at your configured level and the levels considered more important
+/// Events can be logged at various levels of importance.
+/// Only events at your configured log level and higher will be shown.
 /// ```no_run
 ///    // here is how you write new logs at each "log level" (in "most important" to
 ///    // "least important" order)
@@ -189,6 +188,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
 /// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
+///
 /// ## Further reading
 /// The Tracing crate has lots more functionality than these examples can show.
 /// Much of this configurationcan be done with "layers" in the `log` crate
