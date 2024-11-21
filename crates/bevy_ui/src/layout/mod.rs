@@ -389,18 +389,26 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.outline_width = if style.display != Display::None {
                     outline
                         .width
-                        .resolve(node.size().x, viewport_size)
+                        .resolve(
+                            node.size().x * inverse_target_scale_factor,
+                            viewport_size * inverse_target_scale_factor,
+                        )
                         .unwrap_or(0.)
                         .max(0.)
+                        / inverse_target_scale_factor
                 } else {
                     0.
                 };
 
                 node.outline_offset = outline
                     .offset
-                    .resolve(node.size().x, viewport_size)
+                    .resolve(
+                        node.size().x * inverse_target_scale_factor,
+                        viewport_size * inverse_target_scale_factor,
+                    )
                     .unwrap_or(0.)
-                    .max(0.);
+                    .max(0.)
+                    / inverse_target_scale_factor;
             }
 
             if transform.translation.truncate() != node_center {
