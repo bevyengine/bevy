@@ -136,7 +136,7 @@ mod tests {
         reactivity::{update_reactive_components, ReactiveComponentExpressions},
     };
 
-    #[derive(Component)]
+    #[derive(Component, PartialEq, Eq, Debug)]
     struct Foo(u32);
 
     #[derive(Component, PartialEq, Eq, Debug)]
@@ -161,5 +161,33 @@ mod tests {
         update_reactive_components(&mut world);
 
         assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(1)));
+    }
+
+    #[test]
+    fn test_reactive_component_chaining() {
+        let mut world = World::new();
+        world.init_resource::<ReactiveComponentExpressions>();
+
+        let a = world.spawn(Foo(0)).id();
+        let b = world
+            .spawn(ReactiveComponent::new(a, |foo: &Foo| Foo(foo.0 + 1)))
+            .id();
+        let c = world
+            .spawn(ReactiveComponent::new(b, |foo: &Foo| Foo(foo.0 + 1)))
+            .id();
+
+        world.flush();
+
+        assert_eq!(world.entity(a).get::<Foo>(), Some(&Foo(0)));
+        assert_eq!(world.entity(b).get::<Foo>(), Some(&Foo(1)));
+        assert_eq!(world.entity(c).get::<Foo>(), Some(&Foo(2)));
+
+        world.get_mut::<Foo>(a).unwrap().0 = 3;
+
+        update_reactive_components(&mut world);
+
+        assert_eq!(world.entity(a).get::<Foo>(), Some(&Foo(3)));
+        assert_eq!(world.entity(b).get::<Foo>(), Some(&Foo(4)));
+        assert_eq!(world.entity(c).get::<Foo>(), Some(&Foo(5)));
     }
 }
