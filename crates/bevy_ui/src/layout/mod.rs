@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::{Camera, NormalizedRenderTarget, SubCameraView};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
@@ -379,8 +379,11 @@ with UI components as a child of an entity without UI components, your UI layout
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.size, viewport_size);
+                node.bypass_change_detection().border_radius = border_radius.resolve(
+                    node.size,
+                    viewport_size,
+                    inverse_target_scale_factor.recip(),
+                );
             }
 
             if let Some(outline) = maybe_outline {
@@ -399,13 +402,12 @@ with UI components as a child of an entity without UI components, your UI layout
                 };
 
                 node.outline_offset = match outline.offset {
-                    Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
                     offset => offset,
                 }
                 .resolve(node.size().x, viewport_size)
                 .unwrap_or(0.)
-                .max(0.)
-                    / inverse_target_scale_factor;
+                .max(0.);
             }
 
             if transform.translation.truncate() != node_center {

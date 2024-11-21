@@ -2343,10 +2343,15 @@ impl BorderRadius {
     }
 
     /// Compute the logical border radius for a single corner from the given values
-    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
+    pub fn resolve_single_corner(
+        radius: Val,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        scale_factor: f32,
+    ) -> f32 {
         match radius {
             Val::Auto => 0.,
-            Val::Px(px) => px,
+            Val::Px(px) => px * scale_factor,
             Val::Percent(percent) => node_size.min_element() * percent / 100.,
             Val::Vw(percent) => viewport_size.x * percent / 100.,
             Val::Vh(percent) => viewport_size.y * percent / 100.,
@@ -2356,12 +2361,37 @@ impl BorderRadius {
         .clamp(0., 0.5 * node_size.min_element())
     }
 
-    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
+    pub fn resolve(
+        &self,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        scale_factor: f32,
+    ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
-            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
-            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
-            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
+            top_left: Self::resolve_single_corner(
+                self.top_left,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            top_right: Self::resolve_single_corner(
+                self.top_right,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            bottom_left: Self::resolve_single_corner(
+                self.bottom_left,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
+            bottom_right: Self::resolve_single_corner(
+                self.bottom_right,
+                node_size,
+                viewport_size,
+                scale_factor,
+            ),
         }
     }
 }
