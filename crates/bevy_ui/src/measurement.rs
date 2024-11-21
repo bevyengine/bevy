@@ -1,13 +1,9 @@
+use crate::widget::ImageMeasure;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::CosmicFontSystem;
-use core::fmt::Formatter;
+use core::{fmt::Formatter, marker::PhantomData};
 pub use taffy::style::AvailableSpace;
-
-use crate::widget::ImageMeasure;
-
-use crate::widget::TextMeasure;
 
 impl core::fmt::Debug for ContentSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -20,8 +16,11 @@ pub struct MeasureArgs<'a> {
     pub height: Option<f32>,
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
-    pub font_system: &'a mut CosmicFontSystem,
+    #[cfg(feature = "bevy_text")]
+    pub font_system: &'a mut bevy_text::CosmicFontSystem,
+    #[cfg(feature = "bevy_text")]
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
+    pub _phantom: PhantomData<&'a ()>,
 }
 
 /// A `Measure` is used to compute the size of a ui node
@@ -38,7 +37,8 @@ pub trait Measure: Send + Sync + 'static {
 pub enum NodeMeasure {
     Fixed(FixedMeasure),
 
-    Text(TextMeasure),
+    #[cfg(feature = "bevy_text")]
+    Text(crate::widget::TextMeasure),
     Image(ImageMeasure),
     Custom(Box<dyn Measure>),
 }
@@ -47,7 +47,7 @@ impl Measure for NodeMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
-
+            #[cfg(feature = "bevy_text")]
             NodeMeasure::Text(text) => text.measure(measure_args, style),
             NodeMeasure::Image(image) => image.measure(measure_args, style),
             NodeMeasure::Custom(custom) => custom.measure(measure_args, style),

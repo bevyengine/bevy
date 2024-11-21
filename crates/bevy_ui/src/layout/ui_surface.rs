@@ -1,16 +1,16 @@
-use core::fmt;
-
-use taffy::TaffyTree;
-
+use crate::{layout::convert, LayoutContext, LayoutError, Node, NodeMeasure};
+#[cfg(feature = "bevy_text")]
+use crate::{Measure, MeasureArgs};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
 };
-use bevy_math::{UVec2, Vec2};
-use bevy_utils::default;
-
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_math::Vec2;
+#[cfg(feature = "bevy_text")]
 use bevy_text::CosmicFontSystem;
+use bevy_utils::default;
+use core::fmt;
+use taffy::TaffyTree;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -194,10 +194,11 @@ impl UiSurface {
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
+    #[cfg(all(feature = "bevy_render", feature = "bevy_text"))]
     pub fn compute_camera_layout<'a>(
         &mut self,
         camera: Entity,
-        render_target_resolution: UVec2,
+        render_target_resolution: bevy_math::UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
         font_system: &'a mut CosmicFontSystem,
     ) {
@@ -238,6 +239,7 @@ impl UiSurface {
                                         available_height: available_space.height,
                                         font_system,
                                         buffer,
+                                        _phantom: default(),
                                     },
                                     style,
                                 );
@@ -297,6 +299,7 @@ impl UiSurface {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,

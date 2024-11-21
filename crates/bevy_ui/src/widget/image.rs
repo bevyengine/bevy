@@ -3,13 +3,12 @@ use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
+use bevy_image::TRANSPARENT_IMAGE_HANDLE;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
-
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -250,7 +249,10 @@ impl Measure for ImageMeasure {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
+#[cfg(not(feature = "bevy_text"))]
+type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(

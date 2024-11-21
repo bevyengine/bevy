@@ -1,24 +1,22 @@
-use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale,
-    UiStack,
-};
-use bevy_ecs::{
-    change_detection::DetectChangesMut,
-    entity::Entity,
-    prelude::{Component, With},
-    query::QueryData,
-    reflect::ReflectComponent,
-    system::{Local, Query, Res},
-};
-use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
+use crate::{CalculatedClip, ComputedNode};
+use bevy_ecs::{entity::Entity, prelude::Component, query::QueryData, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
-use bevy_window::{PrimaryWindow, Window};
 
-use smallvec::SmallVec;
+#[cfg(feature = "bevy_render")]
+use {
+    crate::{DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale, UiStack},
+    bevy_ecs::{
+        change_detection::DetectChangesMut as _,
+        prelude::With,
+        system::{Local, Query, Res},
+    },
+    bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput},
+    bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility},
+    bevy_window::{PrimaryWindow, Window},
+    smallvec::SmallVec,
+};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -127,6 +125,7 @@ impl Default for FocusPolicy {
 
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
+#[cfg(feature = "bevy_render")]
 pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
@@ -142,7 +141,9 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
+    #[cfg(feature = "bevy_render")]
     view_visibility: Option<&'static ViewVisibility>,
+    #[cfg(feature = "bevy_render")]
     target_camera: Option<&'static TargetCamera>,
 }
 
@@ -150,6 +151,7 @@ pub struct NodeQuery {
 ///
 /// Entities with a hidden [`ViewVisibility`] are always treated as released.
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "bevy_render")]
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
@@ -190,7 +192,7 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let camera_cursor_positions: bevy_utils::HashMap<Entity, Vec2> = camera_query
         .iter()
         .filter_map(|(entity, camera)| {
             // Interactions are only supported for cameras rendering to a window.
@@ -351,6 +353,7 @@ pub fn ui_focus_system(
 // the given size and border radius.
 //
 // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+#[cfg(feature = "bevy_render")]
 pub(crate) fn pick_rounded_rect(
     point: Vec2,
     size: Vec2,
