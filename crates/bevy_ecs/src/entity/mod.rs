@@ -938,8 +938,6 @@ impl Entities {
     }
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
@@ -956,8 +954,7 @@ impl EntityMeta {
     };
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
+/// Records where an entities data is stored.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
