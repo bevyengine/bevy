@@ -195,7 +195,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// Some more features
 /// - Use spans to add more fine grained filters to logs
 /// - instruments to put more function information
-/// - layers to add addtional context such as line numbers
+/// - layers to add additional context such as line numbers
 /// # Panics
 ///
 /// This plugin should not be added multiple times in the same process. This plugin
