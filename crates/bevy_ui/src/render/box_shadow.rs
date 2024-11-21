@@ -4,7 +4,7 @@ use core::{hash::Hash, ops::Range};
 
 use crate::{
     BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
-    TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
+    TargetCamera, TransparentUi, UiBoxShadowSamples, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
