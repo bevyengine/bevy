@@ -156,11 +156,9 @@ mod tests {
 
         assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(0)));
 
-        let last_tick = world.increment_change_tick();
-
         world.get_mut::<Foo>(source).unwrap().0 += 1;
 
-        world.last_change_tick_scope(last_tick, update_reactive_components);
+        update_reactive_components(&mut world);
 
         assert_eq!(world.entity(sink).get::<Bar>(), Some(&Bar(1)));
     }
