@@ -56,6 +56,7 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) padding: BorderRect,
+    pub(crate) inverse_scale_factor: f32,
 }
 
 impl ComputedNode {
@@ -207,6 +208,7 @@ impl ComputedNode {
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
+        inverse_scale_factor: 1.,
     };
 }
 
