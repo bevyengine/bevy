@@ -41,7 +41,7 @@ fn assign_clips(
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
     assets: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
     mut commands: Commands,
     mut setup: Local<bool>,
 ) {
@@ -73,7 +73,7 @@ fn assign_clips(
     // is considered to belong to an animation player if all targets of the clip
     // refer to entities whose nearest ancestor player is that animation player.
 
-    let mut player_to_graph: EntityHashMap<(AnimationGraph, Vec<AnimationNodeIndex>)> =
+    let mut player_to_graph: EntityHashMap<(BlendGraph, Vec<AnimationNodeIndex>)> =
         EntityHashMap::default();
 
     for (clip_id, clip) in clips.iter() {
@@ -145,7 +145,7 @@ fn assign_clips(
         commands
             .entity(player_entity)
             .insert(animations)
-            .insert(AnimationGraphHandle(graph));
+            .insert(BlendGraphHandle(graph));
     }
 }
 

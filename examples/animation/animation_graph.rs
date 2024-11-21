@@ -106,10 +106,10 @@ struct Args {
     save: bool,
 }
 
-/// The [`AnimationGraph`] asset, which specifies how the animations are to
+/// The [`BlendGraph`] asset, which specifies how the animations are to
 /// be blended together.
 #[derive(Clone, Resource)]
-struct ExampleAnimationGraph(Handle<AnimationGraph>);
+struct ExampleBlendGraph(Handle<BlendGraph>);
 
 /// The current weights of the three playing animations.
 #[derive(Component)]
@@ -122,7 +122,7 @@ struct ExampleAnimationWeights {
 fn setup_assets(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_graphs: ResMut<Assets<BlendGraph>>,
     args: Res<Args>,
 ) {
     // Create or load the assets.
@@ -150,11 +150,11 @@ fn setup_ui(mut commands: Commands) {
 fn setup_assets_programmatically(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
-    animation_graphs: &mut Assets<AnimationGraph>,
+    animation_graphs: &mut Assets<BlendGraph>,
     _save: bool,
 ) {
     // Create the nodes.
-    let mut animation_graph = AnimationGraph::new();
+    let mut animation_graph = BlendGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
     animation_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
@@ -198,16 +198,14 @@ fn setup_assets_programmatically(
     let handle = animation_graphs.add(animation_graph);
 
     // Save the assets in a resource.
-    commands.insert_resource(ExampleAnimationGraph(handle));
+    commands.insert_resource(ExampleBlendGraph(handle));
 }
 
 fn setup_assets_via_serialized_animation_graph(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
 ) {
-    commands.insert_resource(ExampleAnimationGraph(
-        asset_server.load(ANIMATION_GRAPH_PATH),
-    ));
+    commands.insert_resource(ExampleBlendGraph(asset_server.load(ANIMATION_GRAPH_PATH)));
 }
 
 /// Spawns the animated fox.
@@ -372,7 +370,7 @@ fn setup_node_lines(commands: &mut Commands) {
 fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer)>,
-    animation_graph: Res<ExampleAnimationGraph>,
+    animation_graph: Res<ExampleBlendGraph>,
     mut done: Local<bool>,
 ) {
     if *done {
@@ -381,7 +379,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            AnimationGraphHandle(animation_graph.0.clone()),
+            BlendGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {

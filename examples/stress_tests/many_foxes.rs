@@ -79,7 +79,7 @@ fn main() {
 #[derive(Resource)]
 struct Animations {
     node_indices: Vec<AnimationNodeIndex>,
-    graph: Handle<AnimationGraph>,
+    graph: Handle<BlendGraph>,
 }
 
 const RING_SPACING: f32 = 2.0;
@@ -110,7 +110,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_graphs: ResMut<Assets<BlendGraph>>,
     foxes: Res<Foxes>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -121,7 +121,7 @@ fn setup(
         asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
-    let mut animation_graph = AnimationGraph::new();
+    let mut animation_graph = BlendGraph::new();
     let node_indices = animation_graph
         .add_clips(animation_clips.iter().cloned(), 1.0, animation_graph.root)
         .collect();
@@ -240,7 +240,7 @@ fn setup_scene_once_loaded(
         for (entity, mut player) in &mut player {
             commands
                 .entity(entity)
-                .insert(AnimationGraphHandle(animations.graph.clone()))
+                .insert(BlendGraphHandle(animations.graph.clone()))
                 .insert(AnimationTransitions::new());
 
             let playing_animation = player.play(animations.node_indices[0]).repeat();
