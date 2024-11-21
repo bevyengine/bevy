@@ -188,7 +188,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// }
 /// ```
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
-/// you just hide them until they are
+/// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
 /// ## Further reading
 /// The Tracing crate has lots more functionality then these examples can show.
 /// May of which can be done with layers in the log crate
