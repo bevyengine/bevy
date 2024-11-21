@@ -1010,9 +1010,13 @@ mod sealed {
                 // We use `allow` instead of `expect` here because the lint is not generated for all cases.
                 #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
                 #[allow(unused_variables, reason = "`world` is unused when implemented for the unit type `()`.")]
-                fn insert_into_world(self, world: &mut World){
+                fn insert_into_world(
+                    self, 
+                    world: &mut World,
+                    #[cfg(feature = "track_change_detection")] caller: &'static Location,
+                ){
                     let ($($r,)*) = self;
-                    $($r.insert_into_world(world);)*
+                    $($r.insert_into_world(world, caller);)*
                 }
             }
         }
