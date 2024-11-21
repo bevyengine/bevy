@@ -1016,7 +1016,7 @@ mod sealed {
                     #[cfg(feature = "track_change_detection")] caller: &'static Location,
                 ){
                     let ($($r,)*) = self;
-                    $($r.insert_into_world(world, caller);)*
+                    $($r.insert_into_world(world, #[cfg(feature = "track_change_detection")] caller);)*
                 }
             }
         }
