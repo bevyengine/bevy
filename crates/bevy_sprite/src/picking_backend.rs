@@ -7,6 +7,7 @@ use core::cmp::Reverse;
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{prelude::*, FloatExt, FloatOrd};
@@ -23,8 +24,8 @@ pub enum SpritePickingMode {
     /// Only consider the rect of a given sprite.
     BoundingBox,
     /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
-    /// Threshold is given as a single u8 value (0-255) representing the alpha channel that you would see in most art programs
-    AlphaThreshold(u8),
+    /// Threshold is given as an f32 representing the value you get from [bevy_color::color::Color::alpha]
+    AlphaThreshold(f32),
 }
 
 /// Runtime settings for the [`SpritePickingPlugin`].
@@ -33,14 +34,14 @@ pub enum SpritePickingMode {
 pub struct SpriteBackendSettings {
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
-    /// Defaults to an incusive alpha threshold of 10/255
+    /// Defaults to an incusive alpha threshold of 0.1
     pub picking_mode: SpritePickingMode,
 }
 
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            picking_mode: SpritePickingMode::AlphaThreshold(10),
+            picking_mode: SpritePickingMode::AlphaThreshold(0.1),
         }
     }
 }
@@ -183,15 +184,12 @@ pub fn sprite_picking(
                             .or(Some(URect::new(0, 0, texture.width(), texture.height())))?;
                         // get mouse position on texture
                         let texture_position = (texture_rect.center().as_vec2()
-                            + cursor_pos_sprite.trunc())
+                            + cursor_pos_sprite.floor())
                         .as_uvec2();
-                        // grab pixel
-                        let pixel_index =
-                            (texture_position.y * texture.width() + texture_position.x) as usize;
-                        // check transparency
-                        match texture.data.get(pixel_index * 4..(pixel_index * 4 + 4)) {
+                        // grab pixel and check alpha
+                        match texture.get_color_at(texture_position.x, texture_position.y) {
                             // If possible check the alpha bit is above cutoff
-                            Some(pixel_data) if pixel_data[3] > cutoff => true,
+                            Ok(color) => color.alpha() > cutoff,
                             // If not possible, it's not in the sprite
                             _ => false,
                         }
