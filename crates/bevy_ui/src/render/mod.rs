@@ -719,7 +719,7 @@ pub fn extract_text_sections(
                         camera_entity: render_camera_entity.id(),
                         rect,
                         item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::splat(1.),
+                            atlas_scaling: Vec2::ONE,
                             range: start..end,
                         },
                         main_entity: entity.into(),
