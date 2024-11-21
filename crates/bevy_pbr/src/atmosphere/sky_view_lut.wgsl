@@ -6,9 +6,9 @@
         functions::{
             sample_atmosphere, get_local_up, AtmosphereSample,
             sample_local_inscattering, get_local_r, view_radius,
-            sky_view_lut_unsquash_ray_dir, direction_view_to_world
+            sky_view_lut_unsquash_ray_dir, direction_view_to_world,
+            max_atmosphere_distance,
         },
-        bruneton_functions::distance_to_top_atmosphere_boundary,
     }
 }
 
@@ -25,11 +25,11 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let ray_dir_vs = sky_view_lut_unsquash_ray_dir(ray_dir_vs_squashed);
     let ray_dir = direction_view_to_world(ray_dir_vs);
 
-    let r = atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
+    let r = view_radius();//atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
     let mu = ray_dir.y;
 
-    let t_top = distance_to_top_atmosphere_boundary(r, mu);
-    let dt = t_top / f32(settings.sky_view_lut_samples);
+    let t_max = max_atmosphere_distance(r, mu);
+    let dt = t_max / f32(settings.sky_view_lut_samples);
 
     var total_inscattering = vec3(0.0);
     var optical_depth = vec3(0.0);

@@ -16,14 +16,13 @@ use bevy_render::{
             sampler, texture_2d, texture_3d, texture_cube, texture_storage_2d,
             texture_storage_2d_array, texture_storage_3d, uniform_buffer,
         },
-        AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        BlendComponent, BlendFactor, BlendOperation, BlendState, CachedComputePipelineId,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, ComputePipelineDescriptor,
-        DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, MultisampleState, PipelineCache,
-        PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
-        ShaderStages, ShaderType, StorageTextureAccess, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
+        BlendFactor, BlendOperation, BlendState, CachedComputePipelineId, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, ComputePipelineDescriptor, DynamicUniformBuffer, Extent3d,
+        FilterMode, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -429,31 +428,6 @@ pub(super) fn prepare_atmosphere_textures(
             }
         });
     }
-}
-
-#[derive(Resource)]
-pub struct AtmosphereTransforms {
-    uniforms: DynamicUniformBuffer<AtmosphereTransform>,
-}
-
-impl Default for AtmosphereTransforms {
-    fn default() -> Self {
-        let mut uniforms = DynamicUniformBuffer::default();
-        uniforms.set_label(Some("atmosphere_transforms_buffer"));
-        Self { uniforms }
-    }
-}
-
-#[derive(ShaderType)]
-pub struct AtmosphereTransform {
-    atmosphere_from_view: Mat4,
-    atmosphere_from_clip: Mat4,
-}
-
-pub(super) fn prepare_atmosphere_transforms(
-    view_uniforms: Res<ViewUniforms>,
-    amtmosphere_uniforms: ResMut<AtmosphereTransforms>,
-) {
 }
 
 #[derive(Component)]

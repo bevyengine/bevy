@@ -5,7 +5,8 @@
         bindings::{atmosphere, settings},
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut, isotropic, 
-            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI, TAU
+            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI, TAU,
+            max_atmosphere_distance
         },
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
@@ -61,8 +62,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let F_ms = 1 / (1 - f_ms);
     let phi_ms = l_2 * F_ms;
 
-    //textureStore(multiscattering_lut_out, global_id.xy, vec4(phi_ms, 1.0));
-    textureStore(multiscattering_lut_out, global_id.xy, vec4(0.0));
+    textureStore(multiscattering_lut_out, global_id.xy, vec4(phi_ms, 1.0));
 }
 
 struct MultiscatteringSample {
@@ -71,9 +71,7 @@ struct MultiscatteringSample {
 };
 
 fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) -> MultiscatteringSample {
-    let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
-    let t_top = distance_to_top_atmosphere_boundary(r, mu);
-    let t_max = max(t_bottom, t_top); //TODO: max? why not min?
+    let t_max = max_atmosphere_distance(r, mu);
 
     let dt = t_max / f32(settings.multiscattering_lut_samples);
     var optical_depth = vec3<f32>(0.0);

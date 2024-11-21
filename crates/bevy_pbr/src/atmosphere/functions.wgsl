@@ -7,7 +7,11 @@
         multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
         aerial_view_lut, aerial_view_lut_sampler
     },
-    bruneton_functions::{transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, ray_intersects_ground},
+    bruneton_functions::{
+        transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
+        ray_intersects_ground, distance_to_top_atmosphere_boundary, 
+        distance_to_bottom_atmosphere_boundary
+    },
 }
 
 // CONSTANTS
@@ -102,7 +106,7 @@ struct AtmosphereSample {
 
 //prob fine to return big struct because of inlining
 fn sample_atmosphere(r: f32) -> AtmosphereSample {
-    let altitude = max(0.0, r - atmosphere.bottom_radius);
+    let altitude = r - atmosphere.bottom_radius;
 
     // atmosphere values at altitude
     let mie_density = exp(atmosphere.mie_density_exp_scale * altitude);
@@ -127,7 +131,6 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 
     return sample;
 }
-
 
 fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
     var rayleigh_scattering = vec3(0.0);
@@ -166,6 +169,13 @@ fn sample_sun_disk(ray_dir: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
 }
 
 // TRANSFORM UTILITIES
+
+fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
+    let t_top = distance_to_top_atmosphere_boundary(r, mu);
+    let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
+    let hits = ray_intersects_ground(r, mu);
+    return mix(t_top, t_bottom, f32(hits));
+}
 
 fn view_radius() -> f32 {
     return view.world_position.y * settings.scene_units_to_km + atmosphere.bottom_radius;

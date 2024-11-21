@@ -1,7 +1,7 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{settings, atmosphere},
-    functions::{AtmosphereSample, sample_atmosphere, get_local_r},
+    functions::{AtmosphereSample, sample_atmosphere, get_local_r, max_atmosphere_distance},
     bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
 }
 
@@ -23,9 +23,7 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 /// Compute the optical depth of the atmosphere from the ground to the top atmosphere boundary
 /// at a given view height (r) and zenith cos angle (mu)
 fn compute_optical_depth_to_top_atmosphere_boundary(r: f32, mu: f32, sample_count: u32) -> vec3<f32> {
-    let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
-    let t_top = distance_to_top_atmosphere_boundary(r, mu);
-    let t_max = max(t_bottom, t_top); //TODO: max? why not min?
+    let t_max = max_atmosphere_distance(r, mu); //TODO: max? why not min?
 
     var optical_depth = vec3<f32>(0.0f);
     var prev_t = 0.0f;

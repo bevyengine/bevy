@@ -6,9 +6,9 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z
+            get_local_r, get_local_up, view_radius, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z,
+            max_atmosphere_distance
         },
-        bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,ray_intersects_ground}
     }
 }
 
@@ -24,6 +24,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let ray_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
     let r = view_radius();
     let mu = ray_dir.y;
+    let t_max = max_atmosphere_distance(r, mu);
 
     var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
