@@ -151,9 +151,9 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         .run();
 /// }
 /// ```
-/// The filter (in this case an EnvFilter) chooses whether to print the log,the most specific filters apply
+/// The filter (in this case an EnvFilter) chooses whether to print the log, the most specific filters apply
 /// lets start with an example `filter: "warn".to_string()` will only print logs with level `warn` level or greater
-/// From here we can change to `filter: "warn,my_crate=trace".to_string()` logs will only print at warn unless its in `mycrate` 
+/// From here we can change to `filter: "warn,my_crate=trace".to_string()` logs will only print at warn unless it's in `mycrate` 
 /// which will print at `trace` level `my_crate=trace` as that clause is more specific
 /// 
 ///
@@ -164,7 +164,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///    // here is how you write new logs at each "log level" (in "most important" to
 ///    // "least important" order)
 ///    error!("something failed");
-///    warn!("something bad happened that isn't a failure, but thats worth calling out");
+///    warn!("something bad happened that isn't a failure, but that's worth calling out");
 ///    info!("helpful information that is worth printing by default");
 ///    debug!("helpful for debugging");
 ///    trace!("very noisy");
@@ -180,8 +180,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
-///             filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), //specific filters
-///             level: Level::TRACE,//Change this to be globally change levels
+///             filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters
+///             level: Level::TRACE, // Change this to be globally change levels
 ///             ..Default::default()
 ///         }))
 ///         .add_systems(Startup, setup)
@@ -193,7 +193,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///
 /// ## Further reading
 /// The Tracing crate has lots more functionality than these examples can show.
-/// Much of this configurationcan be done with "layers" in the `log` crate
+/// Much of this configuration can be done with "layers" in the `log` crate
 /// Check out:
 /// - Using spans to add more fine grained filters to logs
 /// - Adding instruments to capture more function information
