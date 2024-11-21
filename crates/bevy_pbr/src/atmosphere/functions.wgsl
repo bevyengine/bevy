@@ -20,6 +20,8 @@ const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 
 // LUT UV PARAMATERIZATIONS
 
+const SQUASH_FACTOR: f32 = 2.0;
+
 fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
     let u = 0.5 + 0.5 * mu;
     let v = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius)); //TODO
@@ -32,16 +34,26 @@ fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     return vec2(r, mu);
 }
 
-fn sky_view_lut_squash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
-    let new_y = sqrt(abs(ray_dir_vs.y)) * sign(ray_dir_vs.y);
-    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
+fn sky_view_lut_squash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let new_y = sqrt(abs(ray_dir_as.y)) * sign(ray_dir_as.y);
+    return normalize(vec3(ray_dir_as.x, new_y, ray_dir_as.z));
 }
 
-fn sky_view_lut_unsquash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
-    let abs_y = abs(ray_dir_vs.y);
-    let new_y = abs_y * abs_y * sign(ray_dir_vs.y);
-    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
+fn sky_view_lut_unsquash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let abs_y = abs(ray_dir_as.y);
+    let new_y = abs_y * abs_y * sign(ray_dir_as.y);
+    return normalize(vec3(ray_dir_as.x, new_y, ray_dir_as.z));
 }
+
+//fn sky_view_lut_squash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
+//    let new_y = ray_dir_vs.y / SQUASH_FACTOR;
+//    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
+//}
+
+//fn sky_view_lut_unsquash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
+//    let new_y = ray_dir_vs.y * SQUASH_FACTOR;
+//    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
+//}
 
 // LUT SAMPLING
 
@@ -55,9 +67,9 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_sky_view_lut(ray_dir_vs: vec3<f32>) -> vec3<f32> {
-    let ray_dir_vs_squashed = sky_view_lut_squash_ray_dir(ray_dir_vs);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, ray_dir_vs_squashed, 0.0).rgb;
+fn sample_sky_view_lut(ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let ray_dir_as_squashed = sky_view_lut_squash_ray_dir(ray_dir_as);
+    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, ray_dir_as_squashed, 0.0).rgb;
 }
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
@@ -76,6 +88,10 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = atmosphere.mie_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
+}
+
+fn isotropic() -> f32 {
+    return FRAC_4_PI;
 }
 
 // ATMOSPHERE SAMPLING
@@ -164,8 +180,8 @@ fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
-//given a ray starting at radius r, with cos(zenith angle) of mu,
-//and a distance along the ray of t, gives the new radius at point t
+//given a ray starting at radius r, with mu = cos(zenith angle),
+//and a t = distance along the ray, gives the new radius at point t
 fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
     return sqrt(t * t + 2.0 * r * mu * t + r * r);
 }

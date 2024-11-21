@@ -7,7 +7,7 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-@group(0) @binding(12) var depth_texture: texture_depth_2d;
+@group(0) @binding(13) var depth_texture: texture_depth_2d;
 
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {

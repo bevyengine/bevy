@@ -13,7 +13,7 @@
 }
 
 
-@group(0) @binding(12) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
@@ -35,7 +35,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             //view_dir.w is the cosine of the angle between the view vector and the camera forward vector, used to correct the step length.            
             let t_i = -depth_ndc_to_view_z(sample_depth) / ray_dir.w * settings.scene_units_to_km;
 
-            let step_length = (t_i - prev_t);
+            let dt = (t_i - prev_t);
             prev_t = t_i;
 
             let local_r = get_local_r(r, mu, t_i);
@@ -43,12 +43,12 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let local_up = get_local_up(r, t_i, ray_dir.xyz);
 
             let local_atmosphere = sample_atmosphere(local_r);
-            optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
+            optical_depth += local_atmosphere.extinction * dt; //TODO: units between dt and atmosphere
 
             let transmittance_to_sample = exp(-optical_depth);
 
             var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir.xyz, local_r, local_up);
-            total_inscattering += local_inscattering * step_length;
+            total_inscattering += local_inscattering * dt;
             sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
         }
         let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
