@@ -20,12 +20,12 @@ impl Val {
             Val::Px(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
             }
-            Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.min_size * value / 100.)
-            }
-            Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.max_size * value / 100.)
-            }
+            Val::VMin(value) => taffy::style::LengthPercentageAuto::Length(
+                context.physical_size.min_element() * value / 100.,
+            ),
+            Val::VMax(value) => taffy::style::LengthPercentageAuto::Length(
+                context.physical_size.max_element() * value / 100.,
+            ),
             Val::Vw(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
             }
