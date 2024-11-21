@@ -102,7 +102,7 @@ struct AtmosphereSample {
 
 //prob fine to return big struct because of inlining
 fn sample_atmosphere(r: f32) -> AtmosphereSample {
-    let altitude = r - atmosphere.bottom_radius;
+    let altitude = max(0.0, r - atmosphere.bottom_radius);
 
     // atmosphere values at altitude
     let mie_density = exp(atmosphere.mie_density_exp_scale * altitude);
