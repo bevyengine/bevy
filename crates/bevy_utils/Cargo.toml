@@ -18,7 +18,6 @@ std = [
   "ahash/runtime-rng",
 ]
 alloc = ["hashbrown/default"]
-detailed_trace = []
 serde = ["hashbrown/serde"]
 
 [dependencies]

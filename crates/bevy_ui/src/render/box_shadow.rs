@@ -1,3 +1,5 @@
+//! Box shadows rendering
+
 use core::{hash::Hash, ops::Range};
 
 use crate::{
@@ -133,14 +135,14 @@ impl FromWorld for BoxShadowPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiTextureSlicePipelineKey {
+pub struct BoxShadowPipelineKey {
     pub hdr: bool,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
 }
 
 impl SpecializedRenderPipeline for BoxShadowPipeline {
-    type Key = UiTextureSlicePipelineKey;
+    type Key = BoxShadowPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -333,8 +335,8 @@ pub fn extract_shadows(
 }
 
 pub fn queue_shadows(
-    extracted_ui_slicers: ResMut<ExtractedBoxShadows>,
-    ui_slicer_pipeline: Res<BoxShadowPipeline>,
+    extracted_box_shadows: ResMut<ExtractedBoxShadows>,
+    box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
@@ -342,7 +344,7 @@ pub fn queue_shadows(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
+    for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
         let Ok((view_entity, view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity)
         else {
             continue;
@@ -354,8 +356,8 @@ pub fn queue_shadows(
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
-            &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey {
+            &box_shadow_pipeline,
+            BoxShadowPipelineKey {
                 hdr: view.hdr,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
@@ -371,6 +373,7 @@ pub fn queue_shadows(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: 1.,
         });
     }
 }
@@ -383,7 +386,7 @@ pub fn prepare_shadows(
     mut ui_meta: ResMut<BoxShadowMeta>,
     mut extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
-    texture_slicer_pipeline: Res<BoxShadowPipeline>,
+    box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
@@ -393,8 +396,8 @@ pub fn prepare_shadows(
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            "ui_texture_slice_view_bind_group",
-            &texture_slicer_pipeline.view_layout,
+            "box_shadow_view_bind_group",
+            &box_shadow_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
 

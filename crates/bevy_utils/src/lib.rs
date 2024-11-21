@@ -411,7 +411,7 @@ pub fn error<E: Debug>(result: Result<(), E>) {
 #[macro_export]
 macro_rules! detailed_trace {
     ($($tts:tt)*) => {
-        if cfg!(detailed_trace) {
+        if cfg!(feature = "detailed_trace") {
             $crate::tracing::trace!($($tts)*);
         }
     }
