@@ -293,6 +293,8 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for (camera_id, mut camera) in camera_layout_info.drain() {
+        let inverse_target_scale_factor = camera.scale_factor.recip();
+
         ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system);
 
         for root in &camera.root_nodes {
@@ -303,6 +305,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 None,
                 &mut node_transform_query,
                 &ui_children,
+                inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -327,6 +330,7 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&ScrollPosition>,
         )>,
         ui_children: &UiChildren,
+        inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
     ) {
@@ -352,9 +356,13 @@ with UI components as a child of an entity without UI components, your UI layout
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.size != layout_size || node.unrounded_size != unrounded_size {
+            if node.size != layout_size
+                || node.unrounded_size != unrounded_size
+                || node.inverse_scale_factor != inverse_target_scale_factor
+            {
                 node.size = layout_size;
                 node.unrounded_size = unrounded_size;
+                node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
@@ -434,6 +442,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
+                    inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
                 );
