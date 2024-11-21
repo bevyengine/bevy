@@ -136,8 +136,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```
 /// # Example Setup
 ///
-/// For a quick setup that enables all your loggings,while not showing all your dependencies log data
-/// you can configuere the plugin as below.
+/// For a quick setup that enables all first-party logging, while not showing any of your dependencies' log data
+/// you can configure the plugin as below.
 ///
 /// ```no_run
 /// fn main() {
@@ -190,12 +190,12 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
 /// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
 /// ## Further reading
-/// The Tracing crate has lots more functionality then these examples can show.
-/// May of which can be done with layers in the log crate
-/// Some more features
-/// - Use spans to add more fine grained filters to logs
-/// - instruments to put more function information
-/// - layers to add additional context such as line numbers
+/// The Tracing crate has lots more functionality than these examples can show.
+/// Much of this configurationcan be done with "layers" in the `log` crate
+/// Check out:
+/// - Using spans to add more fine grained filters to logs
+/// - Adding instruments to capture more function information
+/// - Creating layers to add additional context such as line numbers
 /// # Panics
 ///
 /// This plugin should not be added multiple times in the same process. This plugin
