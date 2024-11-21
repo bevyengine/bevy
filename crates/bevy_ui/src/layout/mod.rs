@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale,
+    ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -387,27 +387,24 @@ with UI components as a child of an entity without UI components, your UI layout
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    outline
-                        .width
-                        .resolve(
-                            node.size().x * inverse_target_scale_factor,
-                            viewport_size * inverse_target_scale_factor,
-                        )
-                        .unwrap_or(0.)
-                        .max(0.)
-                        / inverse_target_scale_factor
+                    match outline.width {
+                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                        width => width,
+                    }
+                    .resolve(node.size().x, viewport_size)
+                    .unwrap_or(0.)
+                    .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = outline
-                    .offset
-                    .resolve(
-                        node.size().x * inverse_target_scale_factor,
-                        viewport_size * inverse_target_scale_factor,
-                    )
-                    .unwrap_or(0.)
-                    .max(0.)
+                node.outline_offset = match outline.offset {
+                    Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                    offset => offset,
+                }
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.)
                     / inverse_target_scale_factor;
             }
 
