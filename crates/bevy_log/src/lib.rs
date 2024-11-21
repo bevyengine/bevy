@@ -151,8 +151,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         .run();
 /// }
 /// ```
-/// The (Env) filter chooses whether to print the log, based on the most specific filters
-/// settings in the above case default is `warn` but a more specific case for `my_crate`
+/// The filter (in this case an EnvFilter) chooses whether to print the log,the most specific filters apply
+/// in the above case default is `warn` but a more specific case for `my_crate`
 /// is to use `trace`
 /// Since Logging can be quite in depth a brief overview follows
 ///
