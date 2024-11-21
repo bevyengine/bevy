@@ -556,7 +556,7 @@ pub fn extract_default_ui_camera_view(
             continue;
         }
 
-        if let (Some(physical_viewport_rect),) = (camera.physical_viewport_rect(),) {
+        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -719,7 +719,7 @@ pub fn extract_text_sections(
                         camera_entity: render_camera_entity.id(),
                         rect,
                         item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::splat(1.),
+                            atlas_scaling: Vec2::ONE,
                             range: start..end,
                         },
                         main_entity: entity.into(),
