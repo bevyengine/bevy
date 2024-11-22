@@ -76,7 +76,8 @@ use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
-use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
+use renderer::{RenderDevice, RenderQueue};
+use settings::RendererResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
@@ -95,7 +96,7 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
@@ -240,19 +241,7 @@ pub mod graph {
 }
 
 #[derive(Resource)]
-struct FutureRendererResources(
-    Arc<
-        Mutex<
-            Option<(
-                RenderDevice,
-                RenderQueue,
-                RenderAdapterInfo,
-                RenderAdapter,
-                RenderInstance,
-            )>,
-        >,
-    >,
-);
+struct FutureRendererResources(Arc<Mutex<Option<RendererResources>>>);
 
 /// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -271,14 +260,9 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>();
 
         match &self.render_creation {
-            RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
-                let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
-                    device.clone(),
-                    queue.clone(),
-                    adapter_info.clone(),
-                    adapter.clone(),
-                    instance.clone(),
-                ))));
+            RenderCreation::Manual(resources) => {
+                let future_renderer_resources_wrapper =
+                    Arc::new(Mutex::new(Some(resources.clone())));
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
@@ -292,10 +276,12 @@ impl Plugin for RenderPlugin {
                         future_renderer_resources_wrapper.clone(),
                     ));
 
-                    let mut system_state: SystemState<
-                        Query<&RawHandleWrapperHolder, With<PrimaryWindow>>,
-                    > = SystemState::new(app.world_mut());
-                    let primary_window = system_state.get(app.world()).get_single().ok().cloned();
+                    let primary_window = app
+                        .world_mut()
+                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+                        .get_single(app.world())
+                        .ok()
+                        .cloned();
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -305,13 +291,13 @@ impl Plugin for RenderPlugin {
                             gles_minor_version: settings.gles3_minor_version,
                         });
 
-                        // SAFETY: Plugins should be set up on the main thread.
-                        let surface = primary_window.and_then(|wrapper| unsafe {
+                        let surface = primary_window.and_then(|wrapper| {
                             let maybe_handle = wrapper.0.lock().expect(
                                 "Couldn't get the window handle in time for renderer initialization",
                             );
                             if let Some(wrapper) = maybe_handle.as_ref() {
-                                let handle = wrapper.get_handle();
+                                // SAFETY: Plugins should be set up on the main thread.
+                                let handle = unsafe { wrapper.get_handle() };
                                 Some(
                                     instance
                                         .create_surface(handle)
@@ -339,7 +325,7 @@ impl Plugin for RenderPlugin {
                         debug!("Configured wgpu adapter Features: {:#?}", device.features());
                         let mut future_renderer_resources_inner =
                             future_renderer_resources_wrapper.lock().unwrap();
-                        *future_renderer_resources_inner = Some((
+                        *future_renderer_resources_inner = Some(RendererResources(
                             device,
                             queue,
                             adapter_info,
@@ -407,7 +393,7 @@ impl Plugin for RenderPlugin {
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
-            let (device, queue, adapter_info, render_adapter, instance) =
+            let RendererResources(device, queue, adapter_info, render_adapter, instance) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();
 
             app.insert_resource(device.clone())
