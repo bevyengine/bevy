@@ -85,12 +85,17 @@ pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
     pub enable_rendering: bool,
+    /// Whether to add the UI picking backend to the app.
+    #[cfg(feature = "bevy_ui_picking_backend")]
+    pub add_picking: bool,
 }
 
 impl Default for UiPlugin {
     fn default() -> Self {
         Self {
             enable_rendering: true,
+            #[cfg(feature = "bevy_ui_picking_backend")]
+            add_picking: true,
         }
     }
 }
@@ -217,7 +222,9 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingPlugin);
+        if self.add_picking {
+            app.add_plugins(picking_backend::UiPickingPlugin);
+        }
 
         if !self.enable_rendering {
             return;
