@@ -163,9 +163,11 @@ pub fn sprite_picking(
                 }
                 // Otherwise we can interpolate the xy of the start and end positions by the
                 // lerp factor to get the cursor position in sprite space!
+                // We also need to invert the y axis as pixel data handles the y axis differently to world and screen coords
                 let cursor_pos_sprite = cursor_start_sprite
                     .lerp(cursor_end_sprite, lerp_factor)
-                    .xy();
+                    .xy()
+                    * Vec2::new(1.0, -1.0);
 
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
@@ -183,7 +185,7 @@ pub fn sprite_picking(
                             })
                             .or(Some(URect::new(0, 0, texture.width(), texture.height())))?;
                         // get mouse position on texture
-                        let texture_position = (texture_rect.center().as_vec2()
+                        let texture_position = (texture_rect.center().as_vec2().floor()
                             + cursor_pos_sprite.floor())
                         .as_uvec2();
                         // grab pixel and check alpha
