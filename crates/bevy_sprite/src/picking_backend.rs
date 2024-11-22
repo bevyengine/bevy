@@ -185,9 +185,10 @@ pub fn sprite_picking(
                             })
                             .or(Some(URect::new(0, 0, texture.width(), texture.height())))?;
                         // get mouse position on texture
-                        let texture_position = (texture_rect.center().as_vec2().floor()
-                            + cursor_pos_sprite.floor())
-                        .as_uvec2();
+                        let texture_position = (texture_rect.center().as_vec2()
+                            + cursor_pos_sprite)
+                            .floor()
+                            .as_uvec2();
                         // grab pixel and check alpha
                         match texture.get_color_at(texture_position.x, texture_position.y) {
                             // If possible check the alpha bit is above cutoff
