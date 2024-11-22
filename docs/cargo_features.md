@@ -25,7 +25,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
-|bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
@@ -33,7 +32,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_picking_backend|Provides an implementation for picking ui|
+|bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
@@ -62,6 +61,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_remote|Enable the Bevy Remote Protocol|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
