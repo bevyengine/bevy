@@ -114,7 +114,6 @@ default = [
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -3665,6 +3664,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3676,6 +3676,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
