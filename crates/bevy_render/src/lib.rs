@@ -77,7 +77,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderDevice, RenderQueue};
-use settings::RendererResources;
+use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
@@ -241,7 +241,7 @@ pub mod graph {
 }
 
 #[derive(Resource)]
-struct FutureRendererResources(Arc<Mutex<Option<RendererResources>>>);
+struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -261,19 +261,18 @@ impl Plugin for RenderPlugin {
 
         match &self.render_creation {
             RenderCreation::Manual(resources) => {
-                let future_renderer_resources_wrapper =
-                    Arc::new(Mutex::new(Some(resources.clone())));
-                app.insert_resource(FutureRendererResources(
-                    future_renderer_resources_wrapper.clone(),
+                let future_render_resources_wrapper = Arc::new(Mutex::new(Some(resources.clone())));
+                app.insert_resource(FutureRenderResources(
+                    future_render_resources_wrapper.clone(),
                 ));
                 // SAFETY: Plugins should be set up on the main thread.
                 unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
                 if let Some(backends) = render_creation.backends {
-                    let future_renderer_resources_wrapper = Arc::new(Mutex::new(None));
-                    app.insert_resource(FutureRendererResources(
-                        future_renderer_resources_wrapper.clone(),
+                    let future_render_resources_wrapper = Arc::new(Mutex::new(None));
+                    app.insert_resource(FutureRenderResources(
+                        future_render_resources_wrapper.clone(),
                     ));
 
                     let primary_window = app
@@ -323,9 +322,9 @@ impl Plugin for RenderPlugin {
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
                         debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                        let mut future_renderer_resources_inner =
-                            future_renderer_resources_wrapper.lock().unwrap();
-                        *future_renderer_resources_inner = Some(RendererResources(
+                        let mut future_render_resources_inner =
+                            future_render_resources_wrapper.lock().unwrap();
+                        *future_render_resources_inner = Some(RenderResources(
                             device,
                             queue,
                             adapter_info,
@@ -377,7 +376,7 @@ impl Plugin for RenderPlugin {
 
     fn ready(&self, app: &App) -> bool {
         app.world()
-            .get_resource::<FutureRendererResources>()
+            .get_resource::<FutureRenderResources>()
             .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or(true)
     }
@@ -390,11 +389,11 @@ impl Plugin for RenderPlugin {
             "color_operations.wgsl",
             Shader::from_wgsl
         );
-        if let Some(future_renderer_resources) =
-            app.world_mut().remove_resource::<FutureRendererResources>()
+        if let Some(future_render_resources) =
+            app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            let RendererResources(device, queue, adapter_info, render_adapter, instance) =
-                future_renderer_resources.0.lock().unwrap().take().unwrap();
+            let RenderResources(device, queue, adapter_info, render_adapter, instance) =
+                future_render_resources.0.lock().unwrap().take().unwrap();
 
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())

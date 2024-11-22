@@ -125,7 +125,7 @@ impl Default for WgpuSettings {
 }
 
 #[derive(Clone)]
-pub struct RendererResources(
+pub struct RenderResources(
     pub RenderDevice,
     pub RenderQueue,
     pub RenderAdapterInfo,
@@ -136,7 +136,7 @@ pub struct RendererResources(
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
-    Manual(RendererResources),
+    Manual(RenderResources),
     /// Lets the rendering plugin create resources itself.
     Automatic(WgpuSettings),
 }
@@ -150,12 +150,12 @@ impl RenderCreation {
         adapter: RenderAdapter,
         instance: RenderInstance,
     ) -> Self {
-        RendererResources(device, queue, adapter_info, adapter, instance).into()
+        RenderResources(device, queue, adapter_info, adapter, instance).into()
     }
 }
 
-impl From<RendererResources> for RenderCreation {
-    fn from(value: RendererResources) -> Self {
+impl From<RenderResources> for RenderCreation {
+    fn from(value: RenderResources) -> Self {
         Self::Manual(value)
     }
 }
