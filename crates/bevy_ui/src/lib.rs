@@ -66,7 +66,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
@@ -171,9 +171,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare
-                        .before(UiSystem::Stack)
-                        .after(bevy_animation::Animation),
+                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
