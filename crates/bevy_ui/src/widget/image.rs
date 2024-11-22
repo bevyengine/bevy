@@ -2,9 +2,10 @@ use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::{Image, TRANSPARENT_IMAGE_HANDLE};
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
@@ -268,7 +269,9 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
-        if !matches!(image.image_mode, NodeImageMode::Auto) {
+        if !matches!(image.image_mode, NodeImageMode::Auto)
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             if image.is_changed() {
                 // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
                 content_size.measure = None;

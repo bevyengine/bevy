@@ -22,8 +22,8 @@ pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::WorldEntityFetch;
 pub use entity_ref::{
-    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
-    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
+    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
+    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;

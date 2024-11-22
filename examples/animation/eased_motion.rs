@@ -106,7 +106,7 @@ impl AnimationInfo {
 
         // The easing curve is parametrized over [0, 1], so we reparametrize it and
         // then ping-pong, which makes it spend another 3 seconds on the return journey.
-        let translation_curve = easing_curve(
+        let translation_curve = EasingCurve::new(
             vec3(-6., 2., 0.),
             vec3(6., 2., 0.),
             EaseFunction::CubicInOut,
@@ -119,7 +119,7 @@ impl AnimationInfo {
         // Something similar for rotation. The repetition here is an illusion caused
         // by the symmetry of the cube; it rotates on the forward journey and never
         // rotates back.
-        let rotation_curve = easing_curve(
+        let rotation_curve = EasingCurve::new(
             Quat::IDENTITY,
             Quat::from_rotation_y(FRAC_PI_2),
             EaseFunction::ElasticInOut,

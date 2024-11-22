@@ -4,10 +4,7 @@ use crate::{
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
-use bevy_a11y::{
-    accesskit::{Node, Rect, Role},
-    AccessibilityNode,
-};
+use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
@@ -18,6 +15,8 @@ use bevy_ecs::{
 };
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
+
+use accesskit::{Node, Rect, Role};
 
 fn calc_label(
     text_reader: &mut TextUiReader,
@@ -134,14 +133,14 @@ fn label_changed(
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Label);
             if let Some(label) = label {
-                accessible.set_label(label);
+                accessible.set_value(label);
             } else {
-                accessible.clear_label();
+                accessible.clear_value();
             }
         } else {
             let mut node = Node::new(Role::Label);
             if let Some(label) = label {
-                node.set_label(label);
+                node.set_value(label);
             }
             commands
                 .entity(entity)

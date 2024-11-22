@@ -1,9 +1,9 @@
 use bevy_asset::AssetId;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_utils::{
     tracing::{debug, error, warn},
@@ -179,6 +179,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
     /// # use bevy_render::prelude::*;
+    /// # use bevy_image::Image;
     ///
     /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder

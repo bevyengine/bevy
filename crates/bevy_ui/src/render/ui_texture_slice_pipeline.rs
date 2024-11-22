@@ -11,6 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -19,7 +20,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::{BevyDefault, GpuImage, Image, TRANSPARENT_IMAGE_HANDLE},
+    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -219,6 +220,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_texture_slice_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -370,6 +372,7 @@ pub fn queue_ui_slices(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: 1.,
         });
     }
 }

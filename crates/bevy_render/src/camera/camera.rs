@@ -1,19 +1,17 @@
 use super::{ClearColorConfig, Projection};
-use crate::sync_world::TemporaryRenderEntity;
-use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
-    prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::TemporaryRenderEntity,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
-        VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -30,6 +28,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::DeferredWorld,
 };
+use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
@@ -441,7 +440,10 @@ impl Camera {
 
     #[inline]
     pub fn target_scaling_factor(&self) -> Option<f32> {
-        self.computed.target_info.as_ref().map(|t| t.scale_factor)
+        self.computed
+            .target_info
+            .as_ref()
+            .map(|t: &RenderTargetInfo| t.scale_factor)
     }
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
@@ -1062,6 +1064,7 @@ pub fn extract_cameras(
                 RenderLayers,
                 Projection,
                 GpuCulling,
+                ViewUniformOffset,
             )>();
             continue;
         }

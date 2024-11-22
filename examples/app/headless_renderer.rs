@@ -10,6 +10,7 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
+    image::TextureFormatPixelInfo,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -21,7 +22,6 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
     winit::WinitPlugin,

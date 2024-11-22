@@ -14,6 +14,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
@@ -32,7 +33,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
+    texture::DefaultImageSampler,
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
@@ -1858,7 +1859,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
-        #[cfg(feature = "pbr_pcss")]
+        #[cfg(feature = "experimental_pbr_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -2020,6 +2021,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

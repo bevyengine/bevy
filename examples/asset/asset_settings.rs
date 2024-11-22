@@ -1,8 +1,8 @@
 //! This example demonstrates the usage of '.meta' files and [`AssetServer::load_with_settings`] to override the default settings for loading an asset
 
 use bevy::{
+    image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler},
 };
 
 fn main() {

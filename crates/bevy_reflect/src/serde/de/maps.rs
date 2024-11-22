@@ -5,28 +5,25 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Map`] values.
 ///
 /// [`Map`]: crate::Map
-pub(super) struct MapVisitor<'a> {
-    map_info: &'static MapInfo,
-    registry: &'a TypeRegistry,
+pub(super) struct MapVisitor<'a, P> {
+    pub map_info: &'static MapInfo,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut P>,
 }
 
-impl<'a> MapVisitor<'a> {
-    pub fn new(map_info: &'static MapInfo, registry: &'a TypeRegistry) -> Self {
-        Self { map_info, registry }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for MapVisitor<'_, P> {
     type Value = DynamicMap;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected map value")
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+    fn visit_map<V>(mut self, mut map: V) -> Result<Self::Value, V::Error>
     where
         V: MapAccess<'de>,
     {
@@ -36,10 +33,12 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
             key_registration,
             self.registry,
+            self.processor.as_deref_mut(),
         ))? {
             let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
                 value_registration,
                 self.registry,
+                self.processor.as_deref_mut(),
             ))?;
             dynamic_map.insert_boxed(key, value);
         }
