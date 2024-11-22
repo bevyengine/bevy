@@ -1573,4 +1573,28 @@ mod test {
         assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
     }
+
+    #[test]
+    fn on_edge_pixel_is_invalid() {
+        let image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        assert!(matches!(image.get_color_at(4, 9), Ok(Color::BLACK)));
+        assert!(matches!(
+            image.get_color_at(0, 10),
+            Err(TextureAccessError::OutOfBounds { x: 0, y: 10, z: 0 })
+        ));
+        assert!(matches!(
+            image.get_color_at(5, 10),
+            Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
+        ));
+    }
 }
