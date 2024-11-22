@@ -30,6 +30,7 @@ ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
 ios_simulator = []
+detailed_trace = []
 
 [dependencies]
 # bevy

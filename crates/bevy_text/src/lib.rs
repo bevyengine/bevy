@@ -71,7 +71,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Animation};
 use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
@@ -138,7 +138,8 @@ impl Plugin for TextPlugin {
                     calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
                 )
                     .chain()
-                    .in_set(Update2dText),
+                    .in_set(Update2dText)
+                    .after(Animation),
             )
             .add_systems(Last, trim_cosmic_cache);
 
