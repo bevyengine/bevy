@@ -166,7 +166,6 @@ pub type MainEntityHashSet = hashbrown::HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[component(storage = "SparseSet")]
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
