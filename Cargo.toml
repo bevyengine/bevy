@@ -3646,6 +3646,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
