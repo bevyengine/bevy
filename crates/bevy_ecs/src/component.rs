@@ -1029,8 +1029,8 @@ impl Components {
     /// registration will be used.
     pub(crate) unsafe fn register_required_components<R: Component>(
         &mut self,
-        required: ComponentId,
         requiree: ComponentId,
+        required: ComponentId,
         constructor: fn() -> R,
     ) -> Result<(), RequiredComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
