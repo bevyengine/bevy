@@ -132,9 +132,12 @@ pub struct VisibilityRange {
     /// `end_margin.start` must be greater than or equal to `start_margin.end`.
     pub end_margin: Range<f32>,
 
-    /// True if Bevy should use the center of the axis-aligned bounding box
-    /// ([`Aabb`]) as the position of the mesh, or false if the origin of the
-    /// mesh should be considered the mesh's position.
+    /// If set to true, Bevy will use the center of the axis-aligned bounding
+    /// box ([`Aabb`]) as the position of the mesh for the purposes of
+    /// visibility range computation.
+    ///
+    /// Otherwise, if this field is set to false, Bevy will use the origin of
+    /// the mesh as the mesh's position.
     ///
     /// Usually you will want to leave this set to false, because different LODs
     /// may have different AABBs, and smooth crossfades between LOD levels
