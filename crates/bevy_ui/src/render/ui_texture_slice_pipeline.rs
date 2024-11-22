@@ -237,6 +237,7 @@ pub struct ExtractedUiTextureSlice {
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
 }
 
@@ -329,6 +330,7 @@ pub fn extract_ui_texture_slices(
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
+                inverse_scale_factor: uinode.inverse_scale_factor,
                 main_entity: entity.into(),
             },
         );
@@ -370,7 +372,6 @@ pub fn queue_ui_slices(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: 1.,
         });
     }
 }
@@ -607,7 +608,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size(),
+                        uinode_rect.size() * texture_slices.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 
