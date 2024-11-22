@@ -954,7 +954,7 @@ impl EntityMeta {
     };
 }
 
-/// Records where an entities data is stored.
+/// Records where an entity's data is stored.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
