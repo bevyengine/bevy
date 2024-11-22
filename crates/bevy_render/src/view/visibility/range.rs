@@ -12,6 +12,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     query::{Changed, With},
     reflect::ReflectComponent,
+    removal_detection::RemovedComponents,
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
 };
@@ -416,8 +417,9 @@ pub fn extract_visibility_ranges(
     mut render_visibility_ranges: ResMut<RenderVisibilityRanges>,
     visibility_ranges_query: Extract<Query<(Entity, &VisibilityRange)>>,
     changed_ranges_query: Extract<Query<Entity, Changed<VisibilityRange>>>,
+    mut removed_visibility_ranges: Extract<RemovedComponents<VisibilityRange>>,
 ) {
-    if changed_ranges_query.is_empty() {
+    if changed_ranges_query.is_empty() && removed_visibility_ranges.read().next().is_none() {
         return;
     }
 
