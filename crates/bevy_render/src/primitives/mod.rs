@@ -556,7 +556,7 @@ mod tests {
         let half_extent_world = (((49.5 * 49.5) * 0.5) as f32).sqrt() + 0.5f32.sqrt();
         let near = 50.5 - half_extent_world;
         let far = near + 2.0 * half_extent_world;
-        let fov = 2.0f32 * ops::atan(half_extent_world / near);
+        let fov = 2.0 * ops::atan(half_extent_world / near);
         let proj = PerspectiveProjection {
             aspect_ratio: 1.0,
             near,
