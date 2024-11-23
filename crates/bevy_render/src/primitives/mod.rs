@@ -107,9 +107,7 @@ impl Aabb {
     ) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(self.center);
         let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
-        let r = half_extents_x_world * p_normal.x.abs()
-            + half_extents_y_world * p_normal.y.abs()
-            + half_extents_z_world * p_normal.z.abs();
+        let r = (world_from_local.matrix3 * self.half_extents).dot(p_normal.abs())
         let signed_distance = p_normal.dot(aabb_center_world) + p_distance;
         signed_distance > r
     }
