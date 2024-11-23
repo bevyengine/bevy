@@ -3,7 +3,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    color::palettes::basic::{BLUE, LIME, RED},
+    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -16,9 +17,8 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_light)
-        .add_system(toggle_shadows)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (toggle_light, toggle_shadows))
         .run();
 }
 
@@ -37,108 +37,83 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(Color::RED.into()),
-        transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, spawn_height, 0.0),
+    ));
 
     // sphere - initially not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle,
-            material: materials.add(Color::BLUE.into()),
-            transform: Transform::from_xyz(1.0, spawn_height, 0.0),
-            ..default()
-        },
+        Mesh3d(sphere_handle),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
-            material: materials.add(Color::GREEN.into()),
-            transform: Transform::from_xyz(0.0, 1.0, -10.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
     ));
 
     // lower ground plane - initially a shadow receiver
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(white_handle),
+    ));
 
     println!("Using DirectionalLight");
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 0.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 0.0,
             range: spawn_plane_depth,
             color: Color::WHITE,
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(5.0, 5.0, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 100000.0,
-            shadow_projection: OrthographicProjection {
-                left: -10.0,
-                right: 10.0,
-                bottom: -10.0,
-                top: 10.0,
-                near: -50.0,
-                far: 50.0,
-                ..default()
-            },
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI / 2.,
-            -PI / 4.,
-        )),
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
+        CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0,
+            maximum_distance: 25.0,
+            ..default()
+        }
+        .build(),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-5.0, 5.0, 5.0)
-            .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
+    ));
 }
 
 fn toggle_light(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
-                100000000.0
+                1_000_000.0 // Mini-sun point light
             } else {
                 0.0
             };
@@ -146,7 +121,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                100000.0
+                light_consts::lux::OVERCAST_DAY
             } else {
                 0.0
             };
@@ -156,15 +131,15 @@ fn toggle_light(
 
 fn toggle_shadows(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
     )>,
 ) {
-    if input.just_pressed(KeyCode::C) {
+    if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
@@ -173,7 +148,7 @@ fn toggle_shadows(
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
-    if input.just_pressed(KeyCode::R) {
+    if input.just_pressed(KeyCode::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();

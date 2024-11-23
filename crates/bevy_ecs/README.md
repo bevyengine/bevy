@@ -1,7 +1,9 @@
 # Bevy ECS
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/HEAD/LICENSE)
+[![Downloads](https://img.shields.io/crates/d/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
+[![Docs](https://docs.rs/bevy_ecs/badge.svg)](https://docs.rs/bevy_ecs/latest/bevy_ecs/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy ECS?
@@ -35,7 +37,7 @@ struct Position { x: f32, y: f32 }
 
 ### Worlds
 
-Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
+Entities, Components, and Resources are stored in a `World`. Worlds, much like `std::collections`'s `HashSet` and `Vec`, expose operations to insert, read, write, and remove the data they store.
 
 ```rust
 use bevy_ecs::world::World;
@@ -107,13 +109,12 @@ fn print_time(time: Res<Time>) {
 }
 ```
 
-The [`resources.rs`](examples/resources.rs) example illustrates how to read and write a Counter resource from Systems.
-
 ### Schedules
 
-Schedules consist of zero or more Stages, which run a set of Systems according to some execution strategy. Bevy ECS provides a few built in Stage implementations (ex: parallel, serial), but you can also implement your own! Schedules run Stages one-by-one in an order defined by the user.
+Schedules run a set of Systems according to some execution strategy.
+Systems can be added to any number of System Sets, which are used to control their scheduling metadata.
 
-The built in "parallel stage" considers dependencies between systems and (by default) run as many of them in parallel as possible. This maximizes performance, while keeping the system execution safe. You can also define explicit dependencies between systems.
+The built in "parallel executor" considers dependencies between systems and (by default) run as many of them in parallel as possible. This maximizes performance, while keeping the system execution safe. To control the system ordering, define explicit dependencies between systems and their sets.
 
 ## Using Bevy ECS
 
@@ -148,15 +149,8 @@ fn main() {
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
-    // Define a unique public name for a new Stage.
-    #[derive(StageLabel)]
-    pub struct UpdateLabel;
-
-    // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
-    // before moving on to the next Stage
-    schedule.add_stage(UpdateLabel, SystemStage::parallel()
-        .with_system(movement)
-    );
+    // Add our system to the schedule
+    schedule.add_systems(movement);
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
     schedule.run(&mut world);
@@ -228,8 +222,6 @@ fn system(time: Res<Time>) {
 }
 ```
 
-The [`change_detection.rs`](examples/change_detection.rs) example shows how to query only for updated entities and react on changes in resources.
-
 ### Component Storage
 
 Bevy ECS supports multiple component storage types.
@@ -292,6 +284,7 @@ Events offer a communication channel between one or more systems. Events can be 
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Event)]
 struct MyEvent {
     message: String,
 }
@@ -303,11 +296,57 @@ fn writer(mut writer: EventWriter<MyEvent>) {
 }
 
 fn reader(mut reader: EventReader<MyEvent>) {
-    for event in reader.iter() {
+    for event in reader.read() {
     }
 }
 ```
 
-A minimal set up using events can be seen in [`events.rs`](examples/events.rs).
+### Observers
+
+Observers are systems that listen for a "trigger" of a specific `Event`:
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Event)]
+struct MyEvent {
+    message: String
+}
+
+let mut world = World::new();
+
+world.add_observer(|trigger: Trigger<MyEvent>| {
+    println!("{}", trigger.event().message);
+});
+
+world.flush();
+
+world.trigger(MyEvent {
+    message: "hello!".to_string(),
+});
+```
+
+These differ from `EventReader` and `EventWriter` in that they are "reactive". Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens. Triggers can trigger other triggers, and they all will be evaluated at the same time!
+
+Events can also be triggered to target specific entities:
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Event)]
+struct Explode;
+
+let mut world = World::new();
+let entity = world.spawn_empty().id();
+
+world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
+    println!("Entity {:?} goes BOOM!", trigger.entity());
+    commands.entity(trigger.entity()).despawn();
+});
+
+world.flush();
+
+world.trigger_targets(Explode, entity);
+```
 
 [bevy]: https://bevyengine.org/

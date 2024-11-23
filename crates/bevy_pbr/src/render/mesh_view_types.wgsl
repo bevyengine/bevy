@@ -1,18 +1,6 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct View {
-    view_proj: mat4x4<f32>,
-    inverse_view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    inverse_view: mat4x4<f32>,
-    projection: mat4x4<f32>,
-    inverse_projection: mat4x4<f32>,
-    world_position: vec3<f32>,
-    // viewport(x_origin, y_origin, width, height)
-    viewport: vec4<f32>,
-};
-
-struct PointLight {
+struct ClusterableObject {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset
     light_custom_data: vec4<f32>,
@@ -23,22 +11,39 @@ struct PointLight {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     spot_light_tan_angle: f32,
+    soft_shadow_size: f32,
+    shadow_map_near_z: f32,
+    pad_a: f32,
+    pad_b: f32,
 };
 
-let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
-let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32        = 4u;
+
+struct DirectionalCascade {
+    clip_from_world: mat4x4<f32>,
+    texel_size: f32,
+    far_bound: f32,
+}
 
 struct DirectionalLight {
-    view_projection: mat4x4<f32>,
+    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    soft_shadow_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    num_cascades: u32,
+    cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
+    skip: u32,
 };
 
-let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32      = 2u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -59,11 +64,38 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
+    environment_map_smallest_specular_mip_level: u32,
+    environment_map_intensity: f32,
 };
 
+struct Fog {
+    base_color: vec4<f32>,
+    directional_light_color: vec4<f32>,
+    // `be` and `bi` are allocated differently depending on the fog mode
+    //
+    // For Linear Fog:
+    //     be.x = start, be.y = end
+    // For Exponential and ExponentialSquared Fog:
+    //     be.x = density
+    // For Atmospheric Fog:
+    //     be = per-channel extinction density
+    //     bi = per-channel inscattering density
+    be: vec3<f32>,
+    directional_light_exponent: f32,
+    bi: vec3<f32>,
+    mode: u32,
+}
+
+// Important: These must be kept in sync with `fog.rs`
+const FOG_MODE_OFF: u32                   = 0u;
+const FOG_MODE_LINEAR: u32                = 1u;
+const FOG_MODE_EXPONENTIAL: u32           = 2u;
+const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+const FOG_MODE_ATMOSPHERIC: u32           = 4u;
+
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-struct PointLights {
-    data: array<PointLight>,
+struct ClusterableObjects {
+    data: array<ClusterableObject>,
 };
 struct ClusterLightIndexLists {
     data: array<u32>,
@@ -72,11 +104,11 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>>,
 };
 #else
-struct PointLights {
-    data: array<PointLight, 256u>,
+struct ClusterableObjects {
+    data: array<ClusterableObject, 204u>,
 };
 struct ClusterLightIndexLists {
-    // each u32 contains 4 u8 indices into the PointLights array
+    // each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
 struct ClusterOffsetsAndCounts {
@@ -86,17 +118,50 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-struct Globals {
-    // The time since startup in seconds
-    // Wraps to 0 after 1 hour.
-    time: f32,
-    // The delta time since the previous frame in seconds
-    delta_time: f32,
-    // Frame count since the start of the app.
-    // It wraps to zero when it reaches the maximum value of a u32.
-    frame_count: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
-    // WebGL2 structs must be 16 byte aligned.
-    _wasm_padding: f32
-#endif
-}
+struct LightProbe {
+    // This is stored as the transpose in order to save space in this structure.
+    // It'll be transposed in the `environment_map_light` function.
+    light_from_world_transposed: mat3x4<f32>,
+    cubemap_index: i32,
+    intensity: f32,
+};
+
+struct LightProbes {
+    // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
+    reflection_probes: array<LightProbe, 8u>,
+    irradiance_volumes: array<LightProbe, 8u>,
+    reflection_probe_count: i32,
+    irradiance_volume_count: i32,
+    // The index of the view environment map cubemap binding, or -1 if there's
+    // no such cubemap.
+    view_cubemap_index: i32,
+    // The smallest valid mipmap level for the specular environment cubemap
+    // associated with the view.
+    smallest_specular_mip_level_for_view: u32,
+    // The intensity of the environment map associated with the view.
+    intensity_for_view: f32,
+};
+
+// Settings for screen space reflections.
+//
+// For more information on these settings, see the documentation for
+// `bevy_pbr::ssr::ScreenSpaceReflections`.
+struct ScreenSpaceReflectionsSettings {
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    use_secant: u32,
+};
+
+struct EnvironmentMapUniform {
+    // Transformation matrix for the environment cubemaps in world space.
+    transform: mat4x4<f32>,
+};
+
+// Shader version of the order independent transparency settings component.
+struct OrderIndependentTransparencySettings {
+  layers_count: i32,
+  alpha_threshold: f32,
+};

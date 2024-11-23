@@ -5,7 +5,7 @@
 //! modification to Morten S. Mikkelsen's original tangent space algorithm
 //! implementation written in C. The original source code can be found at
 //! <https://archive.blender.org/wiki/index.php/Dev:Shading/Tangent_Space_Normal_Maps>
-//! and includes the following licence:
+//! and includes the following license:
 //!
 //! Copyright (C) 2011 by Morten S. Mikkelsen
 //!
@@ -29,7 +29,6 @@
 
 #![allow(
     clippy::all,
-    clippy::doc_markdown,
     clippy::redundant_else,
     clippy::match_same_arms,
     clippy::semicolon_if_nothing_returned,
@@ -42,10 +41,12 @@
     non_upper_case_globals,
     unused_mut,
     unused_assignments,
-    unused_variables
+    unused_variables,
+    unsafe_code
 )]
 
-use std::ptr::null_mut;
+use alloc::{vec, vec::Vec};
+use core::ptr::{self, null_mut};
 
 use glam::Vec3;
 
@@ -134,7 +135,7 @@ impl STriInfo {
 pub struct SGroup {
     pub iNrFaces: i32,
     pub pFaceIndices: *mut i32,
-    pub iVertexRepresentitive: i32,
+    pub iVertexRepresentative: i32,
     pub bOrientPreservering: bool,
 }
 
@@ -143,7 +144,7 @@ impl SGroup {
         Self {
             iNrFaces: 0,
             pFaceIndices: null_mut(),
-            iVertexRepresentitive: 0,
+            iVertexRepresentative: 0,
             bOrientPreservering: false,
         }
     }
@@ -211,8 +212,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos: f32 =
-        ((fAngularThreshold * 3.14159265358979323846f64 as f32 / 180.0f32) as f64).cos() as f32;
+    let fThresCos = cos(fAngularThreshold.to_radians());
     f = 0;
     while f < iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
@@ -254,6 +254,10 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         t += 1
     }
     iNrTrianglesIn = iTotTris - iDegenTriangles;
+
+    if iNrTrianglesIn <= 0 {
+        return false;
+    }
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
@@ -562,7 +566,7 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                     piTriListIn,
                     pTriInfos,
                     geometry,
-                    (*pGroup).iVertexRepresentitive,
+                    (*pGroup).iVertexRepresentative,
                 );
                 iUniqueSubGroups += 1
             }
@@ -627,7 +631,7 @@ unsafe fn VNotZero(v: Vec3) -> bool {
 }
 
 unsafe fn NotZero(fX: f32) -> bool {
-    fX.abs() > 1.17549435e-38f32
+    abs(fX) > 1.17549435e-38f32
 }
 
 unsafe fn EvalTspace<I: Geometry>(
@@ -636,7 +640,7 @@ unsafe fn EvalTspace<I: Geometry>(
     mut piTriListIn: *const i32,
     mut pTriInfos: *const STriInfo,
     geometry: &mut I,
-    iVertexRepresentitive: i32,
+    iVertexRepresentative: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
         vOs: Vec3::new(0.0, 0.0, 0.0),
@@ -677,11 +681,11 @@ unsafe fn EvalTspace<I: Geometry>(
             let mut i0: i32 = -1i32;
             let mut i1: i32 = -1i32;
             let mut i2: i32 = -1i32;
-            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
+            if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentative {
                 i = 0i32
-            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentative {
                 i = 1i32
-            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentitive {
+            } else if *piTriListIn.offset((3i32 * f + 2i32) as isize) == iVertexRepresentative {
                 i = 2i32
             }
             index = *piTriListIn.offset((3i32 * f + i) as isize);
@@ -721,7 +725,7 @@ unsafe fn EvalTspace<I: Geometry>(
             } else {
                 fCos
             };
-            fAngle = (fCos as f64).acos() as f32;
+            fAngle = acosf64(fCos as f64) as f32;
             fMagS = (*pTriInfos.offset(f as isize)).fMagS;
             fMagT = (*pTriInfos.offset(f as isize)).fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
@@ -831,15 +835,15 @@ unsafe fn Build4RuleGroups(
                 let mut neigh_indexR: i32 = 0;
                 let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
-                *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
+                *fresh2 = ptr::from_mut(&mut *pGroups.offset(iNrActiveGroups as isize));
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
-                    .iVertexRepresentitive = vert_index;
+                    .iVertexRepresentative = vert_index;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
                     (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
                     (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).pFaceIndices;
-                *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
+                *fresh3 = ptr::from_mut(&mut *piGroupTrianglesBuffer.offset(iOffset as isize));
                 iNrActiveGroups += 1;
                 AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
                 bOrPre = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32 {
@@ -899,7 +903,7 @@ unsafe fn AssignRecur(
     let mut pMyTriInfo: *mut STriInfo =
         &mut *psTriInfos.offset(iMyTriIndex as isize) as *mut STriInfo;
     // track down vertex
-    let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
+    let iVertRep: i32 = (*pGroup).iVertexRepresentative;
     let mut pVerts: *const i32 =
         &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
     let mut i: i32 = -1i32;
@@ -1007,7 +1011,7 @@ unsafe fn InitTriInfo<I: Geometry>(
             0i32
         };
         if NotZero(fSignedAreaSTx2) {
-            let fAbsArea: f32 = fSignedAreaSTx2.abs();
+            let fAbsArea: f32 = abs(fSignedAreaSTx2);
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
             let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
@@ -1031,7 +1035,7 @@ unsafe fn InitTriInfo<I: Geometry>(
         }
         f += 1
     }
-    while t < iNrTrianglesIn - 1 {
+    while t + 1 < iNrTrianglesIn {
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
@@ -1804,4 +1808,64 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
         t += 1
     }
     return iTSpacesOffs;
+}
+
+fn cos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.cos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::cosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `cos`")
+    }
+}
+
+fn acos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
+}
+
+fn abs(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.abs()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::fabsf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `abs`")
+    }
+}
+
+fn acosf64(value: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acos(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
 }

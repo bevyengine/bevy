@@ -1,30 +1,43 @@
 use crate::{
     prelude::{FromWorld, QueryState},
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{QueryData, QueryFilter},
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_ecs_macros::all_tuples;
-use bevy_utils::synccell::SyncCell;
+use bevy_utils::{all_tuples, synccell::SyncCell};
+use core::marker::PhantomData;
 
+/// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
+/// Any parameters implementing this trait must come after the `&mut World` parameter.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a parameter for an exclusive system",
+    label = "invalid system parameter"
+)]
 pub trait ExclusiveSystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
+    /// The item type returned when constructing this system param.
+    /// See [`SystemParam::Item`].
     type Item<'s>: ExclusiveSystemParam<State = Self::State>;
 
+    /// Creates a new instance of this param's [`State`](Self::State).
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-    #[inline]
-    fn apply(_state: &mut Self::State, _world: &mut World) {}
 
+    /// Creates a parameter to be passed into an [`ExclusiveSystemParamFunction`].
+    ///
+    /// [`ExclusiveSystemParamFunction`]: super::ExclusiveSystemParamFunction
     fn get_param<'s>(state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s>;
 }
 
+/// Shorthand way of accessing the associated type [`ExclusiveSystemParam::Item`]
+/// for a given [`ExclusiveSystemParam`].
 pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>;
 
-impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
-    for &'a mut QueryState<Q, F>
+impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
+    for &'a mut QueryState<D, F>
 {
-    type State = QueryState<Q, F>;
-    type Item<'s> = &'s mut QueryState<Q, F>;
+    type State = QueryState<D, F>;
+    type Item<'s> = &'s mut QueryState<D, F>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         QueryState::new(world)
@@ -61,10 +74,22 @@ impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> 
     }
 }
 
+impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
+    type State = ();
+    type Item<'s> = PhantomData<S>;
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    fn get_param<'s>(_state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
+        PhantomData
+    }
+}
+
 macro_rules! impl_exclusive_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
+        $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'s> = ($($param::Item<'s>,)*);
@@ -72,12 +97,6 @@ macro_rules! impl_exclusive_system_param_tuple {
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
                 (($($param::init(_world, _system_meta),)*))
-            }
-
-            #[inline]
-            fn apply(state: &mut Self::State, _world: &mut World) {
-                let ($($param,)*) = state;
-                $($param::apply($param, _world);)*
             }
 
             #[inline]
@@ -94,4 +113,43 @@ macro_rules! impl_exclusive_system_param_tuple {
     };
 }
 
-all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_exclusive_system_param_tuple,
+    0,
+    16,
+    P
+);
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::{schedule::Schedule, system::Local, world::World};
+    use bevy_ecs_macros::Resource;
+    use core::marker::PhantomData;
+
+    #[test]
+    fn test_exclusive_system_params() {
+        #[derive(Resource, Default)]
+        struct Res {
+            test_value: u32,
+        }
+
+        fn my_system(world: &mut World, mut local: Local<u32>, _phantom: PhantomData<Vec<u32>>) {
+            assert_eq!(world.resource::<Res>().test_value, *local);
+            *local += 1;
+            world.resource_mut::<Res>().test_value += 1;
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_system);
+
+        let mut world = World::default();
+        world.init_resource::<Res>();
+
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(2, world.get_resource::<Res>().unwrap().test_value);
+    }
+}

@@ -1,36 +1,39 @@
 //! Bevy has an optional prepass that is controlled per-material. A prepass is a rendering pass that runs before the main pass.
-//! It will optionally generate various view textures. Currently it supports depth and normal textures.
+//! It will optionally generate various view textures. Currently it supports depth, normal, and motion vector textures.
 //! The textures are not generated for any material using alpha blending.
-//!
-//! # WARNING
-//! The prepass currently doesn't work on `WebGL`.
 
 use bevy::{
-    core_pipeline::prepass::{DepthPrepass, NormalPrepass},
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
-    reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    reflect::TypePath,
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(PbrPlugin {
-            // The prepass is enabled by default on the StandardMaterial,
-            // but you can disable it if you need to.
-            // prepass_enabled: false,
-            ..default()
-        }))
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_plugin(MaterialPlugin::<PrepassOutputMaterial> {
-            // This material only needs to read the prepass textures,
-            // but the meshes using it should not contribute to the prepass render, so we can disable it.
-            prepass_enabled: false,
-            ..default()
-        })
-        .add_startup_system(setup)
-        .add_system(rotate)
-        .add_system(update)
+        .add_plugins((
+            DefaultPlugins.set(PbrPlugin {
+                // The prepass is enabled by default on the StandardMaterial,
+                // but you can disable it if you need to.
+                //
+                // prepass_enabled: false,
+                ..default()
+            }),
+            MaterialPlugin::<CustomMaterial>::default(),
+            MaterialPlugin::<PrepassOutputMaterial> {
+                // This material only needs to read the prepass textures,
+                // but the meshes using it should not contribute to the prepass render, so we can disable it.
+                prepass_enabled: false,
+                ..default()
+            },
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, (rotate, toggle_prepass_view))
         .run();
 }
 
@@ -45,120 +48,105 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+        Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
         DepthPrepass,
         // This will generate a texture containing world normals (with normal maps applied)
         NormalPrepass,
+        // This will generate a texture containing screen space pixel motion vectors
+        MotionVectorPrepass,
     ));
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 5.0 }.into()),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // A quad that shows the outputs of the prepass
-    // To make it easy, we just draw a big quad right in front of the camera. For a real application, this isn't ideal.
+    // To make it easy, we just draw a big quad right in front of the camera.
+    // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0)).into()),
-            material: depth_materials.add(PrepassOutputMaterial {
-                show_depth: 0.0,
-                show_normal: 0.0,
-            }),
-            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
-                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
+        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+            settings: ShowPrepassSettings::default(),
+        })),
+        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
-    // Opaque cube using the StandardMaterial
+    // Opaque cube
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: std_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Opaque,
+        })),
+        Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: std_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
-        }),
-
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
-    let style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        color: Color::WHITE,
-    };
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Prepass Output: transparent\n", style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Space - Change output\n", style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
             },
-            ..default()
-        }),
-    );
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Prepass Output: transparent\n"));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Space - Change output\n"));
+        });
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
@@ -169,7 +157,7 @@ pub struct CustomMaterial {
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        MATERIAL_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -188,24 +176,30 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (time.elapsed_seconds().sin() * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
+        let rot = (ops::sin(time.elapsed_secs()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }
 
+#[derive(Debug, Clone, Default, ShaderType)]
+struct ShowPrepassSettings {
+    show_depth: u32,
+    show_normals: u32,
+    show_motion_vectors: u32,
+    padding_1: u32,
+    padding_2: u32,
+}
+
 // This shader simply loads the prepass texture and outputs it directly
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
-pub struct PrepassOutputMaterial {
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct PrepassOutputMaterial {
     #[uniform(0)]
-    show_depth: f32,
-    #[uniform(1)]
-    show_normal: f32,
+    settings: ShowPrepassSettings,
 }
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_prepass.wgsl".into()
+        PREPASS_SHADER_ASSET_PATH.into()
     }
 
     // This needs to be transparent in order to show the scene behind the mesh
@@ -214,31 +208,34 @@ impl Material for PrepassOutputMaterial {
     }
 }
 
-fn update(
-    keycode: Res<Input<KeyCode>>,
-    material_handle: Query<&Handle<PrepassOutputMaterial>>,
+/// Every time you press space, it will cycle between transparent, depth and normals view
+fn toggle_prepass_view(
+    mut prepass_view: Local<u32>,
+    keycode: Res<ButtonInput<KeyCode>>,
+    material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
-        let handle = material_handle.single();
-        let mut mat = materials.get_mut(handle).unwrap();
-        let out_text;
-        if mat.show_depth == 1.0 {
-            out_text = "normal";
-            mat.show_depth = 0.0;
-            mat.show_normal = 1.0;
-        } else if mat.show_normal == 1.0 {
-            out_text = "transparent";
-            mat.show_depth = 0.0;
-            mat.show_normal = 0.0;
-        } else {
-            out_text = "depth";
-            mat.show_depth = 1.0;
-            mat.show_normal = 0.0;
-        }
+        *prepass_view = (*prepass_view + 1) % 4;
 
-        let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {out_text}\n");
+        let label = match *prepass_view {
+            0 => "transparent",
+            1 => "depth",
+            2 => "normals",
+            3 => "motion vectors",
+            _ => unreachable!(),
+        };
+        let text = *text;
+        *writer.text(text, 1) = format!("Prepass Output: {label}\n");
+        writer.for_each_color(text, |mut color| {
+            color.0 = Color::WHITE;
+        });
+
+        let mat = materials.get_mut(*material_handle).unwrap();
+        mat.settings.show_depth = (*prepass_view == 1) as u32;
+        mat.settings.show_normals = (*prepass_view == 2) as u32;
+        mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
     }
 }

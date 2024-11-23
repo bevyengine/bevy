@@ -1,13 +1,11 @@
 //! Utilities for working with [`Future`]s.
-//!
-//! [`Future`]: std::future::Future
-use std::{
+use core::{
     future::Future,
     pin::Pin,
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
-/// Consumes the future, polls it once, and immediately returns the output
+/// Consumes a future, polls it once, and immediately returns the output
 /// or returns `None` if it wasn't ready yet.
 ///
 /// This will cancel the future if it's not ready.
@@ -24,15 +22,29 @@ pub fn now_or_never<F: Future>(mut future: F) -> Option<F::Output> {
     }
 }
 
-unsafe fn noop_clone(_data: *const ()) -> RawWaker {
+/// Polls a future once, and returns the output if ready
+/// or returns `None` if it wasn't ready yet.
+pub fn check_ready<F: Future + Unpin>(future: &mut F) -> Option<F::Output> {
+    let noop_waker = noop_waker();
+    let mut cx = Context::from_waker(&noop_waker);
+
+    let future = Pin::new(future);
+
+    match future.poll(&mut cx) {
+        Poll::Ready(x) => Some(x),
+        _ => None,
+    }
+}
+
+fn noop_clone(_data: *const ()) -> RawWaker {
     noop_raw_waker()
 }
-unsafe fn noop(_data: *const ()) {}
+fn noop(_data: *const ()) {}
 
 const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
 
 fn noop_raw_waker() -> RawWaker {
-    RawWaker::new(std::ptr::null(), &NOOP_WAKER_VTABLE)
+    RawWaker::new(core::ptr::null(), &NOOP_WAKER_VTABLE)
 }
 
 fn noop_waker() -> Waker {

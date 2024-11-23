@@ -1,23 +1,25 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::ecs::query::BatchingStrategy;
-use bevy::prelude::*;
-use rand::random;
+use bevy::{ecs::batching::BatchingStrategy, prelude::*};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Deref)]
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
-    for _ in 0..128 {
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
+    for z in 0..128 {
         commands.spawn((
-            SpriteBundle {
-                texture: texture.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.1)),
-                ..default()
-            },
-            Velocity(20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5)),
+            Sprite::from_image(texture.clone()),
+            Transform::from_scale(Vec3::splat(0.1))
+                .with_translation(Vec2::splat(0.0).extend(z as f32)),
+            Velocity(20.0 * Vec2::new(rng.gen::<f32>() - 0.5, rng.gen::<f32>() - 0.5)),
         ));
     }
 }
@@ -34,14 +36,13 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
     // to use or not use ParallelIterator over a normal Iterator.
     sprites
         .par_iter_mut()
-        .for_each_mut(|(mut transform, velocity)| {
+        .for_each(|(mut transform, velocity)| {
             transform.translation += velocity.extend(0.0);
         });
 }
 
 // Bounce sprites outside the window
-fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
-    let window = windows.single();
+fn bounce_system(window: Single<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;
@@ -54,7 +55,7 @@ fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut V
     sprites
         .par_iter_mut()
         .batching_strategy(BatchingStrategy::fixed(32))
-        .for_each_mut(|(transform, mut v)| {
+        .for_each(|(transform, mut v)| {
             if !(left < transform.translation.x
                 && transform.translation.x < right
                 && bottom < transform.translation.y
@@ -69,8 +70,7 @@ fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut V
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(spawn_system)
-        .add_system(move_system)
-        .add_system(bounce_system)
+        .add_systems(Startup, spawn_system)
+        .add_systems(Update, (move_system, bounce_system))
         .run();
 }

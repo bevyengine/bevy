@@ -1,31 +1,33 @@
+use super::RenderQueue;
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use crate::WgpuWrapper;
+use alloc::sync::Arc;
 use bevy_ecs::system::Resource;
-use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
-
-use super::RenderQueue;
-
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
+use wgpu::{
+    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
+};
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: ErasedRenderDevice,
+    device: Arc<WgpuWrapper<wgpu::Device>>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self {
-            device: ErasedRenderDevice::new(device),
-        }
+        Self::new(Arc::new(WgpuWrapper::new(device)))
     }
 }
 
 impl RenderDevice {
+    pub fn new(device: Arc<WgpuWrapper<wgpu::Device>>) -> Self {
+        Self { device }
+    }
+
     /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
@@ -45,15 +47,43 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(source)
+                if self
+                    .features()
+                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+            {
+                // SAFETY:
+                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+                // No attempt is made to ensure that data is valid SPIR-V.
+                unsafe {
+                    self.device
+                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                            label: desc.label,
+                            source: source.clone(),
+                        })
+                }
+            }
+            _ => self.device.create_shader_module(desc),
+        }
+
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
         self.device.create_shader_module(desc)
     }
 
     /// Check for resource cleanups and mapping callbacks.
     ///
+    /// Return `true` if the queue is empty, or `false` if there are more queue
+    /// submissions still in flight. (Note that, unless access to the [`wgpu::Queue`] is
+    /// coordinated somehow, this information could be out of date by the time
+    /// the caller receives it. `Queue`s can be shared between threads, so
+    /// other threads could submit new work at any time.)
+    ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) {
-        self.device.poll(maintain);
+    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
+        self.device.poll(maintain)
     }
 
     /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
@@ -76,18 +106,34 @@ impl RenderDevice {
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
-        let wgpu_bind_group = self.device.create_bind_group(desc);
+    pub fn create_bind_group<'a>(
+        &self,
+        label: impl Into<wgpu::Label<'a>>,
+        layout: &'a BindGroupLayout,
+        entries: &'a [BindGroupEntry<'a>],
+    ) -> BindGroup {
+        let wgpu_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+            label: label.into(),
+            layout,
+            entries,
+        });
         BindGroup::from(wgpu_bind_group)
     }
 
     /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
     #[inline]
-    pub fn create_bind_group_layout(
+    pub fn create_bind_group_layout<'a>(
         &self,
-        desc: &wgpu::BindGroupLayoutDescriptor,
+        label: impl Into<wgpu::Label<'a>>,
+        entries: &'a [BindGroupLayoutEntry],
     ) -> BindGroupLayout {
-        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
+        BindGroupLayout::from(
+            self.device
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: label.into(),
+                    entries,
+                }),
+        )
     }
 
     /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
@@ -136,11 +182,12 @@ impl RenderDevice {
         &self,
         render_queue: &RenderQueue,
         desc: &wgpu::TextureDescriptor,
+        order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture = self
-            .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        let wgpu_texture =
+            self.device
+                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
         Texture::from(wgpu_texture)
     }
 
