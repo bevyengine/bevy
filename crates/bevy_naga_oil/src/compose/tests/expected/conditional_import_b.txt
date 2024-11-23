@@ -1,0 +1,6 @@
+const CX_naga_oil_mod_XMIX: u32 = 2u;
+
+fn main() -> u32 {
+    return CX_naga_oil_mod_XMIX;
+}
+
