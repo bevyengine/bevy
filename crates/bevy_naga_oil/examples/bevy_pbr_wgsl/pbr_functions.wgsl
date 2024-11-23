@@ -89,7 +89,7 @@ fn calculate_view(
         // Orthographic view vector
         V = normalize(vec3<f32>(ViewBindings::view.view_proj[0].z, ViewBindings::view.view_proj[1].z, ViewBindings::view.view_proj[2].z));
     } else {
-        // Only valid for a perpective projection
+        // Only valid for a perspective projection
         V = normalize(ViewBindings::view.world_position.xyz - world_position.xyz);
     }
     return V;

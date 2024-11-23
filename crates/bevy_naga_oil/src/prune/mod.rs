@@ -644,14 +644,14 @@ impl StatementReq {
             StatementReq::Loop { required: break_if, .. } => *break_if,
             StatementReq::Barrier() => false, // this will be emitted but never makes a block required. todo: does this make sense? 
             StatementReq::Return(r) |    // return will be output if the block is output, but they should not make the block required unless we are within a required containing scope or the return value is required
-                                            // this stops all functions appearing as required, even if retval is not required and no other part of the function is required
+            // this stops all functions appearing as required, even if retval is not required and no other part of the function is required
             StatementReq::Break(r) |
             StatementReq::Continue(r) => *r, // these will be output if the block is output, but they should not make the block required unless we are within a required containing scope
             StatementReq::Kill() => true,    // these always make the block required due to flow control
             StatementReq::Store(r) |
             StatementReq::ImageStore(r) |
             StatementReq::Atomic(r) => *r,
-            StatementReq::Call{ call_required, .. } => *call_required,
+            StatementReq::Call { call_required, .. } => *call_required,
             StatementReq::RayQuery(r) => *r,
         }
     }
@@ -823,14 +823,14 @@ impl PartReq {
                 Some(members.iter().map(|sm| sm.ty).collect()),
             ),
             _ => (PartReq::All, None), // todo: we can probably do better for some of these ...
-                                       // naga::TypeInner::Scalar { .. } => todo!(),
-                                       // naga::TypeInner::Atomic { kind, width } => todo!(),
-                                       // naga::TypeInner::Pointer { base, space } => todo!(),
-                                       // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
-                                       // naga::TypeInner::Array { base, size, stride } => todo!(),
-                                       // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
-                                       // naga::TypeInner::Sampler { comparison } => todo!(),
-                                       // naga::TypeInner::BindingArray { base, size } => todo!(),
+            // naga::TypeInner::Scalar { .. } => todo!(),
+            // naga::TypeInner::Atomic { kind, width } => todo!(),
+            // naga::TypeInner::Pointer { base, space } => todo!(),
+            // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
+            // naga::TypeInner::Array { base, size, stride } => todo!(),
+            // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
+            // naga::TypeInner::Sampler { comparison } => todo!(),
+            // naga::TypeInner::BindingArray { base, size } => todo!(),
         }
     }
 
@@ -1104,12 +1104,12 @@ impl<'a> Pruner<'a> {
         };
 
         debug!(
-            "checking store requirement for {:?}; we need {:?}, and are targetting {:?}",
+            "checking store requirement for {:?}; we need {:?}, and are targeting {:?}",
             var_ref.var_ref, var_parts_required, var_ref.part
         );
 
-        fn check_part(required: Option<&PartReq>, targetted: &PartReq) -> Option<PartReq> {
-            match (required, targetted) {
+        fn check_part(required: Option<&PartReq>, targeted: &PartReq) -> Option<PartReq> {
+            match (required, targeted) {
                 (_, PartReq::Exist) | (None, _) | (Some(PartReq::Exist), _) => None,
                 (Some(PartReq::All), _) => Some(PartReq::All),
                 (Some(PartReq::Part(_)), PartReq::All) => required.cloned(), // assigning to the whole var, so we need what the var needs
@@ -1925,10 +1925,10 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| f.expressions.len())
             .sum::<usize>()
             + pruned
-                .entry_points
-                .iter()
-                .map(|e| e.function.expressions.len())
-                .sum::<usize>();
+            .entry_points
+            .iter()
+            .map(|e| e.function.expressions.len())
+            .sum::<usize>();
         let exprs_before = self
             .module
             .functions
@@ -1936,21 +1936,21 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| f.expressions.len())
             .sum::<usize>()
             + self
-                .module
-                .entry_points
-                .iter()
-                .map(|e| e.function.expressions.len())
-                .sum::<usize>();
+            .module
+            .entry_points
+            .iter()
+            .map(|e| e.function.expressions.len())
+            .sum::<usize>();
         let stmts_now = pruned
             .functions
             .iter()
             .map(|(_, f)| count_stmts(&f.body))
             .sum::<usize>()
             + pruned
-                .entry_points
-                .iter()
-                .map(|e| count_stmts(&e.function.body))
-                .sum::<usize>();
+            .entry_points
+            .iter()
+            .map(|e| count_stmts(&e.function.body))
+            .sum::<usize>();
         let stmts_before = self
             .module
             .functions
@@ -1958,11 +1958,11 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| count_stmts(&f.body))
             .sum::<usize>()
             + self
-                .module
-                .entry_points
-                .iter()
-                .map(|e| count_stmts(&e.function.body))
-                .sum::<usize>();
+            .module
+            .entry_points
+            .iter()
+            .map(|e| count_stmts(&e.function.body))
+            .sum::<usize>();
 
         debug!(
             "[ty: {}/{}, const: {}/{}, globals: {}/{}, funcs: {}/{}, exprs: {}/{}, stmts: {}/{}]",

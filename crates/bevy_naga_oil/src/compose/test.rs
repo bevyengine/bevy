@@ -469,7 +469,7 @@ mod test {
             .unwrap();
 
         // this test doesn't work any more.
-        // overrides only work if the composer realises the module is required.
+        // overrides only work if the composer realizes the module is required.
         // not we can't just blindly import any `#import`ed items because that would break:
         //      #import a::b
         //      a::b::c::d();

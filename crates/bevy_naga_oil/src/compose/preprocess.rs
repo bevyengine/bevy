@@ -1047,13 +1047,13 @@ defined
         #[rustfmt::skip]
         const WGSL: &str = r"
 #define DEFUINT 1
-#define DEFINT -1
+#define DEFSINT -1
 #define DEFBOOL false
 #if DEFUINT == 1
 uint: #DEFUINT
 #endif
-#if DEFINT == -1
-int: #DEFINT
+#if DEFSINT == -1
+int: #DEFSINT
 #endif
 #if DEFBOOL == false
 bool: #DEFBOOL
