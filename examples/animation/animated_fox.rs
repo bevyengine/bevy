@@ -8,7 +8,8 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
-use rand::{thread_rng, Rng};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
@@ -29,6 +30,9 @@ fn main() {
 }
 
 #[derive(Resource)]
+struct SeededRng(ChaCha8Rng);
+
+#[derive(Resource)]
 struct Animations {
     animations: Vec<AnimationNodeIndex>,
     graph: Handle<AnimationGraph>,
@@ -42,19 +46,19 @@ fn observe_on_step(
     particle: Res<ParticleAssets>,
     mut commands: Commands,
     transforms: Query<&GlobalTransform>,
+    mut seeded_rng: ResMut<SeededRng>,
 ) {
     let translation = transforms.get(trigger.entity()).unwrap().translation();
-    let mut rng = thread_rng();
     // Spawn a bunch of particles.
     for _ in 0..14 {
-        let horizontal = rng.gen::<Dir2>() * rng.gen_range(8.0..12.0);
-        let vertical = rng.gen_range(0.0..4.0);
-        let size = rng.gen_range(0.2..1.0);
+        let horizontal = seeded_rng.0.gen::<Dir2>() * seeded_rng.0.gen_range(8.0..12.0);
+        let vertical = seeded_rng.0.gen_range(0.0..4.0);
+        let size = seeded_rng.0.gen_range(0.2..1.0);
         commands.queue(spawn_particle(
             particle.mesh.clone(),
             particle.material.clone(),
             translation.reject_from_normalized(Vec3::Y),
-            rng.gen_range(0.2..0.6),
+            seeded_rng.0.gen_range(0.2..0.6),
             size,
             Vec3::new(horizontal.x, vertical, horizontal.y) * 10.0,
         ));
@@ -121,6 +125,11 @@ fn setup(
     println!("  - digit 1 / 3 / 5: play the animation <digit> times");
     println!("  - L: loop the animation forever");
     println!("  - return: change animation");
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
+    commands.insert_resource(SeededRng(seeded_rng));
 }
 
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
