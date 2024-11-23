@@ -105,9 +105,11 @@ impl Aabb {
         p_distance: f32,
         world_from_local: &Affine3A,
     ) -> bool {
-        let aabb_center_world = world_from_local.transform_point3a(self.center);
+        // transform the half-extents into world space.
         let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
-        let r = (world_from_local.matrix3 * self.half_extents).dot(p_normal.abs())
+        // collapse the half-extents onto the plane normal.
+        let r = (world_from_local.matrix3 * self.half_extents).dot(p_normal.abs());
+        let aabb_center_world = world_from_local.transform_point3a(self.center);
         let signed_distance = p_normal.dot(aabb_center_world) + p_distance;
         signed_distance > r
     }
