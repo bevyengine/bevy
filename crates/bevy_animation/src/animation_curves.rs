@@ -119,7 +119,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     impl AnimatableProperty for FieldOfViewProperty {
 ///         type Component = PerspectiveProjection;
 ///         type Property = f32;
-///         fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
+///         fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
 ///             Some(&mut component.fov)
 ///         }
 ///     }
@@ -132,26 +132,25 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
-///     # #[derive(Reflect)]
+///     # #[derive(Reflect, Clone)]
 ///     # struct FieldOfViewProperty;
 ///     # impl AnimatableProperty for FieldOfViewProperty {
 ///     #     type Component = PerspectiveProjection;
 ///     #     type Property = f32;
-///     #     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
+///     #     fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
 ///     #         Some(&mut component.fov)
 ///     #     }
 ///     # }
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         AnimatableKeyframeCurve::new(
-///             [
+///         AnimatableCurve::new(
+///             FieldOfViewProperty,
+///             AnimatableKeyframeCurve::new([
 ///                 (0.0, core::f32::consts::PI / 4.0),
 ///                 (1.0, core::f32::consts::PI / 3.0),
-///             ]
+///             ]).expect("Failed to create font size curve")
 ///         )
-///         .map(AnimatableCurve::<FieldOfViewProperty, _>::from_curve)
-///         .expect("Failed to create font size curve")
 ///     );
 ///
 /// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
