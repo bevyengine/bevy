@@ -261,10 +261,6 @@ jobs:
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do

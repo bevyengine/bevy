@@ -101,10 +101,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -155,11 +151,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        shell: bash
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         shell: bash
         run: |
