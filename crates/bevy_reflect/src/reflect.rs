@@ -272,6 +272,10 @@ where
     /// Returns a serializable version of the value.
     ///
     /// If the underlying type does not support serialization, returns `None`.
+    #[deprecated(
+        since = "0.15.0",
+        note = "No longer used for serialization. Register `ReflectSerialize` instead."
+    )]
     fn serializable(&self) -> Option<Serializable> {
         None
     }
