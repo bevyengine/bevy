@@ -132,7 +132,7 @@ struct ShaderCache {
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
-    composer: naga_oil::compose::Composer,
+    composer: bevy_naga_oil::compose::Composer,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -172,9 +172,9 @@ impl ShaderCache {
         );
 
         #[cfg(debug_assertions)]
-        let composer = naga_oil::compose::Composer::default();
+        let composer = bevy_naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
-        let composer = naga_oil::compose::Composer::non_validating();
+        let composer = bevy_naga_oil::compose::Composer::non_validating();
 
         let composer = composer.with_capabilities(capabilities);
 
@@ -188,7 +188,7 @@ impl ShaderCache {
     }
 
     fn add_import_to_composer(
-        composer: &mut naga_oil::compose::Composer,
+        composer: &mut bevy_naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
@@ -291,19 +291,19 @@ impl ShaderCache {
                             .chain(shader.shader_defs.iter().cloned())
                             .map(|def| match def {
                                 ShaderDefVal::Bool(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                    (k, bevy_naga_oil::compose::ShaderDefValue::Bool(v))
                                 }
                                 ShaderDefVal::Int(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                    (k, bevy_naga_oil::compose::ShaderDefValue::Int(v))
                                 }
                                 ShaderDefVal::UInt(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
+                                    (k, bevy_naga_oil::compose::ShaderDefValue::UInt(v))
                                 }
                             })
                             .collect::<std::collections::HashMap<_, _>>();
 
                         let naga = self.composer.make_naga_module(
-                            naga_oil::compose::NagaModuleDescriptor {
+                            bevy_naga_oil::compose::NagaModuleDescriptor {
                                 shader_defs,
                                 ..shader.into()
                             },
@@ -982,7 +982,7 @@ pub enum PipelineCacheError {
     #[error(ignore)]
     ShaderNotLoaded(AssetId<Shader>),
 
-    ProcessShaderError(naga_oil::compose::ComposerError),
+    ProcessShaderError(bevy_naga_oil::compose::ComposerError),
     #[display("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
     #[display("Could not create shader module: {_0}")]

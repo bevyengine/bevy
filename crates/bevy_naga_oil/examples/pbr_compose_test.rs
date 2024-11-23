@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use naga_oil::compose::{
+use bevy_naga_oil::compose::{
     ComposableModuleDescriptor, Composer, ComposerError, NagaModuleDescriptor,
 };
 #[allow(unused_variables, dead_code)]

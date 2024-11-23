@@ -18,7 +18,7 @@ ktx2 = ["dep:ktx2", "bevy_image/ktx2"]
 
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
-shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
+shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "bevy_naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # Enable SPIR-V shader passthrough
@@ -98,12 +98,12 @@ offset-allocator = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.16", default-features = false, features = [
+bevy_naga_oil = { path = "../bevy_naga_oil", version = "0.15.0-dev", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.16"
+bevy_naga_oil = { path = "../bevy_naga_oil", version = "0.15.0-dev" }
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
