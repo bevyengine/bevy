@@ -911,7 +911,7 @@ mod tests {
     }
 
     #[test]
-    fn dir2_renorm() {
+    fn dir2_renormalization() {
         // Evil denormalized Rot2
         let (sin, cos) = ops::sin_cos(1.0_f32);
         let rot2 = Rot2::from_sin_cos(sin * (1.0 + 1e-5), cos * (1.0 + 1e-5));
@@ -930,9 +930,9 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
-        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+        assert!(dir_b.is_normalized(), "Renormalization did not work.");
     }
 
     #[test]
@@ -983,7 +983,7 @@ mod tests {
     }
 
     #[test]
-    fn dir3_renorm() {
+    fn dir3_renormalization() {
         // Evil denormalized quaternion
         let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
         let mut dir_a = Dir3::X;
@@ -1001,9 +1001,9 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
-        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+        assert!(dir_b.is_normalized(), "Renormalization did not work.");
     }
 
     #[test]
@@ -1054,7 +1054,7 @@ mod tests {
     }
 
     #[test]
-    fn dir3a_renorm() {
+    fn dir3a_renormalization() {
         // Evil denormalized quaternion
         let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
         let mut dir_a = Dir3A::X;
@@ -1072,8 +1072,8 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
-        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+        assert!(dir_b.is_normalized(), "Renormalization did not work.");
     }
 }

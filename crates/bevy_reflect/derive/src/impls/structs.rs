@@ -8,7 +8,7 @@ use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
-    let fqoption = FQOption.into_token_stream();
+    let fq_option = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_path = reflect_struct.meta().type_path();
@@ -78,35 +78,35 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match name {
-                    #(#field_names => #fqoption::Some(#fields_ref),)*
+                    #(#field_names => #fq_option::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match name {
-                    #(#field_names => #fqoption::Some(#fields_mut),)*
+                    #(#field_names => #fq_option::Some(#fields_mut),)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(#fields_ref),)*
+                    #(#field_indices => #fq_option::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(#fields_mut),)*
+                    #(#field_indices => #fq_option::Some(#fields_mut),)*
                     _ => #FQOption::None,
                 }
             }
 
             fn name_at(&self, index: usize) -> #FQOption<&str> {
                 match index {
-                    #(#field_indices => #fqoption::Some(#field_names),)*
+                    #(#field_indices => #fq_option::Some(#field_names),)*
                     _ => #FQOption::None,
                 }
             }

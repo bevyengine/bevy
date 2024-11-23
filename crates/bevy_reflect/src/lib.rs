@@ -444,7 +444,7 @@
 //! # Limitations
 //!
 //! While this crate offers a lot in terms of adding reflection to Rust,
-//! it does come with some limitations that don't make it as featureful as reflection
+//! it does come with some limitations that don't make it as feature-rich as reflection
 //! in other programming languages.
 //!
 //! ## Non-Static Lifetimes
@@ -457,8 +457,7 @@
 //! ## Generic Function Reflection
 //!
 //! Another limitation is the inability to reflect over generic functions directly. It can be done, but will
-//! typically require manual monomorphization (i.e. manually specifying the types the generic method can
-//! take).
+//! typically require manual monomorphization (i.e. manually specifying the types the generic method can take).
 //!
 //! ## Manual Registration
 //!
@@ -2480,7 +2479,7 @@ bevy_reflect::tests::Test {
         // test unknown DynamicTupleStruct
         let mut test_unknown_tuple_struct = DynamicTupleStruct::default();
         test_unknown_tuple_struct.insert(14);
-        test_struct.insert("unknown_tuplestruct", test_unknown_tuple_struct);
+        test_struct.insert("unknown_tuple_struct", test_unknown_tuple_struct);
         assert_eq!(
             format!("{:?}", test_struct),
             "DynamicStruct(bevy_reflect::tests::TestStruct { \
@@ -2492,7 +2491,7 @@ bevy_reflect::tests::Test {
                 map: DynamicMap({9: 10}), \
                 value: 12, \
                 unknown_struct: DynamicStruct(_ { a: 13 }), \
-                unknown_tuplestruct: DynamicTupleStruct(_(14)) \
+                unknown_tuple_struct: DynamicTupleStruct(_(14)) \
             })"
         );
     }

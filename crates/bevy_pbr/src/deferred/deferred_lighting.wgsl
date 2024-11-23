@@ -10,7 +10,7 @@
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
-#import bevy_pbr::ssao_utils::ssao_multibounce
+#import bevy_pbr::ssao_utils::ssao_multi_bounce
 #endif
 
 struct FullscreenVertexOutput {
@@ -64,11 +64,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
+        let ssao_multi_bounce = ssao_multi_bounce(ssao, pbr_input.material.base_color.rgb);
+        pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multi_bounce);
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001); 
+        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
         // Use SSAO to estimate the specular occlusion.

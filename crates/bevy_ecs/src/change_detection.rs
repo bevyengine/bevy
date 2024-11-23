@@ -1051,7 +1051,7 @@ impl<'w> MutUntyped<'w> {
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
-    /// - `T` must be the erased pointee type for this [`MutUntyped`].
+    /// - `T` must be the erased, pointee type for this [`MutUntyped`].
     pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
         Mut {
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.

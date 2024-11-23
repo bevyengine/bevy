@@ -94,7 +94,7 @@ fn update_winit(
             // Sending a `WakeUp` event is useful when you want the app to update the next
             // frame regardless of any user input. This can be used from outside Bevy, see example
             // `window/custom_user_event.rs` for an example usage from outside.
-            // Note that in this example the Wakeup winit event will make the app run in the same
+            // Note that in this example the `WakeUp` winit event will make the app run in the same
             // way as continuous
             let _ = event_loop_proxy.send_event(WakeUp);
             WinitSettings::desktop_app()

@@ -138,7 +138,8 @@ pub fn queue_oit_resolve_pipeline(
         With<OrderIndependentTransparencySettings>,
     >,
     // Store the key with the id to make the clean up logic easier.
-    // This also means it will always replace the entry if the key changes so nothing to clean up.
+    // This also means it will always replace the entry if the key
+    // changes, so there is nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();

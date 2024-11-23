@@ -1,4 +1,4 @@
-// 3x3 bilaterial filter (edge-preserving blur)
+// 3x3 bilateral filter (edge-preserving blur)
 // https://people.csail.mit.edu/sparis/bf_course/course_notes.pdf
 
 // Note: Does not use the Gaussian kernel part of a typical bilateral blur

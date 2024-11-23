@@ -280,7 +280,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
-    ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
+    ///   can mutate the pointed while this [`Ptr`] is live except through an [`UnsafeCell`].
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -304,7 +304,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
+        // SAFETY: The caller ensures the pointed is of type `T` and the pointer can be dereferenced.
         unsafe { &*ptr }
     }
 
@@ -335,7 +335,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
-    ///   else can read or mutate the pointee while this [`PtrMut`] is live.
+    ///   else can read or mutate the pointed while this [`PtrMut`] is live.
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -359,7 +359,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensures the pointee is of type `T` and the pointer can be dereferenced.
+        // SAFETY: The caller ensures the pointed is of type `T` and the pointer can be dereferenced.
         unsafe { &mut *ptr }
     }
 
@@ -375,7 +375,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
     pub fn reborrow(&mut self) -> PtrMut<'_, A> {
-        // SAFETY: the ptrmut we're borrowing from is assumed to be valid
+        // SAFETY: the PtrMut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
 
@@ -425,7 +425,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
-    ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
+    ///   else can read or mutate the pointed while this [`OwningPtr`] is live.
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -440,7 +440,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `read`.
+        // SAFETY: The caller ensure the pointed is of type `T` and uphold safety for `read`.
         unsafe { ptr.read() }
     }
 
@@ -453,7 +453,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `drop_in_place`.
+        // SAFETY: The caller ensure the pointed is of type `T` and uphold safety for `drop_in_place`.
         unsafe {
             ptr.drop_in_place();
         }
@@ -490,7 +490,7 @@ impl<'a> OwningPtr<'a, Unaligned> {
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
     pub unsafe fn read_unaligned<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>();
-        // SAFETY: The caller ensure the pointee is of type `T` and uphold safety for `read_unaligned`.
+        // SAFETY: The caller ensure the pointed is of type `T` and uphold safety for `read_unaligned`.
         unsafe { ptr.read_unaligned() }
     }
 }

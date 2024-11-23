@@ -7,7 +7,7 @@
 
 #import bevy_render::{
    color_operations::hsv_to_rgb,
-   maths::PI_2,
+   math::PI_2,
 }
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs

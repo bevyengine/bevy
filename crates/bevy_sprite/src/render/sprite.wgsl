@@ -3,7 +3,7 @@
 #endif
 
 #import bevy_render::{
-    maths::affine3_to_square,
+    math::affine3_to_square,
     view::View,
 }
 

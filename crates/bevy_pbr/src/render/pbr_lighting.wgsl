@@ -4,7 +4,7 @@
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
 }
-#import bevy_render::maths::PI
+#import bevy_render::math::PI
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -12,21 +12,21 @@ const LAYER_CLEARCOAT: u32 = 1;
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
 // Symbol Definition
-// v    View unit vector
-// l    Incident light unit vector
-// n    Surface normal unit vector
-// h    Half unit vector between l and v
-// f    BRDF
+// v      View unit vector
+// l      Incident light unit vector
+// n      Surface normal unit vector
+// h      Half unit vector between l and v
+// f      BRDF
 // f_d    Diffuse component of a BRDF
 // f_r    Specular component of a BRDF
-// α    Roughness, remapped from using input perceptualRoughness
-// σ    Diffuse reflectance
-// Ω    Spherical domain
-// f0    Reflectance at normal incidence
+// α      Roughness, remapped from using input perceptualRoughness
+// σ      Diffuse reflectance
+// Ω      Spherical domain
+// f0     Reflectance at normal incidence
 // f90    Reflectance at grazing angle
-// χ+(a)    Heaviside function (1 if a>0 and 0 otherwise)
-// nior    Index of refraction (IOR) of an interface
-// ⟨n⋅l⟩    Dot product clamped to [0..1]
+// χ+(a)  Heaviside function (1 if a>0 and 0 otherwise)
+// n_ior  Index of refraction (IOR) of an interface
+// ⟨n⋅l⟩  Dot product clamped to [0..1]
 // ⟨a⟩    Saturated value (clamped to [0..1])
 
 // The Bidirectional Reflectance Distribution Function (BRDF) describes the surface response of a standard material

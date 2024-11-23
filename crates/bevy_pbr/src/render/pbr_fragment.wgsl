@@ -15,7 +15,7 @@
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
-#import bevy_pbr::ssao_utils::ssao_multibounce
+#import bevy_pbr::ssao_utils::ssao_multi_bounce
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -344,8 +344,8 @@ fn pbr_input_from_standard_material(
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
+        let ssao_multi_bounce = ssao_multi_bounce(ssao, pbr_input.material.base_color.rgb);
+        diffuse_occlusion = min(diffuse_occlusion, ssao_multi_bounce);
         // Use SSAO to estimate the specular occlusion.
         // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
         specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);

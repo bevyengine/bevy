@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn option_doesnt_remove_unrelated_filter_with() {
+    fn option_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<(Option<&A>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -600,7 +600,7 @@ mod tests {
     }
 
     #[test]
-    fn any_of_doesnt_remove_unrelated_filter_with() {
+    fn any_of_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<(AnyOf<(&A, ())>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -736,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    fn or_doesnt_remove_unrelated_filter_with() {
+    fn or_does_not_remove_unrelated_filter_with() {
         fn sys(_: Query<&mut B, (Or<(With<A>, With<B>)>, With<A>)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn conflicting_query_immut_system() {
+    fn conflicting_query_immutable_system() {
         fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
 
         let mut world = World::default();
@@ -1328,7 +1328,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_mut_to_immut() {
+    fn convert_mut_to_immutable() {
         {
             let mut world = World::new();
 
@@ -1551,12 +1551,12 @@ mod tests {
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();
-        let qstate = world1.query::<()>();
-        // SAFETY: doesnt access anything
+        let query_state = world1.query::<()>();
+        // SAFETY: doesn't access anything
         let query = unsafe {
             Query::new(
                 world2.as_unsafe_world_cell_readonly(),
-                &qstate,
+                &query_state,
                 Tick::new(0),
                 Tick::new(0),
             )
@@ -1733,8 +1733,8 @@ mod tests {
 
         world.insert_resource(A);
         world.insert_resource(C(0));
-        let mut sched = Schedule::default();
-        sched.add_systems(
+        let mut scheduled = Schedule::default();
+        scheduled.add_systems(
             (
                 |mut res: ResMut<C>| {
                     res.0 += 1;
@@ -1745,8 +1745,8 @@ mod tests {
             )
                 .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
         );
-        sched.initialize(&mut world).unwrap();
-        sched.run(&mut world);
+        scheduled.initialize(&mut world).unwrap();
+        scheduled.run(&mut world);
         assert_eq!(world.get_resource(), Some(&C(3)));
     }
 }

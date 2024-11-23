@@ -903,7 +903,7 @@ where
     }
 }
 
-/// An error indicating that a linear reparameterization couldn't be performed because of
+/// An error indicating that a linear reparametrization couldn't be performed because of
 /// malformed inputs.
 #[derive(Debug, Error, Display)]
 #[display("Could not build a linear function to reparametrize this curve")]
@@ -912,8 +912,8 @@ pub enum LinearReparamError {
     #[display("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
-    /// The target interval for reparameterization was unbounded.
-    #[display("The target interval for reparameterization is unbounded")]
+    /// The target interval for reparametrization was unbounded.
+    #[display("The target interval for reparametrization is unbounded")]
     TargetIntervalUnbounded,
 }
 
@@ -1176,7 +1176,7 @@ mod tests {
     }
 
     #[test]
-    fn reparameterization() {
+    fn reparametrization() {
         let curve = FunctionCurve::new(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
         let reparametrized_curve = curve
             .by_ref()
@@ -1206,7 +1206,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_reparams() {
+    fn multiple_reparametrizations() {
         // Make sure these happen in the right order too.
         let curve = FunctionCurve::new(Interval::UNIT, ops::exp2);
         let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);

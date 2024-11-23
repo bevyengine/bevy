@@ -330,22 +330,22 @@ mod tests {
     }
 
     #[derive(PartialEq, Eq, Debug, Hash, Clone)]
-    enum TestNewcomputedState {
+    enum TestNewComputedState {
         A1,
         B2,
         B1,
     }
 
-    impl ComputedStates for TestNewcomputedState {
+    impl ComputedStates for TestNewComputedState {
         type SourceStates = (Option<SimpleState>, Option<SimpleState2>);
 
         fn compute((s1, s2): (Option<SimpleState>, Option<SimpleState2>)) -> Option<Self> {
             match (s1, s2) {
-                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewcomputedState::A1),
+                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewComputedState::A1),
                 (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => {
-                    Some(TestNewcomputedState::B2)
+                    Some(TestNewComputedState::B2)
                 }
-                (Some(SimpleState::B(true)), _) => Some(TestNewcomputedState::B1),
+                (Some(SimpleState::B(true)), _) => Some(TestNewComputedState::B1),
                 _ => None,
             }
         }
@@ -356,7 +356,7 @@ mod tests {
         let mut world = World::new();
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState2>>(&mut world);
-        EventRegistry::register_event::<StateTransitionEvent<TestNewcomputedState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestNewComputedState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         world.init_resource::<State<SimpleState2>>();
         world.init_resource::<Schedules>();
@@ -370,13 +370,13 @@ mod tests {
             .get_mut(StateTransition)
             .expect("State Transition Schedule Doesn't Exist");
 
-        TestNewcomputedState::register_computed_state_systems(apply_changes);
+        TestNewComputedState::register_computed_state_systems(apply_changes);
 
         SimpleState::register_state(apply_changes);
         SimpleState2::register_state(apply_changes);
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::A1));
+            let mut schedule = Schedule::new(OnEnter(TestNewComputedState::A1));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
@@ -384,7 +384,7 @@ mod tests {
         });
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::A1));
+            let mut schedule = Schedule::new(OnExit(TestNewComputedState::A1));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
@@ -392,7 +392,7 @@ mod tests {
         });
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B1));
+            let mut schedule = Schedule::new(OnEnter(TestNewComputedState::B1));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
@@ -400,7 +400,7 @@ mod tests {
         });
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B1));
+            let mut schedule = Schedule::new(OnExit(TestNewComputedState::B1));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
@@ -408,7 +408,7 @@ mod tests {
         });
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B2));
+            let mut schedule = Schedule::new(OnEnter(TestNewComputedState::B2));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
@@ -416,7 +416,7 @@ mod tests {
         });
 
         schedules.insert({
-            let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B2));
+            let mut schedule = Schedule::new(OnExit(TestNewComputedState::B2));
             schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
@@ -429,14 +429,14 @@ mod tests {
 
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
-        assert!(!world.contains_resource::<State<TestNewcomputedState>>());
+        assert!(!world.contains_resource::<State<TestNewComputedState>>());
 
         world.insert_resource(NextState::Pending(SimpleState::B(true)));
         world.insert_resource(NextState::Pending(SimpleState2::B2));
         world.run_schedule(StateTransition);
         assert_eq!(
-            world.resource::<State<TestNewcomputedState>>().0,
-            TestNewcomputedState::B2
+            world.resource::<State<TestNewComputedState>>().0,
+            TestNewComputedState::B2
         );
         assert_eq!(world.resource::<ComputedStateTransitionCounter>().enter, 1);
         assert_eq!(world.resource::<ComputedStateTransitionCounter>().exit, 0);
@@ -445,8 +445,8 @@ mod tests {
         world.insert_resource(NextState::Pending(SimpleState::A));
         world.run_schedule(StateTransition);
         assert_eq!(
-            world.resource::<State<TestNewcomputedState>>().0,
-            TestNewcomputedState::A1
+            world.resource::<State<TestNewComputedState>>().0,
+            TestNewComputedState::A1
         );
         assert_eq!(
             world.resource::<ComputedStateTransitionCounter>().enter,
@@ -463,8 +463,8 @@ mod tests {
         world.insert_resource(NextState::Pending(SimpleState2::B2));
         world.run_schedule(StateTransition);
         assert_eq!(
-            world.resource::<State<TestNewcomputedState>>().0,
-            TestNewcomputedState::B2
+            world.resource::<State<TestNewComputedState>>().0,
+            TestNewComputedState::B2
         );
         assert_eq!(
             world.resource::<ComputedStateTransitionCounter>().enter,
@@ -479,7 +479,7 @@ mod tests {
 
         world.insert_resource(NextState::Pending(SimpleState::A));
         world.run_schedule(StateTransition);
-        assert!(!world.contains_resource::<State<TestNewcomputedState>>());
+        assert!(!world.contains_resource::<State<TestNewComputedState>>());
         assert_eq!(
             world.resource::<ComputedStateTransitionCounter>().enter,
             3,

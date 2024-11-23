@@ -2,7 +2,7 @@ use super::TaskPool;
 use core::ops::Deref;
 use std::sync::OnceLock;
 
-macro_rules! taskpool {
+macro_rules! task_pool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
         static $static: OnceLock<$type> = OnceLock::new();
 
@@ -49,7 +49,7 @@ macro_rules! taskpool {
     };
 }
 
-taskpool! {
+task_pool! {
     /// A newtype for a task pool for CPU-intensive work that must be completed to
     /// deliver the next frame
     ///
@@ -59,7 +59,7 @@ taskpool! {
     (COMPUTE_TASK_POOL, ComputeTaskPool)
 }
 
-taskpool! {
+task_pool! {
     /// A newtype for a task pool for CPU-intensive work that may span across multiple frames
     ///
     /// See [`TaskPool`] documentation for details on Bevy tasks.
@@ -67,7 +67,7 @@ taskpool! {
     (ASYNC_COMPUTE_TASK_POOL, AsyncComputeTaskPool)
 }
 
-taskpool! {
+task_pool! {
     /// A newtype for a task pool for IO-intensive work (i.e. tasks that spend very little time in a
     /// "woken" state)
     ///

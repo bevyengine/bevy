@@ -190,7 +190,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: None,
-                exit_condition: ExitCondition::DontExit,
+                exit_condition: ExitCondition::DoNotExit,
                 ..default()
             }),
             FrameTimeDiagnosticsPlugin,
@@ -368,7 +368,7 @@ fn spawn_tree(
     }
 
     // node index -> entity lookup list
-    let mut ents: Vec<Entity> = Vec::with_capacity(count);
+    let mut entities: Vec<Entity> = Vec::with_capacity(count);
     let mut node_info: Vec<NodeInfo> = vec![default(); count];
     for (i, &parent_idx) in parent_map.iter().enumerate() {
         // assert spawn order (parent must be processed before child)
@@ -377,7 +377,7 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(commands.spawn(root_transform).id());
+    entities.push(commands.spawn(root_transform).id());
 
     let mut result = InsertResult::default();
     let mut rng = rand::thread_rng();
@@ -428,12 +428,14 @@ fn spawn_tree(
             cmd.id()
         };
 
-        commands.entity(ents[parent_idx]).add_child(child_entity);
+        commands
+            .entity(entities[parent_idx])
+            .add_child(child_entity);
 
-        ents.push(child_entity);
+        entities.push(child_entity);
     }
 
-    result.inserted_nodes = ents.len();
+    result.inserted_nodes = entities.len();
     result
 }
 
@@ -456,17 +458,17 @@ fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
 fn add_children_non_uniform(
     tree: &mut Vec<usize>,
     parent: usize,
-    mut curr_depth: u32,
+    mut current_depth: u32,
     max_branch_width: u32,
 ) {
     for _ in 0..max_branch_width {
         tree.push(parent);
 
-        curr_depth = curr_depth.checked_sub(1).unwrap();
-        if curr_depth == 0 {
+        current_depth = current_depth.checked_sub(1).unwrap();
+        if current_depth == 0 {
             return;
         }
-        add_children_non_uniform(tree, tree.len(), curr_depth, max_branch_width);
+        add_children_non_uniform(tree, tree.len(), current_depth, max_branch_width);
     }
 }
 

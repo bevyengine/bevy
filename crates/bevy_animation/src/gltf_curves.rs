@@ -405,11 +405,11 @@ fn cubic_spline_interpolation<T>(
 where
     T: VectorSpace,
 {
-    let coeffs = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
-    value_start * (coeffs.x * lerp + 1.0)
-        + tangent_out_start * step_duration * lerp * (coeffs.y + 1.0)
-        + value_end * lerp * coeffs.z
-        + tangent_in_end * step_duration * lerp * coeffs.w
+    let coefficients = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
+    value_start * (coefficients.x * lerp + 1.0)
+        + tangent_out_start * step_duration * lerp * (coefficients.y + 1.0)
+        + value_end * lerp * coefficients.z
+        + tangent_in_end * step_duration * lerp * coefficients.w
 }
 
 fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(

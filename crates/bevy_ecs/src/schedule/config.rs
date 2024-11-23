@@ -370,7 +370,7 @@ where
     ///
     /// Because the conditions are evaluated separately for each system, there is no guarantee
     /// that all evaluations in a single schedule run will yield the same result. If another
-    /// system is run inbetween two evaluations it could cause the result of the condition to change.
+    /// system is run in-between two evaluations it could cause the result of the condition to change.
     ///
     /// Use [`run_if`](IntoSystemSetConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
@@ -405,7 +405,7 @@ where
     ///
     /// Because the condition will only be evaluated once, there is no guarantee that the condition
     /// is upheld after the first system has run. You need to make sure that no other systems that
-    /// could invalidate the condition are scheduled inbetween the first and last run system.
+    /// could invalidate the condition are scheduled in-between the first and last run system.
     ///
     /// Use [`distributive_run_if`](IntoSystemConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
@@ -429,7 +429,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// If the preceding node on an edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {

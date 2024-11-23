@@ -18,7 +18,7 @@ pub struct BlendInput<T> {
 
 /// An animatable value type.
 pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
-    /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
+    /// Interpolates between `a` and `b` with an interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
     fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
@@ -211,9 +211,9 @@ where
     // (additive) blending and linear interpolation.
     //
     // Evaluating a Bézier curve via repeated linear interpolation when the
-    // control points are known is straightforward via [de Casteljau
-    // subdivision]. So the only remaining problem is to get the two off-curve
-    // control points. The [derivative of the cubic Bézier curve] is:
+    // control points are known is straightforward via [de Casteljau subdivision].
+    // The only remaining problem is to get the two off-curve control points.
+    // The [derivative of the cubic Bézier curve] is:
     //
     //      B′(t) = 3(1 - t)²(P₁ - P₀) + 6(1 - t)t(P₂ - P₁) + 3t²(P₃ - P₂)
     //

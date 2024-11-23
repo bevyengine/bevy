@@ -151,7 +151,7 @@ impl TextPipeline {
         metrics.font_size = metrics.font_size.max(0.000001);
         metrics.line_height = metrics.line_height.max(0.000001);
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
+        // Map text sections to cosmic-text spans, and ignore sections with negative or zero font sizes,
         // since they cannot be rendered by cosmic-text.
         //
         // The section index is stored in the metadata of the spans, and could be used

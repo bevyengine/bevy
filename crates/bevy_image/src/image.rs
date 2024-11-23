@@ -1415,7 +1415,7 @@ pub enum TextureError {
     #[display("unsupported texture format: {_0}")]
     #[from(ignore)]
     UnsupportedTextureFormat(String),
-    #[display("supercompression not supported: {_0}")]
+    #[display("super compression not supported: {_0}")]
     #[from(ignore)]
     SuperCompressionNotSupported(String),
     #[display("failed to load an image: {_0}")]

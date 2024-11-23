@@ -366,11 +366,11 @@ mod test {
     fn test_command_queue_inner_drop() {
         let mut queue = CommandQueue::default();
 
-        let (dropcheck_a, drops_a) = DropCheck::new();
-        let (dropcheck_b, drops_b) = DropCheck::new();
+        let (drop_check_a, drops_a) = DropCheck::new();
+        let (drop_check_b, drops_b) = DropCheck::new();
 
-        queue.push(dropcheck_a);
-        queue.push(dropcheck_b);
+        queue.push(drop_check_a);
+        queue.push(drop_check_b);
 
         assert_eq!(drops_a.load(Ordering::Relaxed), 0);
         assert_eq!(drops_b.load(Ordering::Relaxed), 0);
@@ -388,11 +388,11 @@ mod test {
     fn test_command_queue_inner_drop_early() {
         let mut queue = CommandQueue::default();
 
-        let (dropcheck_a, drops_a) = DropCheck::new();
-        let (dropcheck_b, drops_b) = DropCheck::new();
+        let (drop_check_a, drops_a) = DropCheck::new();
+        let (drop_check_b, drops_b) = DropCheck::new();
 
-        queue.push(dropcheck_a);
-        queue.push(dropcheck_b);
+        queue.push(drop_check_a);
+        queue.push(drop_check_b);
 
         assert_eq!(drops_a.load(Ordering::Relaxed), 0);
         assert_eq!(drops_b.load(Ordering::Relaxed), 0);

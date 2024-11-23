@@ -82,7 +82,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 // TODO: Use alpha instead of blend constants and move
                 // compute_blend_factor to the shader. The shader
                 // will likely need to know current mip number or
-                // mip "angle" (original texture is 0deg, max mip is 90deg)
+                // mip "angle" (original texture is 0deg, max mip is 90deg),
                 // so make sure you give it that as a uniform.
                 // That does have to be provided per each pass unlike other
                 // uniforms that are set once.

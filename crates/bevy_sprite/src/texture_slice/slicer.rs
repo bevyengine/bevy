@@ -47,14 +47,17 @@ impl TextureSlicer {
     /// Computes the 4 corner slices: top left, top right, bottom left, bottom right.
     #[must_use]
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
-        let coef = render_size / base_rect.size();
+        let coefficients = render_size / base_rect.size();
         let BorderRect {
             left,
             right,
             top,
             bottom,
         } = self.border;
-        let min_coef = coef.x.min(coef.y).min(self.max_corner_scale);
+        let min_coefficient = coefficients
+            .x
+            .min(coefficients.y)
+            .min(self.max_corner_scale);
         [
             // Top Left Corner
             TextureSlice {
@@ -62,10 +65,10 @@ impl TextureSlicer {
                     min: base_rect.min,
                     max: base_rect.min + vec2(left, top),
                 },
-                draw_size: vec2(left, top) * min_coef,
+                draw_size: vec2(left, top) * min_coefficient,
                 offset: vec2(
-                    -render_size.x + left * min_coef,
-                    render_size.y - top * min_coef,
+                    -render_size.x + left * min_coefficient,
+                    render_size.y - top * min_coefficient,
                 ) / 2.0,
             },
             // Top Right Corner
@@ -74,10 +77,10 @@ impl TextureSlicer {
                     min: vec2(base_rect.max.x - right, base_rect.min.y),
                     max: vec2(base_rect.max.x, base_rect.min.y + top),
                 },
-                draw_size: vec2(right, top) * min_coef,
+                draw_size: vec2(right, top) * min_coefficient,
                 offset: vec2(
-                    render_size.x - right * min_coef,
-                    render_size.y - top * min_coef,
+                    render_size.x - right * min_coefficient,
+                    render_size.y - top * min_coefficient,
                 ) / 2.0,
             },
             // Bottom Left
@@ -86,10 +89,10 @@ impl TextureSlicer {
                     min: vec2(base_rect.min.x, base_rect.max.y - bottom),
                     max: vec2(base_rect.min.x + left, base_rect.max.y),
                 },
-                draw_size: vec2(left, bottom) * min_coef,
+                draw_size: vec2(left, bottom) * min_coefficient,
                 offset: vec2(
-                    -render_size.x + left * min_coef,
-                    -render_size.y + bottom * min_coef,
+                    -render_size.x + left * min_coefficient,
+                    -render_size.y + bottom * min_coefficient,
                 ) / 2.0,
             },
             // Bottom Right Corner
@@ -98,10 +101,10 @@ impl TextureSlicer {
                     min: vec2(base_rect.max.x - right, base_rect.max.y - bottom),
                     max: base_rect.max,
                 },
-                draw_size: vec2(right, bottom) * min_coef,
+                draw_size: vec2(right, bottom) * min_coefficient,
                 offset: vec2(
-                    render_size.x - right * min_coef,
-                    -render_size.y + bottom * min_coef,
+                    render_size.x - right * min_coefficient,
+                    -render_size.y + bottom * min_coefficient,
                 ) / 2.0,
             },
         ]

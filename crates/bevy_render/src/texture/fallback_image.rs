@@ -241,7 +241,11 @@ pub struct FallbackImageMsaa<'w> {
 }
 
 impl<'w> FallbackImageMsaa<'w> {
-    pub fn image_for_samplecount(&mut self, sample_count: u32, format: TextureFormat) -> &GpuImage {
+    pub fn image_for_sample_count(
+        &mut self,
+        sample_count: u32,
+        format: TextureFormat,
+    ) -> &GpuImage {
         self.cache.entry((sample_count, format)).or_insert_with(|| {
             fallback_image_new(
                 &self.render_device,

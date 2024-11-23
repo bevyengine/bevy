@@ -130,7 +130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     #[inline]
     pub(super) unsafe fn fold_over_storage_range<B, Func>(
         &mut self,
-        mut accum: B,
+        mut accumulator: B,
         func: &mut Func,
         storage: StorageId,
         range: Option<Range<usize>>,
@@ -145,12 +145,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
 
             let range = range.unwrap_or(0..table.entity_count());
-            accum =
+            accumulator =
                 // SAFETY:
                 // - The fetched table matches both D and F
                 // - caller ensures `range` is within `[0, table.entity_count)`
                 // - The if block ensures that the query iteration is dense
-                unsafe { self.fold_over_table_range(accum, func, table, range) };
+                unsafe { self.fold_over_table_range(accumulator, func, table, range) };
         } else {
             // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
             let archetype_id = unsafe { storage.archetype_id };
@@ -164,23 +164,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // When an archetype and its table have equal entity counts, dense iteration can be safely used.
             // this leverages cache locality to optimize performance.
             if table.entity_count() == archetype.len() {
-                accum =
+                accumulator =
                 // SAFETY:
                 // - The fetched archetype matches both D and F
                 // - The provided archetype and its' table have the same length.
                 // - caller ensures `range` is within `[0, archetype.len)`
                 // - The if block ensures that the query iteration is not dense.
-                unsafe { self.fold_over_dense_archetype_range(accum, func, archetype,range) };
+                unsafe { self.fold_over_dense_archetype_range(accumulator, func, archetype,range) };
             } else {
-                accum =
+                accumulator =
                 // SAFETY:
                 // - The fetched archetype matches both D and F
                 // - caller ensures `range` is within `[0, archetype.len)`
                 // - The if block ensures that the query iteration is not dense.
-                unsafe { self.fold_over_archetype_range(accum, func, archetype,range) };
+                unsafe { self.fold_over_archetype_range(accumulator, func, archetype,range) };
             }
         }
-        accum
+        accumulator
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
@@ -193,7 +193,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     #[inline]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
-        mut accum: B,
+        mut accumulator: B,
         func: &mut Func,
         table: &'w Table,
         rows: Range<usize>,
@@ -202,7 +202,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         if table.is_empty() {
-            return accum;
+            return accumulator;
         }
         debug_assert!(
             rows.end <= u32::MAX as usize,
@@ -233,9 +233,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // Caller assures `row` in range of the current archetype.
             let item = D::fetch(&mut self.cursor.fetch, *entity, row);
 
-            accum = func(accum, item);
+            accumulator = func(accumulator, item);
         }
-        accum
+        accumulator
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
@@ -248,7 +248,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     #[inline]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
-        mut accum: B,
+        mut accumulator: B,
         func: &mut Func,
         archetype: &'w Archetype,
         indices: Range<usize>,
@@ -257,7 +257,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         if archetype.is_empty() {
-            return accum;
+            return accumulator;
         }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         D::set_archetype(
@@ -301,9 +301,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 )
             };
 
-            accum = func(accum, item);
+            accumulator = func(accumulator, item);
         }
-        accum
+        accumulator
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
@@ -317,7 +317,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
         &mut self,
-        mut accum: B,
+        mut accumulator: B,
         func: &mut Func,
         archetype: &'w Archetype,
         rows: Range<usize>,
@@ -326,7 +326,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         if archetype.is_empty() {
-            return accum;
+            return accumulator;
         }
         debug_assert!(
             rows.end <= u32::MAX as usize,
@@ -367,9 +367,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // Caller assures `row` in range of the current archetype.
             let item = D::fetch(&mut self.cursor.fetch, entity, row);
 
-            accum = func(accum, item);
+            accumulator = func(accumulator, item);
         }
-        accum
+        accumulator
     }
 
     /// Sorts all query items into a new iterator, using the query lens as a key.
@@ -1084,19 +1084,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
     where
         Func: FnMut(B, Self::Item) -> B,
     {
-        let mut accum = init;
+        let mut accumulator = init;
         // Empty any remaining uniterated values from the current table/archetype
         while self.cursor.current_row != self.cursor.current_len {
             let Some(item) = self.next() else { break };
-            accum = func(accum, item);
+            accumulator = func(accumulator, item);
         }
 
         for id in self.cursor.storage_id_iter.clone().copied() {
             // SAFETY:
             // - The range(None) is equivalent to [0, storage.entity_count)
-            accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
+            accumulator = unsafe { self.fold_over_storage_range(accumulator, &mut func, id, None) };
         }
-        accum
+        accumulator
     }
 }
 

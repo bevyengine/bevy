@@ -89,7 +89,7 @@ pub enum AspectRatioError {
     /// Error due to width or height having zero as a value.
     #[display("AspectRatio error: width or height is zero")]
     Zero,
-    /// Error due towidth or height being infinite.
+    /// Error due to width or height being infinite.
     #[display("AspectRatio error: width or height is infinite")]
     Infinite,
     /// Error due to width or height being Not a Number (NaN).

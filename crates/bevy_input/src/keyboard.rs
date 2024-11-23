@@ -448,7 +448,7 @@ pub enum KeyCode {
     NumpadAdd,
     /// Found on the Microsoft Natural Keyboard.
     NumpadBackspace,
-    /// <kbd>C</kbd> or <kbd>A</kbd> (All Clear). Also for use with numpads that have a
+    /// <kbd>C</kbd> or <kbd>A</kbd> (All Clear). Also for use with number pads that have a
     /// <kbd>Clear</kbd> key that is separate from the <kbd>NumLock</kbd> key. On the Mac, the
     /// numpad <kbd>Clear</kbd> key is encoded as [`NumLock`].
     ///
@@ -481,7 +481,7 @@ pub enum KeyCode {
     NumpadMemoryStore,
     /// <kbd>M</kbd> Subtract current entry from the value stored in memory.
     NumpadMemorySubtract,
-    /// <kbd>*</kbd> on a keyboard. For use with numpads that provide mathematical
+    /// <kbd>*</kbd> on a keyboard. For use with number pads that provide mathematical
     /// operations (<kbd>+</kbd>, <kbd>-</kbd> <kbd>*</kbd> and <kbd>/</kbd>).
     ///
     /// Use `NumpadStar` for the <kbd>*</kbd> key on phones and remote controls.
@@ -856,9 +856,9 @@ pub enum Key {
     /// The Erase to End of Field key. This key deletes all characters from the current cursor
     /// position to the end of the current field.
     EraseEof,
-    /// The Extend Selection (Exsel) key.
+    /// The Extend Selection (ExSel) key.
     ExSel,
-    /// Toggle between text modes for insertion or overtyping.
+    /// Toggle between text modes for insertion or over-typing.
     /// (`KEYCODE_INSERT`)
     Insert,
     /// The Paste key. (`APPCOMMAND_PASTE`)
@@ -1061,10 +1061,10 @@ pub enum Key {
     Save,
     /// Spellcheck the current document or selection. (`APPCOMMAND_SPELL_CHECK`)
     SpellCheck,
-    /// The `11` key found on media numpads that
+    /// The `11` key found on media number pads that
     /// have buttons from `1` ... `12`.
     Key11,
-    /// The `12` key found on media numpads that
+    /// The `12` key found on media number pads that
     /// have buttons from `1` ... `12`.
     Key12,
     /// Adjust audio balance leftward. (`VK_AUDIO_BALANCE_LEFT`)

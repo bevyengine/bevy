@@ -1,6 +1,6 @@
 #define_import_path bevy_render::color_operations
 
-#import bevy_render::maths::FRAC_PI_3
+#import bevy_render::math::FRAC_PI_3
 
 // Converts HSV to RGB.
 //

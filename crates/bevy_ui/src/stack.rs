@@ -35,7 +35,7 @@ impl ChildBufferCache {
 
 /// Generates the render stack for UI nodes.
 ///
-/// Create a list of root nodes from unparented entities and entities with a `GlobalZIndex` component.
+/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 #[allow(clippy::too_many_arguments)]

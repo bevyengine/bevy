@@ -2,7 +2,7 @@ use cosmic_text::CacheKey;
 use derive_more::derive::{Display, Error};
 
 #[derive(Debug, PartialEq, Eq, Error, Display)]
-/// Errors related to the textsystem
+/// Errors related to the text system
 pub enum TextError {
     /// Font was not found, this could be that the font has not yet been loaded, or
     /// that the font failed to load for some other reason

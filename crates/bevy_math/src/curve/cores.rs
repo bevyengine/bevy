@@ -102,7 +102,7 @@ impl<T> InterpolationDatum<T> {
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
@@ -142,7 +142,7 @@ pub enum EvenCoreError {
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[display("Cannot create a EvenCore over an unbounded domain")]
+    #[display("Cannot create an EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 
@@ -231,15 +231,15 @@ impl<T> EvenCore<T> {
 ///
 /// This function will never panic, but it may return invalid indices if its assumptions are violated.
 pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
-    let subdivs = samples - 1;
-    let step = domain.length() / subdivs as f32;
+    let subdivisions = samples - 1;
+    let step = domain.length() / subdivisions as f32;
     let t_shifted = t - domain.start();
     let steps_taken = t_shifted / step;
 
     if steps_taken <= 0.0 {
         // To the left side of all the samples.
         InterpolationDatum::LeftTail(0)
-    } else if steps_taken >= subdivs as f32 {
+    } else if steps_taken >= subdivisions as f32 {
         // To the right side of all the samples
         InterpolationDatum::RightTail(samples - 1)
     } else {
@@ -297,7 +297,7 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample the curve, we just look at the interpolation mode and
 ///         // dispatch accordingly.

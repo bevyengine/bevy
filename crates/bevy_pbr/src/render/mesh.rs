@@ -1485,7 +1485,7 @@ bitflags::bitflags! {
         const NORMAL_PREPASS                    = 1 << 4;
         const DEFERRED_PREPASS                  = 1 << 5;
         const MOTION_VECTOR_PREPASS             = 1 << 6;
-        const MAY_DISCARD                       = 1 << 7; // Guards shader codepaths that may discard, allowing early depth tests in most cases
+        const MAY_DISCARD                       = 1 << 7; // Guards shader code paths that may discard, allowing early depth tests in most cases
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = 1 << 8;
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;

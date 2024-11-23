@@ -1421,7 +1421,7 @@ impl GridTrack {
     }
 
     /// Create a grid track with a percentage of the viewport's smaller dimension
-    pub fn vmin<T: From<Self>>(value: f32) -> T {
+    pub fn v_min<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::VMin(value),
             max_sizing_function: MaxTrackSizingFunction::VMin(value),
@@ -1430,7 +1430,7 @@ impl GridTrack {
     }
 
     /// Create a grid track with a percentage of the viewport's larger dimension
-    pub fn vmax<T: From<Self>>(value: f32) -> T {
+    pub fn v_max<T: From<Self>>(value: f32) -> T {
         Self {
             min_sizing_function: MinTrackSizingFunction::VMax(value),
             max_sizing_function: MaxTrackSizingFunction::VMax(value),
@@ -1628,19 +1628,19 @@ impl RepeatedGridTrack {
     }
 
     /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimension
-    pub fn vmin<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+    pub fn v_min<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            tracks: SmallVec::from_buf([GridTrack::vmin(value)]),
+            tracks: SmallVec::from_buf([GridTrack::v_min(value)]),
         }
         .into()
     }
 
     /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimension
-    pub fn vmax<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+    pub fn v_max<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
-            tracks: SmallVec::from_buf([GridTrack::vmax(value)]),
+            tracks: SmallVec::from_buf([GridTrack::v_max(value)]),
         }
         .into()
     }

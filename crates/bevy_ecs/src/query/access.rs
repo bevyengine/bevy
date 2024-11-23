@@ -1209,10 +1209,10 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     ///    compatible.
     /// 2. A "fine grained" check, it kicks in when the "coarse" check fails.
     ///    the two access sets might still be compatible if some of the accesses
-    ///    are restricted with the [`With`](super::With) or [`Without`](super::Without) filters so that access is
-    ///    mutually exclusive. The fine grained phase iterates over all filters in
-    ///    the `self` set and compares it to all the filters in the `other` set,
-    ///    making sure they are all mutually compatible.
+    ///    are restricted with the [`With`](super::With) or [`Without`](super::Without)
+    ///    filters so that access is mutually exclusive. The fine grained phase
+    ///    iterates over all filters in the `self` set and compares it to all the
+    ///    filters in the `other` set, making sure they are all mutually compatible.
     pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;

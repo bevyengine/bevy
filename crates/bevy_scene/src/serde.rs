@@ -836,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn should_roundtrip_messagepack() {
+    fn should_roundtrip_message_pack() {
         let mut world = create_world();
 
         world.spawn(MyComponent {

@@ -164,7 +164,7 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
             .get_name(component_id)
@@ -275,17 +275,17 @@ mod tests {
         app_type_registry.write().register::<RFoo>();
 
         {
-            let entity_with_rfoo = world.spawn(RFoo(42)).id();
+            let entity_with_r_foo = world.spawn(RFoo(42)).id();
             let comp_reflect = world
-                .get_reflect(entity_with_rfoo, TypeId::of::<RFoo>())
+                .get_reflect(entity_with_r_foo, TypeId::of::<RFoo>())
                 .expect("Reflection of RFoo-component failed");
 
             assert!(comp_reflect.is::<RFoo>());
         }
 
         {
-            let entity_without_rfoo = world.spawn_empty().id();
-            let reflect_opt = world.get_reflect(entity_without_rfoo, TypeId::of::<RFoo>());
+            let entity_without_r_foo = world.spawn_empty().id();
+            let reflect_opt = world.get_reflect(entity_without_r_foo, TypeId::of::<RFoo>());
 
             assert!(reflect_opt.is_err());
         }
@@ -307,25 +307,25 @@ mod tests {
         app_type_registry.write().register::<RFoo>();
 
         {
-            let entity_with_rfoo = world.spawn(RFoo(42)).id();
+            let entity_with_r_foo = world.spawn(RFoo(42)).id();
             let mut comp_reflect = world
-                .get_reflect_mut(entity_with_rfoo, TypeId::of::<RFoo>())
+                .get_reflect_mut(entity_with_r_foo, TypeId::of::<RFoo>())
                 .expect("Mutable reflection of RFoo-component failed");
 
-            let comp_rfoo_reflected = comp_reflect
+            let comp_r_foo_reflected = comp_reflect
                 .downcast_mut::<RFoo>()
                 .expect("Wrong type reflected (expected RFoo)");
-            assert_eq!(comp_rfoo_reflected.0, 42);
-            comp_rfoo_reflected.0 = 1337;
+            assert_eq!(comp_r_foo_reflected.0, 42);
+            comp_r_foo_reflected.0 = 1337;
 
-            let rfoo_ref = world.entity(entity_with_rfoo).get_ref::<RFoo>().unwrap();
-            assert!(rfoo_ref.is_changed());
-            assert_eq!(rfoo_ref.0, 1337);
+            let r_foo_ref = world.entity(entity_with_r_foo).get_ref::<RFoo>().unwrap();
+            assert!(r_foo_ref.is_changed());
+            assert_eq!(r_foo_ref.0, 1337);
         }
 
         {
-            let entity_without_rfoo = world.spawn_empty().id();
-            let reflect_opt = world.get_reflect_mut(entity_without_rfoo, TypeId::of::<RFoo>());
+            let entity_without_r_foo = world.spawn_empty().id();
+            let reflect_opt = world.get_reflect_mut(entity_without_r_foo, TypeId::of::<RFoo>());
 
             assert!(reflect_opt.is_err());
         }

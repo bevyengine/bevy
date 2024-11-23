@@ -374,21 +374,21 @@ impl BundleInfo {
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
-        let mut deduped = component_ids.clone();
-        deduped.sort_unstable();
-        deduped.dedup();
+        let mut deduplicated = component_ids.clone();
+        deduplicated.sort_unstable();
+        deduplicated.dedup();
 
-        if deduped.len() != component_ids.len() {
+        if deduplicated.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
             let mut seen = HashSet::new();
-            let mut dups = Vec::new();
+            let mut duplicates = Vec::new();
             for id in component_ids {
                 if !seen.insert(id) {
-                    dups.push(id);
+                    duplicates.push(id);
                 }
             }
 
-            let names = dups
+            let names = duplicates
                 .into_iter()
                 .map(|id| {
                     // SAFETY: the caller ensures component_id is valid.

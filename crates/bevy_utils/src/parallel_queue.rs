@@ -12,7 +12,7 @@ pub struct Parallel<T: Send> {
     locals: ThreadLocal<RefCell<T>>,
 }
 
-/// A scope guard of a `Parallel`, when this struct is dropped ,the value will writeback to its `Parallel`
+/// A scope guard of a `Parallel`, when this struct is dropped, the value will write back to its `Parallel`.
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
@@ -50,8 +50,8 @@ where
     /// Drains all enqueued items from all threads and returns an iterator over them.
     ///
     /// Unlike [`Vec::drain`], this will piecemeal remove chunks of the data stored.
-    /// If iteration is terminated part way, the rest of the enqueued items in the same
-    /// chunk will be dropped, and the rest of the undrained elements will remain.
+    /// If iteration is terminated part-way, the rest of the enqueued items in the same
+    /// chunk will be dropped and the rest of the undrained elements will remain.
     ///
     /// The ordering is not guaranteed.
     pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {

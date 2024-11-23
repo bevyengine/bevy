@@ -36,7 +36,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     } else {
         // Load depth for manual depth testing.
         // This is necessary because early z doesn't seem to trigger in the transparent pass.
-        // This should be done during the draw pass so those fragments simply don't exist in the list,
+        // This should be done during the draw pass so that those fragments simply don't exist in the list,
         // but this requires a bigger refactor
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
         let result = sort(screen_index, buffer_size, d);

@@ -3,7 +3,7 @@
 #import bevy_render::{
     view::ColorGrading,
     color_operations::{hsv_to_rgb, rgb_to_hsv},
-    maths::{PI_2, powsafe},
+    math::{PI_2, powsafe},
 }
 
 #import bevy_core_pipeline::tonemapping_lut_bindings::{
@@ -76,19 +76,19 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     let ycbcr = rgb_to_ycbcr(boring_color);
 
     let bt = tonemap_curve(length(ycbcr.yz) * 2.4);
-    var desat = max((bt - 0.7) * 0.8, 0.0);
-    desat *= desat;
+    var desaturation = max((bt - 0.7) * 0.8, 0.0);
+    desaturation *= desaturation;
 
-    let desat_col = mix(boring_color.rgb, ycbcr.xxx, desat);
+    let desaturated_color = mix(boring_color.rgb, ycbcr.xxx, desaturation);
 
     let tm_luma = tonemap_curve(ycbcr.x);
     let tm0 = boring_color.rgb * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(boring_color.rgb)));
-    let final_mult = 0.97;
-    let tm1 = tonemap_curve3_(desat_col);
+    let final_multiplier = 0.97;
+    let tm1 = tonemap_curve3_(desaturated_color);
 
     boring_color = mix(tm0, tm1, bt * bt);
 
-    return boring_color * final_mult;
+    return boring_color * final_multiplier;
 }
 
 // ------------------------------------------
@@ -175,14 +175,14 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     ref[0]
 */
 fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
-    let in_midgray = 0.18;
+    let in_mid_gray = 0.18;
 
     // remove negative before log transform
     var normalized_color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
     normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color  < vec3<f32>(0.00003051757));
     normalized_color = clamp(
-        log2(normalized_color / in_midgray),
+        log2(normalized_color / in_mid_gray),
         vec3(minimum_ev),
         vec3(maximum_ev)
     );
@@ -194,12 +194,12 @@ fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum
 // Inverse of above
 fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
     var open_color = color;
-    let in_midgray = 0.18;
+    let in_mid_gray = 0.18;
     let total_exposure = maximum_ev - minimum_ev;
 
     open_color = (open_color * total_exposure) + minimum_ev;
     open_color = pow(vec3(2.0), open_color);
-    open_color = open_color * in_midgray;
+    open_color = open_color * in_mid_gray;
 
     return open_color;
 }

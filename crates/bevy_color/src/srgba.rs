@@ -175,7 +175,7 @@ impl Srgba {
         }
     }
 
-    /// New `Srgba` from sRGB colorspace.
+    /// New `Srgba` from sRGB color space.
     ///
     /// # Arguments
     ///
@@ -190,7 +190,7 @@ impl Srgba {
 
     // Float operations in const fn are not stable yet
     // see https://github.com/rust-lang/rust/issues/57241
-    /// New `Srgba` from sRGB colorspace.
+    /// New `Srgba` from sRGB color space.
     ///
     /// # Arguments
     ///

@@ -138,7 +138,7 @@ impl Plugin for WindowPlugin {
             ExitCondition::OnAllClosed => {
                 app.add_systems(PostUpdate, exit_on_all_closed);
             }
-            ExitCondition::DontExit => {}
+            ExitCondition::DoNotExit => {}
         }
 
         if self.close_when_requested {
@@ -189,7 +189,7 @@ pub enum ExitCondition {
     /// event when the app should exit. If this does not occur, you will
     /// create 'headless' processes (processes without windows), which may
     /// surprise your users.
-    DontExit,
+    DoNotExit,
 }
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events

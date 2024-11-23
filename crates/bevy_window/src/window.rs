@@ -168,8 +168,7 @@ pub struct Window {
     pub resize_constraints: WindowResizeConstraints,
     /// Should the window be resizable?
     ///
-    /// Note: This does not stop the program from fullscreening/setting
-    /// the size programmatically.
+    /// Note: This does not stop the program from going fullscreen/setting the size programmatically.
     pub resizable: bool,
     /// Specifies which window control buttons should be enabled.
     ///

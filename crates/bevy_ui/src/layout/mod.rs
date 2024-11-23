@@ -1057,7 +1057,7 @@ mod tests {
     }
 
     #[test]
-    fn measure_funcs_should_be_removed_on_content_size_removal() {
+    fn measure_functions_should_be_removed_on_content_size_removal() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
         let content_size = Vec2::new(50., 25.);

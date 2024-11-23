@@ -7,7 +7,7 @@ use syn::{spanned::Spanned, LitStr};
 pub(crate) enum StringExpr {
     /// A string that is valid at compile time.
     ///
-    /// This is either a string literal like `"mystring"`,
+    /// This is either a string literal like `"my string"`,
     /// or a string created by a macro like [`module_path`]
     /// or [`concat`].
     Const(TokenStream),

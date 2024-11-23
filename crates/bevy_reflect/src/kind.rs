@@ -54,7 +54,7 @@ pub enum ReflectKind {
     /// An opaque type.
     ///
     /// This most often represents a type where it is either impossible, difficult,
-    /// or unuseful to reflect the type further.
+    /// or useless to reflect the type further.
     ///
     /// This includes types like `String` and `Instant`.
     ///
@@ -138,10 +138,10 @@ pub struct ReflectKindMismatchError {
 }
 
 macro_rules! impl_cast_method {
-    ($name:ident : Opaque => $retval:ty) => {
+    ($name:ident : Opaque => $okay:ty) => {
         #[doc = "Attempts a cast to a [`PartialReflect`] trait object."]
         #[doc = "\n\nReturns an error if `self` is not the [`Self::Opaque`] variant."]
-        pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
+        pub fn $name(self) -> Result<$okay, ReflectKindMismatchError> {
             match self {
                 Self::Opaque(value) => Ok(value),
                 _ => Err(ReflectKindMismatchError {
@@ -151,10 +151,10 @@ macro_rules! impl_cast_method {
             }
         }
     };
-    ($name:ident : $kind:ident => $retval:ty) => {
+    ($name:ident : $kind:ident => $okay:ty) => {
         #[doc = concat!("Attempts a cast to a [`", stringify!($kind), "`] trait object.")]
         #[doc = concat!("\n\nReturns an error if `self` is not the [`Self::", stringify!($kind), "`] variant.")]
-        pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
+        pub fn $name(self) -> Result<$okay, ReflectKindMismatchError> {
             match self {
                 Self::$kind(value) => Ok(value),
                 _ => Err(ReflectKindMismatchError {

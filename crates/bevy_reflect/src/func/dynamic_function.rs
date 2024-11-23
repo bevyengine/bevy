@@ -374,8 +374,8 @@ mod tests {
     fn should_allow_recursive_dynamic_function() {
         let factorial = DynamicFunction::new(
             |mut args| {
-                let curr = args.pop::<i32>()?;
-                if curr == 0 {
+                let current = args.pop::<i32>()?;
+                if current == 0 {
                     return Ok(1_i32.into_return());
                 }
 
@@ -387,10 +387,10 @@ mod tests {
                         let result = func.reflect_call(
                             ArgList::new()
                                 .push_ref(this.as_partial_reflect())
-                                .push_owned(curr - 1),
+                                .push_owned(current - 1),
                         );
                         let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
-                        Ok((curr * value).into_return())
+                        Ok((current * value).into_return())
                     }
                     _ => panic!("expected function"),
                 }
@@ -398,7 +398,7 @@ mod tests {
             // The `FunctionInfo` doesn't really matter for this test
             // so we can just give it dummy information.
             FunctionInfo::anonymous()
-                .with_arg::<i32>("curr")
+                .with_arg::<i32>("current")
                 .with_arg::<()>("this"),
         );
 

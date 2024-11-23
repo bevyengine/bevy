@@ -135,7 +135,7 @@ fn setup(
                 p.spawn(TextSpan::new("0.0"));
                 p.spawn(TextSpan::new("]\n"));
                 p.spawn(TextSpan::new(
-                    "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
+                    "Left/Right/Up/Down/PgUp/PgDown - adjust light position (looking at 0,0,0) [",
                 ));
                 p.spawn(TextSpan(format!("{:.1},", light_transform.translation.x)));
                 p.spawn(TextSpan(format!(" {:.1},", light_transform.translation.y)));

@@ -171,7 +171,7 @@ pub struct ViewLightProbesUniformOffset(u32);
 
 /// Information that [`gather_light_probes`] keeps about each light probe.
 ///
-/// This information is parameterized by the [`LightProbeComponent`] type. This
+/// This information is parametrized by the [`LightProbeComponent`] type. This
 /// will either be [`EnvironmentMapLight`] for reflection probes or
 /// [`IrradianceVolume`] for irradiance volumes.
 #[allow(dead_code)]

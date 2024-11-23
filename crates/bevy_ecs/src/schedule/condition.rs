@@ -521,11 +521,11 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // This is the first time the condition will be evaluated so `my_system` will run
+    /// // This is the first time the condition will be evaluated, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// // This is the seconds time the condition will be evaluated so `my_system` won't run
+    /// // This is the seconds time the condition will be evaluated, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -558,11 +558,11 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // `Counter` hasn't been added so `my_system` won't run
+    /// // `Counter` hasn't been added, so `my_system` won't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
-    /// // `Counter` has now been added so `my_system` can run
+    /// // `Counter` has now been added, so `my_system` can run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -598,11 +598,11 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // `Counter` is `0` so `my_system` can run
+    /// // `Counter` is `0`, so `my_system` can run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// // `Counter` is no longer `0` so `my_system` won't run
+    /// // `Counter` is no longer `0`, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -636,7 +636,7 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // `Counter` hasn't been added so `my_system` can't run
+    /// // `Counter` hasn't been added, so `my_system` can't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
@@ -681,11 +681,11 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<Counter>();
     ///
-    /// // `Counter` was just added so `my_system` will run
+    /// // `Counter` was just added, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     ///
-    /// // `Counter` was not just added so `my_system` will not run
+    /// // `Counter` was not just added, so `my_system` will not run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -726,7 +726,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
+    ///         // just added, this won't work with my example, so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and(not(resource_added::<Counter>))
     ///     ),
@@ -736,13 +736,13 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// // `Counter` hasn't been changed, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
-    /// // `Counter` was just changed so `my_system` will run
+    /// // `Counter` was just changed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
@@ -779,7 +779,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_exists_and_changed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
+    ///         // just added, this won't work with my example, so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and(not(resource_added::<Counter>))
     ///     ),
@@ -789,17 +789,17 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // `Counter` doesn't exist so `my_system` won't run
+    /// // `Counter` doesn't exist, so `my_system` won't run
     /// app.run(&mut world);
     /// world.init_resource::<Counter>();
     ///
-    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// // `Counter` hasn't been changed, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
-    /// // `Counter` was just changed so `my_system` will run
+    /// // `Counter` was just changed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
@@ -841,7 +841,7 @@ pub mod common_conditions {
     ///     my_system.run_if(
     ///         resource_changed_or_removed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
-    ///         // just added, this won't work with my example so I will add a second
+    ///         // just added, this won't work with my example, so I will add a second
     ///         // condition to make sure the resource wasn't just added
     ///         .and(not(resource_added::<Counter>))
     ///     ),
@@ -859,19 +859,19 @@ pub mod common_conditions {
     ///     }
     /// }
     ///
-    /// // `Counter` hasn't been changed so `my_system` won't run
+    /// // `Counter` hasn't been changed, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Counter>().0 = 50;
     ///
-    /// // `Counter` was just changed so `my_system` will run
+    /// // `Counter` was just changed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     ///
     /// world.remove_resource::<Counter>();
     ///
-    /// // `Counter` was just removed so `my_system` will run
+    /// // `Counter` was just removed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
@@ -917,13 +917,13 @@ pub mod common_conditions {
     ///
     /// world.init_resource::<MyResource>();
     ///
-    /// // `MyResource` hasn't just been removed so `my_system` won't run
+    /// // `MyResource` hasn't just been removed, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.remove_resource::<MyResource>();
     ///
-    /// // `MyResource` was just removed so `my_system` will run
+    /// // `MyResource` was just removed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -968,13 +968,13 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No new `MyEvent` events have been push so `my_system` won't run
+    /// // No new `MyEvent` events have been pushed, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
     ///
-    /// // A `MyEvent` event has been pushed so `my_system` will run
+    /// // A `MyEvent` event has been pushed, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
@@ -1009,13 +1009,13 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No entities exist yet with a `MyComponent` component so `my_system` won't run
+    /// // No entities exist yet with a `MyComponent` component, so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.spawn(MyComponent);
     ///
-    /// // An entities with `MyComponent` now exists so `my_system` will run
+    /// // An entities with `MyComponent` now exists, so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```

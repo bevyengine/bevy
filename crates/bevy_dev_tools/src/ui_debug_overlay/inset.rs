@@ -7,7 +7,7 @@ use bevy_utils::HashMap;
 
 use super::{CameraQuery, LayoutRect};
 
-// Function used here so we don't need to redraw lines that are fairly close to each other.
+// Redrawing lines that are fairly close to each other is unnecessary.
 fn approx_eq(compared: f32, other: f32) -> bool {
     (compared - other).abs() < 0.001
 }

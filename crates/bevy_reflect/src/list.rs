@@ -556,7 +556,7 @@ mod tests {
         const SIZE: usize = if cfg!(debug_assertions) {
             4
         } else {
-            // If compiled in release mode, verify we dont overflow
+            // If compiled in release mode, verify we don't overflow
             usize::MAX
         };
         let b = Box::new(vec![(); SIZE]).into_reflect();

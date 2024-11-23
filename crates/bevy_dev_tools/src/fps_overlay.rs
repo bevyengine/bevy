@@ -23,8 +23,8 @@ use bevy_utils::default;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
-/// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
-pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
+/// We use a number slightly under `i32::MAX` so that you can render on top of it if you really need to.
+pub const FPS_OVERLAY_Z_INDEX: i32 = i32::MAX - 32;
 
 /// A plugin that adds an FPS overlay to the Bevy application.
 ///
@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
                 ..default()
             },
             // Render overlay on top of everything
-            GlobalZIndex(FPS_OVERLAY_ZINDEX),
+            GlobalZIndex(FPS_OVERLAY_Z_INDEX),
         ))
         .with_children(|p| {
             p.spawn((

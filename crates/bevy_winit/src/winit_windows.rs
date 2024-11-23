@@ -78,19 +78,19 @@ impl WinitWindows {
                 let select_monitor = &maybe_selected_monitor
                     .clone()
                     .expect("Unable to get monitor.");
-                let videomode = get_best_videomode(select_monitor);
-                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+                let video_mode = get_best_video_mode(select_monitor);
+                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
             }
             WindowMode::SizedFullscreen(_) => {
                 let select_monitor = &maybe_selected_monitor
                     .clone()
                     .expect("Unable to get monitor.");
-                let videomode = get_fitting_videomode(
+                let video_mode = get_fitting_video_mode(
                     select_monitor,
                     window.width() as u32,
                     window.height() as u32,
                 );
-                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
@@ -285,13 +285,13 @@ impl WinitWindows {
 
         winit_window.set_cursor_visible(window.cursor_options.visible);
 
-        // Do not set the cursor hittest on window creation if it's false, as it will always fail on
+        // Do not set the cursor hit test on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
         if !window.cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
+            if let Err(error) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 warn!(
                     "Could not set cursor hit test for window {:?}: {:?}",
-                    window.title, err
+                    window.title, error
                 );
             }
         }
@@ -332,7 +332,7 @@ impl WinitWindows {
 /// Gets the "best" video mode which fits the given dimensions.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
+pub fn get_fitting_video_mode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
     fn abs_diff(a: u32, b: u32) -> u32 {
@@ -363,7 +363,7 @@ pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -
 /// Gets the "best" video-mode handle from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
+pub fn get_best_video_mode(monitor: &MonitorHandle) -> VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use core::cmp::Ordering::*;
@@ -395,22 +395,22 @@ pub(crate) fn attempt_grab(
             .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Confined)),
     };
 
-    if let Err(err) = grab_result {
-        let err_desc = match grab_mode {
+    if let Err(error) = grab_result {
+        let description = match grab_mode {
             CursorGrabMode::Confined | CursorGrabMode::Locked => "grab",
             CursorGrabMode::None => "ungrab",
         };
 
-        bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
-        Err(err)
+        bevy_utils::tracing::error!("Unable to {} cursor: {}", description, error);
+        Err(error)
     } else {
         Ok(())
     }
 }
 
 /// Compute the physical window position for a given [`WindowPosition`].
-// Ideally we could generify this across window backends, but we only really have winit atm
-// so whatever.
+// Ideally we could make this generic across window backends,
+// but we only really have winit atm, so it is whatever.
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,

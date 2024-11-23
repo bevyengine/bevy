@@ -27,7 +27,7 @@ fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
 
 #[test]
 // check tiling for small screen sizes
-fn test_default_cluster_setup_small_screensizes() {
+fn test_default_cluster_setup_small_screen_sizes() {
     for x in 1..100 {
         for y in 1..100 {
             let screen_size = UVec2::new(x, y);

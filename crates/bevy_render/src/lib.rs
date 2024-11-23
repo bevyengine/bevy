@@ -382,7 +382,7 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, MATHS_SHADER_HANDLE, "math.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             COLOR_OPERATIONS_SHADER_HANDLE,

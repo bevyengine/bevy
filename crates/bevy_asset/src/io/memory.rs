@@ -336,7 +336,7 @@ pub mod test {
         let dir = Dir::default();
         let a_path = Path::new("a.txt");
         let a_data = "a".as_bytes().to_vec();
-        let a_meta = "ameta".as_bytes().to_vec();
+        let a_meta = "a meta".as_bytes().to_vec();
 
         dir.insert_asset(a_path, a_data.clone());
         let asset = dir.get_asset(a_path).unwrap();

@@ -25,10 +25,10 @@ pub fn world_despawn_recursive(criterion: &mut Criterion) {
                 });
         }
 
-        let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
+        let entities = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             bencher.iter(|| {
-                ents.iter().for_each(|e| {
+                entities.iter().for_each(|e| {
                     despawn_with_children_recursive(&mut world, *e, true);
                 });
             });

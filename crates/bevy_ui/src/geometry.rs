@@ -644,7 +644,7 @@ mod tests {
         let viewport_size = vec2(500., 500.);
 
         for value in (-10..10).map(|value| value as f32) {
-            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
+            // for a square viewport there should be no difference between `Vw` and `Vh` and between `VMin` and `VMax`.
             assert_eq!(
                 Val::Vw(value).resolve(size, viewport_size),
                 Val::Vh(value).resolve(size, viewport_size)
@@ -669,7 +669,7 @@ mod tests {
     }
 
     #[test]
-    fn val_auto_is_non_resolveable() {
+    fn val_auto_is_non_resolvable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
         let resolve_auto = Val::Auto.resolve(size, viewport_size);

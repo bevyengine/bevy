@@ -191,7 +191,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// and a reference to `Events`.
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most
-    /// usecases of the reader uses the `Events` as well.
+    /// use cases of the reader uses the `Events` as well.
     pub fn reader_mut_with_events(
         &mut self,
     ) -> Option<(

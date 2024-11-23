@@ -153,7 +153,7 @@ impl ExtrusionBuilder<Annulus> {
 }
 
 impl ExtrusionBuilder<Capsule2d> {
-    /// Sets the number of vertices used for each hemicircle at the ends of the extrusion.
+    /// Sets the number of vertices used for each semicircle at the ends of the extrusion.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
@@ -221,7 +221,7 @@ where
         }
 
         let mantel = {
-            let Some(VertexAttributeValues::Float32x3(cap_verts)) =
+            let Some(VertexAttributeValues::Float32x3(cap_vertices)) =
                 front_face.attribute(Mesh::ATTRIBUTE_POSITION)
             else {
                 panic!("The base mesh did not have vertex positions");
@@ -236,9 +236,9 @@ where
             let (vert_count, index_count) =
                 perimeter
                     .iter()
-                    .fold((0, 0), |(verts, indices), perimeter| {
+                    .fold((0, 0), |(vertices, indices), perimeter| {
                         (
-                            verts + layers * perimeter.vertices_per_layer() as usize,
+                            vertices + layers * perimeter.vertices_per_layer() as usize,
                             indices + self.segments * perimeter.indices_per_segment(),
                         )
                     });
@@ -261,8 +261,8 @@ where
                         for i in 0..(segment_indices.len() - 1) {
                             let uv_x = uv_start + uv_delta * i as f32;
                             // Get the positions for the current and the next index.
-                            let a = cap_verts[segment_indices[i] as usize];
-                            let b = cap_verts[segment_indices[i + 1] as usize];
+                            let a = cap_vertices[segment_indices[i] as usize];
+                            let b = cap_vertices[segment_indices[i + 1] as usize];
 
                             // Get the index of the next vertex added to the mantel.
                             let index = positions.len() as u32;
@@ -314,7 +314,7 @@ where
                         // If there is a first vertex, we need to add it and its counterparts on each layer.
                         // The normal is provided by `segment.first_normal`.
                         if let Some(i) = segment_indices.first() {
-                            let p = cap_verts[*i as usize];
+                            let p = cap_vertices[*i as usize];
                             for i in 0..layers {
                                 let i = i as f32;
                                 let z = p[2] - layer_depth_delta * i;
@@ -329,14 +329,14 @@ where
                             ]);
                         }
 
-                        // For all points inbetween the first and last vertices, we can automatically compute the normals.
+                        // For all points in-between the first and last vertices, we can automatically compute the normals.
                         for i in 1..(segment_indices.len() - 1) {
                             let uv_x = uv_start + uv_delta * i as f32;
 
                             // Get the positions for the last, current and the next index.
-                            let a = cap_verts[segment_indices[i - 1] as usize];
-                            let b = cap_verts[segment_indices[i] as usize];
-                            let c = cap_verts[segment_indices[i + 1] as usize];
+                            let a = cap_vertices[segment_indices[i - 1] as usize];
+                            let b = cap_vertices[segment_indices[i] as usize];
+                            let c = cap_vertices[segment_indices[i + 1] as usize];
 
                             // Add the current vertex and its counterparts on each layer.
                             for i in 0..layers {
@@ -366,7 +366,7 @@ where
                         // If there is a last vertex, we need to add it and its counterparts on each layer.
                         // The normal is provided by `segment.last_normal`.
                         if let Some(i) = segment_indices.last() {
-                            let p = cap_verts[*i as usize];
+                            let p = cap_vertices[*i as usize];
                             for i in 0..layers {
                                 let i = i as f32;
                                 let z = p[2] - layer_depth_delta * i;

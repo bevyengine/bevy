@@ -287,7 +287,7 @@ impl PointerState {
             .or_default()
     }
 
-    /// Clears all the data assoceated with all of the buttons on a pointer. Does not free the underlying memory.
+    /// Clears all the data associated with all of the buttons on a pointer. Does not free the underlying memory.
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
@@ -358,7 +358,7 @@ pub struct PickingEventWriters<'w> {
 /// Both [`Click`] and [`Up`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
 /// on the frame they are released. The end effect is that these two events can
-/// be received sequentally after an [`Out`] event (but always on the same frame
+/// be received sequentially after an [`Out`] event (but always on the same frame
 /// as the [`Out`] event).
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain

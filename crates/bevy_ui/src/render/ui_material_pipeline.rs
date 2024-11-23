@@ -80,7 +80,7 @@ where
                     Render,
                     (
                         queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
+                        prepare_ui_material_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -425,7 +425,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_uimaterial_nodes<M: UiMaterial>(
+pub fn prepare_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

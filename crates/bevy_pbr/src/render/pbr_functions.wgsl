@@ -14,7 +14,7 @@
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
 }
-#import bevy_render::maths::{E, powsafe}
+#import bevy_render::math::{E, powsafe}
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
@@ -125,14 +125,14 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
 // in use (mesh vs. meshlet).
 fn sample_texture(
     texture: texture_2d<f32>,
-    samp: sampler,
+    textureSample: sampler,
     uv: vec2<f32>,
     bias: SampleBias,
 ) -> vec4<f32> {
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    return textureSampleGrad(texture, samp, uv, bias.ddx_uv, bias.ddy_uv);
+    return textureSampleGrad(texture, textureSample, uv, bias.ddx_uv, bias.ddy_uv);
 #else
-    return textureSampleBias(texture, samp, uv, bias.mip_bias);
+    return textureSampleBias(texture, textureSample, uv, bias.mip_bias);
 #endif
 }
 
@@ -257,7 +257,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-#endif  // STANDARD_MATERIAL_ANISTROPY
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
@@ -276,7 +276,7 @@ fn calculate_view(
     return V;
 }
 
-// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
+// Diffuse strength is inversely related to metalness, specular and diffuse transmission
 fn calculate_diffuse_color(
     base_color: vec3<f32>,
     metallic: f32,
@@ -288,7 +288,7 @@ fn calculate_diffuse_color(
 }
 
 // Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+// See https://google.github.io/filament/Filament.html#materialsystem/parametrization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }
@@ -338,7 +338,7 @@ fn apply_pbr_lighting(
         diffuse_transmission
     );
 
-    // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
+    // Diffuse transmissive strength is inversely related to metalness and specular transmission, but directly related to diffuse transmission
     let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
 
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness

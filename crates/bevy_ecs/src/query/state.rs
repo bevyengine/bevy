@@ -1485,7 +1485,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
         &self,
-        init_accum: INIT,
+        init_accumulator: INIT,
         world: UnsafeWorldCell<'w>,
         batch_size: usize,
         func: FN,
@@ -1513,14 +1513,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
                 let queue = core::mem::take(queue);
                 let mut func = func.clone();
-                let init_accum = init_accum.clone();
+                let init_accumulator = init_accumulator.clone();
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
                     let _span = self.par_iter_span.enter();
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
-                    let mut accum = init_accum();
+                    let mut accumulator = init_accumulator();
                     for storage_id in queue {
-                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
+                        accumulator =
+                            iter.fold_over_storage_range(accumulator, &mut func, storage_id, None);
                     }
                 });
             };
@@ -1529,15 +1530,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let submit_single = |count, storage_id: StorageId| {
                 for offset in (0..count).step_by(batch_size) {
                     let mut func = func.clone();
-                    let init_accum = init_accum.clone();
+                    let init_accumulator = init_accumulator.clone();
                     let len = batch_size.min(count - offset);
                     let batch = offset..offset + len;
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
-                        let accum = init_accum();
+                        let accumulator = init_accumulator();
                         self.iter_unchecked_manual(world, last_run, this_run)
-                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
+                            .fold_over_storage_range(
+                                accumulator,
+                                &mut func,
+                                storage_id,
+                                Some(batch),
+                            );
                     });
                 }
             };
@@ -1875,7 +1881,7 @@ mod tests {
     }
 
     #[test]
-    fn can_transmute_immut_fetch() {
+    fn can_transmute_immutable_fetch() {
         let mut world = World::new();
         world.spawn(A(10));
 
@@ -1934,7 +1940,7 @@ mod tests {
     #[should_panic(
         expected = "Transmuted state for (&mut bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (&bevy_ecs::query::state::tests::A, ())."
     )]
-    fn cannot_transmute_immut_to_mut() {
+    fn cannot_transmute_immutable_to_mut() {
         let mut world = World::new();
         world.spawn(A(0));
 
@@ -1946,7 +1952,7 @@ mod tests {
     #[should_panic(
         expected = "Transmuted state for (&bevy_ecs::query::state::tests::A, ()) attempts to access terms that are not allowed by original state (core::option::Option<&bevy_ecs::query::state::tests::A>, ())."
     )]
-    fn cannot_transmute_option_to_immut() {
+    fn cannot_transmute_option_to_immutable() {
         let mut world = World::new();
         world.spawn(C(0));
 

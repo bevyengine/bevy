@@ -1102,7 +1102,7 @@ impl Rhombus {
         let point_abs = point.abs();
         let half_diagonals = self.half_diagonals.abs(); // to ensure correct sign
 
-        // The unnormalised normal vector perpendicular to the side of the rhombus
+        // The unnormalized normal vector perpendicular to the side of the rhombus
         let normal = Vec2::new(half_diagonals.y, half_diagonals.x);
         let normal_magnitude_squared = normal.length_squared();
         if normal_magnitude_squared == 0.0 {
@@ -1110,15 +1110,15 @@ impl Rhombus {
         }
 
         // The last term corresponds to normal.dot(rhombus_vertex)
-        let distance_unnormalised = normal.dot(point_abs) - half_diagonals.x * half_diagonals.y;
+        let distance_unnormalized = normal.dot(point_abs) - half_diagonals.x * half_diagonals.y;
 
         // The point is already inside so we simply return it.
-        if distance_unnormalised <= 0.0 {
+        if distance_unnormalized <= 0.0 {
             return point;
         }
 
         // Clamp the point to the edge
-        let mut result = point_abs - normal * distance_unnormalised / normal_magnitude_squared;
+        let mut result = point_abs - normal * distance_unnormalized / normal_magnitude_squared;
 
         // Clamp the point back to the positive quadrant
         // if it's outside, it needs to be clamped to either vertex
@@ -1895,14 +1895,14 @@ impl Measured2d for RegularPolygon {
 pub struct Capsule2d {
     /// The radius of the capsule
     pub radius: f32,
-    /// Half the height of the capsule, excluding the hemicircles
+    /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {
     /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
-    /// excluding the hemicircles.
+    /// excluding the semicircles.
     fn default() -> Self {
         Self {
             radius: 0.5,
@@ -2208,9 +2208,9 @@ mod tests {
         let mut rotated_vertices = polygon.vertices(core::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
-        let side_sistance = FRAC_1_SQRT_2;
+        let side_distance = FRAC_1_SQRT_2;
         assert!(
-            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_distance, side_distance)).length()
                 < 1e-7,
         );
     }

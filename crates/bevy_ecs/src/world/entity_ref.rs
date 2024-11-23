@@ -124,16 +124,16 @@ impl<'w> EntityRef<'w> {
         unsafe { self.0.get_ref::<T>() }
     }
 
-    /// Retrieves the change ticks for the given component. This can be useful for implementing change
-    /// detection in custom runtimes.
+    /// Retrieves the change ticks for the given component.
+    /// This can be useful for implementing change detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_change_ticks::<T>() }
     }
 
-    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
-    /// detection in custom runtimes.
+    /// Retrieves the change ticks for the given [`ComponentId`].
+    /// This can be useful for implementing change detection in custom runtimes.
     ///
     /// **You should prefer to use the typed API [`EntityRef::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -3942,7 +3942,7 @@ mod tests {
     // Test that an `EntityRefExcept` with an exception for some component C can
     // coexist with a query for that component C.
     #[test]
-    fn entity_ref_except_doesnt_conflict() {
+    fn entity_ref_except_does_not_conflict() {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
@@ -4024,7 +4024,7 @@ mod tests {
     // Test that an `EntityMutExcept` with an exception for some component C can
     // coexist with a query for that component C.
     #[test]
-    fn entity_mut_except_doesnt_conflict() {
+    fn entity_mut_except_does_not_conflict() {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 

@@ -16,7 +16,7 @@ type InnerResult<T> = Result<T, AccessErrorKind>;
 pub enum Access<'a> {
     /// A name-based field access on a struct.
     Field(Cow<'a, str>),
-    /// A index-based field access on a struct.
+    /// An index-based field access on a struct.
     FieldIndex(usize),
     /// An index-based access on a tuple.
     TupleIndex(usize),

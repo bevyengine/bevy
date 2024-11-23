@@ -291,7 +291,7 @@ impl App {
         self
     }
 
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a [`SystemId`] so that it can later be called by [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
@@ -1320,7 +1320,7 @@ pub enum AppExit {
 }
 
 impl AppExit {
-    /// Creates a [`AppExit::Error`] with a error code of 1.
+    /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
         Self::Error(NonZero::<u8>::MIN)
@@ -1695,8 +1695,8 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't a issue but
-        // it's nice they're so small let's keep it that way.
+        // There wont be many of them, so the size isn't an issue;
+        // however, it's nice they're so small let's keep it that way.
         assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }
 

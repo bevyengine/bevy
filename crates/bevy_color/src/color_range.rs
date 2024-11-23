@@ -33,14 +33,14 @@ mod tests {
         assert_eq!(range.at(1.0), basic::BLUE);
         assert_eq!(range.at(1.5), basic::BLUE);
 
-        let lred: LinearRgba = basic::RED.into();
-        let lblue: LinearRgba = basic::BLUE.into();
+        let linear_red: LinearRgba = basic::RED.into();
+        let linear_blue: LinearRgba = basic::BLUE.into();
 
-        let range = lred..lblue;
-        assert_eq!(range.at(-0.5), lred);
-        assert_eq!(range.at(0.0), lred);
+        let range = linear_red..linear_blue;
+        assert_eq!(range.at(-0.5), linear_red);
+        assert_eq!(range.at(0.0), linear_red);
         assert_eq!(range.at(0.5), LinearRgba::new(0.5, 0.0, 0.5, 1.0));
-        assert_eq!(range.at(1.0), lblue);
-        assert_eq!(range.at(1.5), lblue);
+        assert_eq!(range.at(1.0), linear_blue);
+        assert_eq!(range.at(1.5), linear_blue);
     }
 }

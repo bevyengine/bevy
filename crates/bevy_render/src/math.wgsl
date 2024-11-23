@@ -1,4 +1,4 @@
-#define_import_path bevy_render::maths
+#define_import_path bevy_render::math
 
 const PI: f32 = 3.141592653589793;      // π
 const PI_2: f32 = 6.283185307179586;    // 2π

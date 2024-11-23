@@ -223,9 +223,9 @@ fn depth_raymarch_distance_fn_evaluate(
     //
     // That's really stupid but works like magic. For samples taken near the ray origin,
     // the discrete nature of the depth buffer becomes a problem. It's not a land of continuous surfaces,
-    // but a bunch of stacked duplo bricks.
+    // but a bunch of stacked Duplo bricks.
     //
-    // Technically we should be taking discrete steps in distance_fn duplo land, but then we're at the mercy
+    // Technically we should be taking discrete steps in distance_fn Duplo land, but then we're at the mercy
     // of arbitrary quantization of our directions -- and sometimes we'll take a step which would
     // claim that the ray is occluded -- even though the underlying smooth surface wouldn't occlude it.
     //
@@ -238,7 +238,7 @@ fn depth_raymarch_distance_fn_evaluate(
     // when the ray descends below both.
     //
     // The two approaches end up fixing each other's artifacts:
-    // * The false occlusions due to duplo land are rejected because the ray stays above the smooth surface.
+    // * The false occlusions due to Duplo land are rejected because the ray stays above the smooth surface.
     // * The shrink-wrap surface is no longer continuous, so it's possible for rays to miss it.
 
     let linear_depth =
@@ -286,7 +286,7 @@ struct DepthRayMarchResult {
     /// Range: `0..=1` as a lerp factor over `ray_start_cs..=ray_end_cs`.
     hit_t: f32,
 
-    /// UV correspindong to `hit_t`.
+    /// UV corresponding to `hit_t`.
     hit_uv: vec2<f32>,
 
     /// The distance that the hit point penetrates into the hit surface.

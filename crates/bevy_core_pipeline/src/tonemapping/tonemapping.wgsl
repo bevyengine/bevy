@@ -2,7 +2,7 @@
 
 #import bevy_render::{
     view::View,
-    maths::powsafe,
+    math::powsafe,
 }
 #import bevy_core_pipeline::{
     fullscreen_vertex_shader::FullscreenVertexOutput,

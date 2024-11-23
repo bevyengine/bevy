@@ -864,14 +864,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// # let mut world = World::default();
     /// # world.insert_resource(Counter(0));
     /// # let mut queue_1 = CommandQueue::default();
-    /// # let systemid = {
+    /// # let system_id = {
     /// #   let mut commands = Commands::new(&mut queue_1, &world);
     /// #   commands.register_system(increment_counter)
     /// # };
     /// # let mut queue_2 = CommandQueue::default();
     /// # {
     /// #   let mut commands = Commands::new(&mut queue_2, &world);
-    /// #   commands.run_system(systemid);
+    /// #   commands.run_system(system_id);
     /// # }
     /// # queue_1.append(&mut queue_2);
     /// # queue_1.apply(&mut world);

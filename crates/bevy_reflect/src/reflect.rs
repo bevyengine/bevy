@@ -12,11 +12,11 @@ use derive_more::derive::{Display, Error};
 
 use crate::utility::NonGenericTypeInfoCell;
 
-/// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
+/// An enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Display, Debug)]
 pub enum ApplyError {
     #[display("attempted to apply `{from_kind}` to `{to_kind}`")]
-    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
         from_kind: ReflectKind,
         to_kind: ReflectKind,
@@ -37,7 +37,7 @@ pub enum ApplyError {
     },
 
     #[display("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
     DifferentSize { from_size: usize, to_size: usize },
 
     #[display("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
@@ -189,8 +189,8 @@ where
     ///
     /// # Handling Errors
     ///
-    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
-    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
+    /// This function may leave `self` in a partially mutated state if an error was encountered on the way.
+    /// consider maintaining a cloned instance of this data you can switch to if an error is encountered.
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.

@@ -411,7 +411,7 @@ impl<'a> AssetPath<'a> {
             // It's a label only
             Ok(self.clone_owned().with_label(label.to_owned()))
         } else {
-            let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
+            let (source, r_path, r_label) = AssetPath::parse_internal(path)?;
             let mut base_path = PathBuf::from(self.path());
             if replace && !self.path.to_str().unwrap().ends_with('/') {
                 // No error if base is empty (per RFC 1808).
@@ -420,12 +420,12 @@ impl<'a> AssetPath<'a> {
 
             // Strip off leading slash
             let mut is_absolute = false;
-            let rpath = match rpath.strip_prefix("/") {
+            let r_path = match r_path.strip_prefix("/") {
                 Ok(p) => {
                     is_absolute = true;
                     p
                 }
-                _ => rpath,
+                _ => r_path,
             };
 
             let mut result_path = if !is_absolute && source.is_none() {
@@ -433,7 +433,7 @@ impl<'a> AssetPath<'a> {
             } else {
                 PathBuf::new()
             };
-            result_path.push(rpath);
+            result_path.push(r_path);
             result_path = normalize_path(result_path.as_path());
 
             Ok(AssetPath {
@@ -442,7 +442,7 @@ impl<'a> AssetPath<'a> {
                     None => self.source.clone_owned(),
                 },
                 path: CowArc::Owned(result_path.into()),
-                label: rlabel.map(|l| CowArc::Owned(l.into())),
+                label: r_label.map(|l| CowArc::Owned(l.into())),
             })
         }
     }

@@ -129,7 +129,7 @@ pub struct StandardMaterial {
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
     // Technically for 32-bit floats, 0.045 could be used.
-    // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
+    // See <https://google.github.io/filament/Filament.html#materialsystem/parametrization/>
     pub perceptual_roughness: f32,
 
     /// How "metallic" the material appears, within `[0.0, 1.0]`.
@@ -185,10 +185,10 @@ pub struct StandardMaterial {
     /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
     ///
     /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
-    /// which provides an inexpensive but plausible approximation of translucency for thin dieletric objects (e.g. paper,
+    /// which provides an inexpensive but plausible approximation of translucency for thin dielectric objects (e.g. paper,
     /// leaves, some fabrics) or thicker volumetric materials with short scattering distances (e.g. porcelain, wax).
     ///
-    /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::specular_transmission`] and
+    /// For specular transmission use cases with refraction (e.g. glass) use the [`StandardMaterial::specular_transmission`] and
     /// [`StandardMaterial::ior`] properties instead.
     ///
     /// - When set to `0.0` (the default) no diffuse light is transmitted;
@@ -231,7 +231,7 @@ pub struct StandardMaterial {
     ///
     /// ## Performance
     ///
-    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material,
+    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
     /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
@@ -463,7 +463,7 @@ pub struct StandardMaterial {
     ///
     /// Note that, if a clearcoat normal map isn't specified, the main normal
     /// map, if any, won't be applied to the clearcoat. If you want a normal map
-    /// that applies to both the main materal and to the clearcoat, specify it
+    /// that applies to both the main material and to the clearcoat, specify it
     /// in both [`StandardMaterial::normal_map_texture`] and this field.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.

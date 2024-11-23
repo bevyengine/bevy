@@ -1083,11 +1083,14 @@ impl ScheduleGraph {
         self.hierarchy.topsort =
             self.topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)?;
 
-        let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
-        self.optionally_check_hierarchy_conflicts(&hier_results.transitive_edges, schedule_label)?;
+        let hierarchy_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
+        self.optionally_check_hierarchy_conflicts(
+            &hierarchy_results.transitive_edges,
+            schedule_label,
+        )?;
 
         // remove redundant edges
-        self.hierarchy.graph = hier_results.transitive_reduction;
+        self.hierarchy.graph = hierarchy_results.transitive_reduction;
 
         // check dependencies for cycles
         self.dependency.topsort =
@@ -1095,7 +1098,7 @@ impl ScheduleGraph {
 
         // check for systems or system sets depending on sets they belong to
         let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
-        self.check_for_cross_dependencies(&dep_results, &hier_results.connected)?;
+        self.check_for_cross_dependencies(&dep_results, &hierarchy_results.connected)?;
 
         // map all system sets to their systems
         // go in reverse topological order (bottom-up) for efficiency
@@ -1140,7 +1143,7 @@ impl ScheduleGraph {
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
-        Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
+        Ok(self.build_schedule_inner(dependency_flattened_dag, hierarchy_results.reachable))
     }
 
     // modify the graph to have sync nodes for any dependents after a system with deferred system params
@@ -1149,12 +1152,14 @@ impl ScheduleGraph {
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
     ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
-        let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
+        let topologically_sorted =
+            self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
-        for node in &topo {
+        let mut distances: HashMap<usize, Option<u32>> =
+            HashMap::with_capacity(topologically_sorted.len());
+        for node in &topologically_sorted {
             let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
             for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
@@ -1395,7 +1400,7 @@ impl ScheduleGraph {
     fn build_schedule_inner(
         &self,
         dependency_flattened_dag: Dag,
-        hier_results_reachable: FixedBitSet,
+        hierarchy_results_reachable: FixedBitSet,
     ) -> SystemSchedule {
         let dg_system_ids = dependency_flattened_dag.topsort.clone();
         let dg_system_idx_map = dg_system_ids
@@ -1414,7 +1419,7 @@ impl ScheduleGraph {
             .filter(|&(_i, id)| id.is_system())
             .collect::<Vec<_>>();
 
-        let (hg_set_with_conditions_idxs, hg_set_ids): (Vec<_>, Vec<_>) = self
+        let (hg_set_with_conditions_indexes, hg_set_ids): (Vec<_>, Vec<_>) = self
             .hierarchy
             .topsort
             .iter()
@@ -1455,11 +1460,11 @@ impl ScheduleGraph {
         // (needed to we can evaluate conditions in the correct order)
         let mut systems_in_sets_with_conditions =
             vec![FixedBitSet::with_capacity(sys_count); set_with_conditions_count];
-        for (i, &row) in hg_set_with_conditions_idxs.iter().enumerate() {
+        for (i, &row) in hg_set_with_conditions_indexes.iter().enumerate() {
             let bitset = &mut systems_in_sets_with_conditions[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
-                let is_descendant = hier_results_reachable[index(row, col, hg_node_count)];
+                let is_descendant = hierarchy_results_reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
@@ -1469,12 +1474,12 @@ impl ScheduleGraph {
         for &(col, sys_id) in &hg_systems {
             let i = dg_system_idx_map[&sys_id];
             let bitset = &mut sets_with_conditions_of_systems[i];
-            for (idx, &row) in hg_set_with_conditions_idxs
+            for (idx, &row) in hg_set_with_conditions_indexes
                 .iter()
                 .enumerate()
                 .take_while(|&(_idx, &row)| row < col)
             {
-                let is_ancestor = hier_results_reachable[index(row, col, hg_node_count)];
+                let is_ancestor = hierarchy_results_reachable[index(row, col, hg_node_count)];
                 bitset.set(idx, is_ancestor);
             }
         }
@@ -1782,10 +1787,11 @@ impl ScheduleGraph {
     fn check_for_cross_dependencies(
         &self,
         dep_results: &CheckGraphResults<NodeId>,
-        hier_results_connected: &HashSet<(NodeId, NodeId)>,
+        hierarchy_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
         for &(a, b) in &dep_results.connected {
-            if hier_results_connected.contains(&(a, b)) || hier_results_connected.contains(&(b, a))
+            if hierarchy_results_connected.contains(&(a, b))
+                || hierarchy_results_connected.contains(&(b, a))
             {
                 let name_a = self.get_node_name(&a);
                 let name_b = self.get_node_name(&b);

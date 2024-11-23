@@ -188,7 +188,7 @@ pub(crate) fn new_asset_event_debouncer(
                                         }
                                         (true, false) => {
                                             error!(
-                                            "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
+                                            "Asset meta file {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
                                         );
                                         }
                                         (false, true) => {

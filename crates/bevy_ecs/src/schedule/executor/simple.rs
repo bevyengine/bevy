@@ -148,9 +148,9 @@ fn skip_automatic_sync_points() {
     // Schedules automatically insert apply_deferred systems, but these should
     // not be executed as they only serve as markers and are not initialized
     use crate::prelude::*;
-    let mut sched = Schedule::default();
-    sched.set_executor_kind(ExecutorKind::Simple);
-    sched.add_systems((|_: Commands| (), || ()).chain());
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(ExecutorKind::Simple);
+    schedule.add_systems((|_: Commands| (), || ()).chain());
     let mut world = World::new();
-    sched.run(&mut world);
+    schedule.run(&mut world);
 }

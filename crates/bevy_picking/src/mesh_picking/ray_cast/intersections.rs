@@ -293,18 +293,18 @@ pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4
     // Calculate the minimum/maximum time for each axis based on how much the direction goes that
     // way. These values can get arbitrarily large, or even become NaN, which is handled by the
     // min/max operations below
-    let tmin = (min - ray_origin) * ray_direction_recip;
-    let tmax = (max - ray_origin) * ray_direction_recip;
+    let t_min = (min - ray_origin) * ray_direction_recip;
+    let t_max = (max - ray_origin) * ray_direction_recip;
 
     // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
     // to min/max is NaN, the other argument is used.
     // An axis for which the direction is the wrong way will return an arbitrarily large
     // negative value.
-    let tmin = tmin.max_element().max(0.0);
-    let tmax = tmax.min_element();
+    let t_min = t_min.max_element().max(0.0);
+    let t_max = t_max.min_element();
 
-    if tmin <= tmax {
-        Some(tmin)
+    if t_min <= t_max {
+        Some(t_min)
     } else {
         None
     }

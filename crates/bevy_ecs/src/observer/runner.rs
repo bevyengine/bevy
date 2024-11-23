@@ -332,13 +332,13 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     propagate: &mut bool,
 ) {
     let world = world.as_unsafe_world_cell();
-    // SAFETY: Observer was triggered so must still exist in world
+    // SAFETY: Observer was triggered, so the entity must still exist in world
     let observer_cell = unsafe {
         world
             .get_entity(observer_trigger.observer)
             .debug_checked_unwrap()
     };
-    // SAFETY: Observer was triggered so must have an `ObserverState`
+    // SAFETY: Observer was triggered, so the entity must have an `ObserverState`
     let mut state = unsafe {
         observer_cell
             .get_mut::<ObserverState>()
@@ -359,7 +359,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         observer_trigger,
     );
     // SAFETY:
-    // - observer was triggered so must have an `Observer` component.
+    // - observer was triggered, so the entity must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E, B> = unsafe {
         let mut observe = observer_cell.get_mut::<Observer>().debug_checked_unwrap();
@@ -370,7 +370,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // SAFETY:
     // - `update_archetype_component_access` is called first
     // - there are no outstanding references to world except a private component
-    // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
+    // - system is an `ObserverSystem`, so this won't mutate world beyond the access of a `DeferredWorld`
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
