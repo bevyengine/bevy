@@ -4,7 +4,6 @@ version = "0.15.0-dev"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "a crate for combining and manipulating shaders using naga IR"
-repository = "https://github.com/bevyengine/naga_oil/"
 readme = "README.md"
 
 [features]
