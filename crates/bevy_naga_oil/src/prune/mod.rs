@@ -823,14 +823,14 @@ impl PartReq {
                 Some(members.iter().map(|sm| sm.ty).collect()),
             ),
             _ => (PartReq::All, None), // todo: we can probably do better for some of these ...
-            // naga::TypeInner::Scalar { .. } => todo!(),
-            // naga::TypeInner::Atomic { kind, width } => todo!(),
-            // naga::TypeInner::Pointer { base, space } => todo!(),
-            // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
-            // naga::TypeInner::Array { base, size, stride } => todo!(),
-            // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
-            // naga::TypeInner::Sampler { comparison } => todo!(),
-            // naga::TypeInner::BindingArray { base, size } => todo!(),
+                                       // naga::TypeInner::Scalar { .. } => todo!(),
+                                       // naga::TypeInner::Atomic { kind, width } => todo!(),
+                                       // naga::TypeInner::Pointer { base, space } => todo!(),
+                                       // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
+                                       // naga::TypeInner::Array { base, size, stride } => todo!(),
+                                       // naga::TypeInner::Image { dim, arrayed, class } => todo!(),
+                                       // naga::TypeInner::Sampler { comparison } => todo!(),
+                                       // naga::TypeInner::BindingArray { base, size } => todo!(),
         }
     }
 
@@ -1925,10 +1925,10 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| f.expressions.len())
             .sum::<usize>()
             + pruned
-            .entry_points
-            .iter()
-            .map(|e| e.function.expressions.len())
-            .sum::<usize>();
+                .entry_points
+                .iter()
+                .map(|e| e.function.expressions.len())
+                .sum::<usize>();
         let exprs_before = self
             .module
             .functions
@@ -1936,21 +1936,21 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| f.expressions.len())
             .sum::<usize>()
             + self
-            .module
-            .entry_points
-            .iter()
-            .map(|e| e.function.expressions.len())
-            .sum::<usize>();
+                .module
+                .entry_points
+                .iter()
+                .map(|e| e.function.expressions.len())
+                .sum::<usize>();
         let stmts_now = pruned
             .functions
             .iter()
             .map(|(_, f)| count_stmts(&f.body))
             .sum::<usize>()
             + pruned
-            .entry_points
-            .iter()
-            .map(|e| count_stmts(&e.function.body))
-            .sum::<usize>();
+                .entry_points
+                .iter()
+                .map(|e| count_stmts(&e.function.body))
+                .sum::<usize>();
         let stmts_before = self
             .module
             .functions
@@ -1958,11 +1958,11 @@ impl<'a> Pruner<'a> {
             .map(|(_, f)| count_stmts(&f.body))
             .sum::<usize>()
             + self
-            .module
-            .entry_points
-            .iter()
-            .map(|e| count_stmts(&e.function.body))
-            .sum::<usize>();
+                .module
+                .entry_points
+                .iter()
+                .map(|e| count_stmts(&e.function.body))
+                .sum::<usize>();
 
         debug!(
             "[ty: {}/{}, const: {}/{}, globals: {}/{}, funcs: {}/{}, exprs: {}/{}, stmts: {}/{}]",
