@@ -356,6 +356,9 @@ pub struct CascadesFrusta {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::PI;
+
+    use bevy_math::{ops, Quat, VectorSpace};
     use bevy_transform::components::GlobalTransform;
 
     use crate::camera::{CameraProjection, PerspectiveProjection};
@@ -549,33 +552,80 @@ mod tests {
         proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
     }
 
+    fn contains_aabb_test_frustum_with_rotation() -> Frustum {
+        let half_extent_world = (((49.5 * 49.5) * 0.5) as f32).sqrt() + 0.5f32.sqrt();
+        let near = 50.5 - half_extent_world;
+        let far = near + 2.0 * half_extent_world;
+        let fov = 2.0f32 * ops::atan(half_extent_world / near);
+        let proj = PerspectiveProjection {
+            aspect_ratio: 1.0,
+            near,
+            far,
+            fov,
+        };
+        proj.compute_frustum(&GlobalTransform::IDENTITY)
+    }
+
     #[test]
     fn aabb_inside_frustum() {
         let frustum = contains_aabb_test_frustum();
         let aabb = Aabb {
-            center: Vec3A::new(2.0, 2.0, -50.5),
+            center: Vec3A::ZERO,
             half_extents: Vec3A::new(0.99, 0.99, 49.49),
         };
-        assert!(frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
+        let model = Affine3A::from_translation(Vec3::new(2.0, 2.0, -50.5));
+        assert!(frustum.contains_aabb(&aabb, &model));
     }
 
     #[test]
     fn aabb_intersect_frustum() {
         let frustum = contains_aabb_test_frustum();
         let aabb = Aabb {
-            center: Vec3A::new(2.0, 2.0, -50.5),
-            half_extents: Vec3A::new(0.99, 0.99, 49.51),
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::new(0.99, 0.99, 49.6),
         };
-        assert!(!frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
+        let model = Affine3A::from_translation(Vec3::new(2.0, 2.0, -50.5));
+        assert!(!frustum.contains_aabb(&aabb, &model));
     }
 
     #[test]
     fn aabb_outside_frustum() {
         let frustum = contains_aabb_test_frustum();
         let aabb = Aabb {
-            center: Vec3A::new(0.0, 0.0, 0.0),
+            center: Vec3A::ZERO,
             half_extents: Vec3A::new(0.99, 0.99, 0.99),
         };
-        assert!(!frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
+        let model = Affine3A::from_translation(Vec3::new(0.0, 0.0, 49.6));
+        assert!(!frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_inside_frustum_rotation() {
+        let frustum = contains_aabb_test_frustum_with_rotation();
+        let aabb = Aabb {
+            center: Vec3A::new(0.0, 0.0, 0.0),
+            half_extents: Vec3A::new(0.99, 0.99, 49.49),
+        };
+
+        let model = Affine3A::from_rotation_translation(
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::new(0.0, 0.0, -50.5),
+        );
+        assert!(frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_intersect_frustum_rotation() {
+        let frustum = contains_aabb_test_frustum_with_rotation();
+        let aabb = Aabb {
+            center: Vec3A::new(0.0, 0.0, 0.0),
+            half_extents: Vec3A::new(0.99, 0.99, 49.6),
+        };
+
+        let model = Affine3A::from_rotation_translation(
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::new(0.0, 0.0, -50.5),
+        );
+        assert!(!frustum.contains_aabb(&aabb, &model));
     }
 }
