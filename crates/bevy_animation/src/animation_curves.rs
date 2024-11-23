@@ -155,7 +155,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///
 /// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
 /// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
-/// invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
+/// invocation of [`AnimatableCurve::new`] with `FieldOfViewProperty` indicates that the `f32`
 /// output from that curve is to be used to animate the font size of a `PerspectiveProjection` component (as
 /// configured above).
 ///
