@@ -1,14 +1,18 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use core::{fmt::Debug, iter::once};
+use core::{fmt::Debug, iter::once, ops::Deref};
+use std::borrow::Cow;
 
-use crate::{ops::FloatPow, Vec2, VectorSpace};
+use crate::{ops::FloatPow, Vec2, VectorSpace, WithDerivative, WithTwoDerivatives};
 
 use derive_more::derive::{Display, Error};
 use itertools::Itertools;
 
 #[cfg(feature = "curve")]
-use crate::curve::{Curve, Interval};
+use crate::curve::{
+    derivatives::{CurveWithDerivative, CurveWithTwoDerivatives},
+    Curve, Interval,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -1381,6 +1385,84 @@ impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
         self.position(t)
+    }
+}
+
+/// Wrapper struct for a [`RationalSegment`] that samples the velocity along
+/// with the position.
+#[cfg(feature = "curve")]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct RationalSegmentDerivative<P, D>(D)
+where
+    P: VectorSpace,
+    D: Deref<Target = RationalSegment<P>>;
+
+#[cfg(feature = "curve")]
+impl<P, D> Curve<WithDerivative<P>> for RationalSegmentDerivative<P, D>
+where
+    P: VectorSpace,
+    D: Deref<Target = RationalSegment<P>>,
+{
+    fn domain(&self) -> Interval {
+        self.0.domain()
+    }
+
+    fn sample_unchecked(&self, t: f32) -> WithDerivative<P> {
+        WithDerivative {
+            point: self.0.position(t),
+            derivative: self.0.velocity(t),
+        }
+    }
+}
+
+#[cfg(feature = "curve")]
+impl<P: VectorSpace> CurveWithDerivative<P> for RationalSegment<P> {
+    fn with_derivative(self) -> impl Curve<WithDerivative<P>> {
+        RationalSegmentDerivative(Cow::Owned(self))
+    }
+}
+
+#[cfg(feature = "curve")]
+impl<P, D> CurveWithDerivative<P> for D
+where
+    P: VectorSpace,
+    D: Deref<Target = RationalSegment<P>>,
+{
+    fn with_derivative(self) -> impl Curve<WithDerivative<P>> {
+        RationalSegmentDerivative(self)
+    }
+}
+
+/// Wrapper struct for a [`RationalSegment`] that samples the velocity and
+/// acceleration along with the position.
+#[cfg(feature = "curve")]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct RationalSegmentTwoDerivatives<P, D>(D)
+where
+    P: VectorSpace,
+    D: Deref<Target = RationalSegment<P>>;
+
+impl<P, D> Curve<WithTwoDerivatives<P>> for RationalSegmentTwoDerivatives<P, D>
+where
+    P: VectorSpace,
+    D: Deref<Target = RationalSegment<P>>,
+{
+    fn domain(&self) -> Interval {
+        self.0.domain()
+    }
+
+    fn sample_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
+        WithTwoDerivatives {
+            point: self.0.position(t),
+            derivative: self.0.velocity(t),
+            second_derivative: self.0.acceleration(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> CurveWithTwoDerivatives<P> for RationalSegment<P> {
+    fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<P>> {
+        RationalSegmentTwoDerivatives(Cow::Owned(self))
     }
 }
 

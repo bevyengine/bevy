@@ -35,6 +35,7 @@ pub trait VectorSpace:
     + Debug
     + Clone
     + Copy
+    + 'static
 {
     /// The zero vector, which is the identity of addition for the vector space type.
     const ZERO: Self;
@@ -424,6 +425,7 @@ where
 {
     /// The underlying point.
     pub point: T,
+
     /// The derivative at `point`.
     pub derivative: T::Tangent,
 }
@@ -436,8 +438,10 @@ where
 {
     /// The underlying point.
     pub point: T,
+
     /// The derivative at `point`.
     pub derivative: T::Tangent,
+
     /// The second derivative at `point`.
     pub second_derivative: <T::Tangent as HasTangent>::Tangent,
 }
