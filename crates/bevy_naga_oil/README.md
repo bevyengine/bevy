@@ -1,4 +1,4 @@
-Bevy Naga Organised Integration Library (`bevy_naga-oil`) is a crate for combining and manipulating shaders.
+Bevy Naga Organized Integration Library (`bevy_naga-oil`) is a crate for combining and manipulating shaders.
 
 - `compose` presents a modular shader composition framework
 - `prune` strips shaders down to required parts
