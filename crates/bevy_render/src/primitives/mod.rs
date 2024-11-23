@@ -106,18 +106,7 @@ impl Aabb {
         world_from_local: &Affine3A,
     ) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(self.center);
-        let bb_axis_x_world = world_from_local.x_axis * self.half_extents.x;
-        let bb_axis_y_world = world_from_local.y_axis * self.half_extents.y;
-        let bb_axis_z_world = world_from_local.z_axis * self.half_extents.z;
-        let half_extents_x_world = bb_axis_x_world.dot(Vec3A::X).abs()
-            + bb_axis_y_world.dot(Vec3A::X).abs()
-            + bb_axis_z_world.dot(Vec3A::X).abs();
-        let half_extents_y_world = bb_axis_x_world.dot(Vec3A::Y).abs()
-            + bb_axis_y_world.dot(Vec3A::Y).abs()
-            + bb_axis_z_world.dot(Vec3A::Y).abs();
-        let half_extents_z_world = bb_axis_x_world.dot(Vec3A::Z).abs()
-            + bb_axis_y_world.dot(Vec3A::Z).abs()
-            + bb_axis_z_world.dot(Vec3A::Z).abs();
+        let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
         let r = half_extents_x_world * p_normal.x.abs()
             + half_extents_y_world * p_normal.y.abs()
             + half_extents_z_world * p_normal.z.abs();
