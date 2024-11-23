@@ -1,18 +1,14 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use core::{fmt::Debug, iter::once, ops::Deref};
-use std::borrow::Cow;
+use core::{fmt::Debug, iter::once};
 
-use crate::{ops::FloatPow, Vec2, VectorSpace, WithDerivative, WithTwoDerivatives};
+use crate::{ops::FloatPow, Vec2, VectorSpace};
 
 use derive_more::derive::{Display, Error};
 use itertools::Itertools;
 
 #[cfg(feature = "curve")]
-use crate::curve::{
-    derivatives::{CurveWithDerivative, CurveWithTwoDerivatives},
-    Curve, Interval,
-};
+mod curve_impls;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -1065,19 +1061,6 @@ impl CubicSegment<Vec2> {
     }
 }
 
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
-    }
-}
-
 /// A collection of [`CubicSegment`]s chained into a single parametric curve. It is a [`Curve`]
 /// with domain `[0, N]`, where `N` is its number of segments.
 ///
@@ -1200,21 +1183,6 @@ impl<P: VectorSpace> CubicCurve<P> {
             let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
             (&self.segments[i], t - i as f32)
         }
-    }
-}
-
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        // The non-emptiness invariant guarantees the success of this.
-        Interval::new(0.0, self.segments.len() as f32)
-            .expect("CubicCurve is invalid because it has no segments")
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
     }
 }
 
@@ -1375,97 +1343,6 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 }
 
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
-    }
-}
-
-/// Wrapper struct for a [`RationalSegment`] that samples the velocity along
-/// with the position.
-#[cfg(feature = "curve")]
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct RationalSegmentDerivative<P, D>(D)
-where
-    P: VectorSpace,
-    D: Deref<Target = RationalSegment<P>>;
-
-#[cfg(feature = "curve")]
-impl<P, D> Curve<WithDerivative<P>> for RationalSegmentDerivative<P, D>
-where
-    P: VectorSpace,
-    D: Deref<Target = RationalSegment<P>>,
-{
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn sample_unchecked(&self, t: f32) -> WithDerivative<P> {
-        WithDerivative {
-            point: self.0.position(t),
-            derivative: self.0.velocity(t),
-        }
-    }
-}
-
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> CurveWithDerivative<P> for RationalSegment<P> {
-    fn with_derivative(self) -> impl Curve<WithDerivative<P>> {
-        RationalSegmentDerivative(Cow::Owned(self))
-    }
-}
-
-#[cfg(feature = "curve")]
-impl<P, D> CurveWithDerivative<P> for D
-where
-    P: VectorSpace,
-    D: Deref<Target = RationalSegment<P>>,
-{
-    fn with_derivative(self) -> impl Curve<WithDerivative<P>> {
-        RationalSegmentDerivative(self)
-    }
-}
-
-/// Wrapper struct for a [`RationalSegment`] that samples the velocity and
-/// acceleration along with the position.
-#[cfg(feature = "curve")]
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct RationalSegmentTwoDerivatives<P, D>(D)
-where
-    P: VectorSpace,
-    D: Deref<Target = RationalSegment<P>>;
-
-impl<P, D> Curve<WithTwoDerivatives<P>> for RationalSegmentTwoDerivatives<P, D>
-where
-    P: VectorSpace,
-    D: Deref<Target = RationalSegment<P>>,
-{
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn sample_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
-        WithTwoDerivatives {
-            point: self.0.position(t),
-            derivative: self.0.velocity(t),
-            second_derivative: self.0.acceleration(t),
-        }
-    }
-}
-
-impl<P: VectorSpace> CurveWithTwoDerivatives<P> for RationalSegment<P> {
-    fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<P>> {
-        RationalSegmentTwoDerivatives(Cow::Owned(self))
-    }
-}
-
 /// A collection of [`RationalSegment`]s chained into a single parametric curve. It is a [`Curve`]
 /// with domain `[0, N]`, where `N` is the number of segments.
 ///
@@ -1607,21 +1484,6 @@ impl<P: VectorSpace> RationalCurve<P> {
     #[inline]
     pub fn length(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()
-    }
-}
-
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        // The non-emptiness invariant guarantees the success of this.
-        Interval::new(0.0, self.length())
-            .expect("RationalCurve is invalid because it has zero length")
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
     }
 }
 

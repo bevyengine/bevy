@@ -35,7 +35,6 @@ pub trait VectorSpace:
     + Debug
     + Clone
     + Copy
-    + 'static
 {
     /// The zero vector, which is the identity of addition for the vector space type.
     const ZERO: Self;
