@@ -95,7 +95,7 @@ fn test_spell_casting() {
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(KeyCode::Space);
-    // Allow the systems to recognise the input event.
+    // Allow the systems to recognize the input event.
     app.update();
 
     let expected = Player::default();
