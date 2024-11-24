@@ -4699,6 +4699,52 @@ mod tests {
     }
 
     #[derive(Resource)]
+    struct TestFlush(usize);
+
+    fn count_flush(world: &mut World) {
+        world.resource_mut::<TestFlush>().0 += 1;
+    }
+
+    #[test]
+    fn archetype_modifications_trigger_flush() {
+        let mut world = World::new();
+        world.insert_resource(TestFlush(0));
+        world.add_observer(|_: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
+            commands.queue(count_flush);
+        });
+        world.add_observer(|_: Trigger<OnRemove, TestComponent>, mut commands: Commands| {
+            commands.queue(count_flush);
+        });
+        world.commands().queue(count_flush);
+        let entity = world.spawn_empty().id();
+        assert_eq!(world.resource::<TestFlush>().0, 1);
+        world.commands().queue(count_flush);
+        let mut a = world.entity_mut(entity);
+        a.trigger(TestEvent);
+        assert_eq!(a.world().resource::<TestFlush>().0, 2);
+        a.insert(TestComponent(0));
+        assert_eq!(a.world().resource::<TestFlush>().0, 3);
+        a.remove::<TestComponent>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 4);
+        a.insert(TestComponent(0));
+        assert_eq!(a.world().resource::<TestFlush>().0, 5);
+        let _ = a.take::<TestComponent>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 6);
+        a.insert(TestComponent(0));
+        assert_eq!(a.world().resource::<TestFlush>().0, 7);
+        a.retain::<()>();
+        assert_eq!(a.world().resource::<TestFlush>().0, 8);
+        a.insert(TestComponent(0));
+        assert_eq!(a.world().resource::<TestFlush>().0, 9);
+        a.clear();
+        assert_eq!(a.world().resource::<TestFlush>().0, 10);
+        a.insert(TestComponent(0));
+        assert_eq!(a.world().resource::<TestFlush>().0, 11);
+        a.despawn();
+        assert_eq!(world.resource::<TestFlush>().0, 12);
+    }
+
+    #[derive(Resource)]
     struct TestVec(Vec<&'static str>);
 
     #[derive(Component)]
