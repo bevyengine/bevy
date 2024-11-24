@@ -57,7 +57,7 @@ impl Plugin for SpritePickingPlugin {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn sprite_picking(
+fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
