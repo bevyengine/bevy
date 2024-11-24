@@ -31,14 +31,14 @@ pub enum SpritePickingMode {
 /// Runtime settings for the [`SpritePickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
-pub struct SpriteBackendSettings {
+pub struct SpritePickingSettings {
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
     /// Defaults to an incusive alpha threshold of 0.1
     pub picking_mode: SpritePickingMode,
 }
 
-impl Default for SpriteBackendSettings {
+impl Default for SpritePickingSettings {
     fn default() -> Self {
         Self {
             picking_mode: SpritePickingMode::AlphaThreshold(0.1),
@@ -51,7 +51,7 @@ pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SpriteBackendSettings>()
+        app.init_resource::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
@@ -63,7 +63,7 @@ fn sprite_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
-    settings: Res<SpriteBackendSettings>,
+    settings: Res<SpritePickingSettings>,
     sprite_query: Query<(
         Entity,
         &Sprite,
