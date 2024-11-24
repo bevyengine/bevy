@@ -1063,13 +1063,13 @@ bool: #DEFBOOL
         #[rustfmt::skip]
         const EXPECTED: &str = r"
                  
-                 
+                  
                      
                 
 uint: 1       
       
-                
-int: -1     
+                 
+int: -1      
       
                     
 bool: false   
