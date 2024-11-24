@@ -1,14 +1,14 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
+#[cfg(feature = "curve")]
+mod curve_impls;
+
 use core::{fmt::Debug, iter::once};
 
 use crate::{ops::FloatPow, Vec2, VectorSpace};
 
 use derive_more::derive::{Display, Error};
 use itertools::Itertools;
-
-#[cfg(feature = "curve")]
-mod curve_impls;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
