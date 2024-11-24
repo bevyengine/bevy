@@ -13,7 +13,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+        GltfAssetLabel::scene("Scene").from_asset("models/CornellBox/CornellBox.glb"),
     )));
 
     commands.spawn((

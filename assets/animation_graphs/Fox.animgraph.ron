@@ -12,17 +12,17 @@
                 weight: 1.0,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation0")),
+                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation:Survey")),
                 mask: 0,
                 weight: 1.0,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation1")),
+                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation:Walk")),
                 mask: 0,
                 weight: 1.0,
             ),
             (
-                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation2")),
+                node_type: Clip(AssetPath("models/animated/Fox.glb#Animation:Run")),
                 mask: 0,
                 weight: 1.0,
             ),

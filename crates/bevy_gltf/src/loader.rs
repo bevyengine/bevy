@@ -1,6 +1,7 @@
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
+    gltf_name_or_index_string, vertex_attributes::convert_attribute, Gltf, GltfAssetLabel,
+    GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras,
+    GltfSkin,
 };
 
 use alloc::collections::VecDeque;
@@ -473,7 +474,10 @@ async fn load_gltf<'a, 'b, 'c>(
                 }
             }
             let handle = load_context.add_labeled_asset(
-                GltfAssetLabel::Animation(animation.index()).to_string(),
+                GltfAssetLabel::Animation(
+                    gltf_name_or_index_string(animation.name(), animation.index()).into(),
+                )
+                .to_string(),
                 animation_clip,
             );
             if let Some(name) = animation.name() {
@@ -596,7 +600,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
             let primitive_label = GltfAssetLabel::Primitive {
-                mesh: gltf_mesh.index(),
+                mesh: gltf_name_or_index_string(gltf_mesh.name(), gltf_mesh.index()).into(),
                 primitive: primitive.index(),
             };
             let primitive_topology = get_primitive_topology(primitive.mode())?;
@@ -642,7 +646,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 let morph_target_reader = reader.read_morph_targets();
                 if morph_target_reader.len() != 0 {
                     let morph_targets_label = GltfAssetLabel::MorphTarget {
-                        mesh: gltf_mesh.index(),
+                        mesh: gltf_name_or_index_string(gltf_mesh.name(), gltf_mesh.index()).into(),
                         primitive: primitive.index(),
                     };
                     let morph_target_image = MorphTargetImage::new(
@@ -1009,7 +1013,9 @@ async fn load_image<'a, 'b>(
             )?;
             Ok(ImageOrPath::Image {
                 image,
-                label: GltfAssetLabel::Texture(gltf_texture.index()),
+                label: GltfAssetLabel::Texture(
+                    gltf_name_or_index_string(gltf_texture.name(), gltf_texture.index()).into(),
+                ),
             })
         }
         Source::Uri { uri, mime_type } => {
@@ -1031,7 +1037,9 @@ async fn load_image<'a, 'b>(
                         ImageSampler::Descriptor(sampler_descriptor),
                         render_asset_usages,
                     )?,
-                    label: GltfAssetLabel::Texture(gltf_texture.index()),
+                    label: GltfAssetLabel::Texture(
+                        gltf_name_or_index_string(gltf_texture.name(), gltf_texture.index()).into(),
+                    ),
                 })
             } else {
                 let image_path = parent_path.join(uri);
@@ -1460,7 +1468,7 @@ fn load_node(
                     }
 
                     let primitive_label = GltfAssetLabel::Primitive {
-                        mesh: mesh.index(),
+                        mesh: gltf_name_or_index_string(mesh.name(), mesh.index()).into(),
                         primitive: primitive.index(),
                     };
                     let bounds = primitive.bounding_box();
@@ -1625,7 +1633,7 @@ fn load_node(
     if !settings.load_meshes.is_empty() {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
             let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-                mesh: mesh.index(),
+                mesh: gltf_name_or_index_string(mesh.name(), mesh.index()).into(),
                 primitive: p.index(),
             });
             let first_mesh =
@@ -1642,7 +1650,7 @@ fn load_node(
 }
 
 fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
-    let mesh_name = mesh.name().unwrap_or("Mesh");
+    let mesh_name = gltf_name_or_index_string(mesh.name(), mesh.index());
     if mesh.primitives().len() > 1 {
         format!("{}.{}", mesh_name, primitive.index())
     } else {
@@ -1652,29 +1660,29 @@ fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the `material`.
 fn material_label(material: &Material, is_scale_inverted: bool) -> String {
-    if let Some(index) = material.index() {
+    if let Some(name) = material.name() {
         GltfAssetLabel::Material {
-            index,
+            name: name.to_owned().into(),
             is_scale_inverted,
         }
-        .to_string()
     } else {
-        GltfAssetLabel::DefaultMaterial.to_string()
+        GltfAssetLabel::DefaultMaterial
     }
+    .to_string()
 }
 
 fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+    let tex =
+        GltfAssetLabel::Texture(gltf_name_or_index_string(texture.name(), texture.index()).into());
     match texture.source().source() {
-        Source::View { .. } => {
-            load_context.get_label_handle(GltfAssetLabel::Texture(texture.index()).to_string())
-        }
+        Source::View { .. } => load_context.get_label_handle(tex.to_string()),
         Source::Uri { uri, .. } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
             let uri = uri.as_ref();
             if let Ok(_data_uri) = DataUri::parse(uri) {
-                load_context.get_label_handle(GltfAssetLabel::Texture(texture.index()).to_string())
+                load_context.get_label_handle(tex.to_string())
             } else {
                 let parent = load_context.path().parent().unwrap();
                 let image_path = parent.join(uri);
@@ -1704,17 +1712,18 @@ fn texture_handle_from_info(
 
 /// Returns the label for the `scene`.
 fn scene_label(scene: &gltf::Scene) -> String {
-    GltfAssetLabel::Scene(scene.index()).to_string()
+    GltfAssetLabel::Scene(gltf_name_or_index_string(scene.name(), scene.index()).into()).to_string()
 }
 
 /// Return the label for the `skin`.
 fn skin_label(skin: &gltf::Skin) -> String {
-    GltfAssetLabel::Skin(skin.index()).to_string()
+    GltfAssetLabel::Skin(gltf_name_or_index_string(skin.name(), skin.index()).into()).to_string()
 }
 
 /// Return the label for the `inverseBindMatrices` of the node.
 fn inverse_bind_matrices_label(skin: &gltf::Skin) -> String {
-    GltfAssetLabel::InverseBindMatrices(skin.index()).to_string()
+    GltfAssetLabel::InverseBindMatrices(gltf_name_or_index_string(skin.name(), skin.index()).into())
+        .to_string()
 }
 
 /// Extracts the texture sampler data from the glTF texture.
@@ -2332,7 +2341,10 @@ mod test {
         assert_eq!(gltf_node.name, "TestSingleNode", "Correct name");
         assert_eq!(gltf_node.index, 0, "Correct index");
         assert_eq!(gltf_node.children.len(), 0, "No children");
-        assert_eq!(gltf_node.asset_label(), GltfAssetLabel::Node(0));
+        assert_eq!(
+            gltf_node.asset_label(),
+            GltfAssetLabel::Node("TestSingleNode".into())
+        );
     }
 
     #[test]
