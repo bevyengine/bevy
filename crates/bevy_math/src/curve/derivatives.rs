@@ -15,7 +15,7 @@
 //! to use [`by_ref`] when possible to create a referential curve first, retaining
 //! liveness of the original.
 //!
-//! This module also holds the [`SimpleDerivativeCurve`] and [`SimpleTwoDerivativesCurve`]
+//! This module also holds the [`SampleDerivative`] and [`SampleTwoDerivatives`]
 //! traits, which can be used to easily implement `CurveWithDerivative` and its
 //! counterpart.
 //!
@@ -59,7 +59,7 @@ where
 /// implementation.
 ///
 /// [`with_derivative`]: CurveWithDerivative::with_derivative
-pub trait SimpleDerivativeCurve<T>: Curve<T>
+pub trait SampleDerivative<T>: Curve<T>
 where
     T: HasTangent,
 {
@@ -88,14 +88,14 @@ where
     }
 }
 
-impl<T, C, D> SimpleDerivativeCurve<T> for D
+impl<T, C, D> SampleDerivative<T> for D
 where
     T: HasTangent,
-    C: SimpleDerivativeCurve<T> + ?Sized,
+    C: SampleDerivative<T> + ?Sized,
     D: Deref<Target = C>,
 {
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
-        <C as SimpleDerivativeCurve<T>>::sample_with_derivative_unchecked(self, t)
+        <C as SampleDerivative<T>>::sample_with_derivative_unchecked(self, t)
     }
 }
 
@@ -106,7 +106,7 @@ where
 /// implementation.
 ///
 /// [`with_two_derivatives`]: CurveWithTwoDerivatives::with_two_derivatives
-pub trait SimpleTwoDerivativesCurve<T>: Curve<T>
+pub trait SampleTwoDerivatives<T>: Curve<T>
 where
     T: HasTangent,
     <T as HasTangent>::Tangent: HasTangent,
@@ -136,7 +136,7 @@ where
     }
 }
 
-/// A wrapper that uses a [`SimpleDerivativeCurve<T>`] to produce a `Curve<WithDerivative<T>>`.
+/// A wrapper that uses a [`SampleDerivative<T>`] curve to produce a `Curve<WithDerivative<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -144,12 +144,12 @@ where
     derive(Reflect, FromReflect),
     reflect(from_reflect = false)
 )]
-pub struct SimpleDerivativeWrapper<C>(C);
+pub struct SampleDerivativeWrapper<C>(C);
 
-impl<T, C> Curve<WithDerivative<T>> for SimpleDerivativeWrapper<C>
+impl<T, C> Curve<WithDerivative<T>> for SampleDerivativeWrapper<C>
 where
     T: HasTangent,
-    C: SimpleDerivativeCurve<T>,
+    C: SampleDerivative<T>,
 {
     fn domain(&self) -> Interval {
         self.0.domain()
@@ -168,7 +168,7 @@ where
     }
 }
 
-/// A wrapper that uses a [`SimpleTwoDerivativesCurve<T>`] to produce a
+/// A wrapper that uses a [`SampleTwoDerivatives<T>`] curve to produce a
 /// `Curve<WithTwoDerivatives<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -177,13 +177,13 @@ where
     derive(Reflect, FromReflect),
     reflect(from_reflect = false)
 )]
-pub struct SimpleTwoDerivativesWrapper<C>(C);
+pub struct SampleTwoDerivativesWrapper<C>(C);
 
-impl<T, C> Curve<WithTwoDerivatives<T>> for SimpleTwoDerivativesWrapper<C>
+impl<T, C> Curve<WithTwoDerivatives<T>> for SampleTwoDerivativesWrapper<C>
 where
     T: HasTangent,
     <T as HasTangent>::Tangent: HasTangent,
-    C: SimpleTwoDerivativesCurve<T>,
+    C: SampleTwoDerivatives<T>,
 {
     fn domain(&self) -> Interval {
         self.0.domain()
@@ -205,10 +205,10 @@ where
 impl<T, C> CurveWithDerivative<T> for C
 where
     T: HasTangent,
-    C: SimpleDerivativeCurve<T>,
+    C: SampleDerivative<T>,
 {
     fn with_derivative(self) -> impl Curve<WithDerivative<T>> {
-        SimpleDerivativeWrapper(self)
+        SampleDerivativeWrapper(self)
     }
 }
 
@@ -216,9 +216,9 @@ impl<T, C> CurveWithTwoDerivatives<T> for C
 where
     T: HasTangent,
     <T as HasTangent>::Tangent: HasTangent,
-    C: SimpleTwoDerivativesCurve<T> + CurveWithDerivative<T>,
+    C: SampleTwoDerivatives<T> + CurveWithDerivative<T>,
 {
     fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>> {
-        SimpleTwoDerivativesWrapper(self)
+        SampleTwoDerivativesWrapper(self)
     }
 }

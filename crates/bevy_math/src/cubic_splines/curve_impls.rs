@@ -1,7 +1,7 @@
 use super::{CubicCurve, CubicSegment, RationalCurve, RationalSegment};
 use crate::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
-    derivatives::{SimpleDerivativeCurve, SimpleTwoDerivativesCurve},
+    derivatives::{SampleDerivative, SampleTwoDerivatives},
     Curve, Interval,
 };
 
@@ -19,21 +19,21 @@ impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SimpleDerivativeCurve<P> for CubicSegment<P> {
+impl<P: VectorSpace> SampleDerivative<P> for CubicSegment<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
         }
     }
 }
 
-impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for CubicSegment<P> {
+impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicSegment<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
             second_derivative: self.acceleration(t),
         }
@@ -56,21 +56,21 @@ impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     }
 }
 
-impl<P: VectorSpace> SimpleDerivativeCurve<P> for CubicCurve<P> {
+impl<P: VectorSpace> SampleDerivative<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
         }
     }
 }
 
-impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for CubicCurve<P> {
+impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
             second_derivative: self.acceleration(t),
         }
@@ -91,21 +91,21 @@ impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     }
 }
 
-impl<P: VectorSpace> SimpleDerivativeCurve<P> for RationalSegment<P> {
+impl<P: VectorSpace> SampleDerivative<P> for RationalSegment<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
         }
     }
 }
 
-impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for RationalSegment<P> {
+impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalSegment<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
             second_derivative: self.acceleration(t),
         }
@@ -128,21 +128,21 @@ impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     }
 }
 
-impl<P: VectorSpace> SimpleDerivativeCurve<P> for RationalCurve<P> {
+impl<P: VectorSpace> SampleDerivative<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
         WithDerivative {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
         }
     }
 }
 
-impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for RationalCurve<P> {
+impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
         WithTwoDerivatives {
-            point: self.position(t),
+            value: self.position(t),
             derivative: self.velocity(t),
             second_derivative: self.acceleration(t),
         }

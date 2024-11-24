@@ -417,31 +417,31 @@ pub trait HasTangent {
     type Tangent;
 }
 
-/// A point with a tangent.
+/// A value with its derivative.
 pub struct WithDerivative<T>
 where
     T: HasTangent,
 {
-    /// The underlying point.
-    pub point: T,
+    /// The underlying value.
+    pub value: T,
 
-    /// The derivative at `point`.
+    /// The derivative at `value`.
     pub derivative: T::Tangent,
 }
 
-/// A point with a tangent and a second derivative.
+/// A value together with its first and second derivatives.
 pub struct WithTwoDerivatives<T>
 where
     T: HasTangent,
     T::Tangent: HasTangent,
 {
-    /// The underlying point.
-    pub point: T,
+    /// The underlying value.
+    pub value: T,
 
-    /// The derivative at `point`.
+    /// The derivative at `value`.
     pub derivative: T::Tangent,
 
-    /// The second derivative at `point`.
+    /// The second derivative at `value`.
     pub second_derivative: <T::Tangent as HasTangent>::Tangent,
 }
 
