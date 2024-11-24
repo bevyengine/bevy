@@ -764,11 +764,11 @@ impl PartReq {
             (PartReq::Part(_), PartReq::All) => false,
 
             (PartReq::Part(current), PartReq::Part(new)) => {
-                return new.iter().all(|(index, other_subpart)| {
+                new.iter().all(|(index, other_subpart)| {
                     current.get(index).map_or(false, |current_subpart| {
                         current_subpart.contains(other_subpart)
                     })
-                });
+                })
             }
         }
     }

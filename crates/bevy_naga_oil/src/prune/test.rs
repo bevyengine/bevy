@@ -53,7 +53,7 @@ fn frag_reduced() {
 
     let mut pruner = Pruner::new(&shader);
     let context = pruner.add_entrypoint(
-        shader.entry_points.get(0).unwrap(),
+        shader.entry_points.first().unwrap(),
         Default::default(),
         None,
     );
@@ -67,7 +67,7 @@ fn frag_reduced_2() {
 
     let mut pruner = Pruner::new(&shader);
     let context = pruner.add_entrypoint(
-        shader.entry_points.get(0).unwrap(),
+        shader.entry_points.first().unwrap(),
         Default::default(),
         None,
     );
@@ -88,7 +88,7 @@ fn pbr_reduced() {
 
     let mut pruner = Pruner::new(&shader);
     let context = pruner.add_entrypoint(
-        shader.entry_points.get(0).unwrap(),
+        shader.entry_points.first().unwrap(),
         Default::default(),
         None,
     );

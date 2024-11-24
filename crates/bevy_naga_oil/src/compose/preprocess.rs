@@ -1036,9 +1036,9 @@ defined
         let PreprocessorMetaData {
             defines: shader_defs,
             ..
-        } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
+        } = processor.get_preprocessor_metadata(WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
-        let result = processor.preprocess(&WGSL, &shader_defs).unwrap();
+        let result = processor.preprocess(WGSL, &shader_defs).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);
     }
 
@@ -1079,9 +1079,9 @@ bool: false
         let PreprocessorMetaData {
             defines: shader_defs,
             ..
-        } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
+        } = processor.get_preprocessor_metadata(WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
-        let result = processor.preprocess(&WGSL, &shader_defs).unwrap();
+        let result = processor.preprocess(WGSL, &shader_defs).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);
     }
 
@@ -1113,7 +1113,7 @@ fn vertex(
 }
 ";
         let processor = Preprocessor::default();
-        let result = processor.preprocess(&WGSL_ELSE_IFDEF, &[].into()).unwrap();
+        let result = processor.preprocess(WGSL_ELSE_IFDEF, &[].into()).unwrap();
         assert_eq!(
             result
                 .preprocessed_source
@@ -1190,7 +1190,7 @@ fn vertex(
 ";
         let processor = Preprocessor::default();
         let result = processor
-            .preprocess(&WGSL_ELSE_IFDEF_NO_ELSE_FALLBACK, &[].into())
+            .preprocess(WGSL_ELSE_IFDEF_NO_ELSE_FALLBACK, &[].into())
             .unwrap();
         assert_eq!(
             result
@@ -1239,7 +1239,7 @@ fn vertex(
         let processor = Preprocessor::default();
         let result = processor
             .preprocess(
-                &WGSL_ELSE_IFDEF,
+                WGSL_ELSE_IFDEF,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
             )
             .unwrap();
@@ -1287,7 +1287,7 @@ fn vertex(
         let processor = Preprocessor::default();
         let result = processor
             .preprocess(
-                &WGSL_ELSE_IFDEF,
+                WGSL_ELSE_IFDEF,
                 &[("SECOND_TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
             )
             .unwrap();
@@ -1335,7 +1335,7 @@ fn vertex(
         let processor = Preprocessor::default();
         let result = processor
             .preprocess(
-                &WGSL_ELSE_IFDEF,
+                WGSL_ELSE_IFDEF,
                 &[("THIRD_TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
             )
             .unwrap();
@@ -1383,7 +1383,7 @@ fn vertex(
         let processor = Preprocessor::default();
         let result = processor
             .preprocess(
-                &WGSL_ELSE_IFDEF,
+                WGSL_ELSE_IFDEF,
                 &[
                     ("SECOND_TEXTURE".to_string(), ShaderDefValue::Bool(true)),
                     ("THIRD_TEXTURE".to_string(), ShaderDefValue::Bool(true)),
@@ -1441,7 +1441,7 @@ fn vertex(
         let processor = Preprocessor::default();
         let result = processor
             .preprocess(
-                &WGSL_COMPLICATED_ELSE_IFDEF,
+                WGSL_COMPLICATED_ELSE_IFDEF,
                 &[("IS_DEFINED".to_string(), ShaderDefValue::Bool(true))].into(),
             )
             .unwrap();
@@ -1475,7 +1475,7 @@ fail 3
 
         const EXPECTED: &str = r"ok";
         let processor = Preprocessor::default();
-        let result = processor.preprocess(&INPUT, &[].into()).unwrap();
+        let result = processor.preprocess(INPUT, &[].into()).unwrap();
         assert_eq!(
             result
                 .preprocessed_source

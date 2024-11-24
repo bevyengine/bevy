@@ -829,7 +829,7 @@ impl<'a> DerivedModule<'a> {
     }
 }
 
-impl<'a> From<DerivedModule<'a>> for naga::Module {
+impl From<DerivedModule<'_>> for naga::Module {
     fn from(derived: DerivedModule) -> Self {
         naga::Module {
             types: derived.types,

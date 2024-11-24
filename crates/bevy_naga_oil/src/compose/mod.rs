@@ -458,7 +458,7 @@ impl Composer {
             auto: &'a mut u32,
         }
 
-        impl<'a> regex::Replacer for AutoBindingReplacer<'a> {
+        impl regex::Replacer for AutoBindingReplacer<'_> {
             fn replace_append(&mut self, _: &regex::Captures<'_>, dst: &mut String) {
                 dst.push_str(&format!("@binding({})", self.auto));
                 *self.auto += 1;

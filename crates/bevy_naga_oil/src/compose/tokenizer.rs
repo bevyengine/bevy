@@ -7,7 +7,7 @@ pub enum Token<'a> {
     Whitespace(&'a str, usize),
 }
 
-impl<'a> Token<'a> {
+impl Token<'_> {
     pub fn pos(&self) -> usize {
         match self {
             Token::Identifier(_, pos) | Token::Other(_, pos) | Token::Whitespace(_, pos) => *pos,
