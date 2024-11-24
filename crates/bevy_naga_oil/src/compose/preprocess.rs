@@ -1507,7 +1507,7 @@ fail 3
         const EXPECTED: &str = r"ok";
         let processor = Preprocessor::default();
         let result = processor
-            .preprocess(&INPUT, &[("x".to_owned(), ShaderDefValue::Int(2))].into())
+            .preprocess(INPUT, &[("x".to_owned(), ShaderDefValue::Int(2))].into())
             .unwrap();
         assert_eq!(
             result
