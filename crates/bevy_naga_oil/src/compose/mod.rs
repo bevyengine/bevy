@@ -1442,7 +1442,7 @@ impl Composer {
 
     /// specify capabilities to be used for naga module generation.
     /// purges any existing modules
-    /// See https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515
+    /// See <https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515>
     /// for how to set the subgroup_stages value.
     pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
         Self {
