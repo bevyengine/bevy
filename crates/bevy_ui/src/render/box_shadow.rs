@@ -338,7 +338,7 @@ pub fn queue_shadows(
     ui_slicer_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedViews, Option<&UiBoxShadowSamples>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {

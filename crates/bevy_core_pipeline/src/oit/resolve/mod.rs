@@ -19,7 +19,7 @@ use bevy_render::{
         Shader, ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedViews, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -132,7 +132,7 @@ pub fn queue_oit_resolve_pipeline(
     views: Query<
         (
             Entity,
-            &ExtractedViews,
+            &ExtractedView,
             &OrderIndependentTransparencySettings,
         ),
         With<OrderIndependentTransparencySettings>,

@@ -34,7 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
-    view::{ExtractedViews, ViewTarget},
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
@@ -436,7 +436,7 @@ pub fn prepare_post_processing_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedViews), With<ChromaticAberration>>,
+    views: Query<(Entity, &ExtractedView), With<ChromaticAberration>>,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(

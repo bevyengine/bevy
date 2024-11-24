@@ -37,7 +37,7 @@ use bevy_render::{
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
-        ExtractedViews, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
+        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -711,7 +711,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), (With<ExtractedViews>, With<Camera2d>)>,
+    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,

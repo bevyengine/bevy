@@ -1,6 +1,6 @@
 use super::{ClearColorConfig, Projection};
 use crate::sync_world::TemporaryRenderEntity;
-use crate::view::{ExtractedView, RenderVisibleEntities};
+use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -11,7 +11,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedViews, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
         VisibleEntities,
     },
     Extract,
@@ -1059,7 +1059,7 @@ pub fn extract_cameras(
         if !camera.is_active {
             commands.entity(render_entity).remove::<(
                 ExtractedCamera,
-                ExtractedViews,
+                ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
                 RenderLayers,
@@ -1128,12 +1128,10 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: camera.hdr,
                 },
-                ExtractedViews {
-                    views: vec![ExtractedView {
-                        clip_from_view: camera.clip_from_view(),
-                        world_from_view: *transform,
-                        clip_from_world: None,
-                    }],
+                ExtractedView {
+                    clip_from_view: camera.clip_from_view(),
+                    world_from_view: *transform,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,

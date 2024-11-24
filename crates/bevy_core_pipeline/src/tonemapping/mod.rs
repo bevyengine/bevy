@@ -15,7 +15,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedViews, ViewTarget, ViewUniform},
+    view::{ExtractedView, ViewTarget, ViewUniform},
     Render, RenderApp, RenderSet,
 };
 #[cfg(not(feature = "tonemapping_luts"))]
@@ -355,7 +355,7 @@ pub fn prepare_view_tonemapping_pipelines(
     view_targets: Query<
         (
             Entity,
-            &ExtractedViews,
+            &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
         ),

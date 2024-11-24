@@ -36,7 +36,7 @@ use bevy_render::{
     sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
-        ExtractedViews, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility,
     },
     Extract,
@@ -508,7 +508,7 @@ pub fn queue_sprites(
     mut views: Query<(
         Entity,
         &RenderVisibleEntities,
-        &ExtractedViews,
+        &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -590,7 +590,7 @@ pub fn prepare_sprite_view_bind_groups(
     render_device: Res<RenderDevice>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), With<ExtractedViews>>,
+    views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,

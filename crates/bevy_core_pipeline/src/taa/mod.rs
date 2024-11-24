@@ -36,7 +36,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedViews, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -436,7 +436,7 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedViews), With<TemporalAntiAliasing>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {
@@ -490,7 +490,7 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
     pipeline: Res<TaaPipeline>,
-    views: Query<(Entity, &ExtractedViews, &TemporalAntiAliasing)>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {

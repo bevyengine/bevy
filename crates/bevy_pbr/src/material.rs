@@ -33,7 +33,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedViews, Msaa, RenderVisibilityRanges, ViewVisibility},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_render::{sync_world::MainEntityHashMap, view::ViewUniforms};
@@ -591,7 +591,7 @@ pub fn queue_material_meshes<M: Material>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
         Entity,
-        &ExtractedViews,
+        &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,
@@ -728,8 +728,7 @@ pub fn queue_material_meshes<M: Material>(
             );
         }
 
-        // TODO: Multiview with rangefinder
-        let rangefinder = view.rangefinder3d(0);
+        let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;

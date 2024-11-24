@@ -7,7 +7,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    view::ExtractedViews,
+    view::ExtractedView,
     Render, RenderApp, RenderSet,
 };
 
@@ -51,7 +51,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedViews>>,
+    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();

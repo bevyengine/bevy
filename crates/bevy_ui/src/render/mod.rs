@@ -23,7 +23,6 @@ use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Ve
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -31,7 +30,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedViews, ViewUniforms},
+    view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
 use bevy_render::{
@@ -591,16 +590,14 @@ pub fn extract_default_ui_camera_view(
 
             let default_camera_view = commands
                 .spawn((
-                    ExtractedViews {
-                        views: vec![ExtractedView {
-                            clip_from_view: projection_matrix,
-                            world_from_view: GlobalTransform::from_xyz(
-                                0.0,
-                                0.0,
-                                UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                            ),
-                            clip_from_world: None,
-                        }],
+                    ExtractedView {
+                        clip_from_view: projection_matrix,
+                        world_from_view: GlobalTransform::from_xyz(
+                            0.0,
+                            0.0,
+                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                        ),
+                        clip_from_world: None,
                         hdr: camera.hdr,
                         viewport: UVec4::new(
                             physical_origin.x,
@@ -849,7 +846,7 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedViews, Option<&ExtractedAA>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&ExtractedAA>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
