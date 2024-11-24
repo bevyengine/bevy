@@ -1568,8 +1568,9 @@ impl<'a> Pruner<'a> {
                 let required_store = self.store_required(context, &var_ref);
                 debug!("atomic store required: {:?}", required_store);
 
-                let required_load =
-                    result.as_ref().and_then(|result| func_req.exprs_required.get(result).cloned());
+                let required_load = result
+                    .as_ref()
+                    .and_then(|result| func_req.exprs_required.get(result).cloned());
                 debug!("atomic load required: {:?}", required_load);
 
                 if required_load.is_some() || required_store.is_some() {
