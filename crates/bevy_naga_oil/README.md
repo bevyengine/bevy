@@ -1,9 +1,12 @@
+# Bevy Naga Oil
+
 Bevy Naga Organized Integration Library (`bevy_naga-oil`) is a crate for combining and manipulating shaders.
 
 - `compose` presents a modular shader composition framework
 - `prune` strips shaders down to required parts
 
 and probably less useful externally:
+
 - `derive` allows importing of items from multiple shaders into a single shader
 - `redirect` modifies a shader by substituting function calls and modifying bindings
 
@@ -11,7 +14,8 @@ and probably less useful externally:
 
 the compose module allows construction of shaders from modules (which are themselves shaders).
 
-it does this by treating shaders as modules, and 
+it does this by treating shaders as modules, and
+
 - building each module independently to naga IR
 - creating "header" files for each supported language, which are used to build dependent modules/shaders
 - making final shaders by combining the shader IR with the IR for imported modules
@@ -28,7 +32,7 @@ modules may include a `#define_import_path` directive that names the module:
 #define_import_path my_module
 
 fn my_func() -> f32 {
-	return 1.0;
+    return 1.0;
 }
 ```
 
@@ -70,20 +74,22 @@ fn main() -> f32 {
 }
 ```
 
-`module::self` and `module::*` are not currently supported. 
+`module::self` and `module::*` are not currently supported.
 
 imports can be nested - modules may import other modules, but not recursively. when a new module is added, all its `#import`s must already have been added.
 the same module can be imported multiple times by different modules in the import tree.
 there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
 
-note: the final shader will include the required dependencies (bindings, globals, consts, other functions) of any imported items that are used, but will not include the rest of the imported module. 
+note: the final shader will include the required dependencies (bindings, globals, consts, other functions) of any imported items that are used, but will not include the rest of the imported module.
 
 ## overriding functions
 
 virtual functions can be declared with the `virtual` keyword:
+
 ```glsl
     virtual fn point_light(world_position: vec3<f32>) -> vec3<f32> { ... }
 ```
+
 virtual functions defined in imported modules can then be overridden using the `override` keyword:
 
 ```wgsl
@@ -100,16 +106,16 @@ overrides must either be declared in the top-level shader, or the module contain
 
 override function definitions cause *all* calls to the original function in the entire shader scope to be replaced by calls to the new function, with the exception of calls within the override function itself.
 
-the function signature of the override must match the base function. 
+the function signature of the override must match the base function.
 
-overrides can be specified at any point in the final shader's import tree. 
+overrides can be specified at any point in the final shader's import tree.
 
 multiple overrides can be applied to the same function. for example, given :
-- a module `a` containing a function `f`, 
-- a module `b` that imports `a`, and containing an `override a::f` function, 
+- a module `a` containing a function `f`,
+- a module `b` that imports `a`, and containing an `override a::f` function,
 - a module `c` that imports `a` and `b`, and containing an `override a::f` function,
 
-then `b` and `c` both specify an override for `a::f`. 
+then `b` and `c` both specify an override for `a::f`.
 
 the `override fn a::f` declared in module `b` may call to `a::f` within its body.
 
@@ -119,7 +125,7 @@ any other calls to `a::f` (within modules `a` or `b`, or anywhere else) will end
 
 in this way a chain or stack of overrides can be applied.
 
-different overrides of the same function can be specified in different import branches. the final stack will be ordered based on the first occurrence of the override in the import tree (using a depth first search). 
+different overrides of the same function can be specified in different import branches. the final stack will be ordered based on the first occurrence of the override in the import tree (using a depth first search).
 
 note that imports into a module/shader are processed in order, but are processed before the body of the current shader/module regardless of where they occur in that module, so there is no way to import a module containing an override and inject a call into the override stack prior to that imported override. you can instead create two modules each containing an override and import them into a parent module/shader to order them as required.
 
@@ -148,10 +154,12 @@ fn get_number() -> f32 {
     #endif
 }
 ```
+
 the `#ifdef` directive matches when the def name exists in the input binding set (regardless of value). the `#ifndef` directive is the reverse.
 
 the `#if` directive requires a def name, an operator, and a value for comparison:
-- the def name must be a provided `shader_def` name. 
+
+- the def name must be a provided `shader_def` name.
 - the operator must be one of `==`, `!=`, `>=`, `>`, `<`, `<=`
 - the value must be an integer literal if comparing to a `ShaderDefValue::Int` or `ShaderDefValue::Uint`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
 
@@ -172,9 +180,11 @@ fn get_number() -> f32 {
 ```
 
 shader defs can be created or overridden at the start of the top-level shader with the `#define` directive:
+
 ```wgsl
 #define USER_NUMBER 42
 ```
+
 the created value will default to `true` if not specified.
 
 ## error reporting
