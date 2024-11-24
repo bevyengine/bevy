@@ -318,7 +318,7 @@ impl Frustum {
     #[inline]
     pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         for half_space in &self.half_spaces {
-            if !aabb.is_in_half_space(&half_space, world_from_local) {
+            if !aabb.is_in_half_space(half_space, world_from_local) {
                 return false;
             }
         }
