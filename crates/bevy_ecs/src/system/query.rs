@@ -352,6 +352,8 @@ use core::{
 /// [`par_iter`]: Self::par_iter
 /// [`par_iter_mut`]: Self::par_iter_mut
 /// [performance]: #performance
+/// [`Single`]: Single
+/// [`Option<Single>`]: Single
 /// [`single`]: Self::single
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
