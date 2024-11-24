@@ -1,10 +1,9 @@
 use super::{CubicCurve, CubicSegment, RationalCurve, RationalSegment};
 use crate::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
-    derivatives::{CurveWithDerivative, CurveWithTwoDerivatives},
+    derivatives::{SimpleDerivativeCurve, SimpleTwoDerivativesCurve},
     Curve, Interval,
 };
-use core::ops::Deref;
 
 // -- CubicSegment
 
@@ -17,6 +16,27 @@ impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
         self.position(t)
+    }
+}
+
+impl<P: VectorSpace> SimpleDerivativeCurve<P> for CubicSegment<P> {
+    #[inline]
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
+        WithDerivative {
+            point: self.position(t),
+            derivative: self.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for CubicSegment<P> {
+    #[inline]
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
+        WithTwoDerivatives {
+            point: self.position(t),
+            derivative: self.velocity(t),
+            second_derivative: self.acceleration(t),
+        }
     }
 }
 
@@ -36,6 +56,27 @@ impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     }
 }
 
+impl<P: VectorSpace> SimpleDerivativeCurve<P> for CubicCurve<P> {
+    #[inline]
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
+        WithDerivative {
+            point: self.position(t),
+            derivative: self.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for CubicCurve<P> {
+    #[inline]
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
+        WithTwoDerivatives {
+            point: self.position(t),
+            derivative: self.velocity(t),
+            second_derivative: self.acceleration(t),
+        }
+    }
+}
+
 // -- RationalSegment
 
 impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
@@ -47,6 +88,27 @@ impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
         self.position(t)
+    }
+}
+
+impl<P: VectorSpace> SimpleDerivativeCurve<P> for RationalSegment<P> {
+    #[inline]
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
+        WithDerivative {
+            point: self.position(t),
+            derivative: self.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for RationalSegment<P> {
+    #[inline]
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
+        WithTwoDerivatives {
+            point: self.position(t),
+            derivative: self.velocity(t),
+            second_derivative: self.acceleration(t),
+        }
     }
 }
 
@@ -63,5 +125,26 @@ impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
         self.position(t)
+    }
+}
+
+impl<P: VectorSpace> SimpleDerivativeCurve<P> for RationalCurve<P> {
+    #[inline]
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
+        WithDerivative {
+            point: self.position(t),
+            derivative: self.velocity(t),
+        }
+    }
+}
+
+impl<P: VectorSpace> SimpleTwoDerivativesCurve<P> for RationalCurve<P> {
+    #[inline]
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
+        WithTwoDerivatives {
+            point: self.position(t),
+            derivative: self.velocity(t),
+            second_derivative: self.acceleration(t),
+        }
     }
 }
