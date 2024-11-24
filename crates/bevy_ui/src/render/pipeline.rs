@@ -74,8 +74,6 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x2,
                 // position relative to the center
                 VertexFormat::Float32x2,
-                // inverse scale factor
-                VertexFormat::Float32,
             ],
         );
         let shader_defs = if key.anti_alias {

@@ -97,7 +97,6 @@ pub struct TransparentUi {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
-    pub inverse_scale_factor: f32,
 }
 
 impl PhaseItem for TransparentUi {

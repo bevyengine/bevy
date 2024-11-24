@@ -11,13 +11,11 @@ extern crate alloc;
 
 pub mod animatable;
 pub mod animation_curves;
-pub mod animation_event;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
 mod util;
 
-use animation_event::{trigger_animation_event, AnimationEvent, AnimationEventData};
 use core::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -30,7 +28,7 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{Animation, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_core::Name;
 use bevy_ecs::{
@@ -64,12 +62,8 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*,
-        animation_curves::*,
-        animation_event::{AnimationEvent, ReflectAnimationEvent},
-        graph::*,
-        transition::*,
-        AnimationClip, AnimationPlayer, AnimationPlugin, VariableCurve,
+        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
+        AnimationPlayer, AnimationPlugin, VariableCurve,
     };
 }
 
@@ -78,6 +72,7 @@ use crate::{
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
     transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
 };
+use alloc::sync::Arc;
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -289,7 +284,35 @@ pub struct AnimationClip {
 #[derive(Reflect, Debug, Clone)]
 struct TimedAnimationEvent {
     time: f32,
-    event: AnimationEventData,
+    event: AnimationEvent,
+}
+
+#[derive(Reflect, Debug, Clone)]
+struct AnimationEvent {
+    #[reflect(ignore)]
+    trigger: AnimationEventFn,
+}
+
+impl AnimationEvent {
+    fn trigger(&self, commands: &mut Commands, entity: Entity, time: f32, weight: f32) {
+        (self.trigger.0)(commands, entity, time, weight);
+    }
+}
+
+#[derive(Reflect, Clone)]
+#[reflect(opaque)]
+struct AnimationEventFn(Arc<dyn Fn(&mut Commands, Entity, f32, f32) + Send + Sync>);
+
+impl Default for AnimationEventFn {
+    fn default() -> Self {
+        Self(Arc::new(|_commands, _entity, _time, _weight| {}))
+    }
+}
+
+impl Debug for AnimationEventFn {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("AnimationEventFn").finish()
+    }
 }
 
 #[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
@@ -472,9 +495,24 @@ impl AnimationClip {
             .push(variable_curve);
     }
 
-    /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add a untargeted [`Event`] to this [`AnimationClip`].
     ///
-    /// The `event` will trigger on the entity matching the target once the `time` (in seconds)
+    /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
+    /// is reached in the animation.
+    ///
+    /// See also [`add_event_to_target`](Self::add_event_to_target).
+    pub fn add_event(&mut self, time: f32, event: impl Event + Clone) {
+        self.add_event_fn(
+            time,
+            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
+                commands.entity(entity).trigger(event.clone());
+            },
+        );
+    }
+
+    /// Add an [`Event`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    ///
+    /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
     ///
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
@@ -482,26 +520,69 @@ impl AnimationClip {
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
-        event: impl AnimationEvent,
+        event: impl Event + Clone,
     ) {
-        self.add_event_to_target_inner(AnimationEventTarget::Node(target_id), time, event);
+        self.add_event_fn_to_target(
+            target_id,
+            time,
+            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
+                commands.entity(entity).trigger(event.clone());
+            },
+        );
     }
 
-    /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
+    /// Add a untargeted event function to this [`AnimationClip`].
     ///
-    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
+    /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
     ///
+    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event`].
     /// See also [`add_event_to_target`](Self::add_event_to_target).
-    pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
-        self.add_event_to_target_inner(AnimationEventTarget::Root, time, event);
+    ///
+    /// ```
+    /// # use bevy_animation::AnimationClip;
+    /// # let mut clip = AnimationClip::default();
+    /// clip.add_event_fn(1.0, |commands, entity, time, weight| {
+    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    /// })
+    /// ```
+    pub fn add_event_fn(
+        &mut self,
+        time: f32,
+        func: impl Fn(&mut Commands, Entity, f32, f32) + Send + Sync + 'static,
+    ) {
+        self.add_event_internal(AnimationEventTarget::Root, time, func);
     }
 
-    fn add_event_to_target_inner(
+    /// Add an event function to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    ///
+    /// The `func` will trigger on the entity matching the target once the `time` (in seconds)
+    /// is reached in the animation.
+    ///
+    /// For a simpler [`Event`]-based alternative, see [`AnimationClip::add_event_to_target`].
+    /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
+    ///
+    /// ```
+    /// # use bevy_animation::{AnimationClip, AnimationTargetId};
+    /// # let mut clip = AnimationClip::default();
+    /// clip.add_event_fn_to_target(AnimationTargetId::from_iter(["Arm", "Hand"]), 1.0, |commands, entity, time, weight| {
+    ///   println!("Animation Event Triggered {entity:#?} at time {time} with weight {weight}");
+    /// })
+    /// ```
+    pub fn add_event_fn_to_target(
+        &mut self,
+        target_id: AnimationTargetId,
+        time: f32,
+        func: impl Fn(&mut Commands, Entity, f32, f32) + Send + Sync + 'static,
+    ) {
+        self.add_event_internal(AnimationEventTarget::Node(target_id), time, func);
+    }
+
+    fn add_event_internal(
         &mut self,
         target: AnimationEventTarget,
         time: f32,
-        event: impl AnimationEvent,
+        trigger_fn: impl Fn(&mut Commands, Entity, f32, f32) + Send + Sync + 'static,
     ) {
         self.duration = self.duration.max(time);
         let triggers = self.events.entry(target).or_default();
@@ -510,7 +591,9 @@ impl AnimationClip {
                 index,
                 TimedAnimationEvent {
                     time,
-                    event: AnimationEventData::new(event),
+                    event: AnimationEvent {
+                        trigger: AnimationEventFn(Arc::new(trigger_fn)),
+                    },
                 },
             ),
         }
@@ -988,12 +1071,7 @@ fn trigger_untargeted_animation_events(
             };
 
             for TimedAnimationEvent { time, event } in triggered_events.iter() {
-                commands.queue(trigger_animation_event(
-                    entity,
-                    *time,
-                    active_animation.weight,
-                    event.clone().0,
-                ));
+                event.trigger(&mut commands, entity, *time, active_animation.weight);
             }
         }
     }
@@ -1195,12 +1273,12 @@ pub fn animate_targets(
                                         for TimedAnimationEvent { time, event } in
                                             triggered_events.iter()
                                         {
-                                            commands.queue(trigger_animation_event(
+                                            event.trigger(
+                                                &mut commands,
                                                 entity,
                                                 *time,
                                                 active_animation.weight,
-                                                event.clone().0,
-                                            ));
+                                            );
                                         }
                                     });
                                 }
@@ -1251,10 +1329,6 @@ pub fn animate_targets(
             }
         });
 }
-
-/// Animation system set
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Animation;
 
 /// Adds animation support to an app
 #[derive(Default)]
@@ -1572,12 +1646,6 @@ mod tests {
 
     #[derive(Event, Reflect, Clone)]
     struct A;
-
-    impl AnimationEvent for A {
-        fn trigger(&self, _time: f32, _weight: f32, target: Entity, world: &mut World) {
-            world.entity_mut(target).trigger(self.clone());
-        }
-    }
 
     #[track_caller]
     fn assert_triggered_events_with(
