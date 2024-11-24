@@ -4698,6 +4698,23 @@ mod tests {
         assert_eq!(world.entities().get(entity), Some(location));
     }
 
+    #[test]
+    #[should_panic(
+        expected = "Entity 1v1 has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn."
+    )]
+    fn location_on_despawned_entity_panics() {
+        let mut world = World::new();
+        world.add_observer(
+            |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
+                commands.entity(trigger.entity()).despawn();
+            },
+        );
+        let entity = world.spawn_empty().id();
+        let mut a = world.entity_mut(entity);
+        a.insert(TestComponent(0));
+        a.location();
+    }
+
     #[derive(Resource)]
     struct TestFlush(usize);
 
@@ -4712,9 +4729,11 @@ mod tests {
         world.add_observer(|_: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
             commands.queue(count_flush);
         });
-        world.add_observer(|_: Trigger<OnRemove, TestComponent>, mut commands: Commands| {
-            commands.queue(count_flush);
-        });
+        world.add_observer(
+            |_: Trigger<OnRemove, TestComponent>, mut commands: Commands| {
+                commands.queue(count_flush);
+            },
+        );
         world.commands().queue(count_flush);
         let entity = world.spawn_empty().id();
         assert_eq!(world.resource::<TestFlush>().0, 1);
