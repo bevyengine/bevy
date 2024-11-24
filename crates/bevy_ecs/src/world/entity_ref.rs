@@ -2007,7 +2007,7 @@ impl<'w> EntityWorldMut<'w> {
     /// between commands as this shouldn't happen. However, for some special cases where it
     /// is known that a hook or an observer might despawn the entity while a [`EntityWorldMut`]
     /// reference is still held, this method can be used to check if the entity is still alive
-    /// to avoid panicing when calling further methods.
+    /// to avoid panicking when calling further methods.
     #[inline]
     pub fn is_despawned(&self) -> bool {
         self.location.archetype_id == ArchetypeId::INVALID
