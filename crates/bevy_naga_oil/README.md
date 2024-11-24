@@ -111,6 +111,7 @@ the function signature of the override must match the base function.
 overrides can be specified at any point in the final shader's import tree.
 
 multiple overrides can be applied to the same function. for example, given :
+
 - a module `a` containing a function `f`,
 - a module `b` that imports `a`, and containing an `override a::f` function,
 - a module `c` that imports `a` and `b`, and containing an `override a::f` function,
