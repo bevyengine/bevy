@@ -147,11 +147,9 @@ fn sprite_picking(
                 }
                 // Otherwise we can interpolate the xy of the start and end positions by the
                 // lerp factor to get the cursor position in sprite space!
-                // We also need to invert the y axis as pixel data handles the y axis differently to world and screen coords
                 let cursor_pos_sprite = cursor_start_sprite
                     .lerp(cursor_end_sprite, lerp_factor)
-                    .xy()
-                    * Vec2::new(1.0, -1.0);
+                    .xy();
 
                 let Ok(cursor_pixel_space) = sprite.compute_pixel_space_point(
                     cursor_pos_sprite,
