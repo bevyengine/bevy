@@ -1,5 +1,3 @@
-use std::num::{NonZero, NonZeroU32};
-
 use crate::{extract_resource::ExtractResource, render_resource::TextureView};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
 use bevy_image::BevyDefault as _;
@@ -18,7 +16,6 @@ pub struct ManualTextureViewHandle(pub u32);
 pub struct ManualTextureView {
     pub texture_view: TextureView,
     pub size: UVec2,
-    pub depth: NonZeroU32,
     pub format: TextureFormat,
 }
 
@@ -27,7 +24,6 @@ impl ManualTextureView {
         Self {
             texture_view,
             size,
-            depth: NonZero::new(1).unwrap(),
             format: TextureFormat::bevy_default(),
         }
     }

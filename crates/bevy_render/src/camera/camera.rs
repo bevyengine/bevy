@@ -22,7 +22,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
-    query::Has,
+    query::{Has, Or},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
     world::DeferredWorld,
@@ -40,7 +40,6 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
-use std::num::NonZeroU32;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -810,23 +809,6 @@ impl NormalizedRenderTarget {
             }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.format)
-            }
-        }
-    }
-
-    pub fn get_texture_depth(
-        &self,
-        images: &Assets<Image>,
-        manual_texture_views: &ManualTextureViews,
-    ) -> Option<NonZeroU32> {
-        match self {
-            NormalizedRenderTarget::Window(_) => NonZeroU32::new(1),
-            NormalizedRenderTarget::Image(image_handle) => {
-                let image = images.get(image_handle)?;
-                Some(image.depth())
-            }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| tex.depth)
             }
         }
     }

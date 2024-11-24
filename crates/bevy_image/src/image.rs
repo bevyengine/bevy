@@ -13,7 +13,6 @@ use bevy_reflect::Reflect;
 use core::hash::Hash;
 use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub trait BevyDefault {
@@ -768,11 +767,6 @@ impl Image {
     #[inline]
     pub fn height(&self) -> u32 {
         self.texture_descriptor.size.height
-    }
-
-    #[inline]
-    pub fn depth(&self) -> NonZeroU32 {
-        NonZeroU32::new(self.texture_descriptor.size.depth_or_array_layers).unwrap()
     }
 
     /// Returns the aspect ratio (width / height) of a 2D image.
