@@ -903,6 +903,7 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 /// Segments can be chained together to form a longer [compound curve].
 ///
 /// [compound curve]: CubicCurve
+/// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -1066,6 +1067,8 @@ impl CubicSegment<Vec2> {
 ///
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
+///
+/// [`Curve`]: crate::curve::Curve
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
@@ -1218,6 +1221,7 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// together.
 ///
 /// [compound curves]: RationalCurve
+/// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -1348,6 +1352,8 @@ impl<P: VectorSpace> RationalSegment<P> {
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
+///
+/// [`Curve`]: crate::curve::Curve
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]

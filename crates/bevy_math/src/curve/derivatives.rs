@@ -15,6 +15,10 @@
 //! to use [`by_ref`] when possible to create a referential curve first, retaining
 //! liveness of the original.
 //!
+//! This module also holds the [`SimpleDerivativeCurve`] and [`SimpleTwoDerivativesCurve`]
+//! traits, which can be used to easily implement `CurveWithDerivative` and its
+//! counterpart.
+//!
 //! [`with_derivative`]: CurveWithDerivative::with_derivative
 //! [`by_ref`]: Curve::by_ref
 
@@ -23,6 +27,8 @@ use crate::{
     curve::{Curve, Interval},
 };
 use core::ops::Deref;
+
+// TODO: Reflect, Serialize/Deserialize
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
@@ -45,12 +51,27 @@ where
     fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>>;
 }
 
+/// A trait for curves that can sample derivatives in addition to values.
+///
+/// Types that implement this trait automatically implement [`CurveWithDerivative`];
+/// the curve produced by [`with_derivative`] uses the sampling defined in the trait
+/// implementation.
+///
+/// [`with_derivative`]: CurveWithDerivative::with_derivative
 pub trait SimpleDerivativeCurve<T>: Curve<T>
 where
     T: HasTangent,
 {
+    /// Sample this curve at the parameter value `t`, extracting the associated value
+    /// in addition to its derivative. This is the unchecked version of sampling, which
+    /// should only be used if the sample time `t` is already known to lie within the
+    /// curve's domain.
+    ///
+    /// See [`Curve::sample_unchecked`] for more information.
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T>;
 
+    /// Sample this curve's value and derivative at the parameter value `t`, returning
+    /// `None` if the point is outside of the curve's domain.
     fn sample_with_derivative(&self, t: f32) -> Option<WithDerivative<T>> {
         match self.domain().contains(t) {
             true => Some(self.sample_with_derivative_unchecked(t)),
@@ -58,6 +79,8 @@ where
         }
     }
 
+    /// Sample this curve's value and derivative at the parameter value `t`, clamping `t`
+    /// to lie inside the domain of the curve.
     fn sample_with_derivative_clamped(&self, t: f32) -> WithDerivative<T> {
         let t = self.domain().clamp(t);
         self.sample_with_derivative_unchecked(t)
@@ -75,13 +98,28 @@ where
     }
 }
 
+/// A trait for curves that can sample two derivatives in addition to values.
+///
+/// Types that implement this trait automatically implement [`CurveWithTwoDerivatives`];
+/// the curve produced by [`with_two_derivatives`] uses the sampling defined in the trait
+/// implementation.
+///
+/// [`with_two_derivatives`]: CurveWithTwoDerivatives::with_two_derivatives
 pub trait SimpleTwoDerivativesCurve<T>: Curve<T>
 where
     T: HasTangent,
     <T as HasTangent>::Tangent: HasTangent,
 {
+    /// Sample this curve at the parameter value `t`, extracting the associated value
+    /// in addition to two derivatives. This is the unchecked version of sampling, which
+    /// should only be used if the sample time `t` is already known to lie within the
+    /// curve's domain.
+    ///
+    /// See [`Curve::sample_unchecked`] for more information.
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T>;
 
+    /// Sample this curve's value and two derivatives at the parameter value `t`, returning
+    /// `None` if the point is outside of the curve's domain.
     fn sample_with_two_derivatives(&self, t: f32) -> Option<WithTwoDerivatives<T>> {
         match self.domain().contains(t) {
             true => Some(self.sample_with_two_derivatives_unchecked(t)),
@@ -89,12 +127,15 @@ where
         }
     }
 
+    /// Sample this curve's value and two derivatives at the parameter value `t`, clamping `t`
+    /// to lie inside the domain of the curve.
     fn sample_with_two_derivatives_clamped(&self, t: f32) -> WithTwoDerivatives<T> {
         let t = self.domain().clamp(t);
         self.sample_with_two_derivatives_unchecked(t)
     }
 }
 
+/// A wrapper that uses a [`SimpleDerivativeCurve<T>`] to produce a `Curve<WithDerivative<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct SimpleDerivativeWrapper<C>(C);
 
@@ -120,6 +161,8 @@ where
     }
 }
 
+/// A wrapper that uses a [`SimpleTwoDerivativesCurve<T>`] to produce a
+/// `Curve<WithTwoDerivatives<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct SimpleTwoDerivativesWrapper<C>(C);
 
