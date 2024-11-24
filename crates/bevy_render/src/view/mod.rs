@@ -1,7 +1,7 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -28,7 +28,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
+use bevy_image::{BevyDefault as _, Image};
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
@@ -38,6 +38,7 @@ use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use std::num::NonZeroU32;
 use wgpu::{
     Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -527,6 +528,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
+    main_texture_depth: NonZeroU32,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -718,6 +720,19 @@ impl ViewTarget {
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
+    }
+
+    #[inline]
+    pub fn main_texture_depth(&self) -> NonZeroU32 {
+        self.main_texture_depth
+    }
+
+    pub fn multiview(&self) -> Option<NonZeroU32> {
+        if self.main_texture_depth.get() > 1 {
+            Some(self.main_texture_depth)
+        } else {
+            None
+        }
     }
 
     /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
@@ -927,6 +942,8 @@ pub fn prepare_view_targets(
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
+    images: Res<Assets<Image>>,
+    manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<(
         Entity,
         &ExtractedCamera,
@@ -947,10 +964,14 @@ pub fn prepare_view_targets(
             continue;
         };
 
+        let Some(depth) = target.get_texture_depth(&images, &manual_texture_views) else {
+            continue;
+        };
+
         let size = Extent3d {
             width: target_size.x,
             height: target_size.y,
-            depth_or_array_layers: 1,
+            depth_or_array_layers: depth.into(),
         };
 
         let main_texture_format = if view.hdr {
@@ -1028,6 +1049,7 @@ pub fn prepare_view_targets(
 
         commands.entity(entity).insert(ViewTarget {
             main_texture: main_textures.main_texture.clone(),
+            main_texture_depth: depth,
             main_textures,
             main_texture_format,
             out_texture: out_attachment.clone(),
