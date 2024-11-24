@@ -345,7 +345,7 @@ pub fn queue_ui_slices(
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedViews)>,
+    mut views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {

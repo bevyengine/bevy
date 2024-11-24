@@ -185,14 +185,6 @@ impl Msaa {
 }
 
 #[derive(Component)]
-pub struct ExtractedViews {
-    pub views: Vec<ExtractedView>,
-    pub hdr: bool,
-    // uvec4(origin.x, origin.y, width, height)
-    pub viewport: UVec4,
-    pub color_grading: ColorGrading,
-}
-
 pub struct ExtractedView {
     /// Typically a right-handed projection matrix, one of either:
     ///
@@ -229,13 +221,16 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
+    pub hdr: bool,
+    // uvec4(origin.x, origin.y, width, height)
+    pub viewport: UVec4,
+    pub color_grading: ColorGrading,
 }
 
-impl ExtractedViews {
+impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        // TODO: Multiview
-        ViewRangefinder3d::from_world_from_view(&self.views[0].world_from_view.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
     }
 }
 
@@ -802,7 +797,7 @@ pub fn prepare_view_uniforms(
     views: Query<(
         Entity,
         Option<&ExtractedCamera>,
-        &ExtractedViews,
+        &ExtractedView,
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
@@ -812,56 +807,54 @@ pub fn prepare_view_uniforms(
     // let view_count = view_iter.len();
     view_uniforms.uniforms.clear();
     let mut offsets = vec![];
-    for (entity, extracted_camera, extracted_views, frustum, temporal_jitter, mip_bias) in &views {
+    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let array_index = view_uniforms.uniforms.new_array();
         offsets.push((entity, array_index));
-        let viewport = extracted_views.viewport.as_vec4();
-        for extracted_view in &extracted_views.views {
-            let unjittered_projection = extracted_view.clip_from_view;
-            let mut clip_from_view = unjittered_projection;
+        let viewport = extracted_view.viewport.as_vec4();
+        let unjittered_projection = extracted_view.clip_from_view;
+        let mut clip_from_view = unjittered_projection;
 
-            if let Some(temporal_jitter) = temporal_jitter {
-                temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
-            }
-
-            let view_from_clip = clip_from_view.inverse();
-            let world_from_view = extracted_view.world_from_view.compute_matrix();
-            let view_from_world = world_from_view.inverse();
-
-            let clip_from_world = if temporal_jitter.is_some() {
-                clip_from_view * view_from_world
-            } else {
-                extracted_view
-                    .clip_from_world
-                    .unwrap_or_else(|| clip_from_view * view_from_world)
-            };
-
-            // Map Frustum type to shader array<vec4<f32>, 6>
-            let frustum = frustum
-                .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
-                .unwrap_or([Vec4::ZERO; 6]);
-
-            view_uniforms.uniforms.push_element(
-                array_index,
-                ViewUniform {
-                    clip_from_world,
-                    unjittered_clip_from_world: unjittered_projection * view_from_world,
-                    world_from_clip: world_from_view * view_from_clip,
-                    world_from_view,
-                    view_from_world,
-                    clip_from_view,
-                    view_from_clip,
-                    world_position: extracted_view.world_from_view.translation(),
-                    exposure: extracted_camera
-                        .map(|c| c.exposure)
-                        .unwrap_or_else(|| Exposure::default().exposure()),
-                    viewport,
-                    frustum,
-                    color_grading: extracted_views.color_grading.clone().into(),
-                    mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                },
-            );
+        if let Some(temporal_jitter) = temporal_jitter {
+            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
         }
+
+        let view_from_clip = clip_from_view.inverse();
+        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let view_from_world = world_from_view.inverse();
+
+        let clip_from_world = if temporal_jitter.is_some() {
+            clip_from_view * view_from_world
+        } else {
+            extracted_view
+                .clip_from_world
+                .unwrap_or_else(|| clip_from_view * view_from_world)
+        };
+
+        // Map Frustum type to shader array<vec4<f32>, 6>
+        let frustum = frustum
+            .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
+            .unwrap_or([Vec4::ZERO; 6]);
+
+        view_uniforms.uniforms.push_element(
+            array_index,
+            ViewUniform {
+                clip_from_world,
+                unjittered_clip_from_world: unjittered_projection * view_from_world,
+                world_from_clip: world_from_view * view_from_clip,
+                world_from_view,
+                view_from_world,
+                clip_from_view,
+                view_from_clip,
+                world_position: extracted_view.world_from_view.translation(),
+                exposure: extracted_camera
+                    .map(|c| c.exposure)
+                    .unwrap_or_else(|| Exposure::default().exposure()),
+                viewport,
+                frustum,
+                color_grading: extracted_view.color_grading.clone().into(),
+                mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+            },
+        );
     }
     view_uniforms.uniforms.finish_queuing();
     view_uniforms
@@ -930,7 +923,7 @@ pub fn prepare_view_targets(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedViews,
+        &ExtractedView,
         &CameraMainTextureUsages,
         &Msaa,
     )>,

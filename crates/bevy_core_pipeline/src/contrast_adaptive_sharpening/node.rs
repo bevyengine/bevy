@@ -10,7 +10,7 @@ use bevy_render::{
         RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
-    view::{ExtractedViews, ViewTarget},
+    view::{ExtractedView, ViewTarget},
 };
 
 use super::{CasPipeline, CasUniform};
@@ -22,7 +22,7 @@ pub struct CasNode {
             &'static ViewCasPipeline,
             &'static DynamicUniformIndex<CasUniform>,
         ),
-        With<ExtractedViews>,
+        With<ExtractedView>,
     >,
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
 }

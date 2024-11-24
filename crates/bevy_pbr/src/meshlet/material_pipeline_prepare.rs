@@ -15,7 +15,7 @@ use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
     render_asset::RenderAssets,
     render_resource::*,
-    view::{ExtractedViews, ViewUniforms},
+    view::{ExtractedView, ViewUniforms},
 };
 use bevy_utils::{HashMap, HashSet};
 use core::hash::Hash;
@@ -42,7 +42,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     mut views: Query<
         (
             &mut MeshletViewMaterialsMainOpaquePass,
-            &ExtractedViews,
+            &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
@@ -246,7 +246,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         (
             &mut MeshletViewMaterialsPrepass,
             &mut MeshletViewMaterialsDeferredGBufferPrepass,
-            &ExtractedViews,
+            &ExtractedView,
             AnyOf<(&NormalPrepass, &MotionVectorPrepass, &DeferredPrepass)>,
         ),
         With<Camera3d>,

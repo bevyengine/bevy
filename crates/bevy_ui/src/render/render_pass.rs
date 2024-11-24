@@ -19,8 +19,7 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query:
-        QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedViews>>,
+    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 

@@ -30,7 +30,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         sync_world::MainEntity,
-        view::{ExtractedViews, NoFrustumCulling, ViewUniforms},
+        view::{ExtractedView, NoFrustumCulling, ViewUniforms},
         Render, RenderApp, RenderSet,
     },
 };
@@ -130,7 +130,7 @@ fn queue_custom(
     view_uniforms: Res<ViewUniforms>,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedViews, &Msaa)>,
+    views: Query<(Entity, &ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 

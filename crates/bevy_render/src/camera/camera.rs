@@ -6,11 +6,12 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedViews, ExtractedWindows, GpuCulling, Msaa,
-        RenderLayers, RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -22,12 +23,11 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
-    query::{Has, Or},
+    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
     world::DeferredWorld,
 };
-use bevy_hierarchy::Children;
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -267,11 +267,6 @@ pub enum ViewportConversionError {
     /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
     /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
     InvalidData,
-}
-
-#[derive(Default, Clone, Copy, Component)]
-pub struct CameraView {
-    clip_from_view: Mat4,
 }
 
 /// The defining [`Component`] for camera entities,
@@ -889,9 +884,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(Entity, &mut Camera, &Children)>,
-    mut projection: Query<&mut T>,
-    mut camera_views: Query<&mut CameraView>,
+    mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -912,16 +905,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
-    for (camera_entity, mut camera, children) in &mut cameras {
-        let projection_changed = children
-            .iter()
-            .copied()
-            .chain(std::iter::once(camera_entity))
-            .any(|entity| {
-                projection
-                    .get_mut(entity)
-                    .is_ok_and(|projection| projection.is_changed())
-            });
+    for (mut camera, mut camera_projection) in &mut cameras {
         let mut viewport_size = camera
             .viewport
             .as_ref()
@@ -930,7 +914,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         if let Some(normalized_target) = camera.target.normalize(primary_window) {
             if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
                 || camera.is_added()
-                || projection_changed
+                || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
@@ -980,30 +964,12 @@ pub fn camera_system<T: CameraProjection + Component>(
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     if size.x != 0.0 && size.y != 0.0 {
-                        for entity in children
-                            .iter()
-                            .copied()
-                            .chain(std::iter::once(camera_entity))
-                        {
-                            let Ok(mut camera_projection) = projection.get_mut(entity) else {
-                                continue;
-                            };
-
-                            camera_projection.update(size.x, size.y);
-                            let clip_from_view = match &camera.sub_camera_view {
-                                Some(sub_view) => {
-                                    camera_projection.get_clip_from_view_for_sub(sub_view)
-                                }
-                                None => camera_projection.get_clip_from_view(),
-                            };
-                            if entity == camera_entity {
-                                camera.computed.clip_from_view = clip_from_view
-                            } else {
-                                let Ok(mut camera_view) = camera_views.get_mut(entity) else {
-                                    continue;
-                                };
-                                camera_view.clip_from_view = clip_from_view
+                        camera_projection.update(size.x, size.y);
+                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                            Some(sub_view) => {
+                                camera_projection.get_clip_from_view_for_sub(sub_view)
                             }
+                            None => camera_projection.get_clip_from_view(),
                         }
                     }
                 }
@@ -1057,7 +1023,6 @@ pub fn extract_cameras(
         Query<(
             RenderEntity,
             &Camera,
-            &Children,
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
@@ -1070,7 +1035,6 @@ pub fn extract_cameras(
             Has<GpuCulling>,
         )>,
     >,
-    camera_views: Extract<Query<(&GlobalTransform, &CameraView)>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
@@ -1079,7 +1043,6 @@ pub fn extract_cameras(
     for (
         render_entity,
         camera,
-        children,
         camera_render_graph,
         transform,
         visible_entities,
@@ -1095,7 +1058,7 @@ pub fn extract_cameras(
         if !camera.is_active {
             commands.entity(render_entity).remove::<(
                 ExtractedCamera,
-                ExtractedViews,
+                ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
                 RenderLayers,
@@ -1146,33 +1109,6 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
-
-            let mut camera_views: Vec<_> = children
-                .iter()
-                .filter_map(|entity| match camera_views.get(*entity) {
-                    Ok((global_transform, camera_view)) => Some((*global_transform, *camera_view)),
-                    _ => None,
-                })
-                .collect();
-
-            if camera_views.len() == 0 {
-                camera_views.push((
-                    *transform,
-                    CameraView {
-                        clip_from_view: camera.clip_from_view(),
-                    },
-                ))
-            }
-
-            let views = camera_views
-                .into_iter()
-                .map(|(transform, view)| ExtractedView {
-                    clip_from_view: view.clip_from_view,
-                    world_from_view: transform,
-                    clip_from_world: None,
-                })
-                .collect();
-
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -1192,8 +1128,10 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: camera.hdr,
                 },
-                ExtractedViews {
-                    views,
+                ExtractedView {
+                    clip_from_view: camera.clip_from_view(),
+                    world_from_view: *transform,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
