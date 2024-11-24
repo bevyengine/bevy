@@ -28,7 +28,8 @@ use crate::{
 };
 use core::ops::Deref;
 
-// TODO: Reflect, Serialize/Deserialize
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromReflect, Reflect};
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
@@ -137,6 +138,12 @@ where
 
 /// A wrapper that uses a [`SimpleDerivativeCurve<T>`] to produce a `Curve<WithDerivative<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect, FromReflect),
+    reflect(from_reflect = false)
+)]
 pub struct SimpleDerivativeWrapper<C>(C);
 
 impl<T, C> Curve<WithDerivative<T>> for SimpleDerivativeWrapper<C>
@@ -164,6 +171,12 @@ where
 /// A wrapper that uses a [`SimpleTwoDerivativesCurve<T>`] to produce a
 /// `Curve<WithTwoDerivatives<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect, FromReflect),
+    reflect(from_reflect = false)
+)]
 pub struct SimpleTwoDerivativesWrapper<C>(C);
 
 impl<T, C> Curve<WithTwoDerivatives<T>> for SimpleTwoDerivativesWrapper<C>
