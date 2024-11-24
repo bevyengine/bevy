@@ -450,7 +450,7 @@ impl FunctionReq {
                     pointer: expr_map[pointer],
                     fun: *fun,
                     value: expr_map[value],
-                    result: result.map(|result| expr_map[result]),
+                    result: result.as_ref().map(|result| expr_map[result]),
                 })
             }
             (
@@ -1569,7 +1569,7 @@ impl<'a> Pruner<'a> {
                 debug!("atomic store required: {:?}", required_store);
 
                 let required_load =
-                    result.and_then(|result| func_req.exprs_required.get(*result).cloned());
+                    result.as_ref().and_then(|result| func_req.exprs_required.get(result).cloned());
                 debug!("atomic load required: {:?}", required_load);
 
                 if required_load.is_some() || required_store.is_some() {
@@ -1579,7 +1579,7 @@ impl<'a> Pruner<'a> {
                             function,
                             func_req,
                             context,
-                            *result.unwrap(),
+                            result.unwrap(),
                             &required_load,
                         );
                     }
