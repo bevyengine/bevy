@@ -3676,7 +3676,7 @@ mod tests {
         component::ComponentId,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
-        world::{error::EntityComponentError, FilteredEntityMut, FilteredEntityRef},
+        world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
@@ -4696,5 +4696,142 @@ mod tests {
         a.observe(|_: Trigger<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
         assert_eq!(world.entities().get(entity), Some(location));
+    }
+
+    #[derive(Resource)]
+    struct TestVec(Vec<&'static str>);
+
+    #[derive(Component)]
+    #[component(on_add = ord_a_hook_on_add, on_insert = ord_a_hook_on_insert, on_replace = ord_a_hook_on_replace, on_remove = ord_a_hook_on_remove)]
+    struct OrdA;
+
+    fn ord_a_hook_on_add(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
+        world.resource_mut::<TestVec>().0.push("OrdA hook on_add");
+        world.commands().entity(entity).insert(OrdB);
+    }
+
+    fn ord_a_hook_on_insert(mut world: DeferredWorld, entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdA hook on_insert");
+        world.commands().entity(entity).despawn();
+    }
+
+    fn ord_a_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdA hook on_replace");
+    }
+
+    fn ord_a_hook_on_remove(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdA hook on_remove");
+    }
+
+    fn ord_a_observer_on_add(_trigger: Trigger<OnAdd, OrdA>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdA observer on_add");
+    }
+
+    fn ord_a_observer_on_insert(_trigger: Trigger<OnInsert, OrdA>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdA observer on_insert");
+    }
+
+    fn ord_a_observer_on_replace(_trigger: Trigger<OnReplace, OrdA>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdA observer on_replace");
+    }
+
+    fn ord_a_observer_on_remove(_trigger: Trigger<OnRemove, OrdA>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdA observer on_remove");
+    }
+
+    #[derive(Component)]
+    #[component(on_add = ord_b_hook_on_add, on_insert = ord_b_hook_on_insert, on_replace = ord_b_hook_on_replace, on_remove = ord_b_hook_on_remove)]
+    struct OrdB;
+
+    fn ord_b_hook_on_add(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world.resource_mut::<TestVec>().0.push("OrdB hook on_add");
+        world.commands().queue(|world: &mut World| {
+            world
+                .resource_mut::<TestVec>()
+                .0
+                .push("OrdB command on_add");
+        });
+    }
+
+    fn ord_b_hook_on_insert(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdB hook on_insert");
+    }
+
+    fn ord_b_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdB hook on_replace");
+    }
+
+    fn ord_b_hook_on_remove(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
+        world
+            .resource_mut::<TestVec>()
+            .0
+            .push("OrdB hook on_remove");
+    }
+
+    fn ord_b_observer_on_add(_trigger: Trigger<OnAdd, OrdB>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdB observer on_add");
+    }
+
+    fn ord_b_observer_on_insert(_trigger: Trigger<OnInsert, OrdB>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdB observer on_insert");
+    }
+
+    fn ord_b_observer_on_replace(_trigger: Trigger<OnReplace, OrdB>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdB observer on_replace");
+    }
+
+    fn ord_b_observer_on_remove(_trigger: Trigger<OnRemove, OrdB>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdB observer on_remove");
+    }
+
+    #[test]
+    fn command_ordering_is_correct() {
+        let mut world = World::new();
+        world.insert_resource(TestVec(Vec::new()));
+        world.add_observer(ord_a_observer_on_add);
+        world.add_observer(ord_a_observer_on_insert);
+        world.add_observer(ord_a_observer_on_replace);
+        world.add_observer(ord_a_observer_on_remove);
+        world.add_observer(ord_b_observer_on_add);
+        world.add_observer(ord_b_observer_on_insert);
+        world.add_observer(ord_b_observer_on_replace);
+        world.add_observer(ord_b_observer_on_remove);
+        let _entity = world.spawn(OrdA).id();
+        let expected = [
+            "OrdA hook on_add", // adds command to insert OrdB
+            "OrdA observer on_add",
+            "OrdA hook on_insert", // adds command to despawn entity
+            "OrdA observer on_insert",
+            "OrdB hook on_add", // adds command to just add to this log
+            "OrdB observer on_add",
+            "OrdB hook on_insert",
+            "OrdB observer on_insert",
+            "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
+            "OrdA hook on_replace", // start of despawn
+            "OrdB hook on_replace",
+            "OrdA observer on_replace",
+            "OrdB observer on_replace",
+            "OrdA hook on_remove",
+            "OrdB hook on_remove",
+            "OrdA observer on_remove",
+            "OrdB observer on_remove",
+        ];
+        world.flush();
+        assert_eq!(world.resource_mut::<TestVec>().0.as_slice(), &expected[..]);
     }
 }
