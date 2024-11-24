@@ -161,6 +161,9 @@ pub fn sprite_picking(
                     return None;
                 };
 
+                // Since the pixel space coordinate is `Ok`, we know the cursor is in the bounds of
+                // the sprite.
+
                 let cursor_in_valid_pixels_of_sprite = 'valid_pixel: {
                     match settings.picking_mode {
                         SpritePickingMode::AlphaThreshold(cutoff) => {
