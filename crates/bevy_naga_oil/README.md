@@ -10,7 +10,7 @@ and probably less useful externally:
 - `derive` allows importing of items from multiple shaders into a single shader
 - `redirect` modifies a shader by substituting function calls and modifying bindings
 
-# Compose
+## Compose
 
 the compose module allows construction of shaders from modules (which are themselves shaders).
 
@@ -22,7 +22,7 @@ it does this by treating shaders as modules, and
 
 for multiple small shaders with large common imports, this can be faster than parsing the full source for each shader, and it allows for constructing shaders in a cleaner modular manner with better scope control.
 
-## imports
+### imports
 
 shaders can be added to the composer as modules. this makes their types, constants, variables and functions available to modules/shaders that import them. note that importing a module will affect the final shader's global state if the module defines globals variables with bindings.
 
@@ -82,7 +82,7 @@ there is no overlap of namespaces, so the same function names (or type, constant
 
 note: the final shader will include the required dependencies (bindings, globals, consts, other functions) of any imported items that are used, but will not include the rest of the imported module.
 
-## overriding functions
+### overriding functions
 
 virtual functions can be declared with the `virtual` keyword:
 
@@ -133,13 +133,13 @@ override functions can currently only be defined in wgsl.
 
 if the `override_any` crate feature is enabled, then the `virtual` keyword is not required for the function being overridden.
 
-## languages
+### languages
 
 modules can we written in GLSL or WGSL. shaders with entry points can be imported as modules (provided they have a `#define_import_path` directive). entry points are available to call from imported modules either via their name (for WGSL) or via `module::main` (for GLSL).
 
 final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the ShaderType argument (GLSL compute shaders are not supported).
 
-## preprocessing
+### preprocessing
 
 when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`), an i32 (`ShaderDefValue::Int`) or a u32 (`ShaderDefValue::UInt`).
 
@@ -187,17 +187,17 @@ shader defs can be created or overridden at the start of the top-level shader wi
 
 the created value will default to `true` if not specified.
 
-## error reporting
+### error reporting
 
 codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 
-# prune
+## prune
 
 - strips dead code and bindings from shaders based on specified required output. intended to be used for building reduced depth and/or normal shaders from arbitrary vertex/fragment shaders.
 
 proper docs tbd
 
-# redirect
+## redirect
 
 - redirects function calls
 - wip: rebinds global bindings
@@ -205,7 +205,7 @@ proper docs tbd
 
 proper docs tbd
 
-# derive
+## derive
 
 - builds a single self-contained naga module out of parts of one or more existing modules
 
