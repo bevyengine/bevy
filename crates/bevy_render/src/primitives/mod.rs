@@ -99,18 +99,14 @@ impl Aabb {
     /// Check if the AABB is at the front side of the plane.
     /// Referenced from: [AABB Plane intersection](https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html)
     #[inline]
-    pub fn is_forward_plane(
-        &self,
-        p_normal: &Vec3A,
-        p_distance: f32,
-        world_from_local: &Affine3A,
-    ) -> bool {
+    pub fn is_in_half_space(&self, half_space: &HalfSpace, world_from_local: &Affine3A) -> bool {
         // transform the half-extents into world space.
         let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
         // collapse the half-extents onto the plane normal.
+        let p_normal = half_space.normal();
         let r = half_extents_world.dot(p_normal.abs());
         let aabb_center_world = world_from_local.transform_point3a(self.center);
-        let signed_distance = p_normal.dot(aabb_center_world) + p_distance;
+        let signed_distance = p_normal.dot(aabb_center_world) + half_space.d();
         signed_distance > r
     }
 }
@@ -322,8 +318,7 @@ impl Frustum {
     #[inline]
     pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         for half_space in &self.half_spaces {
-            let p_normal = half_space.normal();
-            if !aabb.is_forward_plane(&p_normal, half_space.d(), world_from_local) {
+            if !aabb.is_in_half_space(&half_space, world_from_local) {
                 return false;
             }
         }
