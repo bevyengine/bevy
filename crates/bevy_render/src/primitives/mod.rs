@@ -96,7 +96,7 @@ impl Aabb {
         self.center + self.half_extents
     }
 
-    /// Check if the AABB is at the front side of the plane.
+    /// Check if the AABB is at the front side of the bisecting plane.
     /// Referenced from: [AABB Plane intersection](https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html)
     #[inline]
     pub fn is_in_half_space(&self, half_space: &HalfSpace, world_from_local: &Affine3A) -> bool {
