@@ -64,6 +64,17 @@ where
     }
 }
 
+impl<T, C, D> SimpleDerivativeCurve<T> for D
+where
+    T: HasTangent,
+    C: SimpleDerivativeCurve<T> + ?Sized,
+    D: Deref<Target = C>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
+        <C as SimpleDerivativeCurve<T>>::sample_with_derivative_unchecked(self, t)
+    }
+}
+
 pub trait SimpleTwoDerivativesCurve<T>: Curve<T>
 where
     T: HasTangent,
@@ -85,13 +96,12 @@ where
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct SimpleDerivativeWrapper<D>(D);
+pub struct SimpleDerivativeWrapper<C>(C);
 
-impl<T, D> Curve<WithDerivative<T>> for SimpleDerivativeWrapper<D>
+impl<T, C> Curve<WithDerivative<T>> for SimpleDerivativeWrapper<C>
 where
     T: HasTangent,
-    D: Deref,
-    <D as Deref>::Target: SimpleDerivativeCurve<T>,
+    C: SimpleDerivativeCurve<T>,
 {
     fn domain(&self) -> Interval {
         self.0.domain()
@@ -100,17 +110,24 @@ where
     fn sample_unchecked(&self, t: f32) -> WithDerivative<T> {
         self.0.sample_with_derivative_unchecked(t)
     }
+
+    fn sample(&self, t: f32) -> Option<WithDerivative<T>> {
+        self.0.sample_with_derivative(t)
+    }
+
+    fn sample_clamped(&self, t: f32) -> WithDerivative<T> {
+        self.0.sample_with_derivative_clamped(t)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct SimpleTwoDerivativesWrapper<D>(D);
+pub struct SimpleTwoDerivativesWrapper<C>(C);
 
-impl<T, D> Curve<WithTwoDerivatives<T>> for SimpleTwoDerivativesWrapper<D>
+impl<T, C> Curve<WithTwoDerivatives<T>> for SimpleTwoDerivativesWrapper<C>
 where
     T: HasTangent,
     <T as HasTangent>::Tangent: HasTangent,
-    D: Deref,
-    <D as Deref>::Target: SimpleTwoDerivativesCurve<T>,
+    C: SimpleTwoDerivativesCurve<T>,
 {
     fn domain(&self) -> Interval {
         self.0.domain()
@@ -119,19 +136,13 @@ where
     fn sample_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {
         self.0.sample_with_two_derivatives_unchecked(t)
     }
-}
 
-// NB: This should have the same derives as the other wrapper structs.
-/// A wrapper which effectively makes a type `Deref` to itself to avoid code
-/// duplication.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-struct Owned<T>(T);
+    fn sample(&self, t: f32) -> Option<WithTwoDerivatives<T>> {
+        self.0.sample_with_two_derivatives(t)
+    }
 
-impl<T> Deref for Owned<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    fn sample_clamped(&self, t: f32) -> WithTwoDerivatives<T> {
+        self.0.sample_with_two_derivatives_clamped(t)
     }
 }
 
@@ -141,16 +152,17 @@ where
     C: SimpleDerivativeCurve<T>,
 {
     fn with_derivative(self) -> impl Curve<WithDerivative<T>> {
-        SimpleDerivativeWrapper(Owned(self))
+        SimpleDerivativeWrapper(self)
     }
 }
 
-// impl<T, C> CurveWithDerivative<T> for &C
-// where
-//     T: HasTangent,
-//     C: SimpleDerivativeCurve<T>,
-// {
-//     fn with_derivative(self) -> impl Curve<WithDerivative<T>> {
-//         SimpleDerivativeWrapper(self)
-//     }
-// }
+impl<T, C> CurveWithTwoDerivatives<T> for C
+where
+    T: HasTangent,
+    <T as HasTangent>::Tangent: HasTangent,
+    C: SimpleTwoDerivativesCurve<T> + CurveWithDerivative<T>,
+{
+    fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>> {
+        SimpleTwoDerivativesWrapper(self)
+    }
+}
