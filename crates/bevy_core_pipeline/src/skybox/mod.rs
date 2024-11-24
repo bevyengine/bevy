@@ -21,7 +21,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedViews, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
@@ -56,7 +56,6 @@ impl Plugin for SkyboxPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
-            .init_resource::<PreviousViewUniforms>()
             .add_systems(
                 Render,
                 (
@@ -76,7 +75,8 @@ impl Plugin for SkyboxPlugin {
         let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app
             .insert_resource(SkyboxPipeline::new(&render_device))
-            .init_resource::<SkyboxPrepassPipeline>();
+            .init_resource::<SkyboxPrepassPipeline>()
+            .init_resource::<PreviousViewUniforms>();
     }
 }
 
@@ -248,7 +248,7 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    views: Query<(Entity, &ExtractedViews, &Msaa), With<Skybox>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(

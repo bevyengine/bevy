@@ -35,7 +35,7 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility},
+    view::{ExtractedViews, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -485,7 +485,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,

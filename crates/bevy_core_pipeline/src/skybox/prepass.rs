@@ -23,7 +23,7 @@ use bevy_utils::prelude::default;
 use crate::{
     core_3d::CORE_3D_DEPTH_FORMAT,
     prepass::{
-        prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
+        prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, ViewData,
         PreviousViewUniforms,
     },
     Skybox,
@@ -69,7 +69,7 @@ impl FromWorld for SkyboxPrepassPipeline {
                     ShaderStages::FRAGMENT,
                     (
                         uniform_buffer::<ViewUniform>(true),
-                        uniform_buffer::<PreviousViewData>(true),
+                        uniform_buffer::<ViewData>(true),
                     ),
                 ),
             ),

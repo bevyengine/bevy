@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedViews, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -617,7 +617,7 @@ pub fn prepare_volumetric_fog_pipelines(
     view_targets: Query<
         (
             Entity,
-            &ExtractedView,
+            &ExtractedViews,
             &Msaa,
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -685,10 +685,11 @@ pub fn prepare_volumetric_fog_pipelines(
 }
 
 /// A system that converts [`VolumetricFog`] into [`VolumetricFogUniform`]s.
+// TODO: Multiview
 pub fn prepare_volumetric_fog_uniforms(
     mut commands: Commands,
     mut volumetric_lighting_uniform_buffer: ResMut<VolumetricFogUniformBuffer>,
-    view_targets: Query<(Entity, &ExtractedView, &VolumetricFog)>,
+    view_targets: Query<(Entity, &ExtractedViews, &VolumetricFog)>,
     fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -709,7 +710,7 @@ pub fn prepare_volumetric_fog_uniforms(
     }
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.views[0].world_from_view.compute_matrix();
 
         let mut view_fog_volumes = vec![];
 
@@ -725,7 +726,7 @@ pub fn prepare_volumetric_fog_uniforms(
             let interior = camera_is_inside_fog_volume(&local_from_view);
             let hull_clip_from_local = calculate_fog_volume_clip_from_local_transforms(
                 interior,
-                &extracted_view.clip_from_view,
+                &extracted_view.views[0].clip_from_view,
                 &view_from_local,
             );
 

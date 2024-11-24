@@ -29,7 +29,7 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
+        view::{self, ExtractedViews, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
 };
@@ -230,7 +230,7 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedViews>>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()

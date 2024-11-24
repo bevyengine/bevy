@@ -28,7 +28,7 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
+        view::{self, ExtractedViews, RenderVisibleEntities, ViewTarget, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
 };
@@ -277,7 +277,7 @@ fn queue_custom_mesh_pipeline(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &ExtractedViews, &Msaa), With<ExtractedViews>>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
 ) {

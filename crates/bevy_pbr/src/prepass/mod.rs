@@ -27,7 +27,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedViews, Msaa, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -211,10 +211,12 @@ pub fn update_previous_view_data(
 ) {
     for (entity, camera, camera_transform) in &query {
         let view_from_world = camera_transform.compute_matrix().inverse();
-        commands.entity(entity).try_insert(PreviousViewData {
-            view_from_world,
-            clip_from_world: camera.clip_from_view() * view_from_world,
-        });
+        commands
+            .entity(entity)
+            .try_insert(PreviousViewData(vec![ViewData {
+                view_from_world,
+                clip_from_world: camera.clip_from_view() * view_from_world,
+            }]));
     }
 }
 
@@ -271,7 +273,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                     // Globals
                     uniform_buffer::<GlobalsUniform>(false),
                     // PreviousViewUniforms
-                    uniform_buffer::<PreviousViewData>(true),
+                    uniform_buffer::<ViewData>(true),
                 ),
             ),
         );
@@ -621,33 +623,42 @@ pub fn prepare_previous_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
+    views: Query<(Entity, &ExtractedViews, Option<&PreviousViewData>), PreviousViewFilter>,
 ) {
-    let views_iter = views.iter();
-    let view_count = views_iter.len();
-    let Some(mut writer) =
-        previous_view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
+    previous_view_uniforms.uniforms.clear();
+    let mut offsets = vec![];
 
-    for (entity, camera, maybe_previous_view_uniforms) in views_iter {
+    for (entity, camera, maybe_previous_view_uniforms) in &views {
         let prev_view_data = match maybe_previous_view_uniforms {
-            Some(previous_view) => previous_view.clone(),
-            None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
-                PreviousViewData {
-                    view_from_world,
-                    clip_from_world: camera.clip_from_view * view_from_world,
-                }
-            }
+            Some(previous_view) => previous_view.clone().0,
+            None => camera
+                .views
+                .iter()
+                .map(|camera| {
+                    let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                    ViewData {
+                        view_from_world,
+                        clip_from_world: camera.clip_from_view * view_from_world,
+                    }
+                })
+                .collect(),
         };
 
-        commands.entity(entity).insert(PreviousViewUniformOffset {
-            offset: writer.write(&prev_view_data),
-        });
+        let array_index = previous_view_uniforms.uniforms.push_array(prev_view_data);
+        offsets.push((entity, array_index));
+    }
+    previous_view_uniforms.uniforms.finish_queuing();
+    previous_view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
+    for (entity, array_index) in offsets {
+        let previous_view_uniforms = PreviousViewUniformOffset {
+            offset: previous_view_uniforms
+                .uniforms
+                .get_array_offset(array_index),
+        };
+
+        commands.entity(entity).insert(previous_view_uniforms);
     }
 }
 
@@ -725,7 +736,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             Option<&MotionVectorPrepass>,
             Option<&DeferredPrepass>,
         ),
-        With<ExtractedView>,
+        With<ExtractedViews>,
     >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

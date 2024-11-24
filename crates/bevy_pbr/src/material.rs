@@ -33,7 +33,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
+    view::{ExtractedViews, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_render::{sync_world::MainEntityHashMap, view::ViewUniforms};
@@ -591,7 +591,7 @@ pub fn queue_material_meshes<M: Material>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,

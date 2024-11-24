@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::camera::SortedCameras;
+use bevy_render::{camera::SortedCameras, view::ExtractedView};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -22,7 +22,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::*,
     view::ViewUniforms,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::{ExtractedViews, RenderLayers, ViewVisibility},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -679,7 +679,7 @@ pub fn prepare_lights(
     views: Query<
         (
             Entity,
-            &ExtractedView,
+            &ExtractedViews,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
         ),
@@ -1101,7 +1101,8 @@ pub fn prepare_lights(
         live_views.insert(entity);
         let mut view_lights = Vec::new();
 
-        let is_orthographic = extracted_view.clip_from_view.w_axis.w == 1.0;
+        // TODO: Multiview
+        let is_orthographic = extracted_view.views[0].clip_from_view.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
             clusters.near,
             clusters.far,
@@ -1208,16 +1209,18 @@ pub fn prepare_lights(
                             face_index_to_name(face_index)
                         ),
                     },
-                    ExtractedView {
+                    ExtractedViews {
+                        views: vec![ExtractedView {
+                            world_from_view: view_translation * *view_rotation,
+                            clip_from_world: None,
+                            clip_from_view: cube_face_projection,
+                        }],
                         viewport: UVec4::new(
                             0,
                             0,
                             point_light_shadow_map.size as u32,
                             point_light_shadow_map.size as u32,
                         ),
-                        world_from_view: view_translation * *view_rotation,
-                        clip_from_world: None,
-                        clip_from_view: cube_face_projection,
                         hdr: false,
                         color_grading: Default::default(),
                     },
@@ -1299,16 +1302,18 @@ pub fn prepare_lights(
                     depth_attachment,
                     pass_name: format!("shadow pass spot light {light_index}"),
                 },
-                ExtractedView {
+                ExtractedViews {
+                    views: vec![ExtractedView {
+                        world_from_view: spot_world_from_view,
+                        clip_from_view: spot_projection,
+                        clip_from_world: None,
+                    }],
                     viewport: UVec4::new(
                         0,
                         0,
                         directional_light_shadow_map.size as u32,
                         directional_light_shadow_map.size as u32,
                     ),
-                    world_from_view: spot_world_from_view,
-                    clip_from_view: spot_projection,
-                    clip_from_world: None,
                     hdr: false,
                     color_grading: Default::default(),
                 },
@@ -1427,16 +1432,18 @@ pub fn prepare_lights(
                             "shadow pass directional light {light_index} cascade {cascade_index}"
                         ),
                     },
-                    ExtractedView {
+                    ExtractedViews {
+                        views: vec![ExtractedView {
+                            world_from_view: GlobalTransform::from(cascade.world_from_cascade),
+                            clip_from_view: cascade.clip_from_cascade,
+                            clip_from_world: Some(cascade.clip_from_world),
+                        }],
                         viewport: UVec4::new(
                             0,
                             0,
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        world_from_view: GlobalTransform::from(cascade.world_from_cascade),
-                        clip_from_view: cascade.clip_from_cascade,
-                        clip_from_world: Some(cascade.clip_from_world),
                         hdr: false,
                         color_grading: Default::default(),
                     },

@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -41,8 +42,8 @@ use bevy_render::{
         PhaseItemExtraIndex,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer,
-        Extent3d, ShaderType, TextureFormat, TextureView,
+        BindGroupId, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DynamicArrayUniformBuffer, Extent3d, ShaderType, TextureFormat, TextureView,
     },
     texture::ColorAttachment,
 };
@@ -72,15 +73,31 @@ pub struct MotionVectorPrepass;
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
-#[derive(Component, ShaderType, Clone)]
-pub struct PreviousViewData {
+#[derive(Component, Clone)]
+pub struct PreviousViewData(pub Vec<ViewData>);
+
+#[derive(ShaderType, Clone)]
+pub struct ViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct PreviousViewUniforms {
-    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
+    pub uniforms: DynamicArrayUniformBuffer<ViewData>,
+}
+
+impl FromWorld for PreviousViewUniforms {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        // if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+        //     uniforms.add_usages(BufferUsages::STORAGE);
+        // }
+
+        Self {
+            uniforms: DynamicArrayUniformBuffer::new(&render_device.limits()),
+        }
+    }
 }
 
 #[derive(Component)]

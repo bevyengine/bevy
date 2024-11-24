@@ -3,7 +3,7 @@ use crate::ShadowView;
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
-    prepass::{PreviousViewData, PreviousViewUniforms},
+    prepass::{PreviousViewUniforms, ViewData},
 };
 use bevy_ecs::{
     component::Component,
@@ -16,7 +16,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
+    view::{ExtractedViews, RenderLayers, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
 use core::{array, iter, sync::atomic::AtomicBool};
@@ -143,7 +143,7 @@ impl ResourceManager {
                         storage_buffer_sized(false, None),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         uniform_buffer::<ViewUniform>(true),
-                        uniform_buffer::<PreviousViewData>(true),
+                        uniform_buffer::<ViewData>(true),
                     ),
                 ),
             ),
@@ -307,7 +307,7 @@ pub fn prepare_meshlet_per_frame_resources(
     mut instance_manager: ResMut<InstanceManager>,
     views: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         Option<&RenderLayers>,
         AnyOf<(&Camera3d, &ShadowView)>,
     )>,
