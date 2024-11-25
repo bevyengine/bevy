@@ -2446,6 +2446,12 @@ impl BoxShadow {
     }
 }
 
+impl From<ShadowStyle> for BoxShadow {
+    fn from(value: ShadowStyle) -> Self {
+        Self(vec![value])
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default)]
 #[cfg_attr(
