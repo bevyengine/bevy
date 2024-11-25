@@ -661,10 +661,6 @@ impl UiAxes {
         Self::new(Val::Px(horizontal), Val::Px(vertical))
     }
 
-    pub const fn px_from_vec(vec: Vec2) -> Self {
-        Self::px(vec.x, vec.y)
-    }
-
     pub const fn percent(vertical: f32, horizontal: f32) -> Self {
         Self::new(Val::Percent(horizontal), Val::Percent(vertical))
     }
