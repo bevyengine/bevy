@@ -2436,13 +2436,13 @@ impl BoxShadow {
         spread_radius: Val,
         blur_radius: Val,
     ) -> Self {
-        Self(ShadowStyle {
+        Self(vec![ShadowStyle {
             color,
             x_offset,
             y_offset,
             spread_radius,
             blur_radius,
-        })
+        }])
     }
 }
 
