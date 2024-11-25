@@ -744,7 +744,8 @@ struct UiVertex {
     pub flags: u32,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    pub radius: [f32; 4],
+    pub h_axes: [f32; 4],
+    pub v_axes: [f32; 4],
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
@@ -1097,11 +1098,17 @@ pub fn prepare_uinodes(
                                     uv: uvs[i].into(),
                                     color,
                                     flags: flags | shader_flags::CORNERS[i],
-                                    radius: [
-                                        border_radius.top_left,
-                                        border_radius.top_right,
-                                        border_radius.bottom_right,
-                                        border_radius.bottom_left,
+                                    h_axes: [
+                                        border_radius.top_left.x,
+                                        border_radius.top_right.x,
+                                        border_radius.bottom_right.x,
+                                        border_radius.bottom_left.x,
+                                    ],
+                                    v_axes: [
+                                        border_radius.top_left.y,
+                                        border_radius.top_right.y,
+                                        border_radius.bottom_right.y,
+                                        border_radius.bottom_left.y,
                                     ],
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
@@ -1205,7 +1212,8 @@ pub fn prepare_uinodes(
                                         uv: uvs[i].into(),
                                         color,
                                         flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
-                                        radius: [0.0; 4],
+                                        h_axes: [0.0; 4],
+                                        v_axes: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),
                                         point: [0.0; 2],

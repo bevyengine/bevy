@@ -12,7 +12,8 @@ struct BoxShadowVertexOutput {
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) radius: vec4<f32>,    
-    @location(4) @interpolate(flat) blur: f32,
+    @location(4) @interpolate(flat) radius2: vec4<f32>,    
+    @location(5) @interpolate(flat) blur: f32,
 }
 
 fn gaussian(x: f32, sigma: f32) -> f32 {
@@ -73,6 +74,7 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
     @location(3) size: vec2<f32>,
     @location(4) radius: vec4<f32>,
+    @location(5) radius2: vec4<f32>,
     @location(5) blur: f32,
     @location(6) bounds: vec2<f32>,
 ) -> BoxShadowVertexOutput {
@@ -82,6 +84,7 @@ fn vertex(
     out.color = vertex_color;
     out.size = size;
     out.radius = radius;
+    out.radius2 = radius2;
     out.blur = blur;
     return out;
 }

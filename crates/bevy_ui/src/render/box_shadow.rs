@@ -84,7 +84,8 @@ struct BoxShadowVertex {
     uvs: [f32; 2],
     vertex_color: [f32; 4],
     size: [f32; 2],
-    radius: [f32; 4],
+    h_axes: [f32; 4],
+    v_axes: [f32; 4],
     blur: f32,
     bounds: [f32; 2],
 }
@@ -156,7 +157,9 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x4,
                 // target rect size
                 VertexFormat::Float32x2,
-                // corner radius values (top left, top right, bottom right, bottom left)
+                // horizontal corner radius values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // vertical corner radius values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // blur radius
                 VertexFormat::Float32,
@@ -465,11 +468,18 @@ pub fn prepare_shadows(
                         }
                     }
 
-                    let radius = [
-                        box_shadow.radius.top_left,
-                        box_shadow.radius.top_right,
-                        box_shadow.radius.bottom_right,
-                        box_shadow.radius.bottom_left,
+                    let h_axes = [
+                        box_shadow.radius.top_left.x,
+                        box_shadow.radius.top_right.x,
+                        box_shadow.radius.bottom_right.x,
+                        box_shadow.radius.bottom_left.x,
+                    ];
+
+                    let v_axes = [
+                        box_shadow.radius.top_left.y,
+                        box_shadow.radius.top_right.y,
+                        box_shadow.radius.bottom_right.y,
+                        box_shadow.radius.bottom_left.y,
                     ];
 
                     let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
@@ -479,7 +489,8 @@ pub fn prepare_shadows(
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
-                            radius,
+                            h_axes,
+                            v_axes,
                             blur: box_shadow.blur_radius,
                             bounds: rect_size.xy().into(),
                         });

@@ -18,10 +18,11 @@ struct VertexOutput {
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
     @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
+    @location(5) @interpolate(flat) radius2: vec4<f32>,    
+    @location(6) @interpolate(flat) border: vec4<f32>,    
 
     // Position relative to the center of the rectangle.
-    @location(6) point: vec2<f32>,
+    @location(7) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -34,11 +35,12 @@ fn vertex(
 
     // x: top left, y: top right, z: bottom right, w: bottom left.
     @location(4) radius: vec4<f32>,
+    @location(5) radius2: vec4<f32>,
 
     // x: left, y: top, z: right, w: bottom.
-    @location(5) border: vec4<f32>,
-    @location(6) size: vec2<f32>,
-    @location(7) point: vec2<f32>,
+    @location(6) border: vec4<f32>,
+    @location(7) size: vec2<f32>,
+    @location(8) point: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -46,6 +48,7 @@ fn vertex(
     out.color = vertex_color;
     out.flags = flags;
     out.radius = radius;
+    out.radius2 = radius2;
     out.size = size;
     out.border = border;
     out.point = point;
