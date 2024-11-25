@@ -2448,6 +2448,11 @@ impl BoxShadow {
 
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ShadowStyle {
     /// The shadow's color
     pub color: Color,
