@@ -12,7 +12,7 @@ and probably less useful externally:
 
 ## Compose
 
-the compose module allows construction of shaders from modules (which are themselves shaders).
+The compose module allows construction of shaders from modules, which are themselves shaders.
 
 it does this by treating shaders as modules, and
 
