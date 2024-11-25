@@ -51,7 +51,7 @@ fn main() -> f32 {
 }
 ```
 
-or import a comma-separated list of individual items :
+or import a comma-separated list of individual items:
 
 ```wgsl
 #import my_module::{my_func, my_const}
