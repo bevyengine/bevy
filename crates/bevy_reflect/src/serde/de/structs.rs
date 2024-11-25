@@ -3,7 +3,7 @@ use crate::{
     DynamicStruct, StructInfo, TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
-use serde::de::{MapAccess, SeqAccess, Visitor};
+use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 
 use super::ReflectDeserializerProcessor;
 
@@ -48,5 +48,12 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVisitor<'_, P>
             self.registry,
             self.processor,
         )
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(DynamicStruct::default())
     }
 }

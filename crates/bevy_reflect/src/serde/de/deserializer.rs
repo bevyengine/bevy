@@ -390,16 +390,22 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
 
             match self.registration.type_info() {
                 TypeInfo::Struct(struct_info) => {
-                    let mut dynamic_struct = deserializer.deserialize_struct(
-                        struct_info.type_path_table().ident().unwrap(),
-                        struct_info.field_names(),
-                        StructVisitor {
-                            struct_info,
-                            registration: self.registration,
-                            registry: self.registry,
-                            processor: self.processor,
-                        },
-                    )?;
+                    let visitor = StructVisitor {
+                        struct_info,
+                        registration: self.registration,
+                        registry: self.registry,
+                        processor: self.processor,
+                    };
+
+                    let mut dynamic_struct = match struct_info.field_len() {
+                        0 => deserializer.deserialize_unit(visitor)?,
+                        _ => deserializer.deserialize_struct(
+                            struct_info.type_path_table().ident().unwrap(),
+                            struct_info.field_names(),
+                            visitor,
+                        )?,
+                    };
+
                     dynamic_struct.set_represented_type(Some(self.registration.type_info()));
                     Ok(Box::new(dynamic_struct))
                 }
