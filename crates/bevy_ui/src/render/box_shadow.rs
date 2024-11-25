@@ -263,7 +263,7 @@ pub fn extract_shadows(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || box_shadow.color.is_fully_transparent() || uinode.is_empty() {
+        if !view_visibility.get() || box_shadow.0.is_empty() || uinode.is_empty() {
             continue;
         }
 
@@ -278,57 +278,64 @@ pub fn extract_shadows(
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
-        let resolve_val = |val, base, scale_factor| match val {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => percent / 100. * base,
-            Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
-            Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
-            Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
-            Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
-        };
+        for drop_shadow in box_shadow.0.iter() {
+            if drop_shadow.color.is_fully_transparent() {
+                continue;
+            }
 
-        let spread_x = resolve_val(box_shadow.spread_radius, uinode.size().x, scale_factor);
-        let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
+            let resolve_val = |val, base, scale_factor| match val {
+                Val::Auto => 0.,
+                Val::Px(px) => px * scale_factor,
+                Val::Percent(percent) => percent / 100. * base,
+                Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
+                Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
+                Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
+                Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
+            };
 
-        let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
+            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
-        let blur_radius = resolve_val(box_shadow.blur_radius, uinode.size().x, scale_factor);
-        let offset = vec2(
-            resolve_val(box_shadow.x_offset, uinode.size().x, scale_factor),
-            resolve_val(box_shadow.y_offset, uinode.size().y, scale_factor),
-        );
+            let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-        let shadow_size = uinode.size() + spread;
-        if shadow_size.cmple(Vec2::ZERO).any() {
-            continue;
-        }
+            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let offset = vec2(
+                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
+                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+            );
 
-        let radius = ResolvedBorderRadius {
-            top_left: uinode.border_radius.top_left * spread_ratio,
-            top_right: uinode.border_radius.top_right * spread_ratio,
-            bottom_left: uinode.border_radius.bottom_left * spread_ratio,
-            bottom_right: uinode.border_radius.bottom_right * spread_ratio,
-        };
+            let shadow_size = uinode.size() + spread;
+            if shadow_size.cmple(Vec2::ZERO).any() {
+                continue;
+            }
 
-        extracted_box_shadows.box_shadows.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedBoxShadow {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
-                color: box_shadow.color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: shadow_size + 6. * blur_radius,
+            let radius = ResolvedBorderRadius {
+                top_left: uinode.border_radius.top_left * spread_ratio,
+                top_right: uinode.border_radius.top_right * spread_ratio,
+                bottom_left: uinode.border_radius.bottom_left * spread_ratio,
+                bottom_right: uinode.border_radius.bottom_right * spread_ratio,
+            };
+
+            extracted_box_shadows.box_shadows.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                ExtractedBoxShadow {
+                    stack_index: uinode.stack_index,
+                    transform: transform.compute_matrix()
+                        * Mat4::from_translation(offset.extend(0.)),
+                    color: drop_shadow.color.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: shadow_size + 6. * blur_radius,
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    camera_entity,
+                    radius,
+                    blur_radius,
+                    size: shadow_size,
+                    main_entity: entity.into(),
                 },
-                clip: clip.map(|clip| clip.clip),
-                camera_entity,
-                radius,
-                blur_radius,
-                size: shadow_size,
-                main_entity: entity.into(),
-            },
-        );
+            );
+        }
     }
 }
 
