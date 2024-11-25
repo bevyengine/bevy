@@ -8,7 +8,7 @@ readme = "README.md"
 
 [features]
 default = ["test_shader", "glsl"]
-# enable tests that need a graphical card
+# enable tests that need a GPU
 test_shader = []
 glsl = ["naga/glsl-in", "naga/glsl-out"]
 override_any = []
