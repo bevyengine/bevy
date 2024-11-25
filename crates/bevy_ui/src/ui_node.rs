@@ -2424,7 +2424,8 @@ impl ResolvedBorderRadius {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-/// List of shadows to draw for a `Node`.
+/// List of shadows to draw for a [`Node`].
+/// Draw order is determined implicitly from the vector of [`ShadowStyle`]s, back-to-front.
 pub struct BoxShadow(pub Vec<ShadowStyle>);
 
 impl BoxShadow {
