@@ -256,12 +256,12 @@ fn box_shadow_node_bundle(
         BorderColor(LIGHT_SKY_BLUE.into()),
         border_radius,
         BackgroundColor(DEEP_SKY_BLUE.into()),
-        BoxShadow::new(ShadowStyle {
-            color: Color::BLACK.with_alpha(0.8),
-            x_offset: Val::Percent(offset.x),
-            y_offset: Val::Percent(offset.y),
-            spread_radius: Val::Percent(spread),
-            blur_radius: Val::Px(blur),
-        }),
+        BoxShadow::new(
+            Color::BLACK.with_alpha(0.8),
+            Val::Percent(offset.x),
+            Val::Percent(offset.y),
+            Val::Percent(spread),
+            Val::Px(blur),
+        ),
     )
 }
