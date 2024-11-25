@@ -263,7 +263,7 @@ pub fn extract_shadows(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || box_shadow.0.is_empty() || uinode.is_empty() {
+        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
@@ -278,7 +278,7 @@ pub fn extract_shadows(
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
-        for drop_shadow in box_shadow.0.iter() {
+        for drop_shadow in box_shadow.iter() {
             if drop_shadow.color.is_fully_transparent() {
                 continue;
             }

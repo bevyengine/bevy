@@ -2424,30 +2424,30 @@ impl ResolvedBorderRadius {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BoxShadow(pub Vec<DropShadow>);
+pub struct BoxShadow(pub Vec<ShadowStyle>);
 
 impl BoxShadow {
     /// A single shadow
-    pub fn new(shadow: DropShadow) -> Self {
+    pub fn new(shadow: ShadowStyle) -> Self {
         BoxShadow(vec![shadow])
     }
 }
 
-impl From<DropShadow> for BoxShadow {
-    fn from(shadow: DropShadow) -> Self {
+impl From<ShadowStyle> for BoxShadow {
+    fn from(shadow: ShadowStyle) -> Self {
         Self::new(shadow)
     }
 }
 
-impl From<Vec<DropShadow>> for BoxShadow {
-    fn from(shadows: Vec<DropShadow>) -> Self {
+impl From<Vec<ShadowStyle>> for BoxShadow {
+    fn from(shadows: Vec<ShadowStyle>) -> Self {
         Self(shadows)
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default)]
-pub struct DropShadow {
+pub struct ShadowStyle {
     /// The shadow's color
     pub color: Color,
     /// Horizontal offset
@@ -2463,7 +2463,7 @@ pub struct DropShadow {
     pub blur_radius: Val,
 }
 
-impl Default for DropShadow {
+impl Default for ShadowStyle {
     fn default() -> Self {
         Self {
             color: Color::BLACK,
