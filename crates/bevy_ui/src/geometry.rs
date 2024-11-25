@@ -615,6 +615,67 @@ impl Default for UiRect {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct UiAxes {
+    pub horizontal: Val,
+    pub vertical: Val,
+}
+
+impl UiAxes {
+    pub const DEFAULT: Self = Self {
+        horizontal: Val::DEFAULT,
+        vertical: Val::DEFAULT,
+    };
+
+    pub const ZERO: Self = Self {
+        horizontal: Val::ZERO,
+        vertical: Val::ZERO,
+    };
+
+    pub const fn new(horizontal: Val, vertical: Val) -> Self {
+        Self {
+            horizontal,
+            vertical,
+        }
+    }
+
+    pub const fn all(val: Val) -> Self {
+        UiAxes::new(val, val)
+    }
+
+    pub const fn with_horizontal(self, horizontal: Val) -> Self {
+        Self { horizontal, ..self }
+    }
+
+    pub const fn with_vertical(self, vertical: Val) -> Self {
+        Self { vertical, ..self }
+    }
+
+    pub const fn px(vertical: f32, horizontal: f32) -> Self {
+        Self::new(Val::Px(horizontal), Val::Px(vertical))
+    }
+
+    pub const fn px_from_vec(vec: Vec2) -> Self {
+        Self::px(vec.x, vec.y)
+    }
+
+    pub const fn percent(vertical: f32, horizontal: f32) -> Self {
+        Self::new(Val::Percent(horizontal), Val::Percent(vertical))
+    }
+}
+
+impl Default for UiAxes {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
