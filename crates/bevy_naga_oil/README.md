@@ -20,7 +20,7 @@ It does this by treating shaders as modules, and
 - creating "header" files for each supported language, which are used to build dependent modules/shaders
 - making final shaders by combining the shader IR with the IR for imported modules
 
-for multiple small shaders with large common imports, this can be faster than parsing the full source for each shader, and it allows for constructing shaders in a cleaner modular manner with better scope control.
+For multiple small shaders with large common imports, this can be faster than parsing the full source for each shader, and it allows for constructing shaders in a cleaner modular manner with better scope control.
 
 ### imports
 
