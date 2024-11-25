@@ -1863,14 +1863,14 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
-            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
-            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
             }
+            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
         }
 
         for component_id in archetype.components() {
@@ -2118,7 +2118,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     entity: Entity,
     bundle_info: &BundleInfo,
 ) {
-    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
@@ -2126,10 +2125,11 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
             bundle_info.iter_explicit_components(),
         );
     }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
     }
+    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
 }
 
 const QUERY_MISMATCH_ERROR: &str = "Query does not match the current entity";
