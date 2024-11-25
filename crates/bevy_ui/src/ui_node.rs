@@ -2191,10 +2191,10 @@ impl BorderRadius {
         bottom_left: f32,
     ) -> Self {
         Self {
-            top_left: Val::Px(top_left),
-            top_right: Val::Px(top_right),
-            bottom_right: Val::Px(bottom_right),
-            bottom_left: Val::Px(bottom_left),
+            top_left: Val::Percent(top_left),
+            top_right: Val::Percent(top_right),
+            bottom_right: Val::Percent(bottom_right),
+            bottom_left: Val::Percent(bottom_left),
         }
     }
 
