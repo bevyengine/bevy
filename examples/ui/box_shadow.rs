@@ -194,7 +194,7 @@ fn setup(mut commands: Commands) {
                 ));
             }
 
-            // Demonstate multiple shadows on one node
+            // Demonstrate multiple shadows on one node
             commands.spawn((
                 Node {
                     width: Val::Px(40.),
