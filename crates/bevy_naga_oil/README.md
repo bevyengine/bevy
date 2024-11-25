@@ -14,7 +14,7 @@ and probably less useful externally:
 
 The compose module allows construction of shaders from modules, which are themselves shaders.
 
-it does this by treating shaders as modules, and
+It does this by treating shaders as modules, and
 
 - building each module independently to naga IR
 - creating "header" files for each supported language, which are used to build dependent modules/shaders
