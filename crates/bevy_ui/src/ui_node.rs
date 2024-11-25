@@ -129,12 +129,19 @@ impl ComputedNode {
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
-            if radius > 0. {
-                radius + outer_distance
-            } else {
-                0.
-            }
+        const fn compute_radius(radius: Vec2, outer_distance: f32) -> Vec2 {
+            Vec2::new(
+                if 0. < radius.x {
+                    radius.x + outer_distance
+                } else {
+                    0.
+                },
+                if 0. < radius.y {
+                    radius.y + outer_distance
+                } else {
+                    0.
+                },
+            )
         }
         ResolvedBorderRadius {
             top_left: compute_radius(self.border_radius.top_left, outer_distance),
@@ -162,10 +169,9 @@ impl ComputedNode {
 
     /// Returns the inner border radius for each of the node's corners in physical pixels.
     pub fn inner_radius(&self) -> ResolvedBorderRadius {
-        fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
+        fn clamp_corner(r: Vec2, size: Vec2, offset: Vec2) -> Vec2 {
             let s = 0.5 * size + offset;
-            let sm = s.x.min(s.y);
-            r.min(sm)
+            r.min(s)
         }
         let b = vec4(
             self.border.left,
@@ -2162,7 +2168,12 @@ impl BorderRadius {
     }
 
     #[inline]
-    pub const fn new(top_left: UiAxes, top_right: UiAxes, bottom_right: UiAxes, bottom_left: UiAxes) -> Self {
+    pub const fn new(
+        top_left: UiAxes,
+        top_right: UiAxes,
+        bottom_right: UiAxes,
+        bottom_left: UiAxes,
+    ) -> Self {
         Self {
             top_left,
             top_right,
@@ -2173,28 +2184,33 @@ impl BorderRadius {
 
     #[inline]
     /// Sets the radii to logical pixel values.
-    pub const fn px(top_left: Vec2, top_right: Vec2, bottom_right: Vec2, bottom_left: Vec2) -> Self {
+    pub const fn px(
+        top_left: Vec2,
+        top_right: Vec2,
+        bottom_right: Vec2,
+        bottom_left: Vec2,
+    ) -> Self {
         Self {
-            top_left: UiAxes::Px(top_left),
-            top_right: UiAxes::Px(top_right),
-            bottom_right: UiAxes::Px(bottom_right),
-            bottom_left: UiAxes::Px(bottom_left),
+            top_left: UiAxes::px(top_left.x, top_left.y),
+            top_right: UiAxes::px(top_right.x, top_right.y),
+            bottom_right: UiAxes::px(bottom_right.x, bottom_right.y),
+            bottom_left: UiAxes::px(bottom_left.x, bottom_left.y),
         }
     }
 
     #[inline]
     /// Sets the radii to percentage values.
     pub const fn percent(
-        top_left: f32,
-        top_right: f32,
-        bottom_right: f32,
-        bottom_left: f32,
+        top_left: Vec2,
+        top_right: Vec2,
+        bottom_right: Vec2,
+        bottom_left: Vec2,
     ) -> Self {
         Self {
-            top_left: Val::Px(top_left),
-            top_right: Val::Px(top_right),
-            bottom_right: Val::Px(bottom_right),i
-            bottom_left: Val::Px(bottom_left),
+            top_left: UiAxes::percent(top_left.x, top_left.y),
+            top_right: UiAxes::percent(top_right.x, top_right.y),
+            bottom_right: UiAxes::percent(bottom_right.x, bottom_right.y),
+            bottom_left: UiAxes::percent(bottom_left.x, bottom_left.y),
         }
     }
 
@@ -2368,7 +2384,8 @@ impl BorderRadius {
                 Val::Vh(percent) => viewport_size.y * percent / 100.,
                 Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
                 Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
-        })
+            },
+        )
     }
 
     pub fn resolve(
