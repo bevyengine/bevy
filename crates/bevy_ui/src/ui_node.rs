@@ -1,5 +1,6 @@
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
@@ -2416,7 +2417,7 @@ impl ResolvedBorderRadius {
     };
 }
 
-#[derive(Component, Clone, Debug, Default, PartialEq, Reflect)]
+#[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -2426,6 +2427,7 @@ impl ResolvedBorderRadius {
 pub struct BoxShadow(pub Vec<DropShadow>);
 
 impl BoxShadow {
+    /// A single shadow
     pub fn new(shadow: DropShadow) -> Self {
         BoxShadow(vec![shadow])
     }
