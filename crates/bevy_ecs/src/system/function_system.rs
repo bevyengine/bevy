@@ -682,7 +682,7 @@ where
     /// Message shown when a system isn't initialized
     // When lines get too long, rustfmt can sometimes refuse to format them.
     // Work around this by storing the message separately.
-    const ERROR_UNITIALIZED: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
+    const ERROR_UNINITIALIZED: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
 impl<Marker, F> System for FunctionSystem<Marker, F>
@@ -738,7 +738,7 @@ where
             .state
             .as_mut()
             .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNITIALIZED);
+            .expect(Self::ERROR_UNINITIALIZED);
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.
@@ -757,7 +757,7 @@ where
             .state
             .as_mut()
             .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNITIALIZED);
+            .expect(Self::ERROR_UNINITIALIZED);
         F::Param::apply(param_state, &self.system_meta, world);
     }
 
@@ -767,7 +767,7 @@ where
             .state
             .as_mut()
             .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNITIALIZED);
+            .expect(Self::ERROR_UNINITIALIZED);
         F::Param::queue(param_state, &self.system_meta, world);
     }
 
@@ -777,7 +777,7 @@ where
             .state
             .as_ref()
             .map(|state| &state.param)
-            .expect(Self::ERROR_UNITIALIZED);
+            .expect(Self::ERROR_UNINITIALIZED);
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.
@@ -808,7 +808,7 @@ where
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        let state = self.state.as_mut().expect(Self::ERROR_UNITIALIZED);
+        let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
         let archetypes = world.archetypes();
