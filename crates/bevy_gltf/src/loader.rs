@@ -4,7 +4,7 @@ use crate::{
 };
 
 use alloc::collections::VecDeque;
-use bevy_animation::animated_property;
+use bevy_animation::animated_field;
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -311,7 +311,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
-                            let translation_property = animated_property!(Transform::translation);
+                            let translation_property = animated_field!(Transform::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(
@@ -358,7 +358,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             }
                         }
                         ReadOutputs::Rotations(rots) => {
-                            let rotation_property = animated_property!(Transform::rotation);
+                            let rotation_property = animated_field!(Transform::rotation);
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
@@ -409,7 +409,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             }
                         }
                         ReadOutputs::Scales(scale) => {
-                            let scale_property = animated_property!(Transform::scale);
+                            let scale_property = animated_field!(Transform::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
                                 Some(VariableCurve::new(AnimatableCurve::new(

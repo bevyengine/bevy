@@ -43,7 +43,7 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::{prelude::Transform, TransformSystem};
+use bevy_transform::TransformSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
@@ -1031,15 +1031,8 @@ pub fn advance_animations(
 }
 
 /// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w> = EntityMutExcept<
-    'w,
-    (
-        AnimationTarget,
-        Transform,
-        AnimationPlayer,
-        AnimationGraphHandle,
-    ),
->;
+pub type AnimationEntityMut<'w> =
+    EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1049,18 +1042,13 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTarget,
-        Option<&mut Transform>,
-        AnimationEntityMut,
-    )>,
+    mut targets: Query<(Entity, &AnimationTarget, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(entity, target, transform, entity_mut)| {
+        .for_each(|(entity, target, entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -1239,7 +1227,7 @@ pub fn animate_targets(
                 }
             }
 
-            if let Err(err) = evaluation_state.commit_all(transform, entity_mut) {
+            if let Err(err) = evaluation_state.commit_all(entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
         });
@@ -1390,14 +1378,13 @@ impl AnimationEvaluationState {
     /// components being animated.
     fn commit_all(
         &mut self,
-        mut transform: Option<Mut<Transform>>,
         mut entity_mut: AnimationEntityMut,
     ) -> Result<(), AnimationEvaluationError> {
         self.current_evaluators.clear(|id| {
-            self.evaluators.get_mut(id).unwrap().commit(
-                transform.as_mut().map(|transform| transform.reborrow()),
-                entity_mut.reborrow(),
-            )
+            self.evaluators
+                .get_mut(id)
+                .unwrap()
+                .commit(entity_mut.reborrow())
         })
     }
 }

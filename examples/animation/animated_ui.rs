@@ -1,7 +1,7 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{animated_property, AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimationTarget, AnimationTargetId},
     prelude::*,
 };
 use std::any::TypeId;
@@ -45,7 +45,7 @@ impl AnimationInfo {
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                animated_property!(TextFont::font_size),
+                animated_field!(TextFont::font_size),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()

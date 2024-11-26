@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    animation::{animated_property, AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimationTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,
@@ -129,14 +129,11 @@ impl AnimationInfo {
 
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(
-                animated_property!(Transform::translation),
-                translation_curve,
-            ),
+            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
         );
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_property!(Transform::rotation), rotation_curve),
+            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
         );
 
         // Save our animation clip as an asset.

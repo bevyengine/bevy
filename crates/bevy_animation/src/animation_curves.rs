@@ -82,7 +82,7 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::{component::Component, world::Mut};
+use bevy_ecs::component::Component;
 use bevy_math::curve::{
     cores::{UnevenCore, UnevenCoreError},
     iterable::IterableCurve,
@@ -90,7 +90,6 @@ use bevy_math::curve::{
 };
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use bevy_render::mesh::morph::MorphWeights;
-use bevy_transform::prelude::Transform;
 
 use crate::{
     graph::AnimationNodeIndex,
@@ -175,17 +174,17 @@ pub trait AnimatableProperty {
     fn evaluator_id(&self) -> EvaluatorId;
 }
 
-/// A [`Component`] property that can be animated, defined by a function that reads the component and returns
+/// A [`Component`] field that can be animated, defined by a function that reads the component and returns
 /// the accessed field / property.
 #[derive(Clone)]
-pub struct AnimatedProperty<C, P, F: Fn(&mut C) -> &mut P> {
+pub struct AnimatedField<C, P, F: Fn(&mut C) -> &mut P> {
     func: F,
     /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
     evaluator_id: Hashed<(TypeId, usize)>,
     marker: PhantomData<(C, P)>,
 }
 
-impl<C, P, F> AnimatableProperty for AnimatedProperty<C, P, F>
+impl<C, P, F> AnimatableProperty for AnimatedField<C, P, F>
 where
     C: Component,
     P: Animatable + Clone + Sync + Debug,
@@ -204,12 +203,12 @@ where
     }
 }
 
-impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedProperty<C, P, F> {
-    /// Creates a new instance of [`AnimatedProperty`]. This operates under the assumption that
+impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedField<C, P, F> {
+    /// Creates a new instance of [`AnimatedField`]. This operates under the assumption that
     /// `C` is a reflect-able struct with named fields, and that `field_name` is a valid field on that struct.
     pub fn new_unchecked(field_name: &str, func: F) -> Self {
         let TypeInfo::Struct(struct_info) = C::type_info() else {
-            panic!("Only structs are supported in `AnimatedProperty::new_unchecked`")
+            panic!("Only structs are supported in `AnimatedField::new_unchecked`")
         };
 
         let field_index = struct_info
@@ -368,7 +367,6 @@ where
 
     fn commit<'a>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
@@ -563,7 +561,6 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
 
     fn commit<'a>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
@@ -780,6 +777,9 @@ pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
     /// should correspond to the Reflect-ed field index of the field.
+    //
+    // IMPLEMENTATION NOTE: The Hashed<(TypeId, usize) is intentionally cheap to clone, as it will be cloned per frame by the evaluator
+    // Switching the field index `usize` for something like a field name `String` would probably be too expensive to justify
     ComponentField(&'a Hashed<(TypeId, usize)>),
     /// Corresponds to a custom property of a given type. This should be the [`TypeId`]
     /// of the custom [`AnimatableProperty`].
@@ -868,7 +868,6 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// the stack, not blended with it.
     fn commit<'a>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
         entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError>;
 }
@@ -930,12 +929,12 @@ where
     AnimationEvaluationError::InconsistentEvaluatorImplementation(TypeId::of::<P>())
 }
 
-/// Returns an [`AnimatedProperty`] with a given `$component` and `$field`.
+/// Returns an [`AnimatedField`] with a given `$component` and `$field`.
 ///
 /// This can be used in the following way:
 ///
 /// ```
-/// # use bevy_animation::{animation_curves::AnimatedProperty, animated_property};
+/// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
 /// # use bevy_reflect::Reflect;
@@ -944,12 +943,12 @@ where
 ///     translation: Vec3,
 /// }
 ///
-/// let property = animated_property!(Transform::translation);
+/// let field = animated_field!(Transform::translation);
 /// ```
 #[macro_export]
-macro_rules! animated_property {
+macro_rules! animated_field {
     ($component:ident::$field:ident) => {
-        AnimatedProperty::new_unchecked(stringify!($field), |component: &mut $component| {
+        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
             &mut component.$field
         })
     };
