@@ -174,6 +174,11 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 
 /// A [`Component`] field that can be animated, defined by a function that reads the component and returns
 /// the accessed field / property.
+///
+/// The best way to create an instance of this type is via the [`animated_field`] macro.
+///
+/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
+/// function that accepts a reference to `C` and retrieves the field `A`.
 #[derive(Clone)]
 pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
     func: F,
@@ -207,6 +212,9 @@ where
 impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedField<C, P, F> {
     /// Creates a new instance of [`AnimatedField`]. This operates under the assumption that
     /// `C` is a reflect-able struct with named fields, and that `field_name` is a valid field on that struct.
+    ///
+    /// # Panics
+    /// If the type of `C` is not a struct with named fields or if the `field_name` does not exist.
     pub fn new_unchecked(field_name: &str, func: F) -> Self {
         let TypeInfo::Struct(struct_info) = C::type_info() else {
             panic!("Only structs are supported in `AnimatedField::new_unchecked`")
