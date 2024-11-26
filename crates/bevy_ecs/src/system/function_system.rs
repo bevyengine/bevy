@@ -604,7 +604,7 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
-    state: Option<FunctionSystemState<Marker, F>>,
+    state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -614,12 +614,9 @@ where
 /// The state of a [`FunctionSystem`], which must be initialized with
 /// [`System::initialize`] before the system can be run. A panic will occur if
 /// the system is run without being initialized.
-struct FunctionSystemState<Marker, F>
-where
-    F: SystemParamFunction<Marker>,
-{
-    /// Stores the cached state of the system's [`SystemParam`]s.
-    param: <F::Param as SystemParam>::State,
+struct FunctionSystemState<P: SystemParam> {
+    /// The cached state of the system's [`SystemParam`]s.
+    param: P::State,
     /// The id of the [`World`] this system was initialized with. If the world
     /// passed to [`System::update_archetype_component_access`] does not match
     /// this id, a panic will occur.
