@@ -611,7 +611,7 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
-/// Stores the state of a [`FunctionSystem`], which must be initialized with
+/// The state of a [`FunctionSystem`], which must be initialized with
 /// [`System::initialize`] before the system can be run. A panic will occur if
 /// the system is run without being initialized.
 struct FunctionSystemState<Marker, F>
@@ -683,7 +683,8 @@ where
     /// Message shown when a system isn't initialized
     // When lines get too long, rustfmt can sometimes refuse to format them.
     // Work around this by storing the message separately.
-    const ERROR_UNINITIALIZED: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
+    const ERROR_UNINITIALIZED: &'static str =
+        "System's state was not found. Did you forget to initialize this system before running it?";
 }
 
 impl<Marker, F> System for FunctionSystem<Marker, F>
@@ -735,11 +736,7 @@ where
 
         let change_tick = world.increment_change_tick();
 
-        let param_state = self
-            .state
-            .as_mut()
-            .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNINITIALIZED);
+        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.
@@ -754,31 +751,19 @@ where
 
     #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
-        let param_state = self
-            .state
-            .as_mut()
-            .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNINITIALIZED);
+        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
         F::Param::apply(param_state, &self.system_meta, world);
     }
 
     #[inline]
     fn queue_deferred(&mut self, world: DeferredWorld) {
-        let param_state = self
-            .state
-            .as_mut()
-            .map(|state| &mut state.param)
-            .expect(Self::ERROR_UNINITIALIZED);
+        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
         F::Param::queue(param_state, &self.system_meta, world);
     }
 
     #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        let param_state = self
-            .state
-            .as_ref()
-            .map(|state| &state.param)
-            .expect(Self::ERROR_UNINITIALIZED);
+        let param_state = &self.state.as_ref().expect(Self::ERROR_UNINITIALIZED).param;
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.
