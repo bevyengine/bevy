@@ -157,17 +157,15 @@ use downcast_rs::{impl_downcast, Downcast};
 /// configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
-pub trait AnimatableProperty {
-    /// The type of the component that the property lives on.
-    type Component: Component;
+pub trait AnimatableProperty: Send + Sync + 'static {
+    /// The animated property type.
+    type Property: Animatable;
 
-    /// The type of the property to be animated.
-    type Property: Animatable + Clone + Sync + Debug;
-
-    /// Given a reference to the component, returns a reference to the property.
-    ///
-    /// If the property couldn't be found, returns `None`.
-    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property>;
+    /// Retrieves the property from the given `entity`.
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut Self::Property, AnimationEvaluationError>;
 
     /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
     /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
@@ -177,25 +175,28 @@ pub trait AnimatableProperty {
 /// A [`Component`] field that can be animated, defined by a function that reads the component and returns
 /// the accessed field / property.
 #[derive(Clone)]
-pub struct AnimatedField<C, P, F: Fn(&mut C) -> &mut P> {
+pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
     func: F,
     /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
     evaluator_id: Hashed<(TypeId, usize)>,
-    marker: PhantomData<(C, P)>,
+    marker: PhantomData<(C, A)>,
 }
 
-impl<C, P, F> AnimatableProperty for AnimatedField<C, P, F>
+impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
 where
     C: Component,
-    P: Animatable + Clone + Sync + Debug,
-    F: Fn(&mut C) -> &mut P,
+    A: Animatable + Clone + Sync + Debug,
+    F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
 {
-    type Component = C;
-
-    type Property = P;
-
-    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
-        Some((self.func)(component))
+    type Property = A;
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut A, AnimationEvaluationError> {
+        let c = entity
+            .get_mut::<C>()
+            .ok_or_else(|| AnimationEvaluationError::ComponentNotPresent(TypeId::of::<C>()))?;
+        Ok((self.func)(c.into_inner()))
     }
 
     fn evaluator_id(&self) -> EvaluatorId {
@@ -252,12 +253,9 @@ pub struct AnimatableCurve<P, C> {
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
 /// will automatically do so when you use an [`AnimatableCurve`] instance.
 #[derive(Reflect)]
-pub struct AnimatableCurveEvaluator<P>
-where
-    P: AnimatableProperty,
-{
-    evaluator: BasicAnimationCurveEvaluator<P::Property>,
-    property: P,
+pub struct AnimatableCurveEvaluator<A: Animatable> {
+    evaluator: BasicAnimationCurveEvaluator<A>,
+    property: Box<dyn AnimatableProperty<Property = A>>,
 }
 
 impl<P, C> AnimatableCurve<P, C>
@@ -316,9 +314,9 @@ where
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(AnimatableCurveEvaluator {
+        Box::new(AnimatableCurveEvaluator::<P::Property> {
             evaluator: BasicAnimationCurveEvaluator::default(),
-            property: self.property.clone(),
+            property: Box::new(self.property.clone()),
         })
     }
 
@@ -330,7 +328,7 @@ where
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         let curve_evaluator = curve_evaluator
-            .downcast_mut::<AnimatableCurveEvaluator<P>>()
+            .downcast_mut::<AnimatableCurveEvaluator<P::Property>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
         curve_evaluator
@@ -345,10 +343,7 @@ where
     }
 }
 
-impl<P> AnimationCurveEvaluator for AnimatableCurveEvaluator<P>
-where
-    P: AnimatableProperty + Send + Sync + 'static,
-{
+impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
     }
@@ -369,18 +364,12 @@ where
         &mut self,
         mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
-        })?;
-        let property = self
-            .property
-            .get_mut(&mut component)
-            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
+        let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
             .stack
             .pop()
-            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<P>>)?
+            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<A>>)?
             .value;
         Ok(())
     }

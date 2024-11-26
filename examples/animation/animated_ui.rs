@@ -1,7 +1,10 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{animated_field, AnimationTarget, AnimationTargetId},
+    animation::{
+        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
+        AnimationTargetId,
+    },
     prelude::*,
 };
 use std::any::TypeId;
@@ -166,18 +169,29 @@ fn setup(
 struct TextColorProperty;
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = TextColor;
-
     type Property = Srgba;
-
-    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
-        match component.0 {
-            Color::Srgba(ref mut color) => Some(color),
-            _ => None,
-        }
-    }
 
     fn evaluator_id(&self) -> EvaluatorId {
         EvaluatorId::Type(TypeId::of::<Self>())
+    }
+
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+        let text_color = entity
+            .get_mut::<TextColor>()
+            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+                TextColor,
+            >(
+            )))?
+            .into_inner();
+        match text_color.0 {
+            Color::Srgba(ref mut color) => Ok(color),
+            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+                Srgba,
+            >(
+            ))),
+        }
     }
 }
