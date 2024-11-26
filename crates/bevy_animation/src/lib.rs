@@ -787,11 +787,11 @@ impl CurrentEvaluators {
         mut visit: impl FnMut(EvaluatorId) -> Result<(), AnimationEvaluationError>,
     ) -> Result<(), AnimationEvaluationError> {
         for (key, _) in self.component_properties.drain() {
-            (visit)(EvaluatorId::ComponentField(&key))?
+            (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
         for (key, _) in self.type_ids.drain() {
-            (visit)(EvaluatorId::Type(key))?
+            (visit)(EvaluatorId::Type(key))?;
         }
 
         Ok(())
@@ -801,8 +801,7 @@ impl CurrentEvaluators {
     pub(crate) fn insert(&mut self, id: EvaluatorId) {
         match id {
             EvaluatorId::ComponentField(component_property) => {
-                self.component_properties
-                    .insert(component_property.clone(), ());
+                self.component_properties.insert(*component_property, ());
             }
             EvaluatorId::Type(type_id) => {
                 self.type_ids.insert(type_id, ());
