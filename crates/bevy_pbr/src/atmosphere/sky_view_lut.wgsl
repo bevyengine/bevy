@@ -25,7 +25,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let ray_dir_vs = sky_view_lut_unsquash_ray_dir(ray_dir_vs_squashed);
     let ray_dir = direction_view_to_world(ray_dir_vs);
 
-    let r = view_radius();//atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
+    let r = atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
     let mu = ray_dir.y;
 
     let t_max = max_atmosphere_distance(r, mu);
