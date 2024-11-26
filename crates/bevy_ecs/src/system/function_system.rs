@@ -621,7 +621,8 @@ where
     /// Stores the cached state of the system's [`SystemParam`]s.
     param: <F::Param as SystemParam>::State,
     /// The id of the [`World`] this system was initialized with. If the world
-    /// passed to [`System::run`] does not match this id, a panic will occur.
+    /// passed to [`System::update_archetype_component_access`] does not match
+    /// this id, a panic will occur.
     world_id: WorldId,
 }
 
