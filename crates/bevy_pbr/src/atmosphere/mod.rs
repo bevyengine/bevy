@@ -23,6 +23,7 @@ use bevy_render::{
 use bevy_utils::tracing::warn;
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use resources::{prepare_atmosphere_transforms, AtmosphereTransforms};
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
@@ -135,10 +136,12 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereBindGroupLayouts>()
             .init_resource::<AtmosphereSamplers>()
             .init_resource::<AtmospherePipelines>()
+            .init_resource::<AtmosphereTransforms>()
             .add_systems(
                 Render,
                 (
                     prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
+                    prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )

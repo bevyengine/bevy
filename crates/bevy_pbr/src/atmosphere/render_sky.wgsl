@@ -1,7 +1,7 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    bindings::{atmosphere, view},
-    functions::{sample_transmittance_lut, sample_sky_view_lut, direction_view_to_world, uv_to_ndc, sample_aerial_view_lut, view_radius, sample_sun_disk},
+    bindings::{atmosphere, view, atmosphere_transforms},
+    functions::{sample_transmittance_lut, sample_sky_view_lut, direction_atmosphere_to_world, uv_to_ndc, sample_aerial_view_lut, view_radius, sample_sun_illuminance},
 };
 #import bevy_render::view::View;
 
@@ -13,25 +13,34 @@
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
     if depth == 0.0 {
-        let view_ray_dir = uv_to_ray_direction(in.uv).xyz;
-        let world_ray_dir = direction_view_to_world(view_ray_dir);
+        let ray_dir_as = uv_to_ray_direction_as(in.uv).xyz;
+        let ray_dir_ws = direction_atmosphere_to_world(ray_dir_as);
+
         let r = view_radius();
-        let mu = world_ray_dir.y;
-        let sky_view = sample_sky_view_lut(view_ray_dir);
+        let mu = ray_dir_ws.y;
         let transmittance = sample_transmittance_lut(r, mu);
-        let sun_disk = sample_sun_disk(world_ray_dir, transmittance);
-        return vec4(sky_view + sun_disk, (transmittance.r + transmittance.g + transmittance.b) / 3.0);
+        let inscattering = sample_sky_view_lut(correct_sampling_dir(r, ray_dir_as));
+
+        let sun_illuminance = sample_sun_illuminance(ray_dir_ws, transmittance);
+        return vec4(inscattering + sun_illuminance, (transmittance.r + transmittance.g + transmittance.b) / 3.0);
     } else {
         let ndc_xy = uv_to_ndc(in.uv);
         let ndc = vec3(ndc_xy, depth);
-        let inscattering = sample_aerial_view_lut(ndc);
-        return inscattering;
+        let inscattering_and_transmittance = sample_aerial_view_lut(ndc);
+        return inscattering_and_transmittance;
     }
+}
+
+//approximates sampling direction from angle to horizon at the current radius
+fn correct_sampling_dir(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let altitude_ratio = atmosphere.bottom_radius / r;
+    let neg_mu_horizon = sqrt(1 - altitude_ratio * altitude_ratio);
+    return normalize(ray_dir_as + vec3(0.0, neg_mu_horizon, 0.0));
 }
 
 //Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
 //w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
-fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
+fn uv_to_ray_direction_as(uv: vec2<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
@@ -40,15 +49,11 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     // fragment position.
     // Use the position on the near clipping plane to avoid -inf world position
     // because the far plane of an infinite reverse projection is at infinity.
-    let view_position_homogeneous = view.view_from_clip * vec4(
+    let atmosphere_position_homogeneous = atmosphere_transforms.atmosphere_from_clip * vec4(
         uv_to_ndc(uv),
         1.0,
         1.0,
     );
 
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
-    // equivalent to rotating the skybox itself.
-    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w; //TODO: remove this step and just use position_ndc_to_world? we didn't need to transform in view space
-
-    return vec4(normalize(view_ray_direction), -view_ray_direction.z);
+    return atmosphere_position_homogeneous.xyz / atmosphere_position_homogeneous.w;
 }

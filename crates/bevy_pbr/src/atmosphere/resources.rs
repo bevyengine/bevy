@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_resource::{
@@ -24,9 +24,9 @@ use bevy_render::{
         ShaderType, StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::RenderDevice,
+    renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 
 use crate::{GpuLights, LightMeta};
@@ -84,6 +84,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
@@ -133,6 +134,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
@@ -430,6 +432,82 @@ pub(super) fn prepare_atmosphere_textures(
     }
 }
 
+#[derive(Resource, Default)]
+pub struct AtmosphereTransforms {
+    uniforms: DynamicUniformBuffer<AtmosphereTransform>,
+}
+
+impl AtmosphereTransforms {
+    #[inline]
+    pub fn uniforms(&self) -> &DynamicUniformBuffer<AtmosphereTransform> {
+        &self.uniforms
+    }
+}
+
+#[derive(ShaderType)]
+pub struct AtmosphereTransform {
+    world_from_atmosphere: Mat4,
+    atmosphere_from_clip: Mat4,
+}
+
+#[derive(Component)]
+pub struct AtmosphereTransformsOffset {
+    index: u32,
+}
+
+impl AtmosphereTransformsOffset {
+    #[inline]
+    pub fn index(&self) -> u32 {
+        self.index
+    }
+}
+
+pub(super) fn prepare_atmosphere_transforms(
+    views: Query<(Entity, &ExtractedView), (With<Atmosphere>, With<Camera3d>)>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut atmo_uniforms: ResMut<AtmosphereTransforms>,
+    mut commands: Commands,
+) {
+    let atmo_count = views.iter().len();
+    let Some(mut writer) =
+        atmo_uniforms
+            .uniforms
+            .get_writer(atmo_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    for (entity, view) in &views {
+        let world_from_view = view.world_from_view.compute_matrix();
+        let camera_z = world_from_view.z_axis.truncate();
+        let atmo_y = Vec3::Y;
+        let atmo_x = atmo_y.cross(camera_z).normalize();
+        let atmo_z = atmo_x.cross(atmo_y).normalize();
+        let world_from_atmosphere = Mat4::from_cols(
+            atmo_x.extend(0.0),
+            atmo_y.extend(0.0),
+            atmo_z.extend(0.0),
+            world_from_view.w_axis,
+        );
+
+        let world_from_clip = if let Some(clip_from_world) = view.clip_from_world {
+            clip_from_world.inverse()
+        } else {
+            world_from_view * view.clip_from_view.inverse()
+        };
+
+        let atmosphere_from_clip = world_from_atmosphere.inverse() * world_from_clip;
+
+        commands.entity(entity).insert(AtmosphereTransformsOffset {
+            index: writer.write(&AtmosphereTransform {
+                world_from_atmosphere,
+                atmosphere_from_clip,
+            }),
+        });
+    }
+}
+
 #[derive(Component)]
 pub(crate) struct AtmosphereBindGroups {
     pub transmittance_lut: BindGroup,
@@ -450,6 +528,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     samplers: Res<AtmosphereSamplers>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
+    atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
 
@@ -458,6 +537,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
     let atmosphere_binding = atmosphere_uniforms
         .binding()
         .expect("Failed to prepare atmosphere bind groups. Atmosphere uniform buffer missing");
+
+    let transforms_binding = atmosphere_transforms
+        .uniforms()
+        .binding()
+        .expect("Failed to prepare atmosphere bind groups. Atmosphere transforms buffer missing");
 
     let settings_binding = settings_uniforms.binding().expect(
         "Failed to prepare atmosphere bind groups. AtmosphereSettings uniform buffer missing",
@@ -501,6 +585,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),
@@ -533,6 +618,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),

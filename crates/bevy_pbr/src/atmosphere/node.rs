@@ -13,7 +13,9 @@ use bevy_render::{
 use crate::ViewLightsUniformOffset;
 
 use super::{
-    resources::{AtmosphereBindGroups, AtmospherePipelines, AtmosphereTextures},
+    resources::{
+        AtmosphereBindGroups, AtmospherePipelines, AtmosphereTextures, AtmosphereTransformsOffset,
+    },
     Atmosphere, AtmosphereSettings,
 };
 
@@ -33,6 +35,7 @@ impl ViewNode for AtmosphereLutsNode {
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
     );
@@ -47,6 +50,7 @@ impl ViewNode for AtmosphereLutsNode {
             bind_groups,
             atmosphere_uniforms_offset,
             settings_uniforms_offset,
+            atmosphere_transforms_offset,
             view_uniforms_offset,
             lights_uniforms_offset,
         ): QueryItem<Self::ViewQuery>,
@@ -143,6 +147,7 @@ impl ViewNode for AtmosphereLutsNode {
                 &[
                     atmosphere_uniforms_offset.index(),
                     settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
                     view_uniforms_offset.offset,
                     lights_uniforms_offset.offset,
                 ],
@@ -194,6 +199,7 @@ impl ViewNode for RenderSkyNode {
         Read<ViewTarget>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
     );
@@ -207,6 +213,7 @@ impl ViewNode for RenderSkyNode {
             view_target,
             atmosphere_uniforms_offset,
             settings_uniforms_offset,
+            atmosphere_transforms_offset,
             view_uniforms_offset,
             lights_uniforms_offset,
         ): QueryItem<'w, Self::ViewQuery>,
@@ -245,6 +252,7 @@ impl ViewNode for RenderSkyNode {
             &[
                 atmosphere_uniforms_offset.index(),
                 settings_uniforms_offset.index(),
+                atmosphere_transforms_offset.index(),
                 view_uniforms_offset.offset,
                 lights_uniforms_offset.offset,
             ],

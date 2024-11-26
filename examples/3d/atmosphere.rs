@@ -44,7 +44,7 @@ fn setup_camera_fog(mut commands: Commands) {
         },
         Msaa::Off,
         Tonemapping::AcesFitted,
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.15, Vec3::Y),
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
         AtmosphereSettings {
             scene_units_to_km: 1.0,

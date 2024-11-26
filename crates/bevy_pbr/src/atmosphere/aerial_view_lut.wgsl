@@ -21,7 +21,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     if any(idx.xy > settings.aerial_view_lut_size.xy) { return; }
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
-    let ray_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
+    let ray_dir = uv_to_ray_direction_ws(uv); //TODO: negate for lighting calcs?
     let r = view_radius();
     let mu = ray_dir.y;
     let t_max = max_atmosphere_distance(r, mu);
@@ -64,7 +64,7 @@ fn depth_at_sample(slice_i: i32, step_i: i32) -> f32 {
 
 //Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
 //w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
-fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
+fn uv_to_ray_direction_ws(uv: vec2<f32>) -> vec4<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.

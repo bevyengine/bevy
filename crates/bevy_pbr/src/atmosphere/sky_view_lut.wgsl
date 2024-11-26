@@ -7,7 +7,7 @@
             sample_atmosphere, get_local_up, AtmosphereSample,
             sample_local_inscattering, get_local_r, view_radius,
             sky_view_lut_unsquash_ray_dir, direction_view_to_world,
-            max_atmosphere_distance,
+            max_atmosphere_distance, direction_atmosphere_to_world,
         },
     }
 }
@@ -21,9 +21,9 @@
 @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = (vec2<f32>(idx.xy) + vec2(0.5)) / f32(settings.sky_view_lut_size);
-    let ray_dir_vs_squashed = cubemap_coords_to_ray_dir(uv, idx.z);
-    let ray_dir_vs = sky_view_lut_unsquash_ray_dir(ray_dir_vs_squashed);
-    let ray_dir = direction_view_to_world(ray_dir_vs);
+    let ray_dir_as_squashed = cubemap_coords_to_ray_dir(uv, idx.z);
+    let ray_dir_as = sky_view_lut_unsquash_ray_dir(ray_dir_as_squashed);
+    let ray_dir = direction_view_to_world(ray_dir_as);
 
     let r = atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
     let mu = ray_dir.y;
@@ -83,3 +83,5 @@ fn get_ray_direction(lat_long: vec2<f32>) -> vec3<f32> {
 
     return normalize(vec3(horizontal.x, sin(lat_long.x), horizontal.y));
 }
+
+

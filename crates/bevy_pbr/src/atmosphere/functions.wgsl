@@ -5,7 +5,7 @@
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
         multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler
+        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
@@ -155,17 +155,16 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
 
 //TODO: make pr to specify light angular size on struct itself
 const SUN_ANGULAR_SIZE: f32 = 0.00436332; //angular radius of sun in radians
-//const SUN_ANGULAR_SIZE: f32 = 0.1;
 
-fn sample_sun_disk(ray_dir: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
-    var sun_contribution = vec3(0.0);
+fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
+    var sun_illuminance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
-        let neg_LdotV = dot((*light).direction_to_light, ray_dir);
+        let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_light = acos(neg_LdotV);
-        sun_contribution += (*light).color.rgb * f32(angle_to_light <= SUN_ANGULAR_SIZE);
+        sun_illuminance += (*light).color.rgb * f32(angle_to_light <= SUN_ANGULAR_SIZE);
     }
-    return sun_contribution * transmittance * view.exposure;
+    return sun_illuminance * transmittance * view.exposure;
 }
 
 // TRANSFORM UTILITIES
@@ -210,34 +209,9 @@ fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     return world_pos.xyz / world_pos.w;
 }
 
-//Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
-//w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
-fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
-    // Using world positions of the fragment and camera to calculate a ray direction
-    // breaks down at large translations. This code only needs to know the ray direction.
-    // The ray direction is along the direction from the camera to the fragment position.
-    // In view space, the camera is at the origin, so the view space ray direction is
-    // along the direction of the fragment position - (0,0,0) which is just the
-    // fragment position.
-    // Use the position on the near clipping plane to avoid -inf world position
-    // because the far plane of an infinite reverse projection is at infinity.
-    let view_position_homogeneous = view.view_from_clip * vec4(
-        uv_to_ndc(uv),
-        1.0,
-        1.0,
-    );
-
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
-    // equivalent to rotating the skybox itself.
-    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w; //TODO: remove this step and just use position_ndc_to_world? we didn't need to transform in view space
-
-    // Transforming the view space ray direction by the inverse view matrix, transforms the
-    // direction to world space. Note that the w element is set to 0.0, as this is a
-    // vector direction, not a position, That causes the matrix multiplication to ignore
-    // the translations from the view matrix.
-    let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
-
-    return vec4(normalize(ray_direction), -view_ray_direction.z);
+fn direction_atmosphere_to_world(atmo_dir: vec3<f32>) -> vec3<f32> {
+    let world_dir = atmosphere_transforms.world_from_atmosphere * vec4(atmo_dir, 0.0);
+    return world_dir.xyz;
 }
 
 /// Convert a view space direction to world space

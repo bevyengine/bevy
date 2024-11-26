@@ -39,6 +39,6 @@ struct AtmosphereSettings {
 //"atmosphere space" is just the view position with y=0 and oriented horizontally,
 //so the horizon stays a horizontal line in our luts
 struct AtmosphereTransforms {
-    atmosphere_from_view: mat4x4<f32>,
+    world_from_atmosphere: mat4x4<f32>,
     atmosphere_from_clip: mat4x4<f32>,
 }
