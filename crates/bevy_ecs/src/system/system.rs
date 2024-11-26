@@ -322,14 +322,14 @@ pub trait RunSystemOnce: Sized {
     where
         T: IntoSystem<(), Out, Marker>,
     {
-        self.run_system_once_with((), system)
+        self.run_system_once_with(system, ())
     }
 
     /// Tries to run a system with given input and apply deferred parameters.
     fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: SystemIn<'_, T::System>,
         system: T,
+        input: SystemIn<'_, T::System>,
     ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
@@ -339,8 +339,8 @@ pub trait RunSystemOnce: Sized {
 impl RunSystemOnce for &mut World {
     fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: SystemIn<'_, T::System>,
         system: T,
+        input: SystemIn<'_, T::System>,
     ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
@@ -393,7 +393,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with(1, system).unwrap();
+        let n = world.run_system_once_with(system, 1).unwrap();
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
