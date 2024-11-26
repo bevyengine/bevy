@@ -197,16 +197,19 @@ pub fn ui_focus_system(
             else {
                 return None;
             };
+            let window = windows.get(window_ref.entity()).ok()?;
 
             let viewport_position = camera
                 .physical_viewport_rect()
                 .map(|rect| rect.min.as_vec2())
                 .unwrap_or_default();
-            windows
-                .get(window_ref.entity())
-                .ok()
-                .and_then(Window::physical_cursor_position)
-                .or_else(|| touches_input.first_pressed_position())
+            window
+                .physical_cursor_position()
+                .or_else(|| {
+                    touches_input
+                        .first_pressed_position()
+                        .map(|pos| pos * window.scale_factor())
+                })
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
         .collect();
