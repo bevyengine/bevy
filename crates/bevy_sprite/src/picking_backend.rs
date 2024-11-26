@@ -31,14 +31,14 @@ pub enum SpritePickingMode {
 /// Runtime settings for the [`SpritePickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
-pub struct SpriteBackendSettings {
+pub struct SpritePickingSettings {
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
     /// Defaults to an incusive alpha threshold of 0.1
     pub picking_mode: SpritePickingMode,
 }
 
-impl Default for SpriteBackendSettings {
+impl Default for SpritePickingSettings {
     fn default() -> Self {
         Self {
             picking_mode: SpritePickingMode::AlphaThreshold(0.1),
@@ -51,19 +51,19 @@ pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SpriteBackendSettings>()
+        app.init_resource::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn sprite_picking(
+fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
-    settings: Res<SpriteBackendSettings>,
+    settings: Res<SpritePickingSettings>,
     sprite_query: Query<(
         Entity,
         &Sprite,
@@ -125,22 +125,6 @@ pub fn sprite_picking(
                     return None;
                 }
 
-                // Hit box in sprite coordinate system
-                let extents = match (sprite.custom_size, &sprite.texture_atlas) {
-                    (Some(custom_size), _) => custom_size,
-                    (None, None) => images.get(&sprite.image)?.size().as_vec2(),
-                    (None, Some(atlas)) => texture_atlas_layout
-                        .get(&atlas.layout)
-                        .and_then(|layout| layout.textures.get(atlas.index))
-                        // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
-                        .map_or(images.get(&sprite.image)?.size().as_vec2(), |rect| {
-                            rect.size().as_vec2()
-                        }),
-                };
-                let anchor = sprite.anchor.as_vec();
-                let center = -anchor * extents;
-                let rect = Rect::from_center_half_size(center, extents / 2.0);
-
                 // Transform cursor line segment to sprite coordinate system
                 let world_to_sprite = sprite_transform.affine().inverse();
                 let cursor_start_sprite = world_to_sprite.transform_point3(cursor_ray_world.origin);
@@ -163,42 +147,40 @@ pub fn sprite_picking(
                 }
                 // Otherwise we can interpolate the xy of the start and end positions by the
                 // lerp factor to get the cursor position in sprite space!
-                // We also need to invert the y axis as pixel data handles the y axis differently to world and screen coords
                 let cursor_pos_sprite = cursor_start_sprite
                     .lerp(cursor_end_sprite, lerp_factor)
-                    .xy()
-                    * Vec2::new(1.0, -1.0);
+                    .xy();
 
-                let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
+                let Ok(cursor_pixel_space) = sprite.compute_pixel_space_point(
+                    cursor_pos_sprite,
+                    &images,
+                    &texture_atlas_layout,
+                ) else {
+                    return None;
+                };
 
-                let cursor_in_valid_pixels_of_sprite = match settings.picking_mode {
-                    SpritePickingMode::AlphaThreshold(cutoff) if is_cursor_in_sprite => {
-                        let texture: &Image = images.get(&sprite.image)?;
-                        // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
-                        let texture_rect = sprite
-                            .texture_atlas
-                            .as_ref()
-                            .and_then(|atlas| {
-                                texture_atlas_layout
-                                    .get(&atlas.layout)
-                                    .map(|f| f.textures[atlas.index])
-                            })
-                            .or(Some(URect::new(0, 0, texture.width(), texture.height())))?;
-                        // get mouse position on texture
-                        let texture_position = (texture_rect.center().as_vec2()
-                            + cursor_pos_sprite)
-                            .floor()
-                            .as_uvec2();
-                        // grab pixel and check alpha
-                        match texture.get_color_at(texture_position.x, texture_position.y) {
-                            // If possible check the alpha bit is above cutoff
-                            Ok(color) => color.alpha() > cutoff,
-                            // If not possible, it's not in the sprite
-                            _ => false,
+                // Since the pixel space coordinate is `Ok`, we know the cursor is in the bounds of
+                // the sprite.
+
+                let cursor_in_valid_pixels_of_sprite = 'valid_pixel: {
+                    match settings.picking_mode {
+                        SpritePickingMode::AlphaThreshold(cutoff) => {
+                            let Some(image) = images.get(&sprite.image) else {
+                                break 'valid_pixel true;
+                            };
+                            // grab pixel and check alpha
+                            let Ok(color) = image.get_color_at(
+                                cursor_pixel_space.x as u32,
+                                cursor_pixel_space.y as u32,
+                            ) else {
+                                // We don't know how to interpret the pixel.
+                                break 'valid_pixel false;
+                            };
+                            // Check the alpha is above the cutoff.
+                            color.alpha() > cutoff
                         }
+                        SpritePickingMode::BoundingBox => true,
                     }
-                    SpritePickingMode::BoundingBox => is_cursor_in_sprite,
-                    _ => false,
                 };
 
                 blocked = cursor_in_valid_pixels_of_sprite
