@@ -1,9 +1,10 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{animated_property, AnimationTarget, AnimationTargetId},
     prelude::*,
 };
+use std::any::TypeId;
 
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
@@ -44,7 +45,7 @@ impl AnimationInfo {
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                AnimatedProperty::new(|font: &mut TextFont| &mut font.font_size),
+                animated_property!(TextFont::font_size),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
@@ -58,13 +59,13 @@ impl AnimationInfo {
 
         // Create a curve that animates font color. Note that this should have
         // the same time duration as the previous curve.
+        //
+        // This time we use a "custom property", which in this case animates TextColor under the assumption
+        // that it is in the "srgba" format.
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                AnimatedPropertyOptional::new(|color: &mut TextColor| match &mut color.0 {
-                    Color::Srgba(srgba) => Some(srgba),
-                    _ => None,
-                }),
+                TextColorProperty,
                 AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
                     Srgba::RED,
                     Srgba::GREEN,
@@ -156,4 +157,27 @@ fn setup(
                 })
                 .insert(animation_target_name);
         });
+}
+
+// A type that represents the color of the first text section.
+//
+// We implement `AnimatableProperty` on this to define custom property accessor logic
+#[derive(Clone)]
+struct TextColorProperty;
+
+impl AnimatableProperty for TextColorProperty {
+    type Component = TextColor;
+
+    type Property = Srgba;
+
+    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
+        match component.0 {
+            Color::Srgba(ref mut color) => Some(color),
+            _ => None,
+        }
+    }
+
+    fn evaluator_id(&self) -> EvaluatorId {
+        EvaluatorId::Type(TypeId::of::<Self>())
+    }
 }
