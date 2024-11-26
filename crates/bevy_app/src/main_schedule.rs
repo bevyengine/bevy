@@ -185,6 +185,18 @@ pub struct Last;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Animation;
 
+/// A generic system set for physics. This is unused by Bevy but provides
+/// physics engine with a system set they can insert into, and for other crates
+/// to avoid depending on the particular physics engine.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct PhysicsSystems;
+
+/// A generic system set for AI. This is unused by Bevy but provides AI crates
+/// with a system set they can insert into, and for other crates to avoid
+/// depending on the particular AI crate.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct AiSystems;
+
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]
