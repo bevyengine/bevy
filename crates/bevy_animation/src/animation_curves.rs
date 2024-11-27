@@ -81,6 +81,7 @@
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
+//! [`animated_field`]: crate::animated_field
 
 use core::{
     any::TypeId,
@@ -208,6 +209,8 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 ///
 /// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
 /// function that accepts a reference to `C` and retrieves the field `A`.
+///
+/// [`animated_field`]: crate::animated_field
 #[derive(Clone)]
 pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
     func: F,
@@ -770,7 +773,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ///
     /// All curve types must return the same type of
     /// [`AnimationCurveEvaluator`]. The returned value must match the type
-    /// returned by [`Self::evaluator_type`].
+    /// returned by [`Self::evaluator_id`].
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator>;
 
     /// Samples the curve at the given time `t`, and pushes the sampled value
@@ -780,7 +783,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     /// [`Self::create_evaluator`], upcast to an `&mut dyn
     /// AnimationCurveEvaluator`. Typically, implementations of [`Self::apply`]
     /// will want to downcast the `curve_evaluator` parameter to the concrete
-    /// type [`Self::evaluator_type`] in order to push values of the appropriate
+    /// type [`Self::evaluator_id`] in order to push values of the appropriate
     /// type onto its evaluation stack.
     ///
     /// Be sure not to confuse the `t` and `weight` values. The former
@@ -831,6 +834,8 @@ pub enum EvaluatorId<'a> {
 /// translation keyframes.  The stack stores intermediate values generated while
 /// evaluating the [`crate::graph::AnimationGraph`], while the blend register
 /// stores the result of a blend operation.
+///
+/// [`Vec3`]: bevy_math::Vec3
 pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// Blends the top element of the stack with the blend register.
     ///
