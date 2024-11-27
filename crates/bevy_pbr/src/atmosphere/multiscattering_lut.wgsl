@@ -57,10 +57,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     // xFRAC_4_PI since we're integrating over a sphere
-    //l_2 /= FRAC_4_PI;
-    l_2 /= f32(settings.multiscattering_lut_dirs);
-    //f_ms /= FRAC_4_PI;
-    f_ms /= f32(settings.multiscattering_lut_dirs);
+    l_2 *= FRAC_4_PI;
+    //l_2 /= f32(settings.multiscattering_lut_dirs);
+    f_ms *= FRAC_4_PI;
+    //f_ms /= f32(settings.multiscattering_lut_dirs);
 
     let F_ms = 1 / (1 - f_ms);
     let phi_ms = l_2 * F_ms;
@@ -100,8 +100,8 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
 
         let energy_transfer = transmittance_to_sample * scattering;
 
-        l_2 += energy_transfer * shadow_factor * isotropic_phase * dt;
-        f_ms += energy_transfer * dt;
+        l_2 += energy_transfer * isotropic_phase * shadow_factor * dt;
+        f_ms += energy_transfer * isotropic_phase * dt;
     }
 
     return MultiscatteringSample(l_2, f_ms);
