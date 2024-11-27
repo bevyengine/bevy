@@ -249,6 +249,10 @@ fn prepare_cas_pipelines(
     >,
     mut removals: RemovedComponents<CasUniform>,
 ) {
+    for entity in removals.read() {
+        commands.entity(entity).remove::<ViewCasPipeline>();
+    }
+
     for (entity, view, denoise_cas) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -264,10 +268,6 @@ fn prepare_cas_pipelines(
         );
 
         commands.entity(entity).insert(ViewCasPipeline(pipeline_id));
-    }
-
-    for entity in removals.read() {
-        commands.entity(entity).remove::<ViewCasPipeline>();
     }
 }
 
