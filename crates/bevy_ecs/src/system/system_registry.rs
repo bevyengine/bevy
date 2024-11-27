@@ -577,7 +577,7 @@ where
     S: IntoSystem<I, O, M> + Send + 'static,
 {
     system: S,
-    _phantom: PhantomData<(fn() -> I, fn() -> O, fn() -> M)>,
+    _phantom: PhantomData<fn() -> (I, O, M)>,
 }
 
 impl<I, O, M, S> UnregisterSystemCached<I, O, M, S>
