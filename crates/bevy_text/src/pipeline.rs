@@ -107,6 +107,9 @@ impl TextPipeline {
         computed.entities.clear();
 
         for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+            // Save this span entity in the computed text block.
+            computed.entities.push(TextEntity { entity, depth });
+
             if span.is_empty() {
                 continue;
             }
@@ -124,9 +127,6 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
-
-            // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
@@ -226,7 +226,6 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.size = Default::default();
-        println!("QUEUED");
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
         computed.needs_rerender = false;
