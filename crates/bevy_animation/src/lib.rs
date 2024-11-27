@@ -717,7 +717,7 @@ pub struct AnimationEvaluationState {
     /// there may be entries in this list corresponding to properties that the
     /// current [`AnimationPlayer`] doesn't animate. To iterate only over the
     /// properties that are currently being animated, consult the
-    /// [`Self::current_curve_evaluator_types`] set.
+    /// [`Self::current_evaluators`] set.
     evaluators: AnimationCurveEvaluators,
 
     /// The set of [`AnimationCurveEvaluator`] types that the current
