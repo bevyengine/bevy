@@ -1,3 +1,34 @@
+//! Procedural Atmospheric Scattering.
+//!
+//! This plugin implements [Hillaire's 2020 paper](https://sebh.github.io/publications/egsr2020.pdf)
+//! on real-time atmospheric scattering. While it *will* work simply as a
+//! procedural skybox, it also does much more. It supports dynamic time-of-
+//! -day, multiple suns, and since it's applied as a post-processing effect
+//! *on top* of the existing skybox, a nighttime skybox would automatically
+//! show based on the time of day. Scattering in front of terrain (similar
+//! to distance fog, but more complex) is handled as well, and takes into
+//! account the sun color and direction.
+//!
+//! Adding the [`Atmosphere`] component to a 3d camera will enable the effect,
+//! which by default is set to look similar to Earth's atmosphere. See the
+//! documentation on the component itself for information regarding its fields.
+//!
+//! Performance-wise, the effect should be fairly cheap since the LUTs (Look
+//! Up Tables) that encode most of the data are small, and take advantage of the
+//! fact that the atmosphere is symmetric. Performance is also proportional to
+//! the number of directional lights in the scene. In order to tune
+//! performance more closely, the [`AtmosphereSettings`] camera component
+//! manages the size of each LUT and the sample count for each ray.
+//!
+//! Given how similar it is to [`crate::volumetric_fog`], it might be expected
+//! that these two modules would work together well. However for now using both
+//! at once is untested, and might not be physically accurate. These may be
+//! integrated into a single module in the future.
+//!
+//! [Shadertoy]: https://www.shadertoy.com/view/slSXRW
+//!
+//! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
+
 mod node;
 pub mod resources;
 
@@ -173,7 +204,29 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
-/// This component describes the atmosphere of a planet
+/// This component describes the atmosphere of a planet. Most atmospheric
+/// particles scatter and absorb light in two main ways:
+///
+/// Rayleigh scattering occurs among very small particles, like individual gas
+/// molecules. It's wavelength dependent, and causes colors to separate out as
+/// light travels through the atmosphere. These particles *don't* absorb light.
+///
+/// Mie scattering occurs among slightly larger particles, like dust and sea spray.
+/// These particles *do* absorb light, but Mie scattering and absorption is
+/// *wavelength independent*.
+///
+/// Ozone acts differently from the other two, and is special-cased because
+/// it's very important to the look of Earth's atmosphere. It's wavelength
+/// dependent, but only *absorbs* light. Also, while the density of particles
+/// participating in Rayleigh and Mie scattering falls off roughly exponentially
+/// from the planet's surface, ozone only exists in a band centered at a fairly
+/// high altitude.
+///
+/// Note that all units are in kilometers. This is to combat precision issues,
+/// since integrating very small atmospheric densities over long distances
+/// might otherwise cause problems. [`AtmosphereSettings`] has a field to set
+/// the conversion factor from scene units to km, which by default assumes that
+/// the scene units are meters.
 //TODO: padding/alignment?
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[require(AtmosphereSettings)]
@@ -183,40 +236,85 @@ pub struct Atmosphere {
     /// units: km
     pub bottom_radius: f32,
 
-    /// Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    /// Radius at which we consider the atmosphere to 'end' for our
+    /// calculations (from center of planet)
+    ///
     /// units: km
     pub top_radius: f32,
 
-    pub ground_albedo: Vec3, //used for estimating multiscattering
+    /// An approximation of the average albedo (or color, roughly) of the
+    /// planet's surface. This is used when calculating multiscattering.
+    ///
+    /// TODO: units
+    pub ground_albedo: Vec3,
 
+    /// The rate of falloff of rayleigh particulate with respect to altitude:
+    /// optical density = exp(-rayleigh_density_exp_scale * altitude)
+    ///
+    /// units: N/A
     pub rayleigh_density_exp_scale: f32,
+
+    /// The scattering optical density of rayleigh particulare, or how
+    /// much light it scatters per kilometer
+    ///
+    /// units: km^-1
     pub rayleigh_scattering: Vec3,
 
+    /// The rate of falloff of mie particulate with respect to altitude:
+    /// optical density = exp(-mie_density_exp_scale * altitude)
+    ///
+    /// units: N/A
     pub mie_density_exp_scale: f32,
-    pub mie_scattering: f32, //units: km^-1
-    pub mie_absorption: f32, //units: km^-1
+
+    /// The scattering optical density of mie particular, or how much light
+    /// it scatters per kilometer.
+    ///
+    /// units: km^-1
+    pub mie_scattering: f32,
+
+    /// The absorbing optical density of mie particulate, or how much light
+    /// it absorbs per kilometer.
+    ///
+    /// units: km^-1
+    pub mie_absorption: f32,
+
+    /// The "asymmetry" of mie scattering, or how much light tends to scatter
+    /// forwards, rather than backwards or to the side.
+    ///
+    /// domain: (-1, 1)
+    /// units: N/A
     pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
 
-    pub ozone_layer_center_altitude: f32, //units: km
-    pub ozone_layer_half_width: f32,      //units: km
-    pub ozone_absorption: Vec3,           //ozone absorption. units: km^-1
+    /// The altitude at which the ozone layer is centered.
+    ///
+    /// units: km
+    pub ozone_layer_altitude: f32,
+
+    /// The width of the ozone layer
+    ///
+    /// units: km
+    pub ozone_layer_width: f32,
+
+    /// The optical density of ozone, or how much of each wavelength of
+    /// light it absorbs per kilometer.
+    ///
+    /// units: km^-1
+    pub ozone_absorption: Vec3,
 }
 
 impl Atmosphere {
-    //TODO: check all these values before merge
-    //TODO: UNITS
     pub const EARTH: Atmosphere = Atmosphere {
         bottom_radius: 6360.0,
         top_radius: 6460.0,
         ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: -1.0 / 8.0,
+        rayleigh_density_exp_scale: 1.0 / 8.0,
         rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
-        mie_density_exp_scale: -1.0 / 1.2,
+        mie_density_exp_scale: 1.0 / 1.2,
         mie_scattering: 0.003996,
         mie_absorption: 0.004440,
         mie_asymmetry: 0.8,
-        ozone_layer_center_altitude: 25.0,
-        ozone_layer_half_width: 15.0,
+        ozone_layer_altitude: 25.0,
+        ozone_layer_width: 30.0,
         ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
     };
 }

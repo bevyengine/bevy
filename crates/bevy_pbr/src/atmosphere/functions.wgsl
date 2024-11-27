@@ -105,9 +105,9 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     let altitude = r - atmosphere.bottom_radius;
 
     // atmosphere values at altitude
-    let mie_density = exp(atmosphere.mie_density_exp_scale * altitude);
-    let rayleigh_density = exp(atmosphere.rayleigh_density_exp_scale * altitude);
-    var ozone_density: f32 = max(0.0, 1.0 - (abs(altitude - atmosphere.ozone_layer_center_altitude) / atmosphere.ozone_layer_half_width));
+    let mie_density = exp(-atmosphere.mie_density_exp_scale * altitude);
+    let rayleigh_density = exp(-atmosphere.rayleigh_density_exp_scale * altitude);
+    var ozone_density: f32 = max(0.0, 1.0 - (abs(altitude - atmosphere.ozone_layer_altitude) / (atmosphere.ozone_layer_width * 0.5)));
 
     let mie_scattering = mie_density * atmosphere.mie_scattering;
     let mie_absorption = mie_density * atmosphere.mie_absorption;

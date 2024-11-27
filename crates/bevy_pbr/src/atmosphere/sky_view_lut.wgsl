@@ -80,17 +80,3 @@ fn cubemap_coords_to_ray_dir(uv: vec2<f32>, face_index: u32) -> vec3<f32> {
     }
     return normalize(ray_dir);
 }
-
-
-
-//lat-long projection [-pi, pi] x [-pi/2, pi/2] -> S^2
-fn get_ray_direction(lat_long: vec2<f32>) -> vec3<f32> {
-    let cos_long = cos(lat_long.y);
-    let sin_long = sin(lat_long.y);
-    let horizontal_rotation = mat2x2(cos_long, -sin_long, sin_long, cos_long);
-    let horizontal = horizontal_rotation * vec2(-view.world_from_view[2].xz);
-
-    return normalize(vec3(horizontal.x, sin(lat_long.x), horizontal.y));
-}
-
-

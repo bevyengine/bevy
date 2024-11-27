@@ -17,8 +17,8 @@ struct Atmosphere {
     mie_absorption: f32, //units: km^-1
     mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
 
-    ozone_layer_center_altitude: f32, //units: km
-    ozone_layer_half_width: f32, //units: km
+    ozone_layer_altitude: f32, //units: km
+    ozone_layer_width: f32, //units: km
     ozone_absorption: vec3<f32>, //ozone absorption. units: km^-1
 }
 
