@@ -708,7 +708,7 @@ pub struct AnimationEvaluationState {
     /// Stores all [`AnimationCurveEvaluator`]s corresponding to properties that
     /// we've seen so far.
     ///
-    /// This is a mapping from the id an animation curve evaluator to
+    /// This is a mapping from the id of an animation curve evaluator to
     /// the animation curve evaluator itself.
 
     /// For efficiency's sake, the [`AnimationCurveEvaluator`]s are cached from
