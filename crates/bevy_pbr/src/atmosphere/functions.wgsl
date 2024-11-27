@@ -92,10 +92,6 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
 
-fn isotropic() -> f32 {
-    return FRAC_4_PI;
-}
-
 // ATMOSPHERE SAMPLING
 
 struct AtmosphereSample {

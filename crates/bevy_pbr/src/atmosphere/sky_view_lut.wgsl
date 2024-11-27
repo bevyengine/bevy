@@ -21,11 +21,13 @@
 @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = (vec2<f32>(idx.xy) + vec2(0.5)) / f32(settings.sky_view_lut_size);
+
+    let r = view_radius(); //TODO: paper says to center the sky view on the planet ground
+
     let ray_dir_as_squashed = cubemap_coords_to_ray_dir(uv, idx.z);
-    let ray_dir_as = sky_view_lut_unsquash_ray_dir(ray_dir_as_squashed);
+    let ray_dir_as = correct_sampling_dir(r, sky_view_lut_unsquash_ray_dir(ray_dir_as_squashed));
     let ray_dir = direction_view_to_world(ray_dir_as);
 
-    let r = atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
     let mu = ray_dir.y;
 
     let t_max = max_atmosphere_distance(r, mu);
@@ -47,6 +49,13 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     }
 
     textureStore(sky_view_lut_out, idx.xy, idx.z, vec4(total_inscattering, 1.0));
+}
+
+//approximates sampling direction from angle to horizon at the current radius
+fn correct_sampling_dir(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let altitude_ratio = atmosphere.bottom_radius / r;
+    let neg_mu_horizon = sqrt(1 - altitude_ratio * altitude_ratio);
+    return normalize(ray_dir_as - vec3(0.0, neg_mu_horizon, 0.0));
 }
 
 fn cubemap_coords_to_ray_dir(uv: vec2<f32>, face_index: u32) -> vec3<f32> {
