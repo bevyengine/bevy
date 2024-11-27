@@ -26,7 +26,7 @@ fn main() {
             (setup_camera_fog, setup_terrain_scene, setup_instructions),
         )
         .add_systems(Update, rotate_sun)
-        //.add_systems(Update, rotate_camera)
+        .add_systems(Update, rotate_camera)
         .run();
 }
 
@@ -114,6 +114,6 @@ fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res
     sun.rotate_z(time.delta_secs() * PI / 30.0);
 }
 
-// fn rotate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
-//     camera.rotate_y(time.delta_secs() * PI / 30.0);
-// }
+fn rotate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+    camera.translation.y += time.delta_secs() * 0.5;
+}
