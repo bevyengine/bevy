@@ -107,6 +107,9 @@ impl TextPipeline {
         computed.entities.clear();
 
         for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+            if span.is_empty() {
+                continue;
+            }
             // Return early if a font is not loaded yet.
             if !fonts.contains(text_font.font.id()) {
                 spans.clear();
@@ -223,6 +226,7 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.size = Default::default();
+        println!("QUEUED");
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
         computed.needs_rerender = false;
