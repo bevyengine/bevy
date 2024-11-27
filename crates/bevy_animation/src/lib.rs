@@ -105,6 +105,7 @@ impl VariableCurve {
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
+    // This field is ignored by reflection because AnimationCurves can contain things that are not reflect-able
     #[reflect(ignore)]
     curves: AnimationCurves,
     events: AnimationEvents,
