@@ -81,6 +81,7 @@ use core::{
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
 };
+use std::any::Any;
 
 use bevy_ecs::{component::Component, world::Mut};
 use bevy_math::{
@@ -209,6 +210,21 @@ where
     phantom: PhantomData<P>,
 }
 
+pub struct AnimatableCurveSample {
+    pub component_type: TypeId,
+    pub property_type: TypeId,
+    pub get_mut_boxed: fn(&mut dyn Any) -> Option<&mut dyn Reflect>,
+    pub value: Box<dyn Reflect>,
+}
+
+fn get_mut_boxed<P: AnimatableProperty>(component: &mut dyn Any) -> Option<&mut dyn Reflect> {
+    if let Some(component) = component.downcast_mut::<P::Component>() {
+        P::get_mut(component).map(|p| p.as_reflect_mut())
+    } else {
+        panic!("Type mismatch")
+    }
+}
+
 impl<P, C> AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
@@ -294,6 +310,17 @@ where
             });
         Ok(())
     }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.curve.sample_clamped(t);
+
+        Box::new(AnimatableCurveSample {
+            component_type: TypeId::of::<P::Component>(),
+            property_type: TypeId::of::<P::Property>(),
+            get_mut_boxed: get_mut_boxed::<P>,
+            value: Box::new(value),
+        })
+    }
 }
 
 impl<P> AnimationCurveEvaluator for AnimatableCurveEvaluator<P>
@@ -353,6 +380,14 @@ pub struct TranslationCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Vec3>,
 }
 
+/// Type indicating that the sampled value from an animation curve is coming from a
+/// [`TranslationCurve`].
+///
+/// You shouldn't need to interact with this type unless you're manually evaluating animation
+/// curves.
+#[derive(Reflect)]
+pub struct TranslationCurveSample(pub Vec3);
+
 impl<C> AnimationCurve for TranslationCurve<C>
 where
     C: AnimationCompatibleCurve<Vec3>,
@@ -395,6 +430,12 @@ where
                 graph_node,
             });
         Ok(())
+    }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.0.sample_clamped(t);
+
+        Box::new(TranslationCurveSample(value))
     }
 }
 
@@ -450,6 +491,14 @@ pub struct RotationCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Quat>,
 }
 
+/// Type indicating that the sampled value from an animation curve is coming from a
+/// [`RotationCurve`].
+///
+/// You shouldn't need to interact with this type unless you're manually evaluating animation
+/// curves.
+#[derive(Reflect)]
+pub struct RotationCurveSample(pub Quat);
+
 impl<C> AnimationCurve for RotationCurve<C>
 where
     C: AnimationCompatibleCurve<Quat>,
@@ -492,6 +541,12 @@ where
                 graph_node,
             });
         Ok(())
+    }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.0.sample_clamped(t);
+
+        Box::new(RotationCurveSample(value))
     }
 }
 
@@ -547,6 +602,14 @@ pub struct ScaleCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Vec3>,
 }
 
+/// Type indicating that the sampled value from an animation curve is coming from a
+/// [`ScaleCurve`].
+///
+/// You shouldn't need to interact with this type unless you're manually evaluating animation
+/// curves.
+#[derive(Reflect)]
+pub struct ScaleCurveSample(pub Vec3);
+
 impl<C> AnimationCurve for ScaleCurve<C>
 where
     C: AnimationCompatibleCurve<Vec3>,
@@ -589,6 +652,12 @@ where
                 graph_node,
             });
         Ok(())
+    }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.0.sample_clamped(t);
+
+        Box::new(ScaleCurveSample(value))
     }
 }
 
@@ -671,6 +740,14 @@ struct WeightsCurveEvaluator {
     morph_target_count: Option<u32>,
 }
 
+/// Type indicating that the sampled value from an animation curve is coming from a
+/// [`ScaleCurve`].
+///
+/// You shouldn't need to interact with this type unless you're manually evaluating animation
+/// curves.
+#[derive(Reflect)]
+pub struct WeightsCurveSample(pub Vec<f32>);
+
 impl<C> AnimationCurve for WeightsCurve<C>
 where
     C: IterableCurve<f32> + Debug + Clone + Reflectable,
@@ -721,6 +798,12 @@ where
             .stack_blend_weights_and_graph_nodes
             .push((weight, graph_node));
         Ok(())
+    }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.0.sample_iter_clamped(t);
+
+        Box::new(WeightsCurveSample(value.collect()))
     }
 }
 
@@ -1010,6 +1093,46 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
+
+    /// Provides a type-erased API for sampling an [`AnimationCurve`]. This is not usually
+    /// needed if you're using the animation system normally, but can be useful as an integration
+    /// point for animation plugins.
+    ///
+    /// Example usage:
+    /// ```rust
+    /// # use bevy_math::Vec3;
+    /// # use bevy_animation::prelude::{
+    /// #     TranslationCurve,
+    /// #     TranslationCurveSample,
+    /// #     VariableCurve,
+    /// #     AnimatableKeyframeCurve
+    /// # };
+    /// # use core::any::TypeId;
+    /// let translation_curve = TranslationCurve(
+    ///     AnimatableKeyframeCurve::new([
+    ///         (0., Vec3::splat(0.)),
+    ///         (1., Vec3::splat(1.)),
+    ///         (2., Vec3::splat(4.)),
+    ///         (3., Vec3::splat(3.)),
+    ///     ])
+    ///     .unwrap(),
+    /// );
+    ///
+    /// // Suppose we don't know the type of the curve
+    /// let curve = VariableCurve(Box::new(translation_curve));
+    ///
+    /// let curve_sample = curve.0.sample_clamped(2.);
+    ///
+    /// assert_eq!(
+    ///     TypeId::of::<TranslationCurveSample>(),
+    ///     curve_sample.as_ref().type_id()
+    /// );
+    ///
+    /// let translation_curve_sample = curve_sample.downcast::<TranslationCurveSample>().unwrap();
+    ///
+    /// assert_eq!(Vec3::splat(4.), translation_curve_sample.0);
+    /// ```
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
 /// A low-level trait for use in [`crate::VariableCurve`] that provides fine
