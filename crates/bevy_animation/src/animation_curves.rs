@@ -22,30 +22,32 @@
 //!
 //! For instance, let's imagine that we want to use the `Vec3` output
 //! from our curve to animate the [translation component of a `Transform`]. For this, there is
-//! the adaptor [`TranslationCurve`], which wraps any `Curve<Vec3>` and turns it into an
-//! [`AnimationCurve`] that will use the given curve to animate the entity's translation:
+//! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
+//! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
-//!     # use bevy_animation::animation_curves::*;
+//!     # use bevy_transform::components::Transform;
+//!     # use bevy_animation::{animated_field, animation_curves::*};
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
 //!     # );
-//!     let wobble_animation = TranslationCurve(wobble_curve);
+//!     let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!
-//! And finally, this `AnimationCurve` needs to be added to an [`AnimationClip`] in order to
+//! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
-//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animation_curves::*};
+//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
+//!     # use bevy_transform::components::Transform;
 //!     # use bevy_core::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
-//!     # let wobble_animation = TranslationCurve(wobble_curve);
+//!     # let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 //!     let mut animation_clip = AnimationClip::default();
 //!     animation_clip.add_curve_to_target(
@@ -59,17 +61,21 @@
 //! a [`Curve`], which produces time-related data of some kind, to an [`AnimationCurve`], which
 //! knows how to apply that data to an entity.
 //!
-//! ## `Transform`
+//! ## Animated Fields
 //!
-//! [`Transform`] is special and has its own adaptors:
-//!     - [`TranslationCurve`], which uses `Vec3` output to animate [`Transform::translation`]
-//!     - [`RotationCurve`], which uses `Quat` output to animate [`Transform::rotation`]
-//!     - [`ScaleCurve`], which uses `Vec3` output to animate [`Transform::scale`]
+//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with [`AnimatableCurve`]
+//! is the easiest way to make an animation curve (see the example above).
 //!
-//! ## Animatable properties
+//! This will select a field on a component and pass it to a [`Curve`] with a type that matches the field.
 //!
-//! Animation of arbitrary components can be accomplished using [`AnimatableProperty`] in
+//! ## Animatable Properties
+//!
+//! Animation of arbitrary aspects of entities can be accomplished using [`AnimatableProperty`] in
 //! conjunction with [`AnimatableCurve`]. See the documentation [there] for details.
+//!
+//! ## Custom [`AnimationCurve`] and [`AnimationCurveEvaluator`]
+//!
+//! This is the lowest-level option with the most control, but it is also the most complicated.
 //!
 //! [using a function]: bevy_math::curve::FunctionCurve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
@@ -107,36 +113,59 @@ use downcast_rs::{impl_downcast, Downcast};
 /// to define the animation itself).
 /// For example, in order to animate field of view, you might use:
 ///
-///     # use bevy_animation::prelude::AnimatableProperty;
+///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_reflect::Reflect;
+///     # use std::any::TypeId;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     #[derive(Reflect)]
 ///     struct FieldOfViewProperty;
 ///
 ///     impl AnimatableProperty for FieldOfViewProperty {
-///         type Component = PerspectiveProjection;
 ///         type Property = f32;
-///         fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
-///             Some(&mut component.fov)
+///         fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+///            let component = entity
+///                .get_mut::<PerspectiveProjection>()
+///                .ok_or(
+///                     AnimationEvaluationError::ComponentNotPresent(
+///                         TypeId::of::<PerspectiveProjection>()
+///                    )
+///                 )?
+///                 .into_inner();
+///             Ok(&mut component.fov)
+///         }
+///
+///         fn evaluator_id(&self) -> EvaluatorId {
+///             EvaluatorId::Type(TypeId::of::<Self>())
 ///         }
 ///     }
 ///
 /// You can then create an [`AnimationClip`] to animate this property like so:
 ///
-///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve};
+///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
 ///     # use bevy_core::Name;
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
+///     # use std::any::TypeId;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Reflect, Clone)]
 ///     # struct FieldOfViewProperty;
 ///     # impl AnimatableProperty for FieldOfViewProperty {
-///     #     type Component = PerspectiveProjection;
-///     #     type Property = f32;
-///     #     fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
-///     #         Some(&mut component.fov)
-///     #     }
+///     #    type Property = f32;
+///     #    fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+///     #       let component = entity
+///     #           .get_mut::<PerspectiveProjection>()
+///     #           .ok_or(
+///     #                AnimationEvaluationError::ComponentNotPresent(
+///     #                    TypeId::of::<PerspectiveProjection>()
+///     #               )
+///     #            )?
+///     #            .into_inner();
+///     #        Ok(&mut component.fov)
+///     #    }
+///     #    fn evaluator_id(&self) -> EvaluatorId {
+///     #        EvaluatorId::Type(TypeId::of::<Self>())
+///     #    }
 ///     # }
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
