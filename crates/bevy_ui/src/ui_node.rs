@@ -2071,7 +2071,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 ///
-/// Use [`GlobalZIndex`] if you need to order separate UI hierarchies, or nodes that are
+/// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
 /// not siblings in a given UI hierarchy.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
