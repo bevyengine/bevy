@@ -227,7 +227,7 @@ use derive_more::derive::{Display, Error};
 /// ```
 ///
 /// In general, this shouldn't happen often, but when it does the algorithm for choosing the constructor from the tree is simple and predictable:
-/// 1. A constructor from a direct #[require()], if one exists, is selected with priority.
+/// 1. A constructor from a direct `#[require()]`, if one exists, is selected with priority.
 /// 2. Otherwise, perform a Depth First Search on the tree of requirements and select the first one found.
 ///
 /// From a user perspective, just think about this as the following:
