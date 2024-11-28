@@ -2062,13 +2062,16 @@ pub struct CalculatedClip {
 
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
-/// of other nodes with a lower z-index.
+/// of sibling nodes with a lower z-index.
 ///
 /// UI nodes that have the same z-index will appear according to the order in which they
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of its siblings.
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
+///
+/// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
+/// not siblings in a given UI hierarchy.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct ZIndex(pub i32);
