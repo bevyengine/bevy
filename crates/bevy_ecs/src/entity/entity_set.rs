@@ -427,7 +427,7 @@ mod tests {
             mut things: Query<&mut Thing>,
         ) {
             things.iter_many_unique(thing_entities.iter());
-            things.iter_many_unique_mut(thing_entities.iter_mut()); 
+            things.iter_many_unique_mut(thing_entities.iter_mut());
         }
 
         let mut schedule = Schedule::default();
