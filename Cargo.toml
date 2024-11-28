@@ -116,7 +116,6 @@ default = [
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -141,13 +140,22 @@ default = [
 ]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_picking"]
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -3647,6 +3655,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3658,6 +3667,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"

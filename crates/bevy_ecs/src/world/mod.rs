@@ -515,7 +515,7 @@ impl World {
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
-                .register_required_components::<R>(required, requiree, constructor)
+                .register_required_components::<R>(requiree, required, constructor)
         }
     }
 

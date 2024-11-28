@@ -1008,12 +1008,18 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
-    /// Returns a reference to the [`World`].
+    /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main().world()`].
+    ///
+    /// [`app.main().world()`]: SubApp::world
     pub fn world(&self) -> &World {
         self.main().world()
     }
 
-    /// Returns a mutable reference to the [`World`].
+    /// Returns a mutable reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main_mut().world_mut()`].
+    ///
+    /// [`app.main_mut().world_mut()`]: SubApp::world_mut
     pub fn world_mut(&mut self) -> &mut World {
         self.main_mut().world_mut()
     }
