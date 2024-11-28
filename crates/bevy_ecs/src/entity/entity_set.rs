@@ -61,6 +61,7 @@ impl<T: EntityBorrow> EntityBorrow for &T {
 // SAFETY:
 // `&T` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone` and `Borrow` maintain equality.
+// `&T` is `Freeze`.
 unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for &T {}
 
 impl<T: EntityBorrow> EntityBorrow for &mut T {
@@ -72,40 +73,44 @@ impl<T: EntityBorrow> EntityBorrow for &mut T {
 // SAFETY:
 // `&mut T` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Borrow` and `BorrowMut` maintain equality.
+//  `&mut T` is `Freeze`.
 unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for &mut T {}
 
-impl EntityBorrow for Box<Entity> {
+impl<T: TrustedEntityBorrow> EntityBorrow for Box<T> {
     fn entity(&self) -> Entity {
-        **self
+        (**self).entity()
     }
 }
 
 // SAFETY:
 // `Box<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
-unsafe impl TrustedEntityBorrow for Box<Entity> {}
+// `Box<T>` is `Freeze`.
+unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Box<T> {}
 
-impl EntityBorrow for Rc<Entity> {
+impl<T: TrustedEntityBorrow> EntityBorrow for Rc<T> {
     fn entity(&self) -> Entity {
-        **self
+        (**self).entity()
     }
 }
 
 // SAFETY:
 // `Rc<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
-unsafe impl TrustedEntityBorrow for Rc<Entity> {}
+// `Rc<T>` is `Freeze`.
+unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Rc<T> {}
 
-impl EntityBorrow for Arc<Entity> {
+impl<T: TrustedEntityBorrow> EntityBorrow for Arc<T> {
     fn entity(&self) -> Entity {
-        **self
+        (**self).entity()
     }
 }
 
 // SAFETY:
 // `Arc<T>` delegates `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash` to T.
 // `Clone`, `Borrow` and `BorrowMut` maintain equality.
-unsafe impl TrustedEntityBorrow for Arc<Entity> {}
+// `Arc<T>` is `Freeze`.
+unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
 
 /// A set of unique entities.
 ///
