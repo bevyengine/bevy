@@ -386,6 +386,7 @@ mod tests {
     #[derive(Component, Clone)]
     pub struct Thing;
 
+    #[allow(clippy::iter_skip_zero)]
     #[test]
     fn preserving_uniqueness() {
         let mut world = World::new();
