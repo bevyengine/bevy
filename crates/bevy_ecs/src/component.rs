@@ -226,9 +226,9 @@ use derive_more::derive::{Display, Error};
 /// assert_eq!(2, world.entity(id).get::<X>().unwrap().0);
 /// ```
 ///
-/// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
-/// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// In general, this shouldn't happen often, but when it does the algorithm for choosing the constructor from the tree is simple and predictable:
+/// 1. A constructor from a direct #[requires()], if one exists, is selected with priority.
+/// 2. Otherwise, perform a Depth First Search on the tree of requirements and select the first one found.
 ///
 /// From a user perspective, just think about this as the following:
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
