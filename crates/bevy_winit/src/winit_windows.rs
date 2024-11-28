@@ -126,6 +126,8 @@ impl WinitWindows {
             use winit::platform::windows::WindowAttributesExtWindows;
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
+            winit_window_attributes =
+                winit_window_attributes.with_clip_children(window.clip_children);
         }
 
         #[cfg(target_os = "macos")]
