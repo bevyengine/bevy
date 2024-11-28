@@ -3,11 +3,11 @@
 //! This plugin implements [Hillaire's 2020 paper](https://sebh.github.io/publications/egsr2020.pdf)
 //! on real-time atmospheric scattering. While it *will* work simply as a
 //! procedural skybox, it also does much more. It supports dynamic time-of-
-//! -day, multiple suns, and since it's applied as a post-processing effect
-//! *on top* of the existing skybox, a nighttime skybox would automatically
+//! -day, multiple directional lights, and since it's applied as a post-processing
+//! effect *on top* of the existing skybox, a starry skybox would automatically
 //! show based on the time of day. Scattering in front of terrain (similar
 //! to distance fog, but more complex) is handled as well, and takes into
-//! account the sun color and direction.
+//! account the directional light color and direction.
 //!
 //! Adding the [`Atmosphere`] component to a 3d camera will enable the effect,
 //! which by default is set to look similar to Earth's atmosphere. See the
@@ -337,17 +337,61 @@ impl ExtractComponent for Atmosphere {
     }
 }
 
+/// This component controls the resolution of the atmosphere LUTs, and
+/// how many samples are used when computing them.
+///
+/// The transmittance LUT stores the transmittance from a point in the
+/// atmosphere to the outer edge of the atmosphere in any direction,
+/// parametrized by the point's radius and the cosine of the zenith angle
+/// of the ray.
+///
+/// The multiscattering LUT stores the factor representing luminance scattered
+/// towards the camera with scattering order >2, parametrized by the point's radius
+/// and the cosine of the zenith angle of the sun.
+///
+/// The sky-view lut is essentially the actual skybox, storing the light scattered
+/// towards the camera in every direction with a cubemap.
+///
+/// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
+/// scattered towards the camera at each point (RGB channels), alongside the average
+/// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect, ShaderType)]
 pub struct AtmosphereSettings {
+    /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
+
+    /// The size of the multiscattering LUT
     pub multiscattering_lut_size: UVec2,
+
+    /// The size of the aerial LUT.
     pub aerial_view_lut_size: UVec3,
+
+    /// The size of the sky-view LUT. This is a cubemap,
+    /// so this field is the length of one edge of the cube
     pub sky_view_lut_size: u32,
-    pub multiscattering_lut_dirs: u32,
+
+    /// The number of points to sample along each ray when
+    /// computing the transmittance LUT
     pub transmittance_lut_samples: u32,
+
+    /// The number of rays to sample when computing each
+    /// pixel of the multiscattering LUT
+    pub multiscattering_lut_dirs: u32,
+
+    /// The number of points to sample when integrating along each
+    /// multiscattering ray
     pub multiscattering_lut_samples: u32,
+
+    /// The number of points to sample along each ray when
+    /// computing the sky-view LUT.
     pub sky_view_lut_samples: u32,
+
+    /// The number of points to sample for each slice along the z-axis
+    /// of the aerial-view LUT.
     pub aerial_view_lut_samples: u32,
+
+    /// A conversion factor between scene units and kilometers, used to
+    /// combat floating-point precision issues.
     pub scene_units_to_km: f32,
 }
 
