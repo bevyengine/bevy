@@ -324,6 +324,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     padding: UiRect::all(Val::Px(10.)),
                     ..default()
                 })
+                .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     for (flip_x, flip_y) in
                         [(false, false), (false, true), (true, true), (true, false)]
