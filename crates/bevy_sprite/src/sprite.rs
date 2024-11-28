@@ -86,7 +86,7 @@ impl Sprite {
     ) -> Result<Vec2, Vec2> {
         let image_size = images
             .get(&self.image)
-            .map(|image| image.size())
+            .map(Image::size)
             .unwrap_or(UVec2::ONE);
 
         let atlas_rect = self
