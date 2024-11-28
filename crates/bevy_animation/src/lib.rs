@@ -711,7 +711,7 @@ pub struct AnimationEvaluationState {
     ///
     /// This is a mapping from the id of an animation curve evaluator to
     /// the animation curve evaluator itself.
-
+    ///
     /// For efficiency's sake, the [`AnimationCurveEvaluator`]s are cached from
     /// frame to frame and animation target to animation target. Therefore,
     /// there may be entries in this list corresponding to properties that the
