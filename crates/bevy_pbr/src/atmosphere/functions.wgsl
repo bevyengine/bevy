@@ -47,15 +47,6 @@ fn sky_view_lut_unsquash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(ray_dir_as.x, new_y, ray_dir_as.z));
 }
 
-//fn sky_view_lut_squash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
-//    let new_y = ray_dir_vs.y / SQUASH_FACTOR;
-//    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
-//}
-
-//fn sky_view_lut_unsquash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
-//    let new_y = ray_dir_vs.y * SQUASH_FACTOR;
-//    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
-//}
 
 // LUT SAMPLING
 
