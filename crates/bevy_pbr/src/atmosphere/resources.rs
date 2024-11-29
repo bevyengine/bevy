@@ -488,7 +488,7 @@ pub(super) fn prepare_atmosphere_transforms(
             atmo_x.extend(0.0),
             atmo_y.extend(0.0),
             atmo_z.extend(0.0),
-            world_from_view.w_axis,
+            world_from_view.w_axis.with_y(0.0),
         );
 
         let world_from_clip = if let Some(clip_from_world) = view.clip_from_world {

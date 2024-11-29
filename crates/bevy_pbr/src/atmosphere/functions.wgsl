@@ -14,6 +14,25 @@
     },
 }
 
+// NOTE FOR CONVENTIONS: 
+// r:
+//   radius, or distance from planet center 
+//
+// altitude:
+//   distance from planet **surface**
+//
+// mu:
+//   cosine of the zenith angle of a ray with
+//   respect to the planet normal
+//
+// atmosphere space: 
+//   abbreviated as "as" (contrast with vs, cs, ws), this space is similar
+//   to view space, but with the camera positioned horizontally on the planet
+//   surface, so the horizon is a horizontal line centered vertically in the
+//   frame. This enables the non-linear latitude parametrization the paper uses 
+//   to concentrate detail near the horizon 
+
+
 // CONSTANTS
 
 const PI: f32 = 3.141592653589793238462;
@@ -35,6 +54,9 @@ fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     let mu = uv.x * 2 - 1;
     return vec2(r, mu);
 }
+
+// We squash the ray direction towards the horizon in order to emulate the paper's
+// non-linear latitude parametrization, though we use a cubemap instead.
 
 fn sky_view_lut_squash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
     let new_y = sqrt(abs(ray_dir_as.y)) * sign(ray_dir_as.y);
@@ -86,12 +108,21 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
 // ATMOSPHERE SAMPLING
 
 struct AtmosphereSample {
+    /// units: km^-1
     rayleigh_scattering: vec3<f32>,
+
+    /// units: km^-1
     mie_scattering: f32,
+
+    /// the sum of scattering and absorption. Since the phase function doesn't
+    /// matter for this, we combine rayleigh and mie extinction to a single 
+    //  value.
+    //
+    /// units: km^-1
     extinction: vec3<f32>
 }
 
-//prob fine to return big struct because of inlining
+/// Samples atmosphere optical densities at a given radius
 fn sample_atmosphere(r: f32) -> AtmosphereSample {
     let altitude = r - atmosphere.bottom_radius;
 
@@ -119,21 +150,38 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     return sample;
 }
 
+
+/// evaluates equation 3 in the paper, called L_scat, which gives the total single-order scattering towards the view at a single point
 fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
     var rayleigh_scattering = vec3(0.0);
     var mie_scattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
+
         let mu_light = dot((*light).direction_to_light, local_up);
+
+        // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
+        // instead of towards it (as is the convention)
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
+
+        // phase functions give the proportion of light
+        // scattered towards the camera for each scattering type
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg_LdotV);
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
+        //Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
 
+        // Note transmittance_to_sample vs shadow_factor: 
+        // A light ray travelling from the sun to the camera follows a
+        // two-segment path (assuming single scattering). Transmittance_to_sample 
+        // handles the transmittance between the view and the sample position, while 
+        // the shadow factor handles the transmittance between the sample position and 
+        // the light itself. We check if the ray intersects the ground for the shadow
+        // factor *only*, because we assume our primary rays never go below ground.
         rayleigh_scattering += (transmittance_to_sample * shadow_factor * rayleigh_phase + psi_ms) * (*light).color.rgb;
         mie_scattering += (transmittance_to_sample * shadow_factor * mie_phase + psi_ms) * (*light).color.rgb;
     }
@@ -163,19 +211,20 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
+/// Assuming y=0 is the planet ground, returns the view altitude in kilometers
 fn view_radius() -> f32 {
     return view.world_position.y * settings.scene_units_to_km + atmosphere.bottom_radius;
 }
 
-//We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
-//t = distance along view ray (km)
+// We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
+// t = distance along view ray (km)
 //NOTE: this means that if your world is actually spherical, this will be wrong.
 fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
-//given a ray starting at radius r, with mu = cos(zenith angle),
-//and a t = distance along the ray, gives the new radius at point t
+// given a ray starting at radius r, with mu = cos(zenith angle),
+// and a t = distance along the ray, gives the new radius at point t
 fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
     return sqrt(t * t + 2.0 * r * mu * t + r * r);
 }
@@ -196,6 +245,8 @@ fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     return world_pos.xyz / world_pos.w;
 }
 
+
+/// Convert in 
 fn direction_atmosphere_to_world(atmo_dir: vec3<f32>) -> vec3<f32> {
     let world_dir = atmosphere_transforms.world_from_atmosphere * vec4(atmo_dir, 0.0);
     return world_dir.xyz;
