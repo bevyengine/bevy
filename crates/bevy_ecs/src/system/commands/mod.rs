@@ -2497,12 +2497,15 @@ mod tests {
 
         fn nothing() {}
 
+        assert!(world.iter_resources().count() == 0);
         let id = world.register_system_cached(nothing);
+        assert!(world.iter_resources().count() == 1);
         assert!(world.get_entity(id.entity).is_ok());
 
         let mut commands = Commands::new(&mut queue, &world);
         commands.unregister_system_cached(nothing);
         queue.apply(&mut world);
+        assert!(world.iter_resources().count() == 0);
         assert!(world.get_entity(id.entity).is_err());
     }
 
