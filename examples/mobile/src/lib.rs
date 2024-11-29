@@ -6,6 +6,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
+    winit::WinitSettings,
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -32,6 +33,9 @@ fn main() {
                 ..default()
             }),
     )
+    // Make the winit loop wait more aggressively when no user input is received
+    // This can help reduce cpu usage on mobile devices
+    .insert_resource(WinitSettings::mobile())
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
     .run();
