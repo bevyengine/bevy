@@ -30,7 +30,7 @@ pub trait VectorSpace:
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
-    + Neg
+    + Neg<Output = Self>
     + Default
     + Debug
     + Clone
@@ -69,6 +69,85 @@ impl VectorSpace for Vec2 {
 
 impl VectorSpace for f32 {
     const ZERO: Self = 0.0;
+}
+
+/// A type consisting of formal sums of elements from `V` and `W`.
+///
+/// That is, values `Sum(v, w)` should be thought of as `v + w`.
+#[derive(Debug, Clone, Copy)]
+pub struct Sum<V, W>(pub V, pub W);
+
+impl<V, W> Mul<f32> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Sum(self.0 * rhs, self.1 * rhs)
+    }
+}
+
+impl<V, W> Div<f32> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self::Output {
+        Sum(self.0 / rhs, self.1 / rhs)
+    }
+}
+
+impl<V, W> Add<Self> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn add(self, other: Self) -> Self::Output {
+        Sum(self.0 + other.0, self.1 + other.1)
+    }
+}
+
+impl<V, W> Sub<Self> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn sub(self, other: Self) -> Self::Output {
+        Sum(self.0 - other.0, self.1 - other.1)
+    }
+}
+
+impl<V, W> Neg for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Sum(-self.0, -self.1)
+    }
+}
+
+impl<V, W> Default for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    fn default() -> Self {
+        Sum(V::default(), W::default())
+    }
+}
+
+impl<V, W> VectorSpace for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    const ZERO: Self = Sum(V::ZERO, W::ZERO);
 }
 
 /// A type that supports the operations of a normed vector space; i.e. a norm operation in addition
