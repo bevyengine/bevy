@@ -5,8 +5,8 @@ use super::{SampleDerivative, SampleTwoDerivatives};
 use crate::common_traits::{HasTangent, Sum, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
     adaptors::{
-        ChainCurve, CurveReparamCurve, GraphCurve, LinearReparamCurve, RepeatCurve, ReverseCurve,
-        ZipCurve,
+        ChainCurve, CurveReparamCurve, ForeverCurve, GraphCurve, LinearReparamCurve, PingPongCurve,
+        RepeatCurve, ReverseCurve, ZipCurve,
     },
     Curve,
 };
@@ -63,6 +63,30 @@ where
 }
 
 impl<T, C> SampleTwoDerivatives<T> for RepeatCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_with_two_derivatives_unchecked(t)
+    }
+}
+
+// -- ForeverCurve
+
+impl<T, C> SampleDerivative<T> for ForeverCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_with_derivative_unchecked(t)
+    }
+}
+
+impl<T, C> SampleTwoDerivatives<T> for ForeverCurve<T, C>
 where
     T: HasTangent,
     C: SampleTwoDerivatives<T>,
