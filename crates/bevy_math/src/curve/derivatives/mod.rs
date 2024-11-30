@@ -22,6 +22,8 @@
 //! [`with_derivative`]: CurveWithDerivative::with_derivative
 //! [`by_ref`]: Curve::by_ref
 
+pub mod adaptor_impls;
+
 use crate::{
     common_traits::{HasTangent, WithDerivative, WithTwoDerivatives},
     curve::{Curve, Interval},
@@ -33,7 +35,7 @@ use bevy_reflect::{FromReflect, Reflect};
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
-pub trait CurveWithDerivative<T>: Curve<T>
+pub trait CurveWithDerivative<T>: SampleDerivative<T>
 where
     T: HasTangent,
 {
@@ -43,7 +45,7 @@ where
 
 /// Trait for curves that have a well-defined notion of second derivative,
 /// allowing for two derivatives to be extracted along with values.
-pub trait CurveWithTwoDerivatives<T>: CurveWithDerivative<T>
+pub trait CurveWithTwoDerivatives<T>: SampleTwoDerivatives<T>
 where
     T: HasTangent,
     T::Tangent: HasTangent,
@@ -109,7 +111,6 @@ where
 pub trait SampleTwoDerivatives<T>: Curve<T>
 where
     T: HasTangent,
-    <T as HasTangent>::Tangent: HasTangent,
 {
     /// Sample this curve at the parameter value `t`, extracting the associated value
     /// in addition to two derivatives. This is the unchecked version of sampling, which
@@ -182,7 +183,6 @@ pub struct SampleTwoDerivativesWrapper<C>(C);
 impl<T, C> Curve<WithTwoDerivatives<T>> for SampleTwoDerivativesWrapper<C>
 where
     T: HasTangent,
-    <T as HasTangent>::Tangent: HasTangent,
     C: SampleTwoDerivatives<T>,
 {
     fn domain(&self) -> Interval {
@@ -215,7 +215,6 @@ where
 impl<T, C> CurveWithTwoDerivatives<T> for C
 where
     T: HasTangent,
-    <T as HasTangent>::Tangent: HasTangent,
     C: SampleTwoDerivatives<T> + CurveWithDerivative<T>,
 {
     fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>> {

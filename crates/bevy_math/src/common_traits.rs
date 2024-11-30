@@ -414,7 +414,7 @@ impl_stable_interpolate_tuple!(
 /// A type that has tangents.
 pub trait HasTangent {
     /// The tangent type.
-    type Tangent;
+    type Tangent: VectorSpace;
 }
 
 /// A value with its derivative.
@@ -433,7 +433,6 @@ where
 pub struct WithTwoDerivatives<T>
 where
     T: HasTangent,
-    T::Tangent: HasTangent,
 {
     /// The underlying value.
     pub value: T,
