@@ -1307,6 +1307,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     /// references to the same component, leading to unique reference aliasing.
     ///
     /// It is always safe for shared access.
+    #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
         entity_iter: impl Iterator<Item: Borrow<Entity>>,
