@@ -2,11 +2,11 @@
 //! compositionality for derivatives.
 
 use super::{SampleDerivative, SampleTwoDerivatives};
-use crate::common_traits::{HasTangent, Sum, WithDerivative, WithTwoDerivatives};
+use crate::common_traits::{HasTangent, Sum, VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
     adaptors::{
-        ChainCurve, CurveReparamCurve, ForeverCurve, GraphCurve, LinearReparamCurve, PingPongCurve,
-        RepeatCurve, ReverseCurve, ZipCurve,
+        ChainCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
+        LinearReparamCurve, PingPongCurve, RepeatCurve, ReverseCurve, ZipCurve,
     },
     Curve,
 };
@@ -43,6 +43,48 @@ where
                 // `t - first.domain.end` computes the offset into the domain of the second.
                 t - self.first.domain().end() + self.second.domain().start(),
             )
+        } else {
+            self.first.sample_with_two_derivatives_unchecked(t)
+        }
+    }
+}
+
+// -- ContinuationCurve
+
+impl<T, C, D> SampleDerivative<T> for ContinuationCurve<T, C, D>
+where
+    T: VectorSpace,
+    C: SampleDerivative<T>,
+    D: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
+        if t > self.first.domain().end() {
+            let mut output = self.second.sample_with_derivative_unchecked(
+                // `t - first.domain.end` computes the offset into the domain of the second.
+                t - self.first.domain().end() + self.second.domain().start(),
+            );
+            output.value = output.value + self.offset;
+            output
+        } else {
+            self.first.sample_with_derivative_unchecked(t)
+        }
+    }
+}
+
+impl<T, C, D> SampleTwoDerivatives<T> for ContinuationCurve<T, C, D>
+where
+    T: VectorSpace,
+    C: SampleTwoDerivatives<T>,
+    D: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {
+        if t > self.first.domain().end() {
+            let mut output = self.second.sample_with_two_derivatives_unchecked(
+                // `t - first.domain.end` computes the offset into the domain of the second.
+                t - self.first.domain().end() + self.second.domain().start(),
+            );
+            output.value = output.value + self.offset;
+            output
         } else {
             self.first.sample_with_two_derivatives_unchecked(t)
         }
