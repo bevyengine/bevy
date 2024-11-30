@@ -4,7 +4,9 @@
 use super::{SampleDerivative, SampleTwoDerivatives};
 use crate::common_traits::{HasTangent, Sum, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
-    adaptors::{ChainCurve, CurveReparamCurve, LinearReparamCurve, ReverseCurve, ZipCurve},
+    adaptors::{
+        ChainCurve, CurveReparamCurve, GraphCurve, LinearReparamCurve, ReverseCurve, ZipCurve,
+    },
     Curve,
 };
 
@@ -82,6 +84,37 @@ where
                 first_output.second_derivative,
                 second_output.second_derivative,
             ),
+        }
+    }
+}
+
+// -- GraphCurve
+
+impl<T, C> SampleDerivative<(f32, T)> for GraphCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<(f32, T)> {
+        let output = self.base.sample_with_derivative_unchecked(t);
+        WithDerivative {
+            value: (t, output.value),
+            derivative: Sum(1.0, output.derivative),
+        }
+    }
+}
+
+impl<T, C> SampleTwoDerivatives<(f32, T)> for GraphCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<(f32, T)> {
+        let output = self.base.sample_with_two_derivatives_unchecked(t);
+        WithTwoDerivatives {
+            value: (t, output.value),
+            derivative: Sum(1.0, output.derivative),
+            second_derivative: Sum(0.0, output.second_derivative),
         }
     }
 }
