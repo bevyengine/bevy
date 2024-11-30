@@ -48,7 +48,6 @@ where
 pub trait CurveWithTwoDerivatives<T>: SampleTwoDerivatives<T>
 where
     T: HasTangent,
-    T::Tangent: HasTangent,
 {
     /// This curve, but with its first two derivatives included in sampling.
     fn with_two_derivatives(self) -> impl Curve<WithTwoDerivatives<T>>;
