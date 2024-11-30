@@ -1,5 +1,11 @@
 #![forbid(unsafe_code)]
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
