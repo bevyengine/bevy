@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), expect(internal_features))]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
