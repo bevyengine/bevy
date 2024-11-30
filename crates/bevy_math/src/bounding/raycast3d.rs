@@ -243,8 +243,7 @@ mod tests {
         ] {
             assert!(
                 test.intersects(volume),
-                volume,
-                "Case:\n  Test: {test:?}\n  Volume: {:?}\n  Expected distance: {expected_distance:?}",
+                "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
             let actual_distance = test.sphere_intersection_at(volume).unwrap();
             assert!(
