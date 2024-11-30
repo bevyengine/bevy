@@ -96,7 +96,7 @@ impl<'a> ArgList<'a> {
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
     pub fn push_boxed(&mut self, arg: Box<dyn PartialReflect>) {
-        self.push_arg(ArgValue::Owned(arg))
+        self.push_arg(ArgValue::Owned(arg));
     }
 
     /// Push an [`ArgValue`] onto the list.
