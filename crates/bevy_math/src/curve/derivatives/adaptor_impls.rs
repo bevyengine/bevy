@@ -97,6 +97,46 @@ where
     }
 }
 
+// -- PingPongCurve
+
+impl<T, C> SampleDerivative<T> for PingPongCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
+        if t > self.curve.domain().end() {
+            let t = self.curve.domain().end() * 2.0 - t;
+            // The derivative of the preceding expression is -1, so the chain
+            // rule implies the derivative should be negated.
+            let mut output = self.curve.sample_with_derivative_unchecked(t);
+            output.derivative = -output.derivative;
+            output
+        } else {
+            self.curve.sample_with_derivative_unchecked(t)
+        }
+    }
+}
+
+impl<T, C> SampleTwoDerivatives<T> for PingPongCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {
+        if t > self.curve.domain().end() {
+            let t = self.curve.domain().end() * 2.0 - t;
+            // See the implementation on `ReverseCurve` for an explanation of
+            // why this is correct.
+            let mut output = self.curve.sample_with_two_derivatives_unchecked(t);
+            output.derivative = -output.derivative;
+            output
+        } else {
+            self.curve.sample_with_two_derivatives_unchecked(t)
+        }
+    }
+}
+
 // -- ZipCurve
 
 impl<S, T, C, D> SampleDerivative<(S, T)> for ZipCurve<S, T, C, D>
@@ -182,7 +222,7 @@ where
             .curve
             .sample_with_derivative_unchecked(self.domain().end() - (t - self.domain().start()));
 
-        output.derivative = output.derivative * -1.0;
+        output.derivative = -output.derivative;
 
         output
     }
