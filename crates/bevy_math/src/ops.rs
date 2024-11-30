@@ -449,6 +449,11 @@ mod libm_ops {
 
 #[cfg(all(feature = "libm", not(feature = "std")))]
 mod libm_ops_for_no_std {
+    //! Provides standardized names for [`f32`] operations which may not be
+    //! supported on `no_std` platforms.
+    //! On `no_std` platforms, this forwards to the implementations provided
+    //! by [`libm`].
+
     /// Calculates the least nonnegative remainder of `self (mod rhs)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
@@ -515,6 +520,11 @@ mod libm_ops_for_no_std {
 
 #[cfg(feature = "std")]
 mod std_ops_for_no_std {
+    //! Provides standardized names for [`f32`] operations which may not be
+    //! supported on `no_std` platforms.
+    //! On `std` platforms, this forwards directly to the implementations provided
+    //! by [`std`].
+
     /// Calculates the least nonnegative remainder of `x (mod y)`.
     ///
     /// The result of this operation is guaranteed to be the rounded infinite-precision result.
