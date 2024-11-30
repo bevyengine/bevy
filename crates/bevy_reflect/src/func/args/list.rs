@@ -55,7 +55,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_arg(mut self, arg: ArgValue<'a>) -> Self {
+    pub fn push_arg(&mut self, arg: ArgValue<'a>) {
         if self.needs_reindex {
             for (index, arg) in self.list.iter_mut().enumerate() {
                 arg.set_index(index);
@@ -65,6 +65,46 @@ impl<'a> ArgList<'a> {
 
         let index = self.list.len();
         self.list.push_back(Arg::new(index, arg));
+    }
+
+    /// Push an [`ArgValue::Ref`] onto the list with the given reference.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
+    pub fn push_ref(&mut self, arg: &'a dyn PartialReflect) {
+        self.push_arg(ArgValue::Ref(arg));
+    }
+
+    /// Push an [`ArgValue::Mut`] onto the list with the given mutable reference.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
+    pub fn push_mut(&mut self, arg: &'a mut dyn PartialReflect) {
+        self.push_arg(ArgValue::Mut(arg));
+    }
+
+    /// Push an [`ArgValue::Owned`] onto the list with the given owned value.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
+    pub fn push_owned(&mut self, arg: impl PartialReflect) {
+        self.push_arg(ArgValue::Owned(Box::new(arg)));
+    }
+
+    /// Push an [`ArgValue::Owned`] onto the list with the given boxed value.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
+    pub fn push_boxed(&mut self, arg: Box<dyn PartialReflect>) {
+        self.push_arg(ArgValue::Owned(arg))
+    }
+
+    /// Push an [`ArgValue`] onto the list.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
+    pub fn with_arg(mut self, arg: ArgValue<'a>) -> Self {
+        self.push_arg(arg);
         self
     }
 
@@ -72,32 +112,32 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(self, arg: &'a dyn PartialReflect) -> Self {
-        self.push_arg(ArgValue::Ref(arg))
+    pub fn with_ref(self, arg: &'a dyn PartialReflect) -> Self {
+        self.with_arg(ArgValue::Ref(arg))
     }
 
     /// Push an [`ArgValue::Mut`] onto the list with the given mutable reference.
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
-        self.push_arg(ArgValue::Mut(arg))
+    pub fn with_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
+        self.with_arg(ArgValue::Mut(arg))
     }
 
     /// Push an [`ArgValue::Owned`] onto the list with the given owned value.
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(self, arg: impl PartialReflect) -> Self {
-        self.push_arg(ArgValue::Owned(Box::new(arg)))
+    pub fn with_owned(self, arg: impl PartialReflect) -> Self {
+        self.with_arg(ArgValue::Owned(Box::new(arg)))
     }
 
     /// Push an [`ArgValue::Owned`] onto the list with the given boxed value.
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
-        self.push_arg(ArgValue::Owned(arg))
+    pub fn with_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
+        self.with_arg(ArgValue::Owned(arg))
     }
 
     /// Remove the first argument in the list and return it.
@@ -301,9 +341,9 @@ mod tests {
     #[test]
     fn should_push_arguments_in_order() {
         let args = ArgList::new()
-            .push_owned(123)
-            .push_owned(456)
-            .push_owned(789);
+            .with_owned(123)
+            .with_owned(456)
+            .with_owned(789);
 
         assert_eq!(args.len(), 3);
         assert_eq!(args.list[0].index(), 0);
@@ -322,13 +362,13 @@ mod tests {
         let mut g = String::from("g");
 
         let args = ArgList::new()
-            .push_arg(ArgValue::Owned(Box::new(a)))
-            .push_arg(ArgValue::Ref(&b))
-            .push_arg(ArgValue::Mut(&mut c))
-            .push_owned(d)
-            .push_boxed(Box::new(e))
-            .push_ref(&f)
-            .push_mut(&mut g);
+            .with_arg(ArgValue::Owned(Box::new(a)))
+            .with_arg(ArgValue::Ref(&b))
+            .with_arg(ArgValue::Mut(&mut c))
+            .with_owned(d)
+            .with_boxed(Box::new(e))
+            .with_ref(&f)
+            .with_mut(&mut g);
 
         assert!(matches!(args.list[0].value(), &ArgValue::Owned(_)));
         assert!(matches!(args.list[1].value(), &ArgValue::Ref(_)));
@@ -347,10 +387,10 @@ mod tests {
         let mut d = 5.78_f32;
 
         let mut args = ArgList::new()
-            .push_owned(a)
-            .push_ref(&b)
-            .push_ref(&c)
-            .push_mut(&mut d);
+            .with_owned(a)
+            .with_ref(&b)
+            .with_ref(&c)
+            .with_mut(&mut d);
 
         assert_eq!(args.len(), 4);
         assert_eq!(args.take_owned::<String>().unwrap(), String::from("a"));
@@ -368,10 +408,10 @@ mod tests {
         let mut d = 5.78_f32;
 
         let mut args = ArgList::new()
-            .push_owned(a)
-            .push_ref(&b)
-            .push_ref(&c)
-            .push_mut(&mut d);
+            .with_owned(a)
+            .with_ref(&b)
+            .with_ref(&c)
+            .with_mut(&mut d);
 
         assert_eq!(args.len(), 4);
         assert_eq!(args.pop_mut::<f32>().unwrap(), &mut 5.78);
@@ -384,9 +424,9 @@ mod tests {
     #[test]
     fn should_reindex_on_push_after_take() {
         let mut args = ArgList::new()
-            .push_owned(123)
-            .push_owned(456)
-            .push_owned(789);
+            .with_owned(123)
+            .with_owned(456)
+            .with_owned(789);
 
         assert!(!args.needs_reindex);
 
@@ -397,7 +437,7 @@ mod tests {
         assert!(args.list[1].value().reflect_partial_eq(&789).unwrap());
         assert_eq!(args.list[1].index(), 2);
 
-        let args = args.push_owned(123);
+        let args = args.with_owned(123);
         assert!(!args.needs_reindex);
         assert!(args.list[0].value().reflect_partial_eq(&456).unwrap());
         assert_eq!(args.list[0].index(), 0);

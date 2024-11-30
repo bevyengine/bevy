@@ -327,7 +327,7 @@ mod tests {
     fn should_return_error_on_arg_count_mismatch() {
         let func = (|a: i32, b: i32| a + b).into_function();
 
-        let args = ArgList::default().push_owned(25_i32);
+        let args = ArgList::default().with_owned(25_i32);
         let error = func.call(args).unwrap_err();
         assert!(matches!(
             error,
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(clone.name().unwrap(), "greet");
 
         let clone_value = clone
-            .call(ArgList::default().push_ref(&String::from("world")))
+            .call(ArgList::default().with_ref(&String::from("world")))
             .unwrap()
             .unwrap_owned()
             .try_take::<String>()
@@ -365,7 +365,7 @@ mod tests {
         let mut func: Box<dyn Function> = Box::new((|a: i32, b: i32| a + b).into_function());
         func.apply(&((|a: i32, b: i32| a * b).into_function()));
 
-        let args = ArgList::new().push_owned(5_i32).push_owned(5_i32);
+        let args = ArgList::new().with_owned(5_i32).with_owned(5_i32);
         let result = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 25);
     }
@@ -386,8 +386,8 @@ mod tests {
                     ReflectRef::Function(func) => {
                         let result = func.reflect_call(
                             ArgList::new()
-                                .push_ref(this.as_partial_reflect())
-                                .push_owned(curr - 1),
+                                .with_ref(this.as_partial_reflect())
+                                .with_owned(curr - 1),
                         );
                         let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
                         Ok((curr * value).into_return())
@@ -402,7 +402,7 @@ mod tests {
                 .with_arg::<()>("this"),
         );
 
-        let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
+        let args = ArgList::new().with_ref(&factorial).with_owned(5_i32);
         let value = factorial.call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 120);
     }
