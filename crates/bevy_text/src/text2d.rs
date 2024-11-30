@@ -7,9 +7,9 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Component;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
+    component::{require, Component},
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
