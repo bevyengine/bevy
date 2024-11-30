@@ -41,10 +41,6 @@ pub struct KeyboardFocus(pub Option<Entity>);
 #[derive(Clone, Debug, Resource)]
 pub struct KeyboardFocusVisible(pub bool);
 
-/// Marker component for which entity should receive keyboard input if nothing is focused.
-#[derive(Clone, Debug, Component)]
-pub struct DefaultKeyHandler;
-
 /// Helper functions for [`World`] and [`DeferredWorld`] to set and clear keyboard focus.
 pub trait SetKeyboardFocus {
     /// Set keyboard focus to the given entity.
