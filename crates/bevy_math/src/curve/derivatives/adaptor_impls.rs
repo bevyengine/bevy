@@ -3,7 +3,10 @@
 
 use super::{SampleDerivative, SampleTwoDerivatives};
 use crate::common_traits::{HasTangent, WithDerivative, WithTwoDerivatives};
-use crate::curve::adaptors::{ChainCurve, CurveReparamCurve, LinearReparamCurve};
+use crate::curve::{
+    adaptors::{ChainCurve, CurveReparamCurve, LinearReparamCurve, ReverseCurve},
+    Curve,
+};
 
 // -- ChainCurve (chaining derivative curves)
 
@@ -40,6 +43,48 @@ where
         } else {
             self.first.sample_with_two_derivatives_unchecked(t)
         }
+    }
+}
+
+// -- ReverseCurve
+
+impl<T, C> SampleDerivative<T> for ReverseCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<T> {
+        // This gets almost the correct value, but we haven't accounted for the
+        // reversal of orientation yet.
+        let mut output = self
+            .curve
+            .sample_with_derivative_unchecked(self.domain().end() - (t - self.domain().start()));
+
+        output.derivative = output.derivative * -1.0;
+
+        output
+    }
+}
+
+impl<T, C> SampleTwoDerivatives<T> for ReverseCurve<T, C>
+where
+    T: HasTangent,
+    C: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<T> {
+        // This gets almost the correct value, but we haven't accounted for the
+        // reversal of orientation yet.
+        let mut output = self.curve.sample_with_two_derivatives_unchecked(
+            self.domain().end() - (t - self.domain().start()),
+        );
+
+        output.derivative = output.derivative * -1.0;
+
+        // (Note that the reparametrization that reverses the curve satisfies
+        // g'(t)^2 = 1 and g''(t) = 0, so the second derivative is already
+        // correct.)
+
+        output
     }
 }
 
