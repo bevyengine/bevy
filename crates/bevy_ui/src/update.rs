@@ -115,7 +115,8 @@ fn update_clipping(
         clip_rect.max.x -= clip_inset.right;
         clip_rect.max.y -= clip_inset.bottom;
 
-        clip_rect = clip_rect.inflate(node.overflow_clip_margin.margin.max(0.));
+        clip_rect = clip_rect
+            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
 
         if node.overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;

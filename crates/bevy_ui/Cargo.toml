@@ -25,7 +25,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
-bevy_animation = { path = "../bevy_animation", version = "0.15.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.15.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.15.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.15.0-dev", optional = true }
@@ -47,7 +46,6 @@ smallvec = "1.11"
 accesskit = "0.17"
 
 [features]
-default = ["bevy_ui_picking_backend"]
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
 bevy_ui_picking_backend = ["bevy_picking"]
 
