@@ -57,6 +57,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // bindless resources.
     let actual_bindless_slot_count = Ident::new("actual_bindless_slot_count", Span::call_site());
 
+    // The `BufferBindingType` and corresponding `BufferUsages` used for
+    // uniforms. We need this because bindless uniforms don't exist, so in
+    // bindless mode we must promote uniforms to storage buffers.
+    let uniform_binding_type = Ident::new("uniform_binding_type", Span::call_site());
+    let uniform_buffer_usages = Ident::new("uniform_buffer_usages", Span::call_site());
+
     // Read struct-level attributes
     for attr in &ast.attrs {
         if let Some(attr_ident) = attr.path().get_ident() {
@@ -78,7 +84,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -90,7 +96,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         binding: #binding_index,
                         visibility: #render_path::render_resource::ShaderStages::all(),
                         ty: #render_path::render_resource::BindingType::Buffer {
-                            ty: #render_path::render_resource::BufferBindingType::Uniform,
+                            ty: #uniform_binding_type,
                             has_dynamic_offset: false,
                             min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                         },
@@ -429,12 +435,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let struct_name_literal = struct_name.to_string();
     let struct_name_literal = struct_name_literal.as_str();
     let mut field_struct_impls = Vec::new();
-
-    // The `BufferBindingType` and corresponding `BufferUsages` used for
-    // uniforms. We need this because bindless uniforms don't exist, so in
-    // bindless mode we must promote uniforms to storage buffers.
-    let uniform_binding_type = Ident::new("uniform_binding_type", Span::call_site());
-    let uniform_buffer_usages = Ident::new("uniform_buffer_usages", Span::call_site());
 
     let uniform_binding_type_declarations = match attr_bindless_count {
         Some(_) => {
