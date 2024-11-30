@@ -35,7 +35,6 @@ crates=(
     bevy_input
     bevy_gilrs
     bevy_animation
-    bevy_animation/derive
     bevy_pbr
     bevy_gltf
     bevy_remote

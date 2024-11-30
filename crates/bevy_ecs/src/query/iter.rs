@@ -774,7 +774,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         };
         let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
+        keyed_query.sort_unstable_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:
         // `self.world` has permission to access the required components.

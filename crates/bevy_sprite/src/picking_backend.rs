@@ -8,6 +8,7 @@ use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
 use bevy_render::prelude::*;
@@ -15,9 +16,9 @@ use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 #[derive(Clone)]
-pub struct SpritePickingBackend;
+pub struct SpritePickingPlugin;
 
-impl Plugin for SpritePickingBackend {
+impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
@@ -40,7 +41,13 @@ pub fn sprite_picking(
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter(|x| !x.2.affine().is_nan())
+        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, picking_behavior))
+            } else {
+                None
+            }
+        })
         .collect();
     sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
 
@@ -64,8 +71,13 @@ pub fn sprite_picking(
             continue;
         };
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, location.position)
-        else {
+        let viewport_pos = camera
+            .logical_viewport_rect()
+            .map(|v| v.min)
+            .unwrap_or_default();
+        let pos_in_viewport = location.position - viewport_pos;
+
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
             continue;
         };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
@@ -74,8 +86,7 @@ pub fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter(|(.., visibility)| visibility.get())
-            .filter_map(|(entity, sprite, sprite_transform, picking_behavior, ..)| {
+            .filter_map(|(entity, sprite, sprite_transform, picking_behavior)| {
                 if blocked {
                     return None;
                 }
@@ -125,7 +136,9 @@ pub fn sprite_picking(
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                 blocked = is_cursor_in_sprite
-                    && picking_behavior.map(|p| p.should_block_lower) != Some(false);
+                    && picking_behavior
+                        .map(|p| p.should_block_lower)
+                        .unwrap_or(true);
 
                 is_cursor_in_sprite.then(|| {
                     let hit_pos_world =

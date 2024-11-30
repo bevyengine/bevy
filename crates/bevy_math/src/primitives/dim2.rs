@@ -295,6 +295,22 @@ impl Default for CircularSector {
     }
 }
 
+impl Measured2d for CircularSector {
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        self.arc.radius.squared() * self.arc.half_angle
+    }
+
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        if self.half_angle() >= PI {
+            self.arc.radius * 2.0 * PI
+        } else {
+            2.0 * self.radius() + self.arc_length()
+        }
+    }
+}
+
 impl CircularSector {
     /// Create a new [`CircularSector`] from a `radius` and an `angle`
     #[inline(always)]
@@ -385,12 +401,6 @@ impl CircularSector {
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
     }
-
-    /// Returns the area of this sector
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        self.arc.radius.squared() * self.arc.half_angle
-    }
 }
 
 /// A primitive representing a circular segment:
@@ -428,6 +438,17 @@ impl Default for CircularSegment {
     }
 }
 
+impl Measured2d for CircularSegment {
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
+    }
+
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.chord_length() + self.arc_length()
+    }
+}
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
@@ -518,17 +539,12 @@ impl CircularSegment {
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
     }
-
-    /// Returns the area of this segment
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
-    }
 }
 
 #[cfg(test)]
 mod arc_tests {
     use core::f32::consts::FRAC_PI_4;
+    use core::f32::consts::SQRT_2;
 
     use approx::assert_abs_diff_eq;
 
@@ -551,7 +567,9 @@ mod arc_tests {
         is_minor: bool,
         is_major: bool,
         sector_area: f32,
+        sector_perimeter: f32,
         segment_area: f32,
+        segment_perimeter: f32,
     }
 
     impl ArcTestCase {
@@ -584,6 +602,7 @@ mod arc_tests {
             assert_abs_diff_eq!(self.apothem, sector.apothem());
             assert_abs_diff_eq!(self.sagitta, sector.sagitta());
             assert_abs_diff_eq!(self.sector_area, sector.area());
+            assert_abs_diff_eq!(self.sector_perimeter, sector.perimeter());
         }
 
         fn check_segment(&self, segment: CircularSegment) {
@@ -596,6 +615,7 @@ mod arc_tests {
             assert_abs_diff_eq!(self.apothem, segment.apothem());
             assert_abs_diff_eq!(self.sagitta, segment.sagitta());
             assert_abs_diff_eq!(self.segment_area, segment.area());
+            assert_abs_diff_eq!(self.segment_perimeter, segment.perimeter());
         }
     }
 
@@ -618,7 +638,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: 0.0,
+            sector_perimeter: 2.0,
             segment_area: 0.0,
+            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(1.0, 0.0));
@@ -645,7 +667,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: 0.0,
+            sector_perimeter: 0.0,
             segment_area: 0.0,
+            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(0.0, FRAC_PI_4));
@@ -673,7 +697,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: FRAC_PI_4,
+            sector_perimeter: FRAC_PI_2 + 2.0,
             segment_area: FRAC_PI_4 - 0.5,
+            segment_perimeter: FRAC_PI_2 + SQRT_2,
         };
 
         tests.check_arc(Arc2d::from_turns(1.0, 0.25));
@@ -700,7 +726,9 @@ mod arc_tests {
             is_minor: true,
             is_major: true,
             sector_area: FRAC_PI_2,
+            sector_perimeter: PI + 2.0,
             segment_area: FRAC_PI_2,
+            segment_perimeter: PI + 2.0,
         };
 
         tests.check_arc(Arc2d::from_radians(1.0, PI));
@@ -727,7 +755,9 @@ mod arc_tests {
             is_minor: false,
             is_major: true,
             sector_area: PI,
+            sector_perimeter: 2.0 * PI,
             segment_area: PI,
+            segment_perimeter: 2.0 * PI,
         };
 
         tests.check_arc(Arc2d::from_degrees(1.0, 360.0));
@@ -1600,6 +1630,14 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
+impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
+    fn from(val: ConvexPolygon<N>) -> Self {
+        Polygon {
+            vertices: val.vertices,
+        }
+    }
+}
+
 /// A convex polygon with `N` vertices.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1611,7 +1649,7 @@ impl<const N: usize> Polygon<N> {
 pub struct ConvexPolygon<const N: usize> {
     /// The vertices of the [`ConvexPolygon`].
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
@@ -1658,6 +1696,20 @@ impl<const N: usize> ConvexPolygon<N> {
     #[inline(always)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
         Self { vertices }
+    }
+
+    /// Get the vertices of this polygon
+    #[inline(always)]
+    pub fn vertices(&self) -> &[Vec2; N] {
+        &self.vertices
+    }
+}
+
+impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+    type Error = ConvexPolygonError;
+
+    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+        ConvexPolygon::new(val.vertices)
     }
 }
 

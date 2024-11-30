@@ -117,7 +117,7 @@ fn move_cubes(
         );
 
         if tracking.progress < TRANSITION_DURATION {
-            tracking.progress += time.delta_seconds();
+            tracking.progress += time.delta_secs();
         } else {
             tracking.initial_transform = *transform;
             tracking.target_transform = random_transform(&mut rng.0);

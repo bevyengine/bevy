@@ -5,16 +5,16 @@ use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OitLayersCountOffset},
+    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
@@ -33,7 +33,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
+    texture::DefaultImageSampler,
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
@@ -46,11 +46,6 @@ use bevy_utils::{
     Entry, HashMap, Parallel,
 };
 
-use bytemuck::{Pod, Zeroable};
-use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
-use static_assertions::const_assert_eq;
-
 use crate::{
     render::{
         morph::{
@@ -61,6 +56,11 @@ use crate::{
     },
     *,
 };
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bytemuck::{Pod, Zeroable};
+use nonmax::{NonMaxU16, NonMaxU32};
+use smallvec::{smallvec, SmallVec};
+use static_assertions::const_assert_eq;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
@@ -557,11 +557,11 @@ pub enum RenderMeshInstanceGpuQueue {
     /// The version of [`RenderMeshInstanceGpuQueue`] that omits the
     /// [`MeshCullingData`], so that we don't waste space when GPU
     /// culling is disabled.
-    CpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder)>),
+    CpuCulling(Vec<(MainEntity, RenderMeshInstanceGpuBuilder)>),
     /// The version of [`RenderMeshInstanceGpuQueue`] that contains the
     /// [`MeshCullingData`], used when any view has GPU culling
     /// enabled.
-    GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
+    GpuCulling(Vec<(MainEntity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }
 
 /// The per-thread queues containing mesh instances, populated during the
@@ -623,12 +623,12 @@ pub enum RenderMeshInstances {
 /// Information that the render world keeps about each entity that contains a
 /// mesh, when using CPU mesh instance data building.
 #[derive(Default, Deref, DerefMut)]
-pub struct RenderMeshInstancesCpu(EntityHashMap<RenderMeshInstanceCpu>);
+pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
 
 /// Information that the render world keeps about each entity that contains a
 /// mesh, when using GPU mesh instance data building.
 #[derive(Default, Deref, DerefMut)]
-pub struct RenderMeshInstancesGpu(EntityHashMap<RenderMeshInstanceGpu>);
+pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
@@ -641,7 +641,7 @@ impl RenderMeshInstances {
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
-    pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+    pub(crate) fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
             RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
@@ -650,7 +650,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -663,7 +663,7 @@ impl RenderMeshInstances {
 
     /// Inserts the given flags into the CPU or GPU render mesh instance data
     /// for the given mesh as appropriate.
-    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+    fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
         match *self {
             RenderMeshInstances::CpuBuilding(ref mut instances) => {
                 instances.insert_mesh_instance_flags(entity, flags);
@@ -676,12 +676,12 @@ impl RenderMeshInstances {
 }
 
 impl RenderMeshInstancesCpu {
-    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+    fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         self.get(&entity)
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -691,7 +691,7 @@ impl RenderMeshInstancesCpu {
 
     /// Inserts the given flags into the render mesh instance data for the given
     /// mesh.
-    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+    fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
         if let Some(instance) = self.get_mut(&entity) {
             instance.flags.insert(flags);
         }
@@ -699,12 +699,12 @@ impl RenderMeshInstancesCpu {
 }
 
 impl RenderMeshInstancesGpu {
-    fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
+    fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         self.get(&entity)
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -714,7 +714,7 @@ impl RenderMeshInstancesGpu {
 
     /// Inserts the given flags into the render mesh instance data for the given
     /// mesh.
-    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+    fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
         if let Some(instance) = self.get_mut(&entity) {
             instance.flags.insert(flags);
         }
@@ -739,7 +739,7 @@ impl RenderMeshInstanceGpuQueue {
     /// Adds a new mesh to this queue.
     fn push(
         &mut self,
-        entity: Entity,
+        entity: MainEntity,
         instance_builder: RenderMeshInstanceGpuBuilder,
         culling_data_builder: Option<MeshCullingData>,
     ) {
@@ -772,8 +772,8 @@ impl RenderMeshInstanceGpuBuilder {
     /// [`MeshInputUniform`] tables.
     fn add_to(
         self,
-        entity: Entity,
-        render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
+        entity: MainEntity,
+        render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
     ) -> usize {
@@ -907,7 +907,7 @@ pub fn extract_meshes_for_cpu_building(
 
             let mut lod_index = None;
             if visibility_range {
-                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
@@ -954,7 +954,7 @@ pub fn extract_meshes_for_cpu_building(
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
         for (entity, render_mesh_instance) in queue.drain(..) {
-            render_mesh_instances.insert_unique_unchecked(entity, render_mesh_instance);
+            render_mesh_instances.insert_unique_unchecked(entity.into(), render_mesh_instance);
         }
     }
 }
@@ -1023,7 +1023,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let mut lod_index = None;
             if visibility_range {
-                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
             }
 
             let mesh_flags = MeshFlags::from_components(
@@ -1049,7 +1049,7 @@ pub fn extract_meshes_for_gpu_building(
                 .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
             {
                 render_mesh_instances
-                    .get(&entity)
+                    .get(&MainEntity::from(entity))
                     .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
             } else {
                 None
@@ -1063,7 +1063,11 @@ pub fn extract_meshes_for_gpu_building(
                 previous_input_index,
             };
 
-            queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
+            queue.push(
+                entity.into(),
+                gpu_mesh_instance_builder,
+                gpu_mesh_culling_data,
+            );
         },
     );
 }
@@ -1285,7 +1289,7 @@ impl GetBatchData for MeshPipeline {
 
     fn get_batch_data(
         (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -1294,13 +1298,13 @@ impl GetBatchData for MeshPipeline {
             );
             return None;
         };
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
             match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         Some((
             MeshUniform::new(
@@ -1322,7 +1326,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_index_and_compare_data(
         (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1333,8 +1337,8 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
 
-        let mesh_instance = mesh_instances.get(&entity)?;
-        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         Some((
             mesh_instance.current_uniform_index,
@@ -1348,7 +1352,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_batch_data(
         (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -1356,13 +1360,13 @@ impl GetFullBatchData for MeshPipeline {
             );
             return None;
         };
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
             match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
+        let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
@@ -1373,7 +1377,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_index(
         (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1385,14 +1389,14 @@ impl GetFullBatchData for MeshPipeline {
         };
 
         mesh_instances
-            .get(&entity)
+            .get(&main_entity)
             .map(|entity| entity.current_uniform_index)
     }
 
     fn get_batch_indirect_parameters_index(
         (mesh_instances, _, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: Entity,
+        entity: (Entity, MainEntity),
         instance_index: u32,
     ) -> Option<NonMaxU32> {
         get_batch_indirect_parameters_index(
@@ -1414,7 +1418,7 @@ fn get_batch_indirect_parameters_index(
     meshes: &RenderAssets<RenderMesh>,
     mesh_allocator: &MeshAllocator,
     indirect_parameters_buffer: &mut IndirectParametersBuffer,
-    entity: Entity,
+    (_entity, main_entity): (Entity, MainEntity),
     instance_index: u32,
 ) -> Option<NonMaxU32> {
     // This should only be called during GPU building.
@@ -1426,7 +1430,7 @@ fn get_batch_indirect_parameters_index(
         return None;
     };
 
-    let mesh_instance = mesh_instances.get(&entity)?;
+    let mesh_instance = mesh_instances.get(&main_entity)?;
     let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
     let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
 
@@ -1855,6 +1859,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
+        #[cfg(feature = "experimental_pbr_pcss")]
+        shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
+
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
@@ -2014,6 +2021,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }
@@ -2192,7 +2200,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
-        Option<Read<OitLayersCountOffset>>,
+        Option<Read<OrderIndependentTransparencySettingsOffset>>,
     );
     type ItemQuery = ();
 
@@ -2259,7 +2267,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let skin_indices = skin_indices.into_inner();
         let morph_indices = morph_indices.into_inner();
 
-        let entity = &item.entity();
+        let entity = &item.main_entity();
 
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
             return RenderCommandResult::Success;
@@ -2380,7 +2388,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let indirect_parameters_buffer = indirect_parameters_buffer.into_inner();
         let mesh_allocator = mesh_allocator.into_inner();
 
-        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
+        let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {

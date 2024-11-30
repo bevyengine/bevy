@@ -1,7 +1,5 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::Vec3A;
-
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
     ops,
@@ -9,7 +7,7 @@ use crate::{
         Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
         Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
-    Isometry2d, Isometry3d, Mat3, Vec2, Vec3,
+    Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A,
 };
 
 #[cfg(feature = "alloc")]

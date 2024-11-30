@@ -27,18 +27,20 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let counter = atomicLoad(&layer_ids[screen_index]);
     if counter == 0 {
         reset_indices(screen_index);
-        discard;
-    } else {
-        let result = sort(screen_index, buffer_size);
-        reset_indices(screen_index);
 
-        // Manually do depth testing.
-        // This is necessary because early z doesn't seem to trigger in the transparent pass.
-        // Once we have a per pixel linked list it should be done much earlier
-        let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
-        if d > result.depth {
+        // https://github.com/gfx-rs/wgpu/issues/4416
+        if true {
             discard;
         }
+        return vec4(0.0);
+    } else {
+        // Load depth for manual depth testing.
+        // This is necessary because early z doesn't seem to trigger in the transparent pass.
+        // This should be done during the draw pass so those fragments simply don't exist in the list,
+        // but this requires a bigger refactor
+        let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
+        let result = sort(screen_index, buffer_size, d);
+        reset_indices(screen_index);
 
         return result.color;
     }
@@ -56,7 +58,7 @@ struct SortResult {
     depth: f32,
 }
 
-fn sort(screen_index: i32, buffer_size: i32) -> SortResult {
+fn sort(screen_index: i32, buffer_size: i32, opaque_depth: f32) -> SortResult {
     var counter = atomicLoad(&layer_ids[screen_index]);
 
     // fill list
@@ -85,10 +87,19 @@ fn sort(screen_index: i32, buffer_size: i32) -> SortResult {
     // resolve blend
     var final_color = vec4(0.0);
     for (var i = 0; i <= counter; i += 1) {
+        // depth testing
+        // This needs to happen here because we can only stop iterating if the fragment is
+        // occluded by something opaque and the fragments need to be sorted first
+        if fragment_list[i].depth < opaque_depth {
+            break;
+        }
         let color = fragment_list[i].color;
         let alpha = fragment_list[i].alpha;
         var base_color = vec4(color.rgb * alpha, alpha);
         final_color = blend(final_color, base_color);
+        if final_color.a == 1.0 {
+            break;
+        }
     }
     var result: SortResult;
     result.color = final_color;

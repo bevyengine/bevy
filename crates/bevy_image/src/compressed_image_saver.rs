@@ -1,4 +1,5 @@
-use super::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
+use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
+
 use bevy_asset::saver::{AssetSaver, SavedAsset};
 use derive_more::derive::{Display, Error, From};
 use futures_lite::AsyncWriteExt;

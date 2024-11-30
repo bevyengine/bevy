@@ -1,5 +1,7 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -60,13 +62,15 @@ pub use sampling::{FromRng, ShapeSample};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        bvec2, bvec3, bvec3a, bvec4, bvec4a,
         cubic_splines::{CubicNurbsError, CubicSegment, RationalSegment},
         direction::{Dir2, Dir3, Dir3A},
-        ops,
+        ivec2, ivec3, ivec4, mat2, mat3, mat3a, mat4, ops,
         primitives::*,
-        BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,
-        Isometry3d, Mat2, Mat3, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect,
-        UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+        quat, uvec2, uvec3, uvec4, vec2, vec3, vec3a, vec4, BVec2, BVec3, BVec3A, BVec4, BVec4A,
+        EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d, Isometry3d, Mat2, Mat3, Mat3A,
+        Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2,
+        Vec2Swizzles, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
     };
 
     #[doc(hidden)]

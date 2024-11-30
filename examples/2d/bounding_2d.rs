@@ -38,7 +38,7 @@ struct Spin;
 
 fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spin>>) {
     for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 5.);
+        transform.rotation *= Quat::from_rotation_z(time.delta_secs() / 5.);
     }
 }
 
@@ -72,12 +72,11 @@ fn update_test_state(
     state.set(next);
 }
 
-fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
+fn update_text(mut text: Single<&mut Text>, cur_state: Res<State<Test>>) {
     if !cur_state.is_changed() {
         return;
     }
 
-    let mut text = text.single_mut();
     text.clear();
 
     text.push_str("Intersection test:\n");
@@ -203,20 +202,14 @@ const OFFSET_Y: f32 = 75.;
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
         Shape::Circle(Circle::new(45.)),
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., OFFSET_Y, 0.),
         Shape::Rectangle(Rectangle::new(80., 80.)),
         Spin,
         DesiredVolume::Circle,
@@ -224,10 +217,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
         Shape::Triangle(Triangle2d::new(
             Vec2::new(-40., -40.),
             Vec2::new(-20., 40.),
@@ -239,10 +229,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
         Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
         Spin,
         DesiredVolume::Circle,
@@ -250,10 +237,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., -OFFSET_Y, 0.),
         Shape::Capsule(Capsule2d::new(25., 50.)),
         Spin,
         DesiredVolume::Aabb,
@@ -261,10 +245,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
         Shape::Polygon(RegularPolygon::new(50., 6)),
         Spin,
         DesiredVolume::Circle,
@@ -273,7 +254,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -298,11 +279,8 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
 }
 
 fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
-    let ray = Vec2::new(
-        ops::cos(time.elapsed_seconds()),
-        ops::sin(time.elapsed_seconds()),
-    );
-    let dist = 150. + ops::sin(0.5 * time.elapsed_seconds()).abs() * 500.;
+    let ray = Vec2::new(ops::cos(time.elapsed_secs()), ops::sin(time.elapsed_secs()));
+    let dist = 150. + ops::sin(0.5 * time.elapsed_secs()).abs() * 500.;
 
     let aabb_ray = Ray2d {
         origin: ray * 250.,
@@ -394,8 +372,8 @@ fn bounding_circle_cast_system(
 }
 
 fn get_intersection_position(time: &Time) -> Vec2 {
-    let x = ops::cos(0.8 * time.elapsed_seconds()) * 250.;
-    let y = ops::sin(0.4 * time.elapsed_seconds()) * 100.;
+    let x = ops::cos(0.8 * time.elapsed_secs()) * 250.;
+    let y = ops::sin(0.4 * time.elapsed_secs()) * 100.;
     Vec2::new(x, y)
 }
 

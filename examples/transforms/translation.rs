@@ -66,6 +66,6 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>)
             cube.speed *= -1.0;
         }
         let direction = transform.local_x();
-        transform.translation += direction * cube.speed * timer.delta_seconds();
+        transform.translation += direction * cube.speed * timer.delta_secs();
     }
 }

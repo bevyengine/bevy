@@ -430,7 +430,7 @@ impl Body for BrpStream {
     }
 
     fn is_end_stream(&self) -> bool {
-        dbg!(self.rx.is_closed())
+        self.rx.is_closed()
     }
 }
 

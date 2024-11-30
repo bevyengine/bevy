@@ -76,6 +76,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
                     entry_point: "fill_cluster_buffers".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -84,7 +85,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -92,6 +93,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
+                zero_initialize_workgroup_memory: false,
             }),
 
             cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -99,7 +101,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -107,6 +109,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
+                zero_initialize_workgroup_memory: false,
             }),
 
             downsample_depth_first: pipeline_cache.queue_compute_pipeline(
@@ -120,6 +123,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "downsample_depth_first".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -134,6 +138,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "downsample_depth_second".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -148,6 +153,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "downsample_depth_first".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -162,6 +168,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "downsample_depth_second".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -182,6 +189,7 @@ impl FromWorld for MeshletPipelines {
                         .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -203,6 +211,7 @@ impl FromWorld for MeshletPipelines {
                         .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -226,6 +235,7 @@ impl FromWorld for MeshletPipelines {
                         .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
+                    zero_initialize_workgroup_memory: false,
                 }),
 
             visibility_buffer_hardware_raster: pipeline_cache.queue_render_pipeline(
@@ -249,7 +259,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -269,6 +279,7 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -292,7 +303,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -309,6 +320,7 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -336,7 +348,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -356,6 +368,7 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 }),
 
             resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -381,6 +394,7 @@ impl FromWorld for MeshletPipelines {
                     entry_point: "resolve_depth".into(),
                     targets: vec![],
                 }),
+                zero_initialize_workgroup_memory: false,
             }),
 
             resolve_depth_shadow_view: pipeline_cache.queue_render_pipeline(
@@ -407,6 +421,7 @@ impl FromWorld for MeshletPipelines {
                         entry_point: "resolve_depth".into(),
                         targets: vec![],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -434,6 +449,7 @@ impl FromWorld for MeshletPipelines {
                         entry_point: "resolve_material_depth".into(),
                         targets: vec![],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -441,10 +457,14 @@ impl FromWorld for MeshletPipelines {
                 pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                     label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
                     layout: vec![layout],
-                    push_constant_ranges: vec![],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
                     shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "remap_dispatch".into(),
+                    zero_initialize_workgroup_memory: false,
                 })
             }),
         }

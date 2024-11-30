@@ -21,14 +21,14 @@ struct UiVertexOutput {
     // w = distance of the bottom horizontal dividing line
     @location(2) @interpolate(flat) texture_slices: vec4<f32>,
 
-    // Defines the dividing line that are used to split the render target into into corner, side and center slices
+    // Defines the dividing line that are used to split the render target into corner, side and center slices
     // The distances are normalized and from the top left corner of the render target
     // x = distance of left vertical dividing line
     // y = distance of top horizontal dividing line
     // z = distance of right vertical dividing line
     // w = distance of bottom horizontal dividing line
     @location(3) @interpolate(flat) target_slices: vec4<f32>,
-    
+
     // The number of times the side or center texture slices should be repeated when mapping them to the border slices
     // x = number of times to repeat along the horizontal axis for the side textures
     // y = number of times to repeat along the vertical axis for the side textures

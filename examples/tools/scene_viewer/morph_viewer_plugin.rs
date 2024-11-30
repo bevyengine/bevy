@@ -122,7 +122,7 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_span(&self, key: &str, style: TextStyle) -> (String, TextStyle) {
+    fn text_span(&self, key: &str, style: TextFont) -> (String, TextFont) {
         (format!("[{key}] {self}\n"), style)
     }
     fn new(
@@ -178,9 +178,9 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
@@ -196,7 +196,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        *writer.text(text.single(), i + 3) = format!("[{key_name}] {target}\n");
+        *writer.text(*text, i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -219,7 +219,7 @@ fn update_morphs(
         // component and call `weights_mut` to get access to the weights.
         let weights_slice = weights.weights_mut();
         let i = target.index;
-        let change = time.delta_seconds() * WEIGHT_PER_SECOND;
+        let change = time.delta_secs() * WEIGHT_PER_SECOND;
         let new_weight = target.change_dir.change_weight(weights_slice[i], change);
         weights_slice[i] = new_weight;
         target.weight = new_weight;
@@ -253,7 +253,7 @@ fn detect_morphs(
         detected.extend(targets);
     }
     detected.truncate(AVAILABLE_KEYS.len());
-    let style = TextStyle {
+    let style = TextFont {
         font_size: 13.0,
         ..default()
     };
@@ -268,7 +268,7 @@ fn detect_morphs(
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),

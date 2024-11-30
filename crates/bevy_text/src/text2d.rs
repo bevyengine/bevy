@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextStyle, TextWriter, YAxisOrientation,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -11,18 +11,17 @@ use bevy_ecs::component::Component;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     entity::Entity,
-    event::EventReader,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::Visibility;
 use bevy_render::{
     primitives::Aabb,
-    texture::Image,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
@@ -30,7 +29,19 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, Textu
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window};
+
+/// [`Text2dBundle`] was removed in favor of required components.
+/// The core component is now [`Text2d`] which can contain a single text segment.
+/// Indexed access to segments can be done with the new [`Text2dReader`] and [`Text2dWriter`] system params.
+/// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
+/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
+/// while sprite-related configuration uses [`TextBounds`] and [`Anchor`] components.
+#[deprecated(
+    since = "0.15.0",
+    note = "Text2dBundle has been migrated to required components. Follow the documentation for more information."
+)]
+pub struct Text2dBundle {}
 
 /// The top-level 2D text component.
 ///
@@ -44,42 +55,43 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::BLUE;
-# use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextStyle};
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-// Basic usage.
-world.spawn(Text2d::new("hello world!"));
-
-// With non-default style.
-world.spawn((
-    Text2d::new("hello world!"),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-));
-
-// With text justification.
-world.spawn((
-    Text2d::new("hello world\nand bevy!"),
-    TextLayout::new_with_justify(JustifyText::Center)
-));
-```
-*/
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text2d::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text2d::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text2d::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(JustifyText::Center)
+/// ));
+/// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
     TextLayout,
-    TextStyle,
+    TextFont,
+    TextColor,
     TextBounds,
     Anchor,
     SpriteSource,
@@ -119,10 +131,10 @@ impl From<String> for Text2d {
 }
 
 /// 2d alias for [`TextReader`].
-pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d>;
+pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
-pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d>;
+pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -141,7 +153,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_styles: Extract<Query<&TextStyle>>,
+    text_styles: Extract<Query<(&TextFont, &TextColor)>>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
@@ -186,14 +198,17 @@ pub fn extract_text2d_sprite(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|style| LinearRgba::from(style.color))
+                    .map(|(_, text_color)| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span = *span_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             extracted_sprites.sprites.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
+                (
+                    commands.spawn(TemporaryRenderEntity).id(),
+                    original_entity.into(),
+                ),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
@@ -219,12 +234,12 @@ pub fn extract_text2d_sprite(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
+    mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -235,13 +250,10 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextReader2d,
+    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.read().last().is_some();
-
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -249,6 +261,9 @@ pub fn update_text2d_layout(
         .unwrap_or(1.0);
 
     let inverse_scale_factor = scale_factor.recip();
+
+    let factor_changed = *last_scale_factor != scale_factor;
+    *last_scale_factor = scale_factor;
 
     for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
@@ -343,7 +358,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
+    use bevy_ecs::schedule::IntoSystemConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 
@@ -358,7 +373,6 @@ mod tests {
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
-            .init_resource::<Events<WindowScaleFactorChanged>>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()

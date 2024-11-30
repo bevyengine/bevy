@@ -153,7 +153,7 @@ type IdCursor = isize;
     reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
-// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+// optimized codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -170,7 +170,7 @@ pub struct Entity {
 impl PartialEq for Entity {
     #[inline]
     fn eq(&self, other: &Entity) -> bool {
-        // By using `to_bits`, the codegen can be optimised out even
+        // By using `to_bits`, the codegen can be optimized out even
         // further potentially. Relies on the correct alignment/field
         // order of `Entity`.
         self.to_bits() == other.to_bits()
@@ -179,10 +179,10 @@ impl PartialEq for Entity {
 
 impl Eq for Entity {}
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Entity {
@@ -193,10 +193,10 @@ impl PartialOrd for Entity {
     }
 }
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Entity {
@@ -310,7 +310,7 @@ impl Entity {
 
         match id {
             Ok(entity) => entity,
-            Err(_) => panic!("Attempted to initialise invalid bits as an entity"),
+            Err(_) => panic!("Attempted to initialize invalid bits as an entity"),
         }
     }
 
@@ -397,6 +397,8 @@ impl<'de> Deserialize<'de> for Entity {
 ///
 /// This takes the format: `{index}v{generation}#{bits}`.
 ///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
+///
 /// # Usage
 ///
 /// Prefer to use this format for debugging and logging purposes. Because the output contains
@@ -416,22 +418,32 @@ impl<'de> Deserialize<'de> for Entity {
 /// ```
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}v{}#{}",
-            self.index(),
-            self.generation(),
-            self.to_bits()
-        )
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(
+                f,
+                "{}v{}#{}",
+                self.index(),
+                self.generation(),
+                self.to_bits()
+            )
+        }
     }
 }
 
 /// Outputs the short entity identifier, including the index and generation.
 ///
 /// This takes the format: `{index}v{generation}`.
+///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.index(), self.generation())
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(f, "{}v{}", self.index(), self.generation())
+        }
     }
 }
 
@@ -1195,16 +1207,21 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(42);
         let string = format!("{:?}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
-        assert!(string.contains(format!("#{}", entity.to_bits()).as_str()));
+        assert_eq!(string, "42v1#4294967338");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{:?}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
     fn entity_display() {
         let entity = Entity::from_raw(42);
         let string = format!("{}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
+        assert_eq!(string, "42v1");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 }

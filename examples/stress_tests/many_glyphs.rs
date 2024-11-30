@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font_size: 4.,
         ..Default::default()
     };
@@ -56,33 +56,24 @@ fn setup(mut commands: Commands) {
     };
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|commands| {
             commands
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(1000.),
-                        ..Default::default()
-                    },
+                .spawn(Node {
+                    width: Val::Px(1000.),
                     ..Default::default()
                 })
-                .with_child((Text(text_string.clone()), text_style.clone(), text_block));
+                .with_child((Text(text_string.clone()), text_font.clone(), text_block));
         });
 
     commands.spawn((
         Text2d::new(text_string),
-        TextStyle {
-            color: RED.into(),
-            ..text_style
-        },
+        TextColor(RED.into()),
         bevy::sprite::Anchor::Center,
         TextBounds::new_horizontal(1000.),
         text_block,

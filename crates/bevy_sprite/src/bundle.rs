@@ -8,12 +8,6 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of components for drawing a single sprite from an image.
-///
-/// # Extra behaviours
-///
-/// You may add one or both of the following components to enable additional behaviours:
-/// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](crate::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug, Default)]
 #[deprecated(
     since = "0.15.0",
