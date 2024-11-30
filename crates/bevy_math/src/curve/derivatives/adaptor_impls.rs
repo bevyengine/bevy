@@ -5,13 +5,40 @@ use super::{SampleDerivative, SampleTwoDerivatives};
 use crate::common_traits::{HasTangent, Sum, VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
     adaptors::{
-        ChainCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
+        ChainCurve, ConstantCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
         LinearReparamCurve, PingPongCurve, RepeatCurve, ReverseCurve, ZipCurve,
     },
     Curve,
 };
 
-// -- ChainCurve (chaining derivative curves)
+// -- ConstantCurve
+
+impl<T> SampleDerivative<T> for ConstantCurve<T>
+where
+    T: HasTangent + Clone,
+{
+    fn sample_with_derivative_unchecked(&self, _t: f32) -> WithDerivative<T> {
+        WithDerivative {
+            value: self.value.clone(),
+            derivative: VectorSpace::ZERO,
+        }
+    }
+}
+
+impl<T> SampleTwoDerivatives<T> for ConstantCurve<T>
+where
+    T: HasTangent + Clone,
+{
+    fn sample_with_two_derivatives_unchecked(&self, _t: f32) -> WithTwoDerivatives<T> {
+        WithTwoDerivatives {
+            value: self.value.clone(),
+            derivative: VectorSpace::ZERO,
+            second_derivative: VectorSpace::ZERO,
+        }
+    }
+}
+
+// -- ChainCurve
 
 impl<T, C, D> SampleDerivative<T> for ChainCurve<T, C, D>
 where
@@ -292,7 +319,7 @@ where
     }
 }
 
-// -- CurveReparamCurve (chain rule)
+// -- CurveReparamCurve
 
 impl<T, C, D> SampleDerivative<T> for CurveReparamCurve<T, C, D>
 where
