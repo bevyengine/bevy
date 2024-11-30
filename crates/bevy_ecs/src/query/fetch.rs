@@ -305,12 +305,18 @@ pub unsafe trait QueryData: WorldQuery {
     ) -> Self::Item<'w>;
 }
 
+unsafe impl<D: QueryData> QueryData for crate::query::IncludeEntity<D> {
+    type ReadOnly = crate::query::IncludeEntity<D::ReadOnly>;
+}
+
 /// A [`QueryData`] that is read only.
 ///
 /// # Safety
 ///
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
+
+unsafe impl<D: ReadOnlyQueryData> ReadOnlyQueryData for crate::query::IncludeEntity<D> {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, Q> = <Q as QueryData>::Item<'w>;
