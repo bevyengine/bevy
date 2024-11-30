@@ -31,6 +31,7 @@ pub enum UvChannel {
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
+#[bindless(16)]
 #[reflect(Default, Debug)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
