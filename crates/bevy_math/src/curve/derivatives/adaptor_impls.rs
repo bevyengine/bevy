@@ -2,9 +2,9 @@
 //! compositionality for derivatives.
 
 use super::{SampleDerivative, SampleTwoDerivatives};
-use crate::common_traits::{HasTangent, WithDerivative, WithTwoDerivatives};
+use crate::common_traits::{HasTangent, Sum, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
-    adaptors::{ChainCurve, CurveReparamCurve, LinearReparamCurve, ReverseCurve},
+    adaptors::{ChainCurve, CurveReparamCurve, LinearReparamCurve, ReverseCurve, ZipCurve},
     Curve,
 };
 
@@ -42,6 +42,46 @@ where
             )
         } else {
             self.first.sample_with_two_derivatives_unchecked(t)
+        }
+    }
+}
+
+// -- ZipCurve
+
+impl<S, T, C, D> SampleDerivative<(S, T)> for ZipCurve<S, T, C, D>
+where
+    S: HasTangent,
+    T: HasTangent,
+    C: SampleDerivative<S>,
+    D: SampleDerivative<T>,
+{
+    fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<(S, T)> {
+        let first_output = self.first.sample_with_derivative_unchecked(t);
+        let second_output = self.second.sample_with_derivative_unchecked(t);
+        WithDerivative {
+            value: (first_output.value, second_output.value),
+            derivative: Sum(first_output.derivative, second_output.derivative),
+        }
+    }
+}
+
+impl<S, T, C, D> SampleTwoDerivatives<(S, T)> for ZipCurve<S, T, C, D>
+where
+    S: HasTangent,
+    T: HasTangent,
+    C: SampleTwoDerivatives<S>,
+    D: SampleTwoDerivatives<T>,
+{
+    fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<(S, T)> {
+        let first_output = self.first.sample_with_two_derivatives_unchecked(t);
+        let second_output = self.second.sample_with_two_derivatives_unchecked(t);
+        WithTwoDerivatives {
+            value: (first_output.value, second_output.value),
+            derivative: Sum(first_output.derivative, second_output.derivative),
+            second_derivative: Sum(
+                first_output.second_derivative,
+                second_output.second_derivative,
+            ),
         }
     }
 }

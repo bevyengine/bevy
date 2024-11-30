@@ -526,3 +526,11 @@ where
 impl<V: VectorSpace> HasTangent for V {
     type Tangent = V;
 }
+
+impl<M, N> HasTangent for (M, N)
+where
+    M: HasTangent,
+    N: HasTangent,
+{
+    type Tangent = Sum<M::Tangent, N::Tangent>;
+}
