@@ -2,9 +2,9 @@ use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
-        args::ArgList, function_map::FunctionMap, info::FunctionInfoType,
-        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionError,
-        FunctionOverloadError, FunctionResult, IntoFunction, IntoFunctionMut,
+        args::ArgList, dynamic_function_internal::DynamicFunctionInternal, info::FunctionInfoType,
+        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionOverloadError,
+        FunctionResult, IntoFunction, IntoFunctionMut,
     },
     serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -66,9 +66,9 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 ///
 /// [`ReflectFn`]: crate::func::ReflectFn
 /// [module-level documentation]: crate::func
+#[derive(Clone)]
 pub struct DynamicFunction<'env> {
-    pub(super) name: Option<Cow<'static, str>>,
-    pub(super) function_map: FunctionMap<ArcFn<'env>>,
+    pub(super) internal: DynamicFunctionInternal<ArcFn<'env>>,
 }
 
 impl<'env> DynamicFunction<'env> {
@@ -92,25 +92,8 @@ impl<'env> DynamicFunction<'env> {
         func: F,
         info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
     ) -> Self {
-        let info = info.try_into().unwrap();
-
-        let func: ArcFn = Arc::new(func);
-
         Self {
-            name: match &info {
-                FunctionInfoType::Standard(info) => info.name().cloned(),
-                FunctionInfoType::Overloaded(_) => None,
-            },
-            function_map: match info {
-                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
-                FunctionInfoType::Overloaded(infos) => {
-                    let indices = infos
-                        .iter()
-                        .map(|info| (ArgumentSignature::from(info), 0))
-                        .collect();
-                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
-                }
-            },
+            internal: DynamicFunctionInternal::new(Arc::new(func), info.try_into().unwrap()),
         }
     }
 
@@ -123,7 +106,7 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.name = Some(name.into());
+        self.internal.set_name(Some(name.into()));
         self
     }
 
@@ -233,16 +216,14 @@ impl<'env> DynamicFunction<'env> {
         'env: 'a,
     {
         let function = function.into_function();
-
-        let name = self.name.clone();
-        let function_map = self
-            .function_map
-            .merge(function.function_map)
+        let internal = self
+            .internal
+            .merge(function.internal)
             .unwrap_or_else(|(_, err)| {
                 panic!("{}", err);
             });
 
-        DynamicFunction { name, function_map }
+        DynamicFunction { internal }
     }
 
     /// Attempt to add an overload to this function.
@@ -259,14 +240,11 @@ impl<'env> DynamicFunction<'env> {
     ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         let function = function.into_function();
 
-        let name = self.name.clone();
-
-        match self.function_map.merge(function.function_map) {
-            Ok(function_map) => Ok(Self { name, function_map }),
-            Err((function_map, err)) => Err((
+        match self.internal.merge(function.internal) {
+            Ok(internal) => Ok(Self { internal }),
+            Err((internal, err)) => Err((
                 Box::new(Self {
-                    name,
-                    function_map: *function_map,
+                    internal: *internal,
                 }),
                 err,
             )),
@@ -297,23 +275,14 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// The function itself may also return any errors it needs to.
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.function_map.info().arg_count();
-        let received_arg_count = args.len();
-
-        if !expected_arg_count.contains(&received_arg_count) {
-            Err(FunctionError::ArgCountMismatch {
-                expected: expected_arg_count,
-                received: received_arg_count,
-            })
-        } else {
-            let func = self.function_map.get(&args)?;
-            func(args)
-        }
+        self.internal.validate_args(&args)?;
+        let func = self.internal.get(&args)?;
+        func(args)
     }
 
     /// Returns the function info.
     pub fn info(&self) -> FunctionInfoType {
-        self.function_map.info()
+        self.internal.info()
     }
 
     /// The name of the function.
@@ -331,7 +300,7 @@ impl<'env> DynamicFunction<'env> {
     /// [`with_name`]: Self::with_name
     /// [overloaded]: Self::with_overload
     pub fn name(&self) -> Option<&Cow<'static, str>> {
-        self.name.as_ref()
+        self.internal.name()
     }
 
     /// Returns `true` if the function is [overloaded].
@@ -349,7 +318,7 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [overloaded]: Self::with_overload
     pub fn is_overloaded(&self) -> bool {
-        self.function_map.is_overloaded()
+        self.internal.is_overloaded()
     }
 
     /// Returns the number of arguments the function expects.
@@ -372,17 +341,17 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [overloaded]: Self::with_overload
     pub fn arg_count(&self) -> RangeInclusive<usize> {
-        self.function_map.arg_count()
+        self.internal.arg_count()
     }
 }
 
 impl Function for DynamicFunction<'static> {
     fn name(&self) -> Option<&Cow<'static, str>> {
-        self.name.as_ref()
+        self.internal.name()
     }
 
     fn info(&self) -> FunctionInfoType {
-        self.function_map.info()
+        self.internal.info()
     }
 
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
@@ -494,19 +463,7 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicFunction(fn {name}")?;
-        self.function_map.debug(f)?;
-        write!(f, ")")
-    }
-}
-
-impl<'env> Clone for DynamicFunction<'env> {
-    fn clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            function_map: self.function_map.clone(),
-        }
+        write!(f, "DynamicFunction({:?})", &self.internal)
     }
 }
 

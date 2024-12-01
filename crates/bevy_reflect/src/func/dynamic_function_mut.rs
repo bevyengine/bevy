@@ -5,8 +5,9 @@ use core::ops::RangeInclusive;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
+use crate::func::dynamic_function_internal::FunctionMap;
 use crate::func::{
-    args::ArgList, function_map::FunctionMap, signature::ArgumentSignature, DynamicFunction,
+    args::ArgList, dynamic_function_internal::DynamicFunctionInternal, DynamicFunction,
     FunctionError, FunctionInfoType, FunctionOverloadError, FunctionResult, IntoFunctionMut,
 };
 
@@ -70,8 +71,7 @@ type BoxFnMut<'env> = Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> +
 /// [`ReflectFnMut`]: crate::func::ReflectFnMut
 /// [module-level documentation]: crate::func
 pub struct DynamicFunctionMut<'env> {
-    name: Option<Cow<'static, str>>,
-    function_map: FunctionMap<BoxFnMut<'env>>,
+    internal: DynamicFunctionInternal<BoxFnMut<'env>>,
 }
 
 impl<'env> DynamicFunctionMut<'env> {
@@ -95,25 +95,8 @@ impl<'env> DynamicFunctionMut<'env> {
         func: F,
         info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
     ) -> Self {
-        let info = info.try_into().unwrap();
-
-        let func: BoxFnMut = Box::new(func);
-
         Self {
-            name: match &info {
-                FunctionInfoType::Standard(info) => info.name().cloned(),
-                FunctionInfoType::Overloaded(_) => None,
-            },
-            function_map: match info {
-                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
-                FunctionInfoType::Overloaded(infos) => {
-                    let indices = infos
-                        .iter()
-                        .map(|info| (ArgumentSignature::from(info), 0))
-                        .collect();
-                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
-                }
-            },
+            internal: DynamicFunctionInternal::new(Box::new(func), info.try_into().unwrap()),
         }
     }
 
@@ -126,7 +109,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.name = Some(name.into());
+        self.internal.set_name(Some(name.into()));
         self
     }
 
@@ -196,15 +179,14 @@ impl<'env> DynamicFunctionMut<'env> {
     {
         let function = function.into_function_mut();
 
-        let name = self.name.clone();
-        let function_map = self
-            .function_map
-            .merge(function.function_map)
+        let internal = self
+            .internal
+            .merge(function.internal)
             .unwrap_or_else(|(_, err)| {
                 panic!("{}", err);
             });
 
-        DynamicFunctionMut { name, function_map }
+        DynamicFunctionMut { internal }
     }
 
     /// Attempt to add an overload to this function.
@@ -221,14 +203,11 @@ impl<'env> DynamicFunctionMut<'env> {
     ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         let function = function.into_function_mut();
 
-        let name = self.name.clone();
-
-        match self.function_map.merge(function.function_map) {
-            Ok(function_map) => Ok(Self { name, function_map }),
-            Err((function_map, err)) => Err((
+        match self.internal.merge(function.internal) {
+            Ok(internal) => Ok(Self { internal }),
+            Err((internal, err)) => Err((
                 Box::new(Self {
-                    name,
-                    function_map: *function_map,
+                    internal: *internal,
                 }),
                 err,
             )),
@@ -267,18 +246,9 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`call_once`]: DynamicFunctionMut::call_once
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.function_map.info().arg_count();
-        let received_arg_count = args.len();
-
-        if !expected_arg_count.contains(&received_arg_count) {
-            Err(FunctionError::ArgCountMismatch {
-                expected: expected_arg_count,
-                received: received_arg_count,
-            })
-        } else {
-            let func = self.function_map.get_mut(&args)?;
-            func(args)
-        }
+        self.internal.validate_args(&args)?;
+        let func = self.internal.get_mut(&args)?;
+        func(args)
     }
 
     /// Call the function with the given arguments and consume it.
@@ -315,7 +285,7 @@ impl<'env> DynamicFunctionMut<'env> {
 
     /// Returns the function info.
     pub fn info(&self) -> FunctionInfoType {
-        self.function_map.info()
+        self.internal.info()
     }
 
     /// The name of the function.
@@ -330,7 +300,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     /// [`with_name`]: Self::with_name
     pub fn name(&self) -> Option<&Cow<'static, str>> {
-        self.name.as_ref()
+        self.internal.name()
     }
 
     /// Returns `true` if the function is [overloaded].
@@ -350,7 +320,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [overloaded]: Self::with_overload
     pub fn is_overloaded(&self) -> bool {
-        self.function_map.is_overloaded()
+        self.internal.is_overloaded()
     }
 
     /// Returns the number of arguments the function expects.
@@ -373,7 +343,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [overloaded]: Self::with_overload
     pub fn arg_count(&self) -> RangeInclusive<usize> {
-        self.function_map.arg_count()
+        self.internal.arg_count()
     }
 }
 
@@ -389,10 +359,7 @@ impl<'env> DynamicFunctionMut<'env> {
 /// [overloaded]: DynamicFunctionMut::with_overload
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicFunctionMut(fn {name}")?;
-        self.function_map.debug(f)?;
-        write!(f, ")")
+        write!(f, "DynamicFunctionMut({:?})", &self.internal)
     }
 }
 
@@ -400,15 +367,14 @@ impl<'env> From<DynamicFunction<'env>> for DynamicFunctionMut<'env> {
     #[inline]
     fn from(function: DynamicFunction<'env>) -> Self {
         Self {
-            name: function.name,
-            function_map: match function.function_map {
+            internal: function.internal.convert(|map| match map {
                 FunctionMap::Single(func, info) => FunctionMap::Single(arc_to_box(func), info),
                 FunctionMap::Overloaded(funcs, infos, indices) => FunctionMap::Overloaded(
                     funcs.into_iter().map(arc_to_box).collect(),
                     infos,
                     indices,
                 ),
-            },
+            }),
         }
     }
 }

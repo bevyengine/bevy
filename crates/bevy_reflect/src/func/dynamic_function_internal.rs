@@ -8,6 +8,199 @@ use bevy_utils::hashbrown::HashMap;
 use core::fmt::{Debug, Formatter};
 use core::ops::RangeInclusive;
 
+/// An internal structure for storing a function and its corresponding [function information].
+///
+/// This is used to facilitate the sharing of functionality between [`DynamicFunction`]
+/// and [`DynamicFunctionMut`].
+///
+/// [function information]: FunctionInfo
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
+#[derive(Clone)]
+pub(super) struct DynamicFunctionInternal<F> {
+    name: Option<Cow<'static, str>>,
+    map: FunctionMap<F>,
+}
+
+impl<F> DynamicFunctionInternal<F> {
+    /// Create a new instance of [`DynamicFunctionInternal`] with the given function
+    /// and its corresponding information.
+    pub fn new(func: F, info: FunctionInfoType<'static>) -> Self {
+        Self {
+            name: match &info {
+                FunctionInfoType::Standard(info) => info.name().cloned(),
+                FunctionInfoType::Overloaded(_) => None,
+            },
+            map: match info {
+                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
+                FunctionInfoType::Overloaded(infos) => {
+                    let indices = infos
+                        .iter()
+                        .map(|info| (ArgumentSignature::from(info), 0))
+                        .collect();
+                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
+                }
+            },
+        }
+    }
+
+    /// Sets the name of the function.
+    pub fn set_name(&mut self, name: Option<Cow<'static, str>>) {
+        self.name = name;
+    }
+
+    /// The name of the function.
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
+    }
+
+    /// Returns `true` if the function is overloaded.
+    pub fn is_overloaded(&self) -> bool {
+        matches!(self.map, FunctionMap::Overloaded(..))
+    }
+
+    /// Get an immutable reference to the function.
+    ///
+    /// If the function is not overloaded, it will always be returned regardless of the arguments.
+    /// Otherwise, the function will be selected based on the arguments provided.
+    ///
+    /// If no overload matches the provided arguments, returns [`FunctionError::NoOverload`].
+    pub fn get(&self, args: &ArgList) -> Result<&F, FunctionError> {
+        match &self.map {
+            FunctionMap::Single(function, _) => Ok(function),
+            FunctionMap::Overloaded(functions, _, indices) => {
+                let signature = ArgumentSignature::from(args);
+                indices
+                    .get(&signature)
+                    .map(|index| &functions[*index])
+                    .ok_or_else(|| FunctionError::NoOverload {
+                        expected: indices.keys().cloned().collect(),
+                        received: signature,
+                    })
+            }
+        }
+    }
+
+    /// Get an mutable reference to the function.
+    ///
+    /// If the function is not overloaded, it will always be returned regardless of the arguments.
+    /// Otherwise, the function will be selected based on the arguments provided.
+    ///
+    /// If no overload matches the provided arguments, returns [`FunctionError::NoOverload`].
+    pub fn get_mut(&mut self, args: &ArgList) -> Result<&mut F, FunctionError> {
+        match &mut self.map {
+            FunctionMap::Single(function, _) => Ok(function),
+            FunctionMap::Overloaded(functions, _, indices) => {
+                let signature = ArgumentSignature::from(args);
+                indices
+                    .get(&signature)
+                    .map(|index| &mut functions[*index])
+                    .ok_or_else(|| FunctionError::NoOverload {
+                        expected: indices.keys().cloned().collect(),
+                        received: signature,
+                    })
+            }
+        }
+    }
+
+    /// Returns the function information contained in the map.
+    #[inline]
+    pub fn info(&self) -> FunctionInfoType {
+        match &self.map {
+            FunctionMap::Single(_, info) => FunctionInfoType::Standard(Cow::Borrowed(info)),
+            FunctionMap::Overloaded(_, info, _) => {
+                FunctionInfoType::Overloaded(Cow::Borrowed(info))
+            }
+        }
+    }
+
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For[overloaded functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    pub fn arg_count(&self) -> RangeInclusive<usize> {
+        self.info().arg_count()
+    }
+
+    /// Helper method for validating that a given set of arguments are _potentially_ valid for this function.
+    ///
+    /// Currently, this validates:
+    /// - The number of arguments is within the expected range
+    pub fn validate_args(&self, args: &ArgList) -> Result<(), FunctionError> {
+        let expected_arg_count = self.arg_count();
+        let received_arg_count = args.len();
+
+        if !expected_arg_count.contains(&received_arg_count) {
+            Err(FunctionError::ArgCountMismatch {
+                expected: expected_arg_count,
+                received: received_arg_count,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Merge another [`DynamicFunctionInternal`] into this one.
+    ///
+    /// If `other` contains any functions with the same signature as this one,
+    /// an error will be returned along with the original, unchanged instance.
+    ///
+    /// Therefore, this method should always return an overloaded function if the merge is successful.
+    ///
+    /// Additionally, if the merge succeeds, it should be guaranteed that the order
+    /// of the functions in the map will be preserved.
+    /// For example, merging `[func_a, func_b]` (self) with `[func_c, func_d]` (other) should result in
+    /// `[func_a, func_b, func_c, func_d]`.
+    /// And merging `[func_c, func_d]` (self) with `[func_a, func_b]` (other) should result in
+    /// `[func_c, func_d, func_a, func_b]`.
+    pub fn merge(self, other: Self) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
+        let map = self.map.merge(other.map).map_err(|(map, err)| {
+            (
+                Box::new(Self {
+                    name: self.name.clone(),
+                    map: *map,
+                }),
+                err,
+            )
+        })?;
+
+        Ok(Self {
+            name: self.name,
+            map,
+        })
+    }
+
+    /// Convert the inner [`FunctionMap`] from holding `F` to holding `G`.
+    pub fn convert<G>(self, f: fn(FunctionMap<F>) -> FunctionMap<G>) -> DynamicFunctionInternal<G> {
+        DynamicFunctionInternal {
+            name: self.name,
+            map: f(self.map),
+        }
+    }
+}
+
+impl<F> Debug for DynamicFunctionInternal<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let name = self.name.as_deref().unwrap_or("_");
+        write!(f, "fn {name}")?;
+
+        match &self.map {
+            // `(arg0: i32, arg1: i32) -> ()`
+            FunctionMap::Single(_, info) => PrettyPrintFunctionInfo::new(info).fmt(f),
+            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            FunctionMap::Overloaded(_, infos, _) => {
+                let mut set = f.debug_set();
+                for info in infos.iter() {
+                    set.entry(&PrettyPrintFunctionInfo::new(info));
+                }
+                set.finish()
+            }
+        }
+    }
+}
+
 /// A helper type for storing a mapping of overloaded functions
 /// along with the corresponding [function information].
 ///
@@ -36,75 +229,6 @@ pub(super) enum FunctionMap<F> {
 }
 
 impl<F> FunctionMap<F> {
-    /// Returns `true` if the map contains an overloaded function.
-    pub fn is_overloaded(&self) -> bool {
-        matches!(self, Self::Overloaded(..))
-    }
-
-    /// Get a reference to a function in the map.
-    ///
-    /// If there is only one function in the map, it will be returned.
-    /// Otherwise, the function will be selected based on the arguments provided.
-    ///
-    /// If no overload matches the provided arguments, an error will be returned.
-    pub fn get(&self, args: &ArgList) -> Result<&F, FunctionError> {
-        match self {
-            Self::Single(function, _) => Ok(function),
-            Self::Overloaded(functions, _, indices) => {
-                let signature = ArgumentSignature::from(args);
-                indices
-                    .get(&signature)
-                    .map(|index| &functions[*index])
-                    .ok_or_else(|| FunctionError::NoOverload {
-                        expected: indices.keys().cloned().collect(),
-                        received: signature,
-                    })
-            }
-        }
-    }
-
-    /// Get a mutable reference to a function in the map.
-    ///
-    /// If there is only one function in the map, it will be returned.
-    /// Otherwise, the function will be selected based on the arguments provided.
-    ///
-    /// If no overload matches the provided arguments, an error will be returned.
-    pub fn get_mut(&mut self, args: &ArgList) -> Result<&mut F, FunctionError> {
-        match self {
-            Self::Single(function, _) => Ok(function),
-            Self::Overloaded(functions, _, indices) => {
-                let signature = ArgumentSignature::from(args);
-                indices
-                    .get(&signature)
-                    .map(|index| &mut functions[*index])
-                    .ok_or_else(|| FunctionError::NoOverload {
-                        expected: indices.keys().cloned().collect(),
-                        received: signature,
-                    })
-            }
-        }
-    }
-
-    /// Returns the function information contained in the map.
-    pub fn info(&self) -> FunctionInfoType {
-        match self {
-            Self::Single(_, info) => FunctionInfoType::Standard(Cow::Borrowed(info)),
-            Self::Overloaded(_, info, _) => FunctionInfoType::Overloaded(Cow::Borrowed(info)),
-        }
-    }
-
-    /// Returns the number of arguments the function expects.
-    ///
-    /// For [overloaded] functions that can have a variable number of arguments,
-    /// this will return the minimum and maximum number of arguments.
-    ///
-    /// Otherwise, the range will have the same start and end.
-    ///
-    /// [overloaded]: Self::Overloaded
-    pub fn arg_count(&self) -> RangeInclusive<usize> {
-        self.info().arg_count()
-    }
-
     /// Merge another [`FunctionMap`] into this one.
     ///
     /// If the other map contains any functions with the same signature as this one,
@@ -217,21 +341,6 @@ impl<F> FunctionMap<F> {
                 self_infos.append(&mut other_infos);
 
                 Ok(Self::Overloaded(self_funcs, self_infos, self_indices))
-            }
-        }
-    }
-
-    pub fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            // `(arg0: i32, arg1: i32) -> ()`
-            Self::Single(_, info) => PrettyPrintFunctionInfo::new(info).fmt(f),
-            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
-            Self::Overloaded(_, infos, _) => {
-                let mut set = f.debug_set();
-                for info in infos.iter() {
-                    set.entry(&PrettyPrintFunctionInfo::new(info));
-                }
-                set.finish()
             }
         }
     }

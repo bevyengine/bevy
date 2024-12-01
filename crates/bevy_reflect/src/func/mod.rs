@@ -173,10 +173,10 @@ pub use return_type::*;
 
 pub mod args;
 mod dynamic_function;
+mod dynamic_function_internal;
 mod dynamic_function_mut;
 mod error;
 mod function;
-mod function_map;
 mod info;
 mod into_function;
 mod into_function_mut;
