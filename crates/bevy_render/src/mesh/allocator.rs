@@ -15,11 +15,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_utils::{
-    default,
-    hashbrown::{HashMap, HashSet},
-    tracing::error,
-};
+use bevy_utils::{default, tracing::error, HashMap, HashSet};
 use offset_allocator::{Allocation, Allocator};
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
@@ -329,10 +325,10 @@ impl FromWorld for MeshAllocator {
             .contains(DownlevelFlags::BASE_VERTEX);
 
         Self {
-            slabs: HashMap::new(),
-            slab_layouts: HashMap::new(),
-            mesh_id_to_vertex_slab: HashMap::new(),
-            mesh_id_to_index_slab: HashMap::new(),
+            slabs: HashMap::default(),
+            slab_layouts: HashMap::default(),
+            mesh_id_to_vertex_slab: HashMap::default(),
+            mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
         }
@@ -600,7 +596,7 @@ impl MeshAllocator {
     }
 
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
-        let mut empty_slabs = HashSet::new();
+        let mut empty_slabs = <HashSet<_>>::default();
         for mesh_id in &extracted_meshes.removed {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
@@ -881,8 +877,8 @@ impl GeneralSlab {
         let mut new_slab = GeneralSlab {
             allocator: Allocator::new(slab_slot_capacity),
             buffer: None,
-            resident_allocations: HashMap::new(),
-            pending_allocations: HashMap::new(),
+            resident_allocations: HashMap::default(),
+            pending_allocations: HashMap::default(),
             element_layout: layout,
             slot_capacity: slab_slot_capacity,
         };

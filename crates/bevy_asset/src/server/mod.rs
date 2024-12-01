@@ -1544,7 +1544,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        let mut paths_to_reload = HashSet::new();
+        let mut paths_to_reload = <HashSet<_>>::default();
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
