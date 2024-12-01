@@ -91,7 +91,10 @@ impl Default for App {
         let mut app = App::empty();
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
-        #[cfg(feature = "bevy_reflect")]
+        #[cfg(all(feature = "bevy_reflect", not(feature = "reflect_auto_register")))]
+        app.init_resource::<AppTypeRegistry>();
+
+        #[cfg(feature = "reflect_auto_register")]
         app.insert_resource(AppTypeRegistry::new_with_derived_types());
 
         #[cfg(feature = "reflect_functions")]

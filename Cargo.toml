@@ -130,6 +130,7 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
@@ -453,6 +454,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable automatic reflect registration
+reflect_auto_register = ["bevy_internal/reflect_auto_register"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]

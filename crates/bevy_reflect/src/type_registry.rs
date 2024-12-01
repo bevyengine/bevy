@@ -150,8 +150,9 @@ impl TypeRegistry {
     /// // Its type data
     /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
     /// ```
+    #[cfg(feature = "auto_register")]
     pub fn register_derived_types(&mut self) {
-        crate::__macro_exports::AutomaticReflectRegistrations::register(self);
+        crate::__macro_exports::auto_register::AutomaticReflectRegistrations::register(self);
     }
 
     /// Attempts to register the type `T` if it has not yet been registered already.

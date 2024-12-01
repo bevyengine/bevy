@@ -250,6 +250,12 @@ reflect_functions = [
   "bevy_app/reflect_functions",
   "bevy_ecs/reflect_functions",
 ]
+# Enable automatic reflect registration
+reflect_auto_register = [
+  "bevy_reflect/auto_register",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
