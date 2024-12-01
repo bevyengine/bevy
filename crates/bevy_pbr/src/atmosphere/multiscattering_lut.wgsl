@@ -101,7 +101,7 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
         let energy_transfer = transmittance_to_sample * scattering;
 
         l_2 += energy_transfer * isotropic_phase * shadow_factor * dt;
-        f_ms += energy_transfer * isotropic_phase * dt;
+        f_ms += energy_transfer * isotropic_phase * dt; // should NOT include isotropic_phase except removing it breaks everything
     }
 
     return MultiscatteringSample(l_2, f_ms);
