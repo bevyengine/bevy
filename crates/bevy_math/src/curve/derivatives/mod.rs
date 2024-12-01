@@ -35,6 +35,8 @@ use bevy_reflect::{FromReflect, Reflect};
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
+///
+/// This is implemented by implementing [`SampleDerivative`].
 pub trait CurveWithDerivative<T>: SampleDerivative<T>
 where
     T: HasTangent,
@@ -45,6 +47,8 @@ where
 
 /// Trait for curves that have a well-defined notion of second derivative,
 /// allowing for two derivatives to be extracted along with values.
+///
+/// This is implemented by implementing [`SampleTwoDerivatives`].
 pub trait CurveWithTwoDerivatives<T>: SampleTwoDerivatives<T>
 where
     T: HasTangent,
