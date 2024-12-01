@@ -309,7 +309,7 @@ where
             self.domain().end() - (t - self.domain().start()),
         );
 
-        output.derivative = output.derivative * -1.0;
+        output.derivative = -output.derivative;
 
         // (Note that the reparametrization that reverses the curve satisfies
         // g'(t)^2 = 1 and g''(t) = 0, so the second derivative is already
