@@ -7,6 +7,7 @@ use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
+    system::System,
     world::World,
 };
 
@@ -100,7 +101,7 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                __rust_begin_short_backtrace::run(&mut **system, world);
+                __rust_begin_short_backtrace::run(system, world);
             }));
             if let Err(payload) = res {
                 eprintln!("Encountered a panic in system `{}`!", &*system.name());

@@ -12,7 +12,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     schedule::{BoxedCondition, NodeId},
-    system::BoxedSystem,
+    system::{BoxedSystem, ScheduleSystem},
     world::World,
 };
 
@@ -60,7 +60,7 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<BoxedSystem>,
+    pub(super) systems: Vec<ScheduleSystem>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
@@ -122,10 +122,10 @@ impl SystemSchedule {
 pub fn apply_deferred(world: &mut World) {}
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
-pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use crate::system::IntoSystem;
+pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
+    use crate::system::{IntoSystem, System};
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.system_type_id()
+    system.type_id() == apply_deferred.system_type_id()
 }
 
 /// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
@@ -140,17 +140,14 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        system::{ReadOnlySystem, System},
+        system::{ReadOnlySystem, ScheduleSystem, System},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(
-        system: &mut dyn System<In = (), Out = ()>,
-        world: UnsafeWorldCell,
-    ) {
+    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) {
         system.run_unsafe((), world);
         black_box(());
     }
@@ -166,7 +163,7 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
+    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) {
         system.run((), world);
         black_box(());
     }

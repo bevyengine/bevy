@@ -18,7 +18,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::BoxedSystem,
+    system::{System, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -29,7 +29,7 @@ use super::__rust_begin_short_backtrace;
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
-    systems: &'sys [SyncUnsafeCell<BoxedSystem>],
+    systems: &'sys [SyncUnsafeCell<ScheduleSystem>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
@@ -269,7 +269,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         &self,
         system_index: usize,
         res: Result<(), Box<dyn Any + Send>>,
-        system: &BoxedSystem,
+        system: &ScheduleSystem,
     ) {
         // tell the executor that the system finished
         self.environment
@@ -459,7 +459,7 @@ impl ExecutorState {
     fn can_run(
         &mut self,
         system_index: usize,
-        system: &mut BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -523,7 +523,7 @@ impl ExecutorState {
     unsafe fn should_run(
         &mut self,
         system_index: usize,
-        system: &mut BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -604,7 +604,7 @@ impl ExecutorState {
                 // - `update_archetype_component_access` has been called.
                 unsafe {
                     __rust_begin_short_backtrace::run_unsafe(
-                        &mut **system,
+                        system,
                         context.environment.world_cell,
                     );
                 };
@@ -650,7 +650,7 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    __rust_begin_short_backtrace::run(system, world);
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -710,7 +710,7 @@ impl ExecutorState {
 
 fn apply_deferred(
     unapplied_systems: &FixedBitSet,
-    systems: &[SyncUnsafeCell<BoxedSystem>],
+    systems: &[SyncUnsafeCell<ScheduleSystem>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {

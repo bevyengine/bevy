@@ -121,6 +121,7 @@ mod function_system;
 mod input;
 mod observer_system;
 mod query;
+mod schedule_system;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_name;
@@ -139,6 +140,7 @@ pub use function_system::*;
 pub use input::*;
 pub use observer_system::*;
 pub use query::*;
+pub use schedule_system::*;
 pub use system::*;
 pub use system_name::*;
 pub use system_param::*;

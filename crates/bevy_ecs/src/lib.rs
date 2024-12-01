@@ -30,6 +30,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
+pub mod result;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -52,6 +53,7 @@ pub mod prelude {
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        result::{ok, Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
