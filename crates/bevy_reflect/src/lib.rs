@@ -3056,7 +3056,7 @@ bevy_reflect::tests::Test {
         let mut registry = TypeRegistry::default();
         registry.register_derived_types();
 
-        assert!(!registry.contains(TypeId::of::<NoAutomaticStruct>()))
+        assert!(!registry.contains(TypeId::of::<NoAutomaticStruct>()));
     }
 
     #[cfg(feature = "glam")]
