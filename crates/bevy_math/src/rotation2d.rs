@@ -350,7 +350,7 @@ impl Rot2 {
     #[inline]
     #[must_use]
     #[doc(alias = "conjugate")]
-    pub fn inverse(self) -> Self {
+    pub const fn inverse(self) -> Self {
         Self {
             cos: self.cos,
             sin: -self.sin,
