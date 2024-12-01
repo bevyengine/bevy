@@ -53,7 +53,7 @@ pub mod prelude {
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
-        result::{ok, Error, Result},
+        result::{Error, Result, OK},
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
