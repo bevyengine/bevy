@@ -1,7 +1,7 @@
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{
         ComputePassDescriptor, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor,
