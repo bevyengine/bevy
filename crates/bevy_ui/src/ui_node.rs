@@ -1,5 +1,6 @@
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
@@ -2419,14 +2420,51 @@ impl ResolvedBorderRadius {
     };
 }
 
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct BoxShadow {
+/// List of shadows to draw for a [`Node`].
+///
+/// Draw order is determined implicitly from the vector of [`ShadowStyle`]s, back-to-front.
+pub struct BoxShadow(pub Vec<ShadowStyle>);
+
+impl BoxShadow {
+    /// A single drop shadow
+    pub fn new(
+        color: Color,
+        x_offset: Val,
+        y_offset: Val,
+        spread_radius: Val,
+        blur_radius: Val,
+    ) -> Self {
+        Self(vec![ShadowStyle {
+            color,
+            x_offset,
+            y_offset,
+            spread_radius,
+            blur_radius,
+        }])
+    }
+}
+
+impl From<ShadowStyle> for BoxShadow {
+    fn from(value: ShadowStyle) -> Self {
+        Self(vec![value])
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ShadowStyle {
     /// The shadow's color
     pub color: Color,
     /// Horizontal offset
@@ -2442,7 +2480,7 @@ pub struct BoxShadow {
     pub blur_radius: Val,
 }
 
-impl Default for BoxShadow {
+impl Default for ShadowStyle {
     fn default() -> Self {
         Self {
             color: Color::BLACK,
