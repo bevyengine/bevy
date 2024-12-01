@@ -1,16 +1,19 @@
 use bevy_app::{App, Update};
-use bevy_ecs::prelude::*;
-use criterion::Criterion;
-use rand::Rng;
-use bevy_ecs::system::QueryParamBuilder;
-use std::alloc::Layout;
-use bevy_ecs::component::StorageType;
-use bevy_ecs::component::ComponentDescriptor;
-use bevy_ecs::component::ComponentId;
-use std::num::Wrapping;
-use bevy_ecs::world::FilteredEntityMut;
-use rand::prelude::SliceRandom;
+
+use bevy_ecs::{
+    component::{ComponentDescriptor, ComponentId, StorageType},
+    prelude::*,
+    system::QueryParamBuilder,
+    world::FilteredEntityMut,
+};
 use bevy_ptr::OwningPtr;
+use criterion::Criterion;
+use rand::prelude::SeedableRng;
+use rand::prelude::SliceRandom;
+use rand::Rng;
+use rand_chacha::ChaCha8Rng;
+use std::alloc::Layout;
+use std::num::Wrapping;
 
 pub fn schedule(c: &mut Criterion) {
     #[derive(Component)]
@@ -201,7 +204,7 @@ fn many_components_and_systems(criterion: &mut Criterion) {
     let num_systems = 4000;
     let num_entities = 10000;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
     let mut world = World::default();
 
     // register a bunch of components
