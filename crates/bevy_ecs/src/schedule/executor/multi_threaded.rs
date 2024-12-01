@@ -18,7 +18,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{System, ScheduleSystem},
+    system::{ScheduleSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
