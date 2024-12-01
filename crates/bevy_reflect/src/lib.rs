@@ -3045,6 +3045,20 @@ bevy_reflect::tests::Test {
         );
     }
 
+    #[test]
+    fn should_ignore_auto_reflect_registration() {
+        #[derive(Reflect)]
+        #[reflect(no_auto_register)]
+        struct NoAutomaticStruct {
+            a: usize,
+        }
+
+        let mut registry = TypeRegistry::default();
+        registry.register_derived_types();
+
+        assert!(!registry.contains(TypeId::of::<NoAutomaticStruct>()))
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
