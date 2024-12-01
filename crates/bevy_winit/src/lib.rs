@@ -157,7 +157,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 pub struct WakeUp;
 
 /// The original window event as produced by Winit. This is meant as an escape
-/// hatch for power users that wish add custom Winit integrations.
+/// hatch for power users that wish to add custom Winit integrations.
 /// If you want to process events for your app or game, you should instead use
 /// `bevy::window::WindowEvent`, or one of its sub-events.
 ///
