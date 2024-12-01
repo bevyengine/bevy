@@ -20,4 +20,5 @@ criterion_group!(
     schedule,
     build_schedule,
     empty_schedule_run,
+    many_components_and_systems
 );
