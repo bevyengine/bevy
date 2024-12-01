@@ -159,17 +159,14 @@ pub fn common_partial_reflect_methods(
 
 #[cfg(feature = "auto_register")]
 pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
-    use quote::ToTokens;
-
     if meta.attrs().no_auto_register() {
         return None;
     }
 
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
-    let generics = meta.type_path().generics();
 
-    if !generics.into_token_stream().is_empty() {
+    if type_path.impl_is_generic() {
         return None;
     };
 
