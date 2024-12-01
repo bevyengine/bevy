@@ -226,9 +226,9 @@ use derive_more::derive::{Display, Error};
 /// assert_eq!(2, world.entity(id).get::<X>().unwrap().0);
 /// ```
 ///
-/// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
-/// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// In general, this shouldn't happen often, but when it does the algorithm for choosing the constructor from the tree is simple and predictable:
+/// 1. A constructor from a direct `#[require()]`, if one exists, is selected with priority.
+/// 2. Otherwise, perform a Depth First Search on the tree of requirements and select the first one found.
 ///
 /// From a user perspective, just think about this as the following:
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
@@ -1029,8 +1029,8 @@ impl Components {
     /// registration will be used.
     pub(crate) unsafe fn register_required_components<R: Component>(
         &mut self,
-        required: ComponentId,
         requiree: ComponentId,
+        required: ComponentId,
         constructor: fn() -> R,
     ) -> Result<(), RequiredComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
@@ -1065,6 +1065,10 @@ impl Components {
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
+            // `required` is now required by anything that `requiree` was required by.
+            self.get_required_by_mut(required)
+                .unwrap()
+                .extend(required_by.iter().copied());
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
@@ -1072,20 +1076,24 @@ impl Components {
                         .debug_checked_unwrap()
                 };
 
-                // Register the original required component for the requiree.
-                // The inheritance depth is `1` since this is a component required by the original requiree.
-                required_components.register_by_id(required, constructor, 1);
+                // Register the original required component in the "parent" of the requiree.
+                // The inheritance depth is 1 deeper than the `requiree` wrt `required_by_id`.
+                let depth = required_components.0.get(&requiree).expect("requiree is required by required_by_id, so its required_components must include requiree").inheritance_depth;
+                required_components.register_by_id(required, constructor, depth + 1);
 
                 for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
-                    // The inheritance depth is increased by `1` since this is a component required by the original required component.
+                    // The inheritance depth of inherited components is whatever the requiree's
+                    // depth is relative to `required_by_id`, plus the inheritance depth of the
+                    // inherited component relative to the requiree, plus 1 to account for the
+                    // requiree in between.
                     // SAFETY: Component ID and constructor match the ones on the original requiree.
                     //         The original requiree is responsible for making sure the registration is safe.
                     unsafe {
                         required_components.register_dynamic(
                             *component_id,
                             component.constructor.clone(),
-                            component.inheritance_depth + 1,
+                            component.inheritance_depth + depth + 1,
                         );
                     };
                 }

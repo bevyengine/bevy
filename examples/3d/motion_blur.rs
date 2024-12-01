@@ -11,10 +11,6 @@ use bevy::{
 fn main() {
     let mut app = App::new();
 
-    // MSAA and Motion Blur together are not compatible on WebGL
-    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-    app.insert_resource(Msaa::Off);
-
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
@@ -33,6 +29,9 @@ fn setup_camera(mut commands: Commands) {
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding: Default::default(),
         },
+        // MSAA and Motion Blur together are not compatible on WebGL
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 }
 
