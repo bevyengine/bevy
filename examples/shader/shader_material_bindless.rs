@@ -49,7 +49,7 @@ fn setup(
         Transform::from_xyz(-2.0, 0.5, 0.0),
     ));
 
-    // Add a cube with a red tinted texture.
+    // Add a cylinder with a red tinted texture.
     commands.spawn((
         Mesh3d(meshes.add(Cylinder::default())),
         MeshMaterial3d(materials.add(BindlessMaterial {
