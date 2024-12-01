@@ -12,7 +12,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::{
     schedule::{BoxedCondition, NodeId},
-    system::{BoxedSystem, ScheduleSystem},
+    system::ScheduleSystem,
     world::World,
 };
 
@@ -148,7 +148,7 @@ mod __rust_begin_short_backtrace {
     /// See `System::run_unsafe`.
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) {
-        system.run_unsafe((), world);
+        let _ = system.run_unsafe((), world);
         black_box(());
     }
 
@@ -164,7 +164,7 @@ mod __rust_begin_short_backtrace {
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) {
-        system.run((), world);
+        let _ = system.run((), world);
         black_box(());
     }
 

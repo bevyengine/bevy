@@ -518,6 +518,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
+/// A marker type for an infallible system. Used internally.
 pub struct Infallible;
 
 impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
@@ -536,6 +537,7 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
+/// A marker type for a fallible system. Used internally.
 pub struct Fallible;
 
 impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F

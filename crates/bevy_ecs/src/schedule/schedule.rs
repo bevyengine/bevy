@@ -19,7 +19,7 @@ use crate::{
     prelude::Component,
     result::Result,
     schedule::*,
-    system::{BoxedSystem, IntoSystem, Resource, ScheduleSystem, System},
+    system::{IntoSystem, Resource, ScheduleSystem, System},
     world::World,
 };
 

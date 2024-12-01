@@ -77,7 +77,10 @@ impl System for ScheduleSystem {
         world: UnsafeWorldCell,
     ) -> Self::Out {
         match self {
-            ScheduleSystem::Infallible(inner_system) => Ok(inner_system.run_unsafe(input, world)),
+            ScheduleSystem::Infallible(inner_system) => {
+                inner_system.run_unsafe(input, world);
+                Ok(())
+            }
             ScheduleSystem::Fallible(inner_system) => inner_system.run_unsafe(input, world),
         }
     }
@@ -85,7 +88,10 @@ impl System for ScheduleSystem {
     #[inline(always)]
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         match self {
-            ScheduleSystem::Infallible(inner_system) => Ok(inner_system.run(input, world)),
+            ScheduleSystem::Infallible(inner_system) => {
+                inner_system.run(input, world);
+                Ok(())
+            }
             ScheduleSystem::Fallible(inner_system) => inner_system.run(input, world),
         }
     }
@@ -134,10 +140,10 @@ impl System for ScheduleSystem {
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
         match self {
             ScheduleSystem::Infallible(inner_system) => {
-                inner_system.update_archetype_component_access(world)
+                inner_system.update_archetype_component_access(world);
             }
             ScheduleSystem::Fallible(inner_system) => {
-                inner_system.update_archetype_component_access(world)
+                inner_system.update_archetype_component_access(world);
             }
         }
     }
