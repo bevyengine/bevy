@@ -63,7 +63,7 @@ mod shapes {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Shapes)));
+        commands.spawn((Camera2d, DespawnOnStateExit(super::Scene::Shapes)));
 
         let shapes = [
             meshes.add(Circle::new(50.0)),
@@ -96,7 +96,7 @@ mod shapes {
                     0.0,
                     0.0,
                 ),
-                StateScoped(super::Scene::Shapes),
+                DespawnOnStateExit(super::Scene::Shapes),
             ));
         }
     }
@@ -121,21 +121,21 @@ mod bloom {
             },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
-            StateScoped(super::Scene::Bloom),
+            DespawnOnStateExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(100.))),
             MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
             Transform::from_translation(Vec3::new(-200., 0., 0.)),
-            StateScoped(super::Scene::Bloom),
+            DespawnOnStateExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
             MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
             Transform::from_translation(Vec3::new(200., 0., 0.)),
-            StateScoped(super::Scene::Bloom),
+            DespawnOnStateExit(super::Scene::Bloom),
         ));
     }
 }
@@ -149,12 +149,12 @@ mod text {
             ..default()
         };
         let text_justification = JustifyText::Center;
-        commands.spawn((Camera2d, StateScoped(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnStateExit(super::Scene::Text)));
         commands.spawn((
             Text2d::new("Hello World"),
             text_font,
             TextLayout::new_with_justify(text_justification),
-            StateScoped(super::Scene::Text),
+            DespawnOnStateExit(super::Scene::Text),
         ));
     }
 }
@@ -163,10 +163,10 @@ mod sprite {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, StateScoped(super::Scene::Sprite)));
+        commands.spawn((Camera2d, DespawnOnStateExit(super::Scene::Sprite)));
         commands.spawn((
             Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
-            StateScoped(super::Scene::Sprite),
+            DespawnOnStateExit(super::Scene::Sprite),
         ));
     }
 }
