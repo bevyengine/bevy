@@ -117,7 +117,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Camera {
             // render before the "main pass" camera
             order: -1,
-            target: RenderTarget::Image(image_handle.clone()),
+            target: RenderTarget::from(image_handle.clone()),
             ..default()
         },
         Msaa::Off,

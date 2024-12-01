@@ -85,22 +85,22 @@ pub struct Captured;
 impl Screenshot {
     /// Capture a screenshot of the provided window entity.
     pub fn window(window: Entity) -> Self {
-        Self(RenderTarget::Window(WindowRef::Entity(window)))
+        Self(RenderTarget::from(WindowRef::Entity(window)))
     }
 
     /// Capture a screenshot of the primary window, if one exists.
     pub fn primary_window() -> Self {
-        Self(RenderTarget::Window(WindowRef::Primary))
+        Self(RenderTarget::from(WindowRef::Primary))
     }
 
     /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
-        Self(RenderTarget::Image(image))
+        Self(RenderTarget::from(image))
     }
 
     /// Capture a screenshot of the provided manual texture view.
     pub fn texture_view(texture_view: ManualTextureViewHandle) -> Self {
-        Self(RenderTarget::TextureView(texture_view))
+        Self(RenderTarget::from(texture_view))
     }
 }
 
@@ -269,11 +269,11 @@ fn prepare_screenshots(
 ) {
     prepared.clear();
     for (entity, target) in targets.iter() {
-        match target {
+        let (format, size) = match target {
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
                 let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
-                    warn!("Unknown window for screenshot, skipping: {:?}", window);
+                    warn!("Unknown window for screenshot, skipping: {window:?}");
                     continue;
                 };
                 let format = surface_data.configuration.format.add_srgb_suffix();
@@ -282,23 +282,11 @@ fn prepare_screenshots(
                     height: surface_data.configuration.height,
                     ..default()
                 };
-                let (texture_view, state) = prepare_screenshot_state(
-                    size,
-                    format,
-                    &render_device,
-                    &screenshot_pipeline,
-                    &pipeline_cache,
-                    &mut pipelines,
-                );
-                prepared.insert(*entity, state);
-                view_target_attachments.insert(
-                    target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
-                );
+                (format, size)
             }
-            NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = images.get(image) else {
-                    warn!("Unknown image for screenshot, skipping: {:?}", image);
+            NormalizedRenderTarget::Image { handle, .. } => {
+                let Some(gpu_image) = images.get(handle) else {
+                    warn!("Unknown image for screenshot, skipping: {handle:?}");
                     continue;
                 };
                 let format = gpu_image.texture_format;
@@ -307,26 +295,11 @@ fn prepare_screenshots(
                     height: gpu_image.size.y,
                     ..default()
                 };
-                let (texture_view, state) = prepare_screenshot_state(
-                    size,
-                    format,
-                    &render_device,
-                    &screenshot_pipeline,
-                    &pipeline_cache,
-                    &mut pipelines,
-                );
-                prepared.insert(*entity, state);
-                view_target_attachments.insert(
-                    target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
-                );
+                (format, size)
             }
-            NormalizedRenderTarget::TextureView(texture_view) => {
-                let Some(manual_texture_view) = manual_texture_views.get(texture_view) else {
-                    warn!(
-                        "Unknown manual texture view for screenshot, skipping: {:?}",
-                        texture_view
-                    );
+            NormalizedRenderTarget::TextureView { handle, .. } => {
+                let Some(manual_texture_view) = manual_texture_views.get(handle) else {
+                    warn!("Unknown manual texture view for screenshot, skipping: {handle:?}");
                     continue;
                 };
                 let format = manual_texture_view.format;
@@ -335,21 +308,23 @@ fn prepare_screenshots(
                     height: manual_texture_view.size.y,
                     ..default()
                 };
-                let (texture_view, state) = prepare_screenshot_state(
-                    size,
-                    format,
-                    &render_device,
-                    &screenshot_pipeline,
-                    &pipeline_cache,
-                    &mut pipelines,
-                );
-                prepared.insert(*entity, state);
-                view_target_attachments.insert(
-                    target.clone(),
-                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
-                );
+                (format, size)
             }
-        }
+        };
+
+        let (texture_view, state) = prepare_screenshot_state(
+            size,
+            format,
+            &render_device,
+            &screenshot_pipeline,
+            &pipeline_cache,
+            &mut pipelines,
+        );
+        prepared.insert(*entity, state);
+        view_target_attachments.insert(
+            target.clone(),
+            OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+        );
     }
 }
 
@@ -537,9 +512,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     &texture_view,
                 );
             }
-            NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = gpu_images.get(image) else {
-                    warn!("Unknown image for screenshot, skipping: {:?}", image);
+            NormalizedRenderTarget::Image { handle, .. } => {
+                let Some(gpu_image) = gpu_images.get(handle) else {
+                    warn!("Unknown image for screenshot, skipping: {handle:?}");
                     continue;
                 };
                 let width = gpu_image.size.x;
@@ -557,12 +532,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     texture_view,
                 );
             }
-            NormalizedRenderTarget::TextureView(texture_view) => {
-                let Some(texture_view) = manual_texture_views.get(texture_view) else {
-                    warn!(
-                        "Unknown manual texture view for screenshot, skipping: {:?}",
-                        texture_view
-                    );
+            NormalizedRenderTarget::TextureView { handle, .. } => {
+                let Some(texture_view) = manual_texture_views.get(handle) else {
+                    warn!("Unknown manual texture view for screenshot, skipping: {handle:?}");
                     continue;
                 };
                 let width = texture_view.size.x;
