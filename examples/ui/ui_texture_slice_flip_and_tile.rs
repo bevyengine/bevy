@@ -51,26 +51,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for ([width, height], flip_x, flip_y) in [
-                ([160., 160.], false, false),
-                ([320., 160.], false, true),
-                ([320., 160.], true, false),
-                ([160., 160.], true, true),
-            ] {
-                parent.spawn((
-                    ImageNode {
-                        image: image.clone(),
-                        flip_x,
-                        flip_y,
-                        image_mode: NodeImageMode::Sliced(slicer.clone()),
-                        ..default()
-                    },
-                    Node {
-                        width: Val::Px(width),
-                        height: Val::Px(height),
-                        ..default()
-                    },
-                ));
+            for [columns, rows] in [[3., 3.], [4., 4.], [5., 4.], [4., 5.], [5., 5.]] {
+                for (flip_x, flip_y) in [(false, false), (false, true), (true, false), (true, true)]
+                {
+                    parent.spawn((
+                        ImageNode {
+                            image: image.clone(),
+                            flip_x,
+                            flip_y,
+                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                            ..default()
+                        },
+                        Node {
+                            width: Val::Px(16. * columns),
+                            height: Val::Px(16. * rows),
+                            ..default()
+                        },
+                    ));
+                }
             }
         });
 }
