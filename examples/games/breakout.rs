@@ -98,7 +98,7 @@ struct Brick;
 #[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
-// Default is required to be part of the Required Componetns used with the Wall Component bellow
+// Default is required to be part of the Required Components used with the Wall Component bellow
 #[derive(Component, Default)]
 struct Collider;
 
