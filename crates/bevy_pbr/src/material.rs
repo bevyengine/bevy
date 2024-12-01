@@ -1077,7 +1077,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         }
     }
 
-    fn finalize_asset(
+    fn unload_asset(
         asset_id: AssetId<Self::SourceAsset>,
         (_, _, _, mesh_material_ids, ref mut bind_group_allocator, _): &mut SystemParamItem<
             Self::Param,

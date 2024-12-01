@@ -233,7 +233,7 @@ pub struct Opaque3dBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The ID of a bind group specific to the material.
+    /// The ID of a bind group specific to the material instance.
     ///
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,

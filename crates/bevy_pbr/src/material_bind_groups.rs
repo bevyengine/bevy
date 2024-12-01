@@ -23,6 +23,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
+use core::any;
 use core::iter;
 use core::marker::PhantomData;
 use core::num::NonZero;
@@ -420,10 +421,13 @@ where
                     // All materials in this group must have the same type of
                     // binding (buffer, texture view, sampler) in each bind
                     // group entry.
-                    for (&mut (binding, ref mut binding_resource_array), (_, binding_resource)) in
-                        binding_resource_arrays
-                            .iter_mut()
-                            .zip(unprepared_bind_group.bindings.0.iter())
+                    for (
+                        binding_index,
+                        (&mut (binding, ref mut binding_resource_array), (_, binding_resource)),
+                    ) in binding_resource_arrays
+                        .iter_mut()
+                        .zip(unprepared_bind_group.bindings.0.iter())
+                        .enumerate()
                     {
                         match (binding_resource_array, binding_resource) {
                             (
@@ -451,8 +455,11 @@ where
                             ) => vec.push(sampler),
                             _ => {
                                 error!(
-                                    "Mismatched bind group layouts; can't combine bind groups \
-                                    into a single bindless bind group!"
+                                    "Mismatched bind group layouts for material \
+                                    {} at bind group {}; can't combine bind \
+                                    groups into a single bindless bind group!",
+                                    any::type_name::<M>(),
+                                    binding_index,
                                 );
                                 return None;
                             }

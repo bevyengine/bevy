@@ -636,10 +636,14 @@ pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
 #[derive(Default, Deref, DerefMut)]
 pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
-/// FIXME: The fact that we need this is ugly.
+/// Maps each mesh instance to the material ID, and allocated binding ID,
+/// associated with that mesh instance.
 #[derive(Resource, Default)]
 pub struct RenderMeshMaterialIds {
+    /// Maps the mesh instance to the material ID.
     pub(crate) mesh_to_material: MainEntityHashMap<UntypedAssetId>,
+    /// Maps the material ID to the binding ID, which describes the location of
+    /// that material bind group data in memory.
     pub(crate) material_to_binding: HashMap<UntypedAssetId, MaterialBindingId>,
 }
 

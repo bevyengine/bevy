@@ -75,7 +75,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// `_param`) in order to perform cleanup tasks when the asset is removed.
     ///
     /// The default implementation does nothing.
-    fn finalize_asset(
+    fn unload_asset(
         _source_asset: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
     ) {
@@ -350,7 +350,7 @@ pub fn prepare_assets<A: RenderAsset>(
 
     for removed in extracted_assets.removed.drain() {
         render_assets.remove(removed);
-        A::finalize_asset(removed, &mut param);
+        A::unload_asset(removed, &mut param);
     }
 
     for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
