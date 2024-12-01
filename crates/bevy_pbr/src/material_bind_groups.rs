@@ -202,6 +202,8 @@ where
         }
     }
 
+    /// Assigns an unprepared bind group to the group and slot specified in the
+    /// [`MaterialBindingId`].
     pub(crate) fn init(
         &mut self,
         material_binding_id: MaterialBindingId,
@@ -211,12 +213,16 @@ where
             .init(material_binding_id.slot, unprepared_bind_group);
     }
 
+    /// Marks the slot corresponding to the given [`MaterialBindingId`] as free.
     pub(crate) fn free(&mut self, material_binding_id: MaterialBindingId) {
         let bind_group = &mut self.bind_groups[material_binding_id.group.0 as usize];
         let was_full = bind_group.is_full();
 
         bind_group.free(material_binding_id.slot);
 
+        // If the group that this material belonged to was full, it now contains
+        // at least one free slot, so add the group to the `free_bind_groups`
+        // list.
         if was_full {
             debug_assert!(!self.free_bind_groups.contains(&material_binding_id.group.0));
             self.free_bind_groups.push(*material_binding_id.group);
@@ -249,6 +255,7 @@ where
     fn allocate(&mut self) -> MaterialBindGroupSlot {
         debug_assert!(!self.is_full());
 
+        // Mark the slot as used.
         let slot = self.used_slot_bitmap.trailing_ones();
         self.used_slot_bitmap |= 1 << slot;
 
@@ -263,7 +270,7 @@ where
     ) {
         self.unprepared_bind_groups[slot.0 as usize] = Some(unprepared_bind_group);
 
-        // Invalidate the cached bind group.
+        // Invalidate the cached bind group so that we rebuild it again.
         self.bind_group = None;
     }
 
@@ -272,7 +279,7 @@ where
         self.unprepared_bind_groups[slot.0 as usize] = None;
         self.used_slot_bitmap &= !(1 << slot.0);
 
-        // Invalidate cache.
+        // Invalidate the cached bind group so that we rebuild it again.
         self.bind_group = None;
     }
 
@@ -310,7 +317,8 @@ where
             return;
         };
 
-        // If bindless isn't enabled, create a trivial bind group.
+        // If bindless isn't enabled, create a trivial bind group containing
+        // only one material's worth of data.
         if !bindless_enabled {
             let entries = first_bind_group
                 .bindings
@@ -408,6 +416,10 @@ where
 
                 Some(ref unprepared_bind_group) => {
                     // Push the resources for this slot.
+                    //
+                    // All materials in this group must have the same type of
+                    // binding (buffer, texture view, sampler) in each bind
+                    // group entry.
                     for (&mut (binding, ref mut binding_resource_array), (_, binding_resource)) in
                         binding_resource_arrays
                             .iter_mut()
@@ -467,6 +479,7 @@ where
     M: Material,
 {
     fn from_world(world: &mut World) -> Self {
+        // Create a new bind group allocator.
         let render_device = world.resource::<RenderDevice>();
         let bind_group_layout_entries = M::bind_group_layout_entries(render_device);
         let bind_group_layout =
@@ -513,12 +526,15 @@ impl FromWorld for FallbackBindlessResources {
 
 impl MaterialFallbackBuffers {
     /// Creates a new set of fallback buffers containing dummy allocations.
+    ///
+    /// We populate unused bind group slots with these.
     fn new(
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
     ) -> MaterialFallbackBuffers {
         let mut fallback_buffers = HashMap::new();
         for bind_group_layout_entry in bind_group_layout_entries {
+            // Create a dummy buffer of the appropriate size.
             let BindingType::Buffer {
                 min_binding_size, ..
             } = bind_group_layout_entry.ty

@@ -1029,6 +1029,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             ref mut material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        // Fetch the material binding ID, so that we can write it in to the
+        // `PreparedMaterial`.
         let Some(material_binding_id) = mesh_material_ids
             .material_to_binding
             .get(&material_id.untyped())
@@ -1081,6 +1083,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             Self::Param,
         >,
     ) {
+        // Mark this material's slot in the binding array as free.
+
         let Some(material_binding_id) = mesh_material_ids
             .material_to_binding
             .get(&asset_id.untyped())
@@ -1107,6 +1111,8 @@ impl From<BindGroup> for MaterialBindGroupId {
     }
 }
 
+/// A system that creates and/or recreates any bind groups that contain
+/// materials that were modified this frame.
 pub fn prepare_material_bind_groups<M>(
     mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
     render_device: Res<RenderDevice>,
