@@ -71,9 +71,13 @@ impl VectorSpace for f32 {
     const ZERO: Self = 0.0;
 }
 
-/// A type consisting of formal sums of elements from `V` and `W`.
+/// A type consisting of formal sums of elements from `V` and `W`. That is,
+/// each value `Sum(v, w)` is thought of as `v + w`, with no available
+/// simplification. In particular, if `V` and `W` are [vector spaces], then
+/// `Sum<V, W>` is a vector space whose dimension is the sum of those of `V`
+/// and `W`, and the field accessors `.0` and `.1` are vector space projections.
 ///
-/// That is, values `Sum(v, w)` should be thought of as `v + w`.
+/// [vector spaces]: VectorSpace
 #[derive(Debug, Clone, Copy)]
 pub struct Sum<V, W>(pub V, pub W);
 
