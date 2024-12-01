@@ -1,5 +1,8 @@
 use crate::{
-    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+    impls::{
+        common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed,
+        reflect_auto_registration,
+    },
     where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
@@ -55,6 +58,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     #[cfg(feature = "functions")]
     let function_impls = crate::impls::impl_function_traits(meta, &where_clause_options);
 
+    let auto_register = reflect_auto_registration(meta);
+
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
@@ -69,6 +74,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         #full_reflect_impl
 
         #function_impls
+
+        #auto_register
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
