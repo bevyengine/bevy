@@ -1697,7 +1697,10 @@ pub struct ShadowBatchSetKey {
 /// Data used to bin each object in the shadow map phase.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
-    /// The identifier of the render pipeline.
+    /// The key of the *batch set*.
+    ///
+    /// As batches belong to a batch set, meshes in a batch must obviously be
+    /// able to be placed in a single batch set.
     pub batch_set_key: ShadowBatchSetKey,
 
     /// The object.

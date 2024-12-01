@@ -2422,7 +2422,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
         let batch_range = item.batch_range();
 
-        // Draw either directly or indirectly, as appropriate.
+        // Draw either directly or indirectly, as appropriate. If we're in
+        // indirect mode, we can additionally multi-draw. (We can't multi-draw
+        // in direct mode because `wgpu` doesn't expose that functionality.)
         match &gpu_mesh.buffer_info {
             RenderMeshBufferInfo::Indexed {
                 index_format,

@@ -144,7 +144,8 @@ pub enum BinnedRenderPhaseBatchSets {
     /// This corresponds to [`GpuPreprocessingMode::PreprocessingOnly`].
     Direct(Vec<BinnedRenderPhaseBatch>),
 
-    /// Batches are grouped together based on vertex and index buffers.
+    /// Batches are grouped together into batch sets based on their ability to
+    /// be multi-drawn together.
     ///
     /// This corresponds to [`GpuPreprocessingMode::Culling`].
     MultidrawIndirect(Vec<Vec<BinnedRenderPhaseBatch>>),

@@ -379,6 +379,12 @@ impl MeshAllocator {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
+    /// Returns the IDs of the vertex buffer and index buffer respectively for
+    /// the mesh with the given ID.
+    ///
+    /// If the mesh wasn't allocated, or has no index data in the case of the
+    /// index buffer, the corresponding element in the returned tuple will be
+    /// None.
     pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> (Option<SlabId>, Option<SlabId>) {
         (
             self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),

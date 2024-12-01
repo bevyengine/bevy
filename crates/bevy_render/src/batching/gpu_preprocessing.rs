@@ -590,7 +590,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
+        // If multi-draw is in use, as we step through the list of batchables,
+        // we gather adjacent batches that have the same *batch set* key into
+        // batch sets. This variable stores the last batch set key that we've
+        // seen. If our current batch set key is identical to this one, we can
+        // merge the current batch into the last batch set.
         let mut last_multidraw_key = None;
+
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
@@ -659,6 +665,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         vec.push(batch);
                     }
                     BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets) => {
+                        // We're in multi-draw mode. Check to see whether our
+                        // batch set key is the same as the last one. If so,
+                        // merge this batch into the preceding batch set.
                         let this_multidraw_key = key.get_batch_set_key();
                         if last_multidraw_key.as_ref() == Some(&this_multidraw_key) {
                             batch_sets.last_mut().unwrap().push(batch);

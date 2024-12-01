@@ -261,9 +261,15 @@ pub struct Opaque3dBatchSetKey {
     pub lightmap_image: Option<AssetId<Image>>,
 }
 
-/// Data that must be identical in order to batch phase items together.
+/// Data that must be identical in order to *batch* phase items together.
+///
+/// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
+    /// The key of the *batch set*.
+    ///
+    /// As batches belong to a batch set, meshes in a batch must obviously be
+    /// able to be placed in a single batch set.
     pub batch_set_key: Opaque3dBatchSetKey,
 
     /// The asset that this phase item is associated with.
