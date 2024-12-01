@@ -14,8 +14,8 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -34,10 +34,8 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
-        TextureFormatPixelInfo,
-    },
+    sync_world::{MainEntity, MainEntityHashMap},
+    texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
@@ -674,6 +672,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label.into()),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

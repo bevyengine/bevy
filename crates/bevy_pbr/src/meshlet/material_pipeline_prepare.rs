@@ -200,6 +200,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                     entry_point: material_fragment.entry_point,
                     targets: material_fragment.targets,
                 }),
+                zero_initialize_workgroup_memory: false,
             };
 
             let material_id = instance_manager.get_material_id(material_id.untyped());
@@ -353,6 +354,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                     entry_point,
                     targets: material_fragment.targets,
                 }),
+                zero_initialize_workgroup_memory: false,
             };
 
             let material_id = instance_manager.get_material_id(material_id.untyped());

@@ -4,6 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -19,17 +20,19 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut atlas, children, mut image) in &mut interaction_query {
+    for (interaction, children, mut image) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 **text = "Press".to_string();
-                atlas.index = (atlas.index + 1) % 30;
+                if let Some(atlas) = &mut image.texture_atlas {
+                    atlas.index = (atlas.index + 1) % 30;
+                }
                 image.color = GOLD.into();
             }
             Interaction::Hovered => {
@@ -79,7 +82,14 @@ fn setup(
                 parent
                     .spawn((
                         Button,
-                        UiImage::new(texture_handle.clone()),
+                        ImageNode::from_atlas_image(
+                            texture_handle.clone(),
+                            TextureAtlas {
+                                index: idx,
+                                layout: atlas_layout_handle.clone(),
+                            },
+                        )
+                        .with_mode(NodeImageMode::Sliced(slicer.clone())),
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
@@ -89,11 +99,6 @@ fn setup(
                             align_items: AlignItems::Center,
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
-                        },
-                        ImageScaleMode::Sliced(slicer.clone()),
-                        TextureAtlas {
-                            index: idx,
-                            layout: atlas_layout_handle.clone(),
                         },
                     ))
                     .with_children(|parent| {

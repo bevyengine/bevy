@@ -1,7 +1,7 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
 use bevy::{
-    color::palettes::css::{DARK_GRAY, YELLOW},
+    color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
     prelude::*,
     winit::WinitSettings,
 };
@@ -187,6 +187,11 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                 ..default()
                             },
                             BackgroundColor(palette[0]),
+                            Outline {
+                                width: Val::Px(4.),
+                                color: DARK_CYAN.into(),
+                                offset: Val::Px(10.),
+                            },
                         ))
                         .with_children(|parent| {
                             parent.spawn(Node {
@@ -289,6 +294,11 @@ fn spawn_right_panel(
                         ..default()
                     },
                     BackgroundColor(palette[0]),
+                    Outline {
+                        width: Val::Px(4.),
+                        color: DARK_CYAN.into(),
+                        offset: Val::Px(10.),
+                    },
                 ))
                 .with_children(|parent| {
                     spawn_buttons(parent, target_ids.pop().unwrap());

@@ -22,8 +22,8 @@ pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::WorldEntityFetch;
 pub use entity_ref::{
-    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
-    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
+    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
+    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -515,7 +515,7 @@ impl World {
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
-                .register_required_components::<R>(required, requiree, constructor)
+                .register_required_components::<R>(requiree, required, constructor)
         }
     }
 

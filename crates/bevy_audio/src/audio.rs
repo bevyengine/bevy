@@ -264,6 +264,17 @@ where
     }
 }
 
+impl AudioPlayer<AudioSource> {
+    /// Creates a new [`AudioPlayer`] with the given [`Handle<AudioSource>`].
+    ///
+    /// For convenience reasons, this hard-codes the [`AudioSource`] type. If you want to
+    /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using normal
+    /// tuple struct syntax.
+    pub fn new(source: Handle<AudioSource>) -> Self {
+        Self(source)
+    }
+}
+
 /// Bundle for playing a sound.
 ///
 /// Insert this bundle onto an entity to trigger a sound source to begin playing.
