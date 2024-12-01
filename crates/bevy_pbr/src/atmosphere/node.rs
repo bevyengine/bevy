@@ -1,10 +1,10 @@
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
-    render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
+    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        ComputePassDescriptor, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, StoreOp,
+        ComputePassDescriptor, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor,
     },
     renderer::RenderContext,
     view::{Msaa, ViewTarget, ViewUniformOffset},
@@ -239,14 +239,7 @@ impl ViewNode for RenderSkyNode {
                 .command_encoder()
                 .begin_render_pass(&RenderPassDescriptor {
                     label: Some("render_sky_pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view: view_target.main_texture_view(),
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Load,
-                            store: StoreOp::Store,
-                        },
-                    })],
+                    color_attachments: &[Some(view_target.get_color_attachment())],
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,

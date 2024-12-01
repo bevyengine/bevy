@@ -150,7 +150,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
         );
 
         let render_sky_msaa = render_device.create_bind_group_layout(
-            "render_sky_bind_group_layout",
+            "render_sky_msaa_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
