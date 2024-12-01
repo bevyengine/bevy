@@ -3059,6 +3059,57 @@ bevy_reflect::tests::Test {
         assert!(!registry.contains(TypeId::of::<NoAutomaticStruct>()));
     }
 
+    #[test]
+    fn should_auto_register_reflect_for_all_supported_types() {
+        // Struct
+        #[derive(Reflect)]
+        struct StructReflect {
+            a: usize,
+        }
+
+        // ZST struct
+        #[derive(Reflect)]
+        struct ZSTStructReflect;
+
+        // Tuple struct
+        #[derive(Reflect)]
+        struct TupleStructReflect(pub u32);
+
+        // Enum
+        #[derive(Reflect)]
+        enum EnumReflect {
+            A,
+            B,
+        }
+
+        // ZST enum
+        #[derive(Reflect)]
+        enum ZSTEnumReflect {}
+
+        // Opaque struct
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        struct OpaqueStructReflect {
+            _a: usize,
+        }
+
+        // ZST opaque struct
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque)]
+        struct ZSTOpaqueStructReflect;
+
+        let mut registry = TypeRegistry::default();
+        registry.register_derived_types();
+
+        assert!(registry.contains(TypeId::of::<StructReflect>()));
+        assert!(registry.contains(TypeId::of::<ZSTStructReflect>()));
+        assert!(registry.contains(TypeId::of::<TupleStructReflect>()));
+        assert!(registry.contains(TypeId::of::<EnumReflect>()));
+        assert!(registry.contains(TypeId::of::<ZSTEnumReflect>()));
+        assert!(registry.contains(TypeId::of::<OpaqueStructReflect>()));
+        assert!(registry.contains(TypeId::of::<ZSTOpaqueStructReflect>()));
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
