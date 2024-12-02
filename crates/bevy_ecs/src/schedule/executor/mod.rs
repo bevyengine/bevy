@@ -148,6 +148,7 @@ mod __rust_begin_short_backtrace {
     /// See `System::run_unsafe`.
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) {
+        // TODO: implement an error-handling API instead of suppressing a possible failure.
         let _ = system.run_unsafe((), world);
         black_box(());
     }
