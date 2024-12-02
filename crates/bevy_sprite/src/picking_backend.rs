@@ -166,6 +166,8 @@ fn sprite_picking(
                     match settings.picking_mode {
                         SpritePickingMode::AlphaThreshold(cutoff) => {
                             let Some(image) = images.get(&sprite.image) else {
+                                // [`Sprite::from_color`] returns a defaulted handle.
+                                // This handle doesn't return a valid image, so returning false here would make picking "color sprites" impossible
                                 break 'valid_pixel true;
                             };
                             // grab pixel and check alpha
