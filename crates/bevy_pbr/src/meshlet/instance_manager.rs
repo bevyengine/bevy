@@ -108,7 +108,7 @@ impl InstanceManager {
             previous_world_from_local: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        let mesh_uniform = MeshUniform::new(&transforms, 0, None);
+        let mesh_uniform = MeshUniform::new(&transforms, 0, None, None, None);
 
         // Append instance data
         self.instances.push((
