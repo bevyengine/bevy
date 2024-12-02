@@ -30,7 +30,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
-        sprite::{ImageScaleMode, Sprite},
+        sprite::{Sprite, SpriteImageMode},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
@@ -51,20 +51,32 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::Image;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    texture::Image,
     view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 /// Adds support for 2D sprite rendering.
-#[derive(Default)]
-pub struct SpritePlugin;
+pub struct SpritePlugin {
+    /// Whether to add the sprite picking backend to the app.
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    pub add_picking: bool,
+}
+
+impl Default for SpritePlugin {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "bevy_sprite_picking_backend")]
+            add_picking: true,
+        }
+    }
+}
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
@@ -106,7 +118,7 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
-            .register_type::<ImageScaleMode>()
+            .register_type::<SpriteImageMode>()
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
@@ -135,7 +147,9 @@ impl Plugin for SpritePlugin {
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        app.add_plugins(picking_backend::SpritePickingPlugin);
+        if self.add_picking {
+            app.add_plugins(picking_backend::SpritePickingPlugin);
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

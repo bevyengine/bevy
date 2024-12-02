@@ -1,13 +1,10 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
-    widget::{TextUiReader, UiImage},
+    widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
-use bevy_a11y::{
-    accesskit::{NodeBuilder, Rect, Role},
-    AccessibilityNode,
-};
+use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
@@ -19,7 +16,9 @@ use bevy_ecs::{
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
 
-fn calc_name(
+use accesskit::{Node, Rect, Role};
+
+fn calc_label(
     text_reader: &mut TextUiReader,
     children: impl Iterator<Item = Entity>,
 ) -> Option<Box<str>> {
@@ -70,18 +69,18 @@ fn button_changed(
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            if let Some(name) = label {
+                accessible.set_label(name);
             } else {
-                accessible.clear_name();
+                accessible.clear_label();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::Button);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Button);
+            if let Some(label) = label {
+                node.set_label(label);
             }
             commands
                 .entity(entity)
@@ -92,23 +91,26 @@ fn button_changed(
 
 fn image_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
+    mut query: Query<
+        (Entity, Option<&mut AccessibilityNode>),
+        (Changed<ImageNode>, Without<Button>),
+    >,
     ui_children: UiChildren,
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            if let Some(label) = label {
+                accessible.set_label(label);
             } else {
-                accessible.clear_name();
+                accessible.clear_label();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::Image);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Image);
+            if let Some(label) = label {
+                node.set_label(label);
             }
             commands
                 .entity(entity)
@@ -127,18 +129,18 @@ fn label_changed(
             .iter(entity)
             .map(|(_, _, text, _, _)| text.into())
             .collect::<Vec<String>>();
-        let name = Some(values.join(" ").into_boxed_str());
+        let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Label);
-            if let Some(name) = name {
-                accessible.set_name(name);
+            if let Some(label) = label {
+                accessible.set_value(label);
             } else {
-                accessible.clear_name();
+                accessible.clear_value();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::Label);
-            if let Some(name) = name {
-                node.set_name(name);
+            let mut node = Node::new(Role::Label);
+            if let Some(label) = label {
+                node.set_value(label);
             }
             commands
                 .entity(entity)
