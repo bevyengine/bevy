@@ -3,11 +3,11 @@ use bevy_render::{
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{
-        ComputePassDescriptor, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, StoreOp,
+        ComputePassDescriptor, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ViewTarget, ViewUniformOffset},
+    view::{Msaa, ViewTarget, ViewUniformOffset},
 };
 
 use crate::ViewLightsUniformOffset;
@@ -197,6 +197,7 @@ impl ViewNode for RenderSkyNode {
     type ViewQuery = (
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
+        Read<Msaa>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
@@ -211,6 +212,7 @@ impl ViewNode for RenderSkyNode {
         (
             atmosphere_bind_groups,
             view_target,
+            msaa,
             atmosphere_uniforms_offset,
             settings_uniforms_offset,
             atmosphere_transforms_offset,
@@ -221,8 +223,13 @@ impl ViewNode for RenderSkyNode {
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let atmosphere_pipelines = world.resource::<AtmospherePipelines>();
-        let Some(render_sky_pipeline) =
-            pipeline_cache.get_render_pipeline(atmosphere_pipelines.render_sky)
+        let render_sky_pipeline = match msaa {
+            Msaa::Off => atmosphere_pipelines.render_sky,
+            Msaa::Sample2 => atmosphere_pipelines.render_sky_msaa2,
+            Msaa::Sample4 => atmosphere_pipelines.render_sky_msaa4,
+            Msaa::Sample8 => atmosphere_pipelines.render_sky_msaa8,
+        };
+        let Some(render_sky_pipeline) = pipeline_cache.get_render_pipeline(render_sky_pipeline)
         else {
             return Ok(());
         }; //TODO: warning
@@ -232,14 +239,7 @@ impl ViewNode for RenderSkyNode {
                 .command_encoder()
                 .begin_render_pass(&RenderPassDescriptor {
                     label: Some("render_sky_pass"),
-                    color_attachments: &[Some(RenderPassColorAttachment {
-                        view: view_target.main_texture_view(),
-                        resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Load,
-                            store: StoreOp::Store,
-                        },
-                    })],
+                    color_attachments: &[Some(view_target.get_color_attachment())],
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
