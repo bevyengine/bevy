@@ -6,6 +6,7 @@ use bevy_math::{
 };
 use bevy_reflect::Reflect;
 use derive_more::derive::{Display, Error, From};
+use either::Either;
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
 #[derive(Debug, Clone, Reflect)]
@@ -189,11 +190,11 @@ where
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
-            | InterpolationDatum::RightTail(v) => TwoIterators::Left(v.iter().copied()),
+            | InterpolationDatum::RightTail(v) => Either::Left(v.iter().copied()),
 
             InterpolationDatum::Between(u, v, s) => {
                 let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.lerp(*y, s));
-                TwoIterators::Right(interpolated)
+                Either::Right(interpolated)
             }
         }
     }
@@ -243,14 +244,14 @@ where
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
-            | InterpolationDatum::RightTail(v) => TwoIterators::Left(v.iter().cloned()),
+            | InterpolationDatum::RightTail(v) => Either::Left(v.iter().cloned()),
 
             InterpolationDatum::Between(u, v, s) => {
                 let interpolated =
                     u.iter()
                         .zip(v.iter())
                         .map(move |(x, y)| if s >= 1.0 { y.clone() } else { x.clone() });
-                TwoIterators::Right(interpolated)
+                Either::Right(interpolated)
             }
         }
     }
@@ -302,10 +303,10 @@ where
                 // Pick out the part of this that actually represents the position (instead of tangents),
                 // which is the middle third.
                 let width = self.core.width();
-                TwoIterators::Left(v[width..(width * 2)].iter().copied())
+                Either::Left(v[width..(width * 2)].iter().copied())
             }
 
-            InterpolationDatum::Between((t0, u), (t1, v), s) => TwoIterators::Right(
+            InterpolationDatum::Between((t0, u), (t1, v), s) => Either::Right(
                 cubic_spline_interpolate_slices(self.core.width() / 3, u, v, s, t1 - t0),
             ),
         }
@@ -391,26 +392,6 @@ pub enum WeightsCurve {
 //---------//
 // HELPERS //
 //---------//
-
-enum TwoIterators<A, B> {
-    Left(A),
-    Right(B),
-}
-
-impl<A, B, T> Iterator for TwoIterators<A, B>
-where
-    A: Iterator<Item = T>,
-    B: Iterator<Item = T>,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            TwoIterators::Left(a) => a.next(),
-            TwoIterators::Right(b) => b.next(),
-        }
-    }
-}
 
 /// Helper function for cubic spline interpolation.
 fn cubic_spline_interpolation<T>(

@@ -393,12 +393,12 @@ fn update_buttons(
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
 ) {
-    for buttons in &gamepads {
+    for gamepad in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {
-            if buttons.just_pressed(**react_to) {
+            if gamepad.just_pressed(**react_to) {
                 *handle = materials.active.clone();
             }
-            if buttons.just_released(**react_to) {
+            if gamepad.just_released(**react_to) {
                 *handle = materials.normal.clone();
             }
         }
@@ -447,7 +447,7 @@ fn update_axes(
 
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
-    gamepads: Query<(Entity, &Gamepad)>,
+    gamepads: Query<(Entity, &Name), With<Gamepad>>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: TextUiWriter,
 ) {
@@ -458,7 +458,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(entity, gamepad)| format!("{} - {}", entity, gamepad.name()))
+        .map(|(entity, name)| format!("{} - {}", entity, name))
         .collect::<Vec<_>>()
         .join("\n");
 

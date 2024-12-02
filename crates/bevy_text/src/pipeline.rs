@@ -2,15 +2,16 @@ use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     reflect::ReflectComponent,
     system::{ResMut, Resource},
 };
+use bevy_image::Image;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
@@ -26,7 +27,7 @@ use crate::{
 /// The font system is used to retrieve fonts and their information, including glyph outlines.
 ///
 /// This resource is updated by the [`TextPipeline`] resource.
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
@@ -106,6 +107,12 @@ impl TextPipeline {
         computed.entities.clear();
 
         for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+            // Save this span entity in the computed text block.
+            computed.entities.push(TextEntity { entity, depth });
+
+            if span.is_empty() {
+                continue;
+            }
             // Return early if a font is not loaded yet.
             if !fonts.contains(text_font.font.id()) {
                 spans.clear();
@@ -120,9 +127,6 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
-
-            // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
@@ -422,13 +426,13 @@ impl TextMeasureInfo {
         &mut self,
         bounds: TextBounds,
         computed: &mut ComputedTextBlock,
-        font_system: &mut cosmic_text::FontSystem,
+        font_system: &mut CosmicFontSystem,
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         computed
             .buffer
-            .set_size(font_system, bounds.width, bounds.height);
+            .set_size(&mut font_system.0, bounds.width, bounds.height);
         buffer_dimensions(&computed.buffer)
     }
 }

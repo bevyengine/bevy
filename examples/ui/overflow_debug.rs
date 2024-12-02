@@ -141,7 +141,7 @@ fn spawn_image(
 ) {
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
-            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+            ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             Node {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
@@ -233,13 +233,13 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Node, &T)>,
+    mut containers: Query<(&mut Transform, &mut Node, &ComputedNode, &T)>,
 ) {
-    for (mut transform, mut node, update_transform) in &mut containers {
+    for (mut transform, mut node, computed_node, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
 
-        node.left = Val::Px(transform.translation.x);
-        node.top = Val::Px(transform.translation.y);
+        node.left = Val::Px(transform.translation.x * computed_node.inverse_scale_factor());
+        node.top = Val::Px(transform.translation.y * computed_node.inverse_scale_factor());
     }
 }
 

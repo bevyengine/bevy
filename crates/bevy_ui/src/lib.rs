@@ -8,7 +8,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`widget::Button`], [`UiImage`], [`Text`](prelude::Text) and [`Node`]
+//! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
@@ -40,7 +40,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
-use widget::UiImageSize;
+use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
@@ -58,15 +58,15 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label},
+            widget::{Button, ImageNode, Label},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
-        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
+        bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
@@ -85,12 +85,17 @@ pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
     pub enable_rendering: bool,
+    /// Whether to add the UI picking backend to the app.
+    #[cfg(feature = "bevy_ui_picking_backend")]
+    pub add_picking: bool,
 }
 
 impl Default for UiPlugin {
     fn default() -> Self {
         Self {
             enable_rendering: true,
+            #[cfg(feature = "bevy_ui_picking_backend")]
+            add_picking: true,
         }
     }
 }
@@ -155,8 +160,8 @@ impl Plugin for UiPlugin {
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
             .register_type::<TargetCamera>()
-            .register_type::<UiImage>()
-            .register_type::<UiImageSize>()
+            .register_type::<ImageNode>()
+            .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
@@ -171,9 +176,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare
-                        .before(UiSystem::Stack)
-                        .after(bevy_animation::Animation),
+                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -208,7 +211,7 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
-                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
                     .in_set(UiSystem::Prepare)
@@ -219,7 +222,9 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingBackendPlugin);
+        if self.add_picking {
+            app.add_plugins(picking_backend::UiPickingPlugin);
+        }
 
         if !self.enable_rendering {
             return;
@@ -265,7 +270,7 @@ fn build_text_interop(app: &mut App) {
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
                 .ambiguous_with(bevy_text::update_text2d_layout)
-                // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
+                // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system

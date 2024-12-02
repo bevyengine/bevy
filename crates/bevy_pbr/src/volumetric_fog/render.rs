@@ -16,6 +16,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     mesh::{
@@ -37,7 +38,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    texture::{BevyDefault as _, GpuImage, Image},
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
@@ -600,6 +601,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

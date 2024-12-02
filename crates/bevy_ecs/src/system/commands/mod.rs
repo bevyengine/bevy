@@ -4,6 +4,7 @@ use core::{marker::PhantomData, panic::Location};
 
 use super::{
     Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+    UnregisterSystem,
 };
 use crate::{
     self as bevy_ecs,
@@ -961,6 +962,17 @@ impl<'w, 's> Commands<'w, 's> {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
+    }
+
+    /// Removes a system previously registered with [`Commands::register_system`] or [`World::register_system`].
+    ///
+    /// See [`World::unregister_system`] for more information.
+    pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        self.queue(UnregisterSystem::new(system_id));
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a

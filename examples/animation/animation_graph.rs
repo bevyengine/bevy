@@ -4,7 +4,6 @@
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
-    animation::animate_targets,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -83,7 +82,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
-        .add_systems(Update, init_animations.before(animate_targets))
+        .add_systems(Update, init_animations)
         .add_systems(
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),
@@ -452,7 +451,7 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.animation_is_playing(animation_node_index.into()) {
+            if !animation_player.is_playing_animation(animation_node_index.into()) {
                 animation_player.play(animation_node_index.into());
             }
 

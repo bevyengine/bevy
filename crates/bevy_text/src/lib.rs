@@ -45,8 +45,6 @@ mod text;
 mod text2d;
 mod text_access;
 
-pub use cosmic_text;
-
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -73,7 +71,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Animation};
 use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
@@ -118,6 +116,8 @@ impl Plugin for TextPlugin {
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
+            .register_type::<TextLayout>()
+            .register_type::<ComputedTextBlock>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
@@ -138,7 +138,8 @@ impl Plugin for TextPlugin {
                     calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
                 )
                     .chain()
-                    .in_set(Update2dText),
+                    .in_set(Update2dText)
+                    .after(Animation),
             )
             .add_systems(Last, trim_cosmic_cache);
 
