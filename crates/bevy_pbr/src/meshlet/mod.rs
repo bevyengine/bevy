@@ -68,7 +68,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
-    component::Component,
+    component::{require, Component},
     entity::Entity,
     prelude::With,
     query::Has,
