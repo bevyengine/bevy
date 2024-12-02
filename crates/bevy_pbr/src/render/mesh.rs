@@ -829,6 +829,9 @@ impl RenderMeshInstanceGpuQueue {
         }
     }
 
+    /// Adds the given entity to the `removed` list, queuing it for removal.
+    ///
+    /// The `gpu_culling` parameter specifies whether GPU culling is enabled.
     fn remove(&mut self, entity: MainEntity, gpu_culling: bool) {
         match (&mut *self, gpu_culling) {
             (RenderMeshInstanceGpuQueue::None, false) => {
@@ -1003,6 +1006,15 @@ impl Default for MeshCullingDataBuffer {
 }
 
 impl MeshCullingDataBuffer {
+    /// Updates the culling data buffer after a mesh has been removed from the scene.
+    ///
+    /// [`remove_mesh_input_uniform`] removes a mesh input uniform from the
+    /// buffer, swapping in the last uniform to fill the space if necessary. The
+    /// index of each mesh in the mesh culling data and that index of the mesh
+    /// in the mesh input uniform buffer must match. Thus we have to perform the
+    /// corresponding operation here too. [`remove_mesh_input_uniform`] returns
+    /// a [`RemovedMeshInputUniformIndices`] value to tell us what to do, and
+    /// this function is where we process that value.
     fn remove(&mut self, removed_indices: RemovedMeshInputUniformIndices) {
         if removed_indices.moved_index != removed_indices.removed_index {
             let moved_culling_data = self.pop().unwrap();
@@ -1181,6 +1193,7 @@ pub fn extract_meshes_for_gpu_building(
     }
 
     // Collect render mesh instances. Build up the uniform buffer.
+
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
     else {
         panic!(
