@@ -381,7 +381,8 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystem),
+                        .after(CameraUpdateSystem)
+                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
                     clear_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
@@ -395,7 +396,8 @@ impl Plugin for PbrPlugin {
                         // We assume that no entity will be both a directional light and a spot light,
                         // so these systems will run independently of one another.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_spot_light_frusta),
+                        .ambiguous_with(update_spot_light_frusta)
+                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
                     update_point_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
@@ -416,7 +418,8 @@ impl Plugin for PbrPlugin {
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                         // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility),
+                        .after(VisibilitySystems::CheckVisibility)
+                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
                 ),
             );
 
