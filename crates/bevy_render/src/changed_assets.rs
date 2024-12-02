@@ -2,15 +2,17 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::entity::{Entity, EntityHashSet};
 use bevy_ecs::event::EventReader;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::system::{Query, ResMut, Resource};
-use bevy_ecs::world::{OnAdd, OnRemove};
+use bevy_ecs::world::{OnAdd, OnRemove, OnReplace};
 use bevy_utils::{HashMap, HashSet};
 use core::marker::PhantomData;
+use bevy_ecs::query::Changed;
 
-/// A plugin that tracks added assets and changes to entities that hold them.
+/// A plugin that tracks added assets and changes to entities that hold them. Provides
+/// the following resources: [`ChangedAssets`], [`AssetEntityMap`].
 pub struct ChangedAssetsPlugin<A, H> {
     asset_marker: PhantomData<A>,
     handle_marker: PhantomData<H>,
@@ -27,6 +29,7 @@ where
             .init_resource::<AssetEntityMap<A>>()
             .add_systems(PostUpdate, maintain_changed_assets::<A, H>)
             .add_observer(on_add_handle::<A, H>)
+            .add_observer(on_replace_handle::<A, H>)
             .add_observer(on_remove_handle::<A, H>);
     }
 }
@@ -45,6 +48,22 @@ fn on_add_handle<A, H>(
         .entry(AssetId::<A>::from(handle))
         .or_default()
         .insert(added.entity());
+}
+
+fn on_replace_handle<A, H>(
+    replaced: Trigger<OnReplace, H>,
+    query: Query<&H>,
+    mut asset_entity_map: ResMut<AssetEntityMap<A>>,
+) where
+    A: Asset,
+    H: Component,
+    AssetId<A>: for<'a> From<&'a H>,
+{
+    let handle = query.get(replaced.entity()).unwrap();
+    asset_entity_map
+        .entry(AssetId::<A>::from(handle))
+        .or_default()
+        .remove(&replaced.entity());
 }
 
 fn on_remove_handle<A, H>(
@@ -81,6 +100,7 @@ pub fn maintain_changed_assets<A, H>(
     mut events: EventReader<AssetEvent<A>>,
     mut changed_assets: ResMut<ChangedAssets<A>>,
     mut asset_entity_map: ResMut<AssetEntityMap<A>>,
+    mut changed_handles: Query<(Entity, &H), Changed<H>>,
 ) where
     A: Asset,
     H: Component,
@@ -105,6 +125,14 @@ pub fn maintain_changed_assets<A, H>(
                 // TODO: handle this
             }
         }
+    }
+
+    // Update asset entity map if the handle of an entity has changed, i.e. was mutated.
+    for (entity, handle) in changed_handles.iter() {
+        asset_entity_map
+            .entry(AssetId::<A>::from(handle))
+            .or_default()
+            .insert(entity);
     }
 
     for asset in removed.drain() {
