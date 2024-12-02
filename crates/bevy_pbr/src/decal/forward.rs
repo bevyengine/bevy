@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::component::Component;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
-use bevy_reflect::TypePath;
+use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     alpha::AlphaMode,
     mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
@@ -31,6 +31,8 @@ impl Plugin for ForwardDecalPlugin {
             Shader::from_wgsl
         );
 
+        app.register_type::<ForwardDecal>();
+
         app.world_mut().resource_mut::<Assets<Mesh>>().insert(
             FORWARD_DECAL_MESH_HANDLE.id(),
             Rectangle::from_size(Vec2::ONE)
@@ -52,7 +54,7 @@ impl Plugin for ForwardDecalPlugin {
 }
 
 /// TODO: Docs.
-#[derive(Component)]
+#[derive(Component, Reflect)]
 #[require(Mesh3d(|| Mesh3d(FORWARD_DECAL_MESH_HANDLE)))]
 pub struct ForwardDecal;
 
