@@ -564,7 +564,7 @@ impl SystemSetNode {
     }
 }
 
-/// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
+/// A [`ScheduleSystem`] stored in a [`ScheduleGraph`].
 struct SystemNode {
     inner: Option<ScheduleSystem>,
 }
