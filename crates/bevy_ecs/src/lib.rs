@@ -1,5 +1,6 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
+#![allow(dependency_on_unit_never_type_fallback)]
 #![doc = include_str!("../README.md")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
