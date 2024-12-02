@@ -1023,7 +1023,7 @@ pub enum PhaseItemExtraIndex {
 
 impl PhaseItemExtraIndex {
     /// Returns either an indirect parameters index or
-    /// [`PhaseItemExtraIndex::NONE`], as appropriate.
+    /// [`PhaseItemExtraIndex::None`], as appropriate.
     pub fn maybe_indirect_parameters_index(
         indirect_parameters_index: Option<NonMaxU32>,
     ) -> PhaseItemExtraIndex {
@@ -1035,7 +1035,7 @@ impl PhaseItemExtraIndex {
         }
     }
 
-    /// Returns either a dynamic offset index or [`PhaseItemExtraIndex::NONE`],
+    /// Returns either a dynamic offset index or [`PhaseItemExtraIndex::None`],
     /// as appropriate.
     pub fn maybe_dynamic_offset(dynamic_offset: Option<NonMaxU32>) -> PhaseItemExtraIndex {
         match dynamic_offset {
