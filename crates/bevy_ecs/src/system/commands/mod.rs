@@ -1477,8 +1477,11 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        // SAFETY: same invariants as parent call
-        self.queue(unsafe { insert_by_id(component_id, value) })
+        self.queue_with_different_failure_handling_mode(
+            // SAFETY: same invariants as parent call
+            unsafe { insert_by_id(component_id, value) },
+            FailureHandlingMode::Ignore,
+        )
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1532,7 +1535,10 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(try_insert(bundle, InsertMode::Replace))
+        self.queue_with_different_failure_handling_mode(
+            try_insert(bundle, InsertMode::Replace),
+            FailureHandlingMode::Ignore,
+        )
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1567,7 +1573,10 @@ impl<'a> EntityCommands<'a> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.queue(try_insert(bundle, InsertMode::Replace))
+            self.queue_with_different_failure_handling_mode(
+                try_insert(bundle, InsertMode::Replace),
+                FailureHandlingMode::Ignore,
+            )
         } else {
             self
         }
@@ -1630,7 +1639,10 @@ impl<'a> EntityCommands<'a> {
     /// [`Self::insert_if_new`] used to panic if the entity was missing, and this was the non-panicking version.
     /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new`].
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(try_insert(bundle, InsertMode::Keep))
+        self.queue_with_different_failure_handling_mode(
+            try_insert(bundle, InsertMode::Keep),
+            FailureHandlingMode::Ignore,
+        )
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1714,6 +1726,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Despawns the entity.
+    /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
     ///
@@ -1741,16 +1754,15 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue(despawn());
+        self.queue_with_different_failure_handling_mode(despawn(), FailureHandlingMode::Warn);
     }
 
     /// Despawns the entity.
-    ///
-    /// [`Self::despawn`] used to warn if the entity was missing, and this was the silent version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::despawn`].
+    /// This will not emit a warning if the entity does not exist, essentially performing
+    /// the same function as [`Self::despawn`] without emitting warnings.
     #[track_caller]
     pub fn try_despawn(&mut self) {
-        self.queue(try_despawn());
+        self.queue_with_different_failure_handling_mode(try_despawn(), FailureHandlingMode::Ignore);
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -1772,6 +1784,22 @@ impl<'a> EntityCommands<'a> {
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands
             .queue(command.with_entity(self.entity, self.commands.failure_handling_mode));
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// Allows commands to use a specific failure handling mode instead of the instance's internal setting.
+    /// Used to avoid breaking `try_` variants and [`Self::despawn`].
+    ///
+    /// TODO: deprecate alongside `try_` variants
+    pub(crate) fn queue_with_different_failure_handling_mode<M: 'static>(
+        &mut self,
+        command: impl EntityCommand<M>,
+        failure_handling_mode: FailureHandlingMode,
+    ) -> &mut Self {
+        self.commands
+            .queue(command.with_entity(self.entity, failure_handling_mode));
         self
     }
 
@@ -1912,11 +1940,14 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
-            .queue(move |mut entity: EntityWorldMut| {
-                if let Some(value) = entity.get_mut() {
-                    modify(value);
-                }
-            });
+            .queue_with_different_failure_handling_mode(
+                move |mut entity: EntityWorldMut| {
+                    if let Some(value) = entity.get_mut() {
+                        modify(value);
+                    }
+                },
+                FailureHandlingMode::Ignore,
+            );
         self
     }
 
@@ -1939,7 +1970,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     #[track_caller]
     pub fn or_try_insert(&mut self, default: T) -> &mut Self {
         self.entity_commands
-            .queue(try_insert(default, InsertMode::Keep));
+            .queue_with_different_failure_handling_mode(
+                try_insert(default, InsertMode::Keep),
+                FailureHandlingMode::Ignore,
+            );
         self
     }
 
