@@ -657,8 +657,8 @@ pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 /// last entity is swapped in to fill it. If culling is enabled, the mesh
 /// culling data corresponding to an entity must have the same indices as the
 /// mesh input uniforms for that entity. Thus we need to pass this information
-/// to [`MeshCullingData::remove`] so that it can update its buffer to match the
-/// [`MeshInputUniform`] buffer.
+/// to [`MeshCullingDataBuffer::remove`] so that it can update its buffer to
+/// match the [`MeshInputUniform`] buffer.
 struct RemovedMeshInputUniformIndices {
     /// The index of the mesh input that was removed.
     removed_index: usize,

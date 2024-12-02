@@ -351,6 +351,7 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate),
         )
         .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
+        .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
         .init_resource::<PreviousVisibleEntities>()
         .add_systems(
             PostUpdate,
