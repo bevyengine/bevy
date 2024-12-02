@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use core::any::TypeId;
 
 use bevy_utils::{HashMap, HashSet};
@@ -10,17 +11,18 @@ use crate::{
 };
 
 /// A helper struct to clone an entity. Used internally by [`EntityCloneBuilder::clone_entity`] and custom clone handlers.
-pub struct EntityCloner<'a> {
+pub struct EntityCloner {
     source: Entity,
     target: Entity,
+    component_id: Option<ComponentId>,
     filter_allows_components: bool,
-    filter: &'a HashSet<ComponentId>,
-    clone_handlers_overrides: &'a HashMap<ComponentId, ComponentCloneHandler>,
+    filter: Arc<HashSet<ComponentId>>,
+    clone_handlers_overrides: Arc<HashMap<ComponentId, ComponentCloneHandler>>,
 }
 
-impl<'a> EntityCloner<'a> {
+impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
-    pub fn clone_entity(&self, world: &mut World) {
+    pub fn clone_entity(&mut self, world: &mut World) {
         let source_entity = world
             .get_entity(self.source)
             .expect("Source entity must exist");
@@ -41,7 +43,8 @@ impl<'a> EntityCloner<'a> {
                 Some(ComponentCloneHandler::Ignore) => component_clone_ignore,
                 Some(ComponentCloneHandler::Custom(handler)) => *handler,
             };
-            (handler)(world, component, self);
+            self.component_id = Some(component);
+            (handler)(&mut world.into(), self);
         }
     }
 
@@ -60,11 +63,19 @@ impl<'a> EntityCloner<'a> {
         self.target
     }
 
+    /// Returns the [`ComponentId`] of currently cloned component.
+    pub fn component_id(&self) -> ComponentId {
+        self.component_id
+            .expect("ComponentId must be set in clone_entity")
+    }
+
     /// Reuse existing [`EntityCloner`] configuration with new source and target.
-    pub fn with_source_and_target(&self, source: Entity, target: Entity) -> EntityCloner<'a> {
+    pub fn with_source_and_target(&self, source: Entity, target: Entity) -> EntityCloner {
         EntityCloner {
             source,
             target,
+            filter: self.filter.clone(),
+            clone_handlers_overrides: self.clone_handlers_overrides.clone(),
             ..*self
         }
     }
@@ -159,11 +170,14 @@ impl<'w> EntityCloneBuilder<'w> {
         EntityCloner {
             source,
             target,
+            component_id: None,
             filter_allows_components,
-            filter: &filter,
-            clone_handlers_overrides: &clone_handlers_overrides,
+            filter: Arc::new(filter),
+            clone_handlers_overrides: Arc::new(clone_handlers_overrides),
         }
         .clone_entity(world);
+
+        world.flush_commands();
     }
 
     /// Adds all components of the bundle to the list of components to clone.

@@ -1,8 +1,8 @@
 use crate::{
-    component::{Component, ComponentCloneHandler, ComponentHooks, ComponentId, StorageType},
+    component::{Component, ComponentCloneHandler, ComponentHooks, StorageType},
     entity::{Entity, EntityCloneBuilder, EntityCloner},
     observer::ObserverState,
-    world::World,
+    world::{DeferredWorld, World},
 };
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
@@ -64,48 +64,47 @@ impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(
-    world: &mut World,
-    _component_id: ComponentId,
-    entity_cloner: &EntityCloner,
-) {
+fn component_clone_observed_by(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
     let target = entity_cloner.target();
     let source = entity_cloner.source();
 
-    let observed_by = world
-        .get::<ObservedBy>(source)
-        .map(|observed_by| observed_by.0.clone())
-        .expect("Source entity must have ObservedBy");
+    world.commands().queue(move |world: &mut World| {
+        let observed_by = world
+            .get::<ObservedBy>(source)
+            .map(|observed_by| observed_by.0.clone())
+            .expect("Source entity must have ObservedBy");
 
-    world
-        .entity_mut(target)
-        .insert(ObservedBy(observed_by.clone()));
+        world
+            .entity_mut(target)
+            .insert(ObservedBy(observed_by.clone()));
 
-    for observer in &observed_by {
-        let mut observer_state = world
-            .get_mut::<ObserverState>(*observer)
-            .expect("Source observer entity must have ObserverState");
-        observer_state.descriptor.entities.push(target);
-        let event_types = observer_state.descriptor.events.clone();
-        let components = observer_state.descriptor.components.clone();
-        for event_type in event_types {
-            let observers = world.observers.get_observers(event_type);
-            if components.is_empty() {
-                if let Some(map) = observers.entity_observers.get(&source).cloned() {
-                    observers.entity_observers.insert(target, map);
-                }
-            } else {
-                for component in &components {
-                    let Some(observers) = observers.component_observers.get_mut(component) else {
-                        continue;
-                    };
-                    if let Some(map) = observers.entity_map.get(&source).cloned() {
-                        observers.entity_map.insert(target, map);
+        for observer in &observed_by {
+            let mut observer_state = world
+                .get_mut::<ObserverState>(*observer)
+                .expect("Source observer entity must have ObserverState");
+            observer_state.descriptor.entities.push(target);
+            let event_types = observer_state.descriptor.events.clone();
+            let components = observer_state.descriptor.components.clone();
+            for event_type in event_types {
+                let observers = world.observers.get_observers(event_type);
+                if components.is_empty() {
+                    if let Some(map) = observers.entity_observers.get(&source).cloned() {
+                        observers.entity_observers.insert(target, map);
+                    }
+                } else {
+                    for component in &components {
+                        let Some(observers) = observers.component_observers.get_mut(component)
+                        else {
+                            continue;
+                        };
+                        if let Some(map) = observers.entity_map.get(&source).cloned() {
+                            observers.entity_map.insert(target, map);
+                        }
                     }
                 }
             }
         }
-    }
+    });
 }
 
 #[cfg(test)]

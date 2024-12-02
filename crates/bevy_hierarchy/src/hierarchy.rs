@@ -3,10 +3,10 @@ use crate::{
     BuildChildren,
 };
 use bevy_ecs::{
-    component::{ComponentCloneHandler, ComponentId},
+    component::ComponentCloneHandler,
     entity::{Entity, EntityCloneBuilder, EntityCloner},
     system::EntityCommands,
-    world::{Command, EntityWorldMut, World},
+    world::{Command, DeferredWorld, EntityWorldMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -233,39 +233,34 @@ impl CloneEntityHierarchyExt for EntityCloneBuilder<'_> {
 }
 
 /// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
-fn component_clone_children(
-    world: &mut World,
-    _component_id: ComponentId,
-    entity_cloner: &EntityCloner,
-) {
+fn component_clone_children(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
     let children = world
         .get::<Children>(entity_cloner.source())
         .expect("Source entity must have Children component")
         .iter()
         .cloned()
         .collect::<Vec<_>>();
+    let parent = entity_cloner.target();
     for child in children {
-        let child_clone = world.spawn_empty().id();
-        entity_cloner
-            .with_source_and_target(child, child_clone)
-            .clone_entity(world);
-        world
-            .entity_mut(child_clone)
-            .set_parent(entity_cloner.target());
+        let child_clone = world.commands().spawn_empty().id();
+        let mut entity_cloner = entity_cloner.with_source_and_target(child, child_clone);
+        world.commands().queue(move |world: &mut World| {
+            entity_cloner.clone_entity(world);
+            world.entity_mut(child_clone).set_parent(parent);
+        });
     }
 }
 
 /// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
-fn component_clone_parent(
-    world: &mut World,
-    _component_id: ComponentId,
-    entity_cloner: &EntityCloner,
-) {
+fn component_clone_parent(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
     let parent = world
         .get::<Parent>(entity_cloner.source())
         .map(|p| p.0)
         .expect("Source entity must have Parent component");
-    world.entity_mut(entity_cloner.target()).set_parent(parent);
+    world
+        .commands()
+        .entity(entity_cloner.target())
+        .set_parent(parent);
 }
 
 #[cfg(test)]
