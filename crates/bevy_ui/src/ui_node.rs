@@ -9,7 +9,7 @@ use bevy_render::{
     view::Visibility,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -305,9 +305,9 @@ impl From<&Vec2> for ScrollPosition {
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
     Visibility,
-    ZIndex
+    ZIndex,
+    GlobalTransform
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -586,6 +586,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Rotate, scale, skew, or translate an element.
+    pub transform: Transform,
 }
 
 impl Node {
@@ -628,6 +631,7 @@ impl Node {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        transform: Transform::IDENTITY,
     };
 }
 

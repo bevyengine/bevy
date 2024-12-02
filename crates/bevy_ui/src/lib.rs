@@ -189,7 +189,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
-            .before(TransformSystem::TransformPropagate);
+            .in_set(TransformSystem::TransformPropagate);
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
