@@ -98,7 +98,7 @@ struct Brick;
 #[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
-// Default is required to be part of the Required Components used with the Wall Component bellow
+// Default must be implemented to define this as a required component for the Wall component below
 #[derive(Component, Default)]
 struct Collider;
 
@@ -150,8 +150,7 @@ impl WallLocation {
 impl Wall {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    // notice the use of Sprite and Transform alongside Wall even tho they are part of our Required Component
-    // that is because Required Component by default uses Components' default values, but can be overwritten with manual insertion like bellow
+    // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined for the required components
     fn new(location: WallLocation) -> (Wall, Sprite, Transform) {
         (
             Wall,
