@@ -32,6 +32,7 @@ impl TextureAtlasSources {
         Some(TextureAtlas {
             layout,
             index: self.texture_index(texture)?,
+            index_range: (0, 0),
         })
     }
 
@@ -170,6 +171,8 @@ pub struct TextureAtlas {
     pub layout: Handle<TextureAtlasLayout>,
     /// Texture atlas section index
     pub index: usize,
+    /// Texture atlas default index range (first, last)
+    pub index_range: (usize, usize),
 }
 
 impl TextureAtlas {
@@ -178,6 +181,14 @@ impl TextureAtlas {
         let atlas = texture_atlases.get(&self.layout)?;
         atlas.textures.get(self.index).copied()
     }
+
+    pub fn advance_index(&mut self) -> &mut Self {
+        self.index += 1;
+        if self.index > self.index_range.1 {
+            self.index = self.index_range.0;
+        }
+        self
+    }
 }
 
 impl From<Handle<TextureAtlasLayout>> for TextureAtlas {
@@ -185,6 +196,7 @@ impl From<Handle<TextureAtlasLayout>> for TextureAtlas {
         Self {
             layout: texture_atlas,
             index: 0,
+            index_range: (0, 0),
         }
     }
 }
