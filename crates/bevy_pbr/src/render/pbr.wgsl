@@ -53,7 +53,7 @@ fn fragment(
 #endif
 
 #ifdef FORWARD_DECAL
-    let forward_decal_info = get_forward_decal_info(in, 0, 0.0); // TODO
+    let forward_decal_info = get_forward_decal_info(in);
     in.world_position = forward_decal_info.world_position;
     in.uv = forward_decal_info.uv;
 #endif
