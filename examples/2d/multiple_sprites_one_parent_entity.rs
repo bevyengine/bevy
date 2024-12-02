@@ -26,11 +26,11 @@ fn main() {
 struct ParentSprite;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // the entity is composed of four tiles arranged in a square
     commands
-        .spawn((ParentSprite, SpatialBundle::default()))
+        .spawn((ParentSprite, Transform::default(), Visibility::default()))
         .with_children(|parent| {
             const SIZE: f32 = 16.0; // tiles are 16x16...
             const SCALE: f32 = 5.0; // ...scale up to 80x80
@@ -38,64 +38,57 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // for positioning the tiles
             let offset = SIZE * SCALE / 2.0;
 
-            parent.spawn(SpriteBundle {
-                texture: asset_server.load("textures/rpg/tiles/generic-rpg-tile59.png"),
-                transform: Transform {
+            parent.spawn((
+                Sprite::from_image(asset_server.load("textures/rpg/tiles/generic-rpg-tile59.png")),
+                Transform {
                     translation: Vec3::new(-offset, offset, 0.0),
                     scale: Vec3::splat(SCALE),
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
-            parent.spawn(SpriteBundle {
-                texture: asset_server.load("textures/rpg/tiles/generic-rpg-tile60.png"),
-                transform: Transform {
+            parent.spawn((
+                Sprite::from_image(asset_server.load("textures/rpg/tiles/generic-rpg-tile60.png")),
+                Transform {
                     translation: Vec3::new(offset, offset, 0.0),
                     scale: Vec3::splat(SCALE),
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
-            parent.spawn(SpriteBundle {
-                texture: asset_server.load("textures/rpg/tiles/generic-rpg-tile61.png"),
-                transform: Transform {
+            parent.spawn((
+                Sprite::from_image(asset_server.load("textures/rpg/tiles/generic-rpg-tile61.png")),
+                Transform {
                     translation: Vec3::new(-offset, -offset, 0.0),
                     scale: Vec3::splat(SCALE),
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
-            parent.spawn(SpriteBundle {
-                texture: asset_server.load("textures/rpg/tiles/generic-rpg-tile62.png"),
-                transform: Transform {
+            parent.spawn((
+                Sprite::from_image(asset_server.load("textures/rpg/tiles/generic-rpg-tile62.png")),
+                Transform {
                     translation: Vec3::new(offset, -offset, 0.0),
                     scale: Vec3::splat(SCALE),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         });
 
     // create a minimal UI explaining how to interact with the example
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Use the arrow keys to move the block around the window",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        ),
-        style: Style {
+    commands.spawn((
+        Text::new("Use the arrow keys to move the block around the window"),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 fn translate<const X: i8, const Y: i8>(mut parent: Query<&mut Transform, With<ParentSprite>>) {
