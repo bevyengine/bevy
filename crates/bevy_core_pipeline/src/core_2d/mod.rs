@@ -240,7 +240,6 @@ pub struct AlphaMask2dBinKey {
     pub asset_id: UntypedAssetId,
     /// The ID of a bind group specific to the material.
     pub material_bind_group_id: Option<BindGroupId>,
-
 }
 
 impl PhaseItem for AlphaMask2d {

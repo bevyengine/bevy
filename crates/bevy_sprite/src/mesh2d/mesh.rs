@@ -44,7 +44,6 @@ use bevy_render::{
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntity, MainEntityHashMap},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
@@ -109,7 +108,13 @@ impl Plugin for Mesh2dRenderPlugin {
         ))
         .insert_resource(entity_specialized_receiver)
         .init_resource::<View2dKeyCache>()
-        .add_systems(PostUpdate, (apply_entity_specialized2d, check_views2d_need_specialization));
+        .add_systems(
+            PostUpdate,
+            (
+                apply_entity_specialized2d,
+                check_views2d_need_specialization,
+            ),
+        );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

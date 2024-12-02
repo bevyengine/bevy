@@ -25,7 +25,9 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::changed_assets::{AssetEntityMap, ChangedAssets};
+use bevy_render::changed_assets::{
+    maintain_changed_assets, AssetEntityMap, ChangedAssets, ChangedAssetsPlugin,
+};
 use bevy_render::extract_instances::ExtractedInstances;
 use bevy_render::mesh::Mesh;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
@@ -275,18 +277,16 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .init_resource::<ChangedMaterials<M>>()
-            .init_resource::<MaterialEntityMap<M>>()
             .add_systems(
                 PostUpdate,
-                (
-                    maintain_changed_materials::<M>,
-                    maintain_material_entity_map::<M>.after(maintain_changed_materials::<M>),
-                    check_entity_needs_specialization::<M>.after(maintain_material_entity_map::<M>),
-                ),
+                (check_entity_needs_specialization::<M>
+                    .after(maintain_changed_assets::<M, MeshMaterial3d<M>>),),
             )
             .register_type::<MeshMaterial3d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
+            .add_plugins((
+                RenderAssetPlugin::<PreparedMaterial<M>>::default(),
+                ChangedAssetsPlugin::<M, MeshMaterial3d<M>>::default(),
+            ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -363,59 +363,6 @@ where
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<MaterialPipeline<M>>();
         }
-    }
-}
-
-pub fn maintain_changed_materials<M: Material>(
-    mut events: EventReader<AssetEvent<M>>,
-    mut changed_assets: ResMut<ChangedMaterials<M>>,
-    mut asset_entity_map: ResMut<MaterialEntityMap<M>>,
-) {
-    changed_assets.clear();
-    let mut removed = HashSet::new();
-
-    for event in events.read() {
-        #[allow(clippy::match_same_arms)]
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-                removed.remove(id);
-            }
-            AssetEvent::Removed { id } => {
-                changed_assets.remove(id);
-                removed.insert(*id);
-            }
-            AssetEvent::Unused { .. } => {}
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
-
-    for asset in removed.drain() {
-        asset_entity_map.remove(&asset);
-    }
-}
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct MaterialEntityMap<M: Material>(HashMap<AssetId<M>, EntityHashSet>);
-
-impl<M: Material> Default for MaterialEntityMap<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-pub fn maintain_material_entity_map<M: Material>(
-    mut asset_entity_map: ResMut<MaterialEntityMap<M>>,
-    query: Query<(Entity, &MeshMaterial3d<M>), Changed<MeshMaterial3d<M>>>,
-) {
-    // FIXME - handle removals somehow
-    for (entity, handle) in &query {
-        asset_entity_map
-            .entry(handle.id())
-            .or_default()
-            .insert(entity);
     }
 }
 
@@ -724,65 +671,66 @@ fn update_mesh_material_instances<M: Material>(
     let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
     let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-    let update_mesh_material_instance = move |entity: &MainEntity, render_mesh_instance: &mut RenderMeshInstanceShared| {
-        let Some(asset_id) = render_material_instances.get(entity) else {
-            return;
-        };
-        let Some(material) = render_materials.get(*asset_id) else {
-             return;
-        };
-        let material_bind_group_id = material.get_bind_group_id();
-        let depth_bias = material.properties.depth_bias;
-        let forward = match material.properties.render_method {
-            OpaqueRendererMethod::Forward => true,
-            OpaqueRendererMethod::Deferred => false,
-            OpaqueRendererMethod::Auto => unreachable!(),
-        };
-        let render_phase_type = match material.properties.alpha_mode {
-            AlphaMode::Opaque => {
-                if material.properties.reads_view_transmission_texture {
-                    RenderPhaseType::Transmissive
-                } else if forward {
-                    RenderPhaseType::Opaque
-                } else {
-                    panic!("Invalid opaque configuration");
+    let update_mesh_material_instance =
+        move |entity: &MainEntity, render_mesh_instance: &mut RenderMeshInstanceShared| {
+            let Some(asset_id) = render_material_instances.get(entity) else {
+                return;
+            };
+            let Some(material) = render_materials.get(*asset_id) else {
+                return;
+            };
+            let material_bind_group_id = material.get_bind_group_id();
+            let depth_bias = material.properties.depth_bias;
+            let forward = match material.properties.render_method {
+                OpaqueRendererMethod::Forward => true,
+                OpaqueRendererMethod::Deferred => false,
+                OpaqueRendererMethod::Auto => unreachable!(),
+            };
+            let render_phase_type = match material.properties.alpha_mode {
+                AlphaMode::Opaque => {
+                    if material.properties.reads_view_transmission_texture {
+                        RenderPhaseType::Transmissive
+                    } else if forward {
+                        RenderPhaseType::Opaque
+                    } else {
+                        panic!("Invalid opaque configuration");
+                    }
                 }
-            }
-            AlphaMode::Mask(_) => {
-                if material.properties.reads_view_transmission_texture {
-                    RenderPhaseType::Transmissive
-                } else if forward {
-                    RenderPhaseType::AlphaMask
-                } else {
-                    panic!("Invalid alpha mask configuration");
+                AlphaMode::Mask(_) => {
+                    if material.properties.reads_view_transmission_texture {
+                        RenderPhaseType::Transmissive
+                    } else if forward {
+                        RenderPhaseType::AlphaMask
+                    } else {
+                        panic!("Invalid alpha mask configuration");
+                    }
                 }
-            }
-            AlphaMode::Blend
-            | AlphaMode::Premultiplied
-            | AlphaMode::Add
-            | AlphaMode::Multiply
-            | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
-        };
-        let draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => draw_opaque_pbr,
-            RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
-            RenderPhaseType::Transmissive => draw_transmissive_pbr,
-            RenderPhaseType::Transparent => draw_transparent_pbr,
-        };
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply
+                | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
+            };
+            let draw_function_id = match render_phase_type {
+                RenderPhaseType::Opaque => draw_opaque_pbr,
+                RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
+                RenderPhaseType::Transmissive => draw_transmissive_pbr,
+                RenderPhaseType::Transparent => draw_transparent_pbr,
+            };
 
-        let lightmap_image = render_lightmaps
-            .render_lightmaps
-            .get(entity)
-            .map(|lightmap| lightmap.image);
+            let lightmap_image = render_lightmaps
+                .render_lightmaps
+                .get(entity)
+                .map(|lightmap| lightmap.image);
 
-        render_mesh_instance
-            .material_bind_group_id
-            .set(material_bind_group_id);
-        render_mesh_instance.depth_bias = depth_bias;
-        render_mesh_instance.render_phase_type = render_phase_type;
-        render_mesh_instance.draw_function_id = draw_function_id;
-        render_mesh_instance.lightmap_image = lightmap_image;
-    };
+            render_mesh_instance
+                .material_bind_group_id
+                .set(material_bind_group_id);
+            render_mesh_instance.depth_bias = depth_bias;
+            render_mesh_instance.render_phase_type = render_phase_type;
+            render_mesh_instance.draw_function_id = draw_function_id;
+            render_mesh_instance.lightmap_image = lightmap_image;
+        };
 
     match render_mesh_instances.as_mut() {
         RenderMeshInstances::CpuBuilding(render_mesh_instances) => {
@@ -1031,15 +979,6 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct ChangedMaterials<M: Material>(HashSet<AssetId<M>>);
-
-impl<M: Material> Default for ChangedMaterials<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct MaterialBindGroupId(pub Option<BindGroupId>);
 
@@ -1094,8 +1033,8 @@ impl<T: Material> PreparedMaterial<T> {
 pub fn check_entity_needs_specialization<M: Material>(
     mut commands: Commands,
     query: Query<(Entity, Ref<Mesh3d>, Ref<MeshMaterial3d<M>>), Without<VisibleEntities>>,
-    changed_materials: Res<ChangedMaterials<M>>,
-    material_entity_map: Res<MaterialEntityMap<M>>,
+    changed_materials: Res<ChangedAssets<M>>,
+    material_entity_map: Res<AssetEntityMap<M>>,
     changed_meshes: Res<ChangedAssets<Mesh>>,
     mesh_entity_map: Res<AssetEntityMap<Mesh>>,
 ) {

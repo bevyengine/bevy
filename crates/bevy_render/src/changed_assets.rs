@@ -5,11 +5,11 @@ use bevy_ecs::component::Component;
 use bevy_ecs::entity::{Entity, EntityHashSet};
 use bevy_ecs::event::EventReader;
 use bevy_ecs::observer::Trigger;
+use bevy_ecs::query::Changed;
 use bevy_ecs::system::{Query, ResMut, Resource};
 use bevy_ecs::world::{OnAdd, OnRemove, OnReplace};
 use bevy_utils::{HashMap, HashSet};
 use core::marker::PhantomData;
-use bevy_ecs::query::Changed;
 
 /// A plugin that tracks added assets and changes to entities that hold them. Provides
 /// the following resources: [`ChangedAssets`], [`AssetEntityMap`].
@@ -100,7 +100,7 @@ pub fn maintain_changed_assets<A, H>(
     mut events: EventReader<AssetEvent<A>>,
     mut changed_assets: ResMut<ChangedAssets<A>>,
     mut asset_entity_map: ResMut<AssetEntityMap<A>>,
-    mut changed_handles: Query<(Entity, &H), Changed<H>>,
+    changed_handles: Query<(Entity, &H), Changed<H>>,
 ) where
     A: Asset,
     H: Component,

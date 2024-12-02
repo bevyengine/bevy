@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::sprite::RenderPhase2dType;
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -34,9 +35,8 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use std::f32::consts::PI;
-use bevy::sprite::RenderPhase2dType;
 use bevy_render::render_phase::DrawFunctionId;
+use std::f32::consts::PI;
 
 fn main() {
     App::new()

@@ -21,7 +21,9 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::alpha::AlphaMode;
-use bevy_render::changed_assets::{AssetEntityMap, ChangedAssets};
+use bevy_render::changed_assets::{
+    maintain_changed_assets, AssetEntityMap, ChangedAssets, ChangedAssetsPlugin,
+};
 use bevy_render::mesh::{Mesh, Mesh3d};
 use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::render_resource::CachedRenderPipelineId;
@@ -251,19 +253,16 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .init_resource::<ChangedMaterials2d<M>>()
-            .init_resource::<Material2dEntityMap<M>>()
             .add_systems(
                 PostUpdate,
-                (
-                    maintain_changed_materials2d::<M>,
-                    maintain_material2d_entity_map::<M>.after(maintain_changed_materials2d::<M>),
-                    check_entity_needs_specialization2d::<M>
-                        .after(maintain_material2d_entity_map::<M>),
-                ),
+                (check_entity_needs_specialization2d::<M>
+                    .after(maintain_changed_assets::<M, MeshMaterial2d<M>>),),
             )
             .register_type::<MeshMaterial2d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
+            .add_plugins((
+                RenderAssetPlugin::<PreparedMaterial2d<M>>::default(),
+                ChangedAssetsPlugin::<M, MeshMaterial2d<M>>::default(),
+            ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -409,59 +408,6 @@ fn update_mesh_material2d_instances<M: Material2d>(
         render_mesh_instance.depth_bias = depth_bias;
         render_mesh_instance.render_phase_type = render_phase_type;
         render_mesh_instance.draw_function_id = draw_function_id;
-    }
-}
-
-pub fn maintain_changed_materials2d<M: Material2d>(
-    mut events: EventReader<AssetEvent<M>>,
-    mut changed_assets: ResMut<ChangedMaterials2d<M>>,
-    mut asset_entity_map: ResMut<Material2dEntityMap<M>>,
-) {
-    changed_assets.clear();
-    let mut removed = HashSet::new();
-
-    for event in events.read() {
-        #[allow(clippy::match_same_arms)]
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-                removed.remove(id);
-            }
-            AssetEvent::Removed { id } => {
-                changed_assets.remove(id);
-                removed.insert(*id);
-            }
-            AssetEvent::Unused { .. } => {}
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
-
-    for asset in removed.drain() {
-        asset_entity_map.remove(&asset);
-    }
-}
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct Material2dEntityMap<M: Material2d>(HashMap<AssetId<M>, EntityHashSet>);
-
-impl<M: Material2d> Default for Material2dEntityMap<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-pub fn maintain_material2d_entity_map<M: Material2d>(
-    mut asset_entity_map: ResMut<Material2dEntityMap<M>>,
-    query: Query<(Entity, &MeshMaterial2d<M>), Changed<MeshMaterial2d<M>>>,
-) {
-    // FIXME - handle removals somehow
-    for (entity, handle) in &query {
-        asset_entity_map
-            .entry(handle.id())
-            .or_default()
-            .insert(entity);
     }
 }
 
@@ -748,15 +694,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct ChangedMaterials2d<M: Material2d>(HashSet<AssetId<M>>);
-
-impl<M: Material2d> Default for ChangedMaterials2d<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
@@ -824,8 +761,8 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
 pub fn check_entity_needs_specialization2d<M: Material2d>(
     mut commands: Commands,
     query: Query<(Entity, Ref<Mesh3d>, Ref<MeshMaterial2d<M>>), Without<VisibleEntities>>,
-    changed_materials: Res<ChangedMaterials2d<M>>,
-    material_entity_map: Res<Material2dEntityMap<M>>,
+    changed_materials: Res<ChangedAssets<M>>,
+    material_entity_map: Res<AssetEntityMap<M>>,
     changed_meshes: Res<ChangedAssets<Mesh>>,
     mesh_entity_map: Res<AssetEntityMap<Mesh>>,
 ) {

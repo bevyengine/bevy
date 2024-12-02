@@ -877,7 +877,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
+                                material_bind_group_id: mesh_instance
+                                    .material_bind_group_id
+                                    .get()
+                                    .0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -888,7 +891,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
+                                material_bind_group_id: mesh_instance
+                                    .material_bind_group_id
+                                    .get()
+                                    .0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
