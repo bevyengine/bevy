@@ -3346,10 +3346,10 @@ impl World {
     /// # use bevy_ecs::prelude::*;
     /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
     /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::world::DeferredWorld;
     ///
     /// fn custom_clone_handler(
-    ///     _world: &mut World,
-    ///     component_id: ComponentId,
+    ///     _world: &mut DeferredWorld,
     ///     _entity_cloner: &EntityCloner,
     /// ) {
     ///     // Custom cloning logic for component
