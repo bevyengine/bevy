@@ -374,15 +374,16 @@ with UI components as a child of an entity without UI components, your UI layout
                 bottom: rect.bottom,
             };
 
-            transform *=
-                style.transform.compute_matrix() * Mat4::from_translation(node_center.extend(0.));
-
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let new_transform = GlobalTransform::from(transform);
-            if new_transform != *global_transform {
-                *global_transform = new_transform;
+            let mut node_transform = style.transform;
+            node_transform.translation /= inverse_target_scale_factor;
+            transform *=
+                node_transform.compute_matrix() * Mat4::from_translation(node_center.extend(0.));
+            let new_global_transform = GlobalTransform::from(transform);
+            if new_global_transform != *global_transform {
+                *global_transform = new_global_transform;
             }
 
             let viewport_size = root_size.unwrap_or(node.size);
