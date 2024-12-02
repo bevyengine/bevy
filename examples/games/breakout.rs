@@ -102,9 +102,7 @@ struct CollisionSound(Handle<AudioSource>);
 #[derive(Component, Default)]
 struct Collider;
 
-// This is a collection of the components that define a "Wall" in our game.
-// from bevy version 0.15 onward the main way has shifted from using a Bundle, to Required Components
-// Allowing you to compose their functionality, See https://bevyengine.org/news/bevy-0-15/#required-components
+// This is a collection of the components that define a "Wall" in our game
 #[derive(Component)]
 #[require(Sprite, Transform, Collider)]
 struct Wall;
