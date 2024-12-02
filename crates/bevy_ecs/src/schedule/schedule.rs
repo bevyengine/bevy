@@ -2075,6 +2075,7 @@ mod tests {
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
+    #[allow(dependency_on_unit_never_type_fallback)]
     fn ambiguous_with_not_breaking_run_conditions() {
         #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
         struct Set;
