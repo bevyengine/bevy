@@ -223,6 +223,8 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
     }
 }
 
+impl<V: Copy, H> Copy for Hashed<V, H> {}
+
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].

@@ -103,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
