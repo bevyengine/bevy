@@ -165,6 +165,7 @@ mod __rust_begin_short_backtrace {
 
     #[inline(never)]
     pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) {
+        // TODO: implement an error-handling API instead of suppressing a possible failure.
         let _ = system.run((), world);
         black_box(());
     }
