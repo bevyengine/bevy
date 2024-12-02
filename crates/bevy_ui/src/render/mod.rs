@@ -654,14 +654,8 @@ pub fn extract_text_sections(
             continue;
         };
 
-        // Align the text to the nearest pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Round the position to the nearest physical pixel
-
-        let mut transform = global_transform.affine()
+        let transform = global_transform.affine()
             * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
-        transform.translation = transform.translation.round();
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
