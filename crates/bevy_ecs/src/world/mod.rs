@@ -3816,11 +3816,11 @@ pub enum FailureHandlingMode {
     /// Do nothing
     Ignore,
     /// Send a benign message to the log
-    #[default]
     Log,
     /// Send a more serious message to the log
     Warn,
     /// Stop the application
+    #[default]
     Panic,
 }
 

@@ -77,7 +77,7 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
-    pub(crate) failure_handling_mode: FailureHandlingMode,
+    failure_handling_mode: FailureHandlingMode,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -279,9 +279,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// Any subsequent commands that can fail will do so silently.
     ///
     /// # See also:
-    /// - [`log_on_error`](Self::log_on_error) (default)
+    /// - [`log_on_error`](Self::log_on_error)
     /// - [`warn_on_error`](Self::warn_on_error)
-    /// - [`panic_on_error`](Self::panic_on_error)
+    /// - [`panic_on_error`](Self::panic_on_error) (default)
     pub fn ignore_on_error(&mut self) -> &mut Self {
         self.failure_handling_mode = FailureHandlingMode::Ignore;
         self
@@ -291,12 +291,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Any subsequent commands that can fail will log each failure.
     ///
-    /// This is the default setting.
-    ///
     /// # See also:
     /// - [`ignore_on_error`](Self::ignore_on_error)
     /// - [`warn_on_error`](Self::warn_on_error)
-    /// - [`panic_on_error`](Self::panic_on_error)
+    /// - [`panic_on_error`](Self::panic_on_error) (default)
     pub fn log_on_error(&mut self) -> &mut Self {
         self.failure_handling_mode = FailureHandlingMode::Log;
         self
@@ -308,8 +306,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also:
     /// - [`ignore_on_error`](Self::ignore_on_error)
-    /// - [`log_on_error`](Self::log_on_error) (default)
-    /// - [`panic_on_error`](Self::panic_on_error)
+    /// - [`log_on_error`](Self::log_on_error)
+    /// - [`panic_on_error`](Self::panic_on_error) (default)
     pub fn warn_on_error(&mut self) -> &mut Self {
         self.failure_handling_mode = FailureHandlingMode::Warn;
         self
@@ -319,9 +317,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Any subsequent commands that can fail will panic if they do.
     ///
+    /// This is the default setting.
+    ///
     /// # See also:
     /// - [`ignore_on_error`](Self::ignore_on_error)
-    /// - [`log_on_error`](Self::log_on_error) (default)
+    /// - [`log_on_error`](Self::log_on_error)
     /// - [`warn_on_error`](Self::warn_on_error)
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.failure_handling_mode = FailureHandlingMode::Panic;
@@ -1241,9 +1241,9 @@ impl<'a> EntityCommands<'a> {
     /// when a command is executed.
     ///
     /// # See also:
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn ignore_if_missing(&mut self) -> &mut Self {
         self.commands.ignore_on_error();
         self
@@ -1252,12 +1252,10 @@ impl<'a> EntityCommands<'a> {
     /// Sets the [`EntityCommands`] instance to log if the entity doesn't exist
     /// when a command is executed.
     ///
-    /// This is the default setting.
-    ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn log_if_missing(&mut self) -> &mut Self {
         self.commands.log_on_error();
         self
@@ -1268,8 +1266,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn warn_if_missing(&mut self) -> &mut Self {
         self.commands.warn_on_error();
         self
@@ -1278,9 +1276,11 @@ impl<'a> EntityCommands<'a> {
     /// Sets the [`EntityCommands`] instance to panic if the entity doesn't exist
     /// when a command is executed.
     ///
+    /// This is the default setting.
+    ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
     pub fn panic_if_missing(&mut self) -> &mut Self {
         self.commands.panic_on_error();
@@ -1851,9 +1851,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// when a command is executed.
     ///
     /// # See also:
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn ignore_if_missing(&mut self) -> &mut Self {
         self.entity_commands.ignore_if_missing();
         self
@@ -1862,12 +1862,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// Sets the [`EntityEntryCommands`] instance to log if the entity doesn't exist
     /// when a command is executed.
     ///
-    /// This is the default setting.
-    ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn log_if_missing(&mut self) -> &mut Self {
         self.entity_commands.log_if_missing();
         self
@@ -1878,8 +1876,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing) (default)
     pub fn warn_if_missing(&mut self) -> &mut Self {
         self.entity_commands.warn_if_missing();
         self
@@ -1888,9 +1886,11 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// Sets the [`EntityEntryCommands`] instance to panic if the entity doesn't exist
     /// when a command is executed.
     ///
+    /// This is the default setting.
+    ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`log_if_missing`](Self::log_if_missing) (default)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
     pub fn panic_if_missing(&mut self) -> &mut Self {
         self.entity_commands.panic_if_missing();
