@@ -445,3 +445,204 @@ where
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use approx::assert_abs_diff_eq;
+
+    use super::*;
+    use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator};
+    use crate::curve::{Curve, Interval};
+    use crate::{vec2, Vec2, Vec3};
+
+    fn test_curve() -> CubicCurve<Vec2> {
+        let control_pts = [[
+            vec2(0.0, 0.0),
+            vec2(1.0, 0.0),
+            vec2(0.0, 1.0),
+            vec2(1.0, 1.0),
+        ]];
+
+        CubicBezier::new(control_pts).to_curve().unwrap()
+    }
+
+    fn other_test_curve() -> CubicCurve<Vec2> {
+        let control_pts = [
+            vec2(1.0, 1.0),
+            vec2(2.0, 1.0),
+            vec2(2.0, 0.0),
+            vec2(1.0, 0.0),
+        ];
+
+        CubicCardinalSpline::new(0.5, control_pts)
+            .to_curve()
+            .unwrap()
+    }
+
+    fn reparam_curve() -> CubicCurve<f32> {
+        let control_pts = [[0.0, 0.25, 0.75, 1.0]];
+
+        CubicBezier::new(control_pts).to_curve().unwrap()
+    }
+
+    #[test]
+    fn constant_curve() {
+        let curve = ConstantCurve::new(Interval::UNIT, Vec3::new(0.2, 1.5, -2.6));
+        let jet = curve.sample_with_derivative(0.5).unwrap();
+        assert_abs_diff_eq!(jet.derivative, Vec3::ZERO);
+    }
+
+    #[test]
+    fn chain_curve() {
+        let curve1 = test_curve();
+        let curve2 = other_test_curve();
+        let curve = curve1.by_ref().chain(&curve2).unwrap();
+
+        let jet = curve.sample_with_derivative(0.65).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.65).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+
+        let jet = curve.sample_with_derivative(1.1).unwrap();
+        let true_jet = curve2.sample_with_derivative(0.1).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+    }
+
+    #[test]
+    fn continuation_curve() {
+        let curve1 = test_curve();
+        let curve2 = other_test_curve();
+        let curve = curve1.by_ref().chain_continue(&curve2).unwrap();
+
+        let jet = curve.sample_with_derivative(0.99).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.99).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+
+        let jet = curve.sample_with_derivative(1.3).unwrap();
+        let true_jet = curve2.sample_with_derivative(0.3).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+    }
+
+    #[test]
+    fn repeat_curve() {
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().repeat(3).unwrap();
+
+        let jet = curve.sample_with_derivative(0.73).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.73).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+
+        let jet = curve.sample_with_derivative(3.5).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.5).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+    }
+
+    #[test]
+    fn forever_curve() {
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().forever().unwrap();
+
+        let jet = curve.sample_with_derivative(0.12).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.12).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+
+        let jet = curve.sample_with_derivative(500.5).unwrap();
+        let true_jet = curve1.sample_with_derivative(0.5).unwrap();
+        assert_abs_diff_eq!(jet.value, true_jet.value);
+        assert_abs_diff_eq!(jet.derivative, true_jet.derivative);
+    }
+
+    #[test]
+    fn ping_pong_curve() {
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().ping_pong().unwrap();
+
+        let jet = curve.sample_with_derivative(0.99).unwrap();
+        let comparison_jet = curve1.sample_with_derivative(0.99).unwrap();
+        assert_abs_diff_eq!(jet.value, comparison_jet.value);
+        assert_abs_diff_eq!(jet.derivative, comparison_jet.derivative);
+
+        let jet = curve.sample_with_derivative(1.3).unwrap();
+        let comparison_jet = curve1.sample_with_derivative(0.7).unwrap();
+        assert_abs_diff_eq!(jet.value, comparison_jet.value);
+        assert_abs_diff_eq!(jet.derivative, -comparison_jet.derivative, epsilon = 1.0e-5);
+    }
+
+    #[test]
+    fn zip_curve() {
+        let curve1 = test_curve();
+        let curve2 = other_test_curve();
+        let curve = curve1.by_ref().zip(&curve2).unwrap();
+
+        let jet = curve.sample_with_derivative(0.7).unwrap();
+        let comparison_jet1 = curve1.sample_with_derivative(0.7).unwrap();
+        let comparison_jet2 = curve2.sample_with_derivative(0.7).unwrap();
+        assert_abs_diff_eq!(jet.value.0, comparison_jet1.value);
+        assert_abs_diff_eq!(jet.value.1, comparison_jet2.value);
+        let Sum(derivative1, derivative2) = jet.derivative;
+        assert_abs_diff_eq!(derivative1, comparison_jet1.derivative);
+        assert_abs_diff_eq!(derivative2, comparison_jet2.derivative);
+    }
+
+    #[test]
+    fn graph_curve() {
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().graph();
+
+        let jet = curve.sample_with_derivative(0.25).unwrap();
+        let comparison_jet = curve1.sample_with_derivative(0.25).unwrap();
+        assert_abs_diff_eq!(jet.value.0, 0.25);
+        assert_abs_diff_eq!(jet.value.1, comparison_jet.value);
+        let Sum(one, derivative) = jet.derivative;
+        assert_abs_diff_eq!(one, 1.0);
+        assert_abs_diff_eq!(derivative, comparison_jet.derivative);
+    }
+
+    #[test]
+    fn reverse_curve() {
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().reverse().unwrap();
+
+        let jet = curve.sample_with_derivative(0.23).unwrap();
+        let comparison_jet = curve1.sample_with_derivative(0.77).unwrap();
+        assert_abs_diff_eq!(jet.value, comparison_jet.value);
+        assert_abs_diff_eq!(jet.derivative, -comparison_jet.derivative);
+    }
+
+    #[test]
+    fn curve_reparam_curve() {
+        let reparam_curve = reparam_curve();
+        let reparam_jet = reparam_curve.sample_with_derivative(0.6).unwrap();
+
+        let curve1 = test_curve();
+        let curve = curve1.by_ref().reparametrize_by_curve(&reparam_curve);
+
+        let jet = curve.sample_with_derivative(0.6).unwrap();
+        let base_jet = curve1
+            .sample_with_derivative(reparam_curve.sample(0.6).unwrap())
+            .unwrap();
+        assert_abs_diff_eq!(jet.value, base_jet.value);
+        assert_abs_diff_eq!(jet.derivative, base_jet.derivative * reparam_jet.derivative);
+    }
+
+    #[test]
+    fn linear_reparam_curve() {
+        let curve1 = test_curve();
+        let curve = curve1
+            .by_ref()
+            .reparametrize_linear(Interval::new(0.0, 0.5).unwrap())
+            .unwrap();
+
+        let jet = curve.sample_with_derivative(0.23).unwrap();
+        let comparison_jet = curve1.sample_with_derivative(0.46).unwrap();
+        assert_abs_diff_eq!(jet.value, comparison_jet.value);
+        assert_abs_diff_eq!(jet.derivative, comparison_jet.derivative * 2.0);
+    }
+}
