@@ -6,8 +6,8 @@ use crate::{
     component::{ComponentId, Tick},
     query::Access,
     result::Result,
-    system::{input::SystemIn, BoxedSystem, System},
     schedule::InternedSystemSet,
+    system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -157,7 +157,6 @@ impl System for ScheduleSystem {
         }
     }
 
-    
     #[inline(always)]
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         match self {
