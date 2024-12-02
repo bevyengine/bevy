@@ -952,7 +952,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node).unwrap();
+            world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
@@ -1242,11 +1242,11 @@ mod tests {
         }
 
         let _ = world.run_system_once_with(
+            test_system,
             TestSystemParam {
                 camera_entity,
                 root_node_entity,
             },
-            test_system,
         );
 
         let ui_surface = world.resource::<UiSurface>();
