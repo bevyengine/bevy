@@ -1,22 +1,20 @@
 //! This example illustrates the various features of Bevy UI.
 
+use std::f32::consts::PI;
+
+use accesskit::{Node as Accessible, Role};
 use bevy::{
-    a11y::{
-        accesskit::{NodeBuilder, Role},
-        AccessibilityNode,
-    },
-    color::palettes::basic::LIME,
+    a11y::AccessibilityNode,
+    color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
-    winit::WinitSettings,
+    ui::widget::NodeImageMode,
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
 
@@ -146,7 +144,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                         Label,
-                                        AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                        AccessibilityNode(Accessible::new(Role::ListItem)),
                                     ))
                                     .insert(PickingBehavior {
                                         should_block_lower: false,
@@ -157,36 +155,47 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
 
             parent
-                .spawn((
-                    Node {
-                        width: Val::Px(200.0),
-                        height: Val::Px(200.0),
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(210.),
-                        bottom: Val::Px(10.),
-                        border: UiRect::all(Val::Px(20.)),
-                        ..default()
-                    },
-                    BorderColor(LIME.into()),
-                    BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
-                ))
+                .spawn(Node {
+                    left: Val::Px(210.),
+                    bottom: Val::Px(10.),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                })
                 .with_children(|parent| {
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
-                    ));
+                    parent
+                        .spawn((
+                            Node {
+                                width: Val::Px(200.0),
+                                height: Val::Px(200.0),
+                                border: UiRect::all(Val::Px(20.)),
+                                flex_direction: FlexDirection::Column,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            BorderColor(LIME.into()),
+                            BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
+                                // Uses the transform to rotate the logo image by 45 degrees
+                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                BorderRadius::all(Val::Px(10.)),
+                                Outline {
+                                    width: Val::Px(2.),
+                                    offset: Val::Px(4.),
+                                    color: DARK_GRAY.into(),
+                                },
+                            ));
+                        });
                 });
 
-            let shadow = BoxShadow {
+            let shadow_style = ShadowStyle {
                 color: Color::BLACK.with_alpha(0.5),
                 blur_radius: Val::Px(2.),
                 x_offset: Val::Px(10.),
                 y_offset: Val::Px(10.),
-                ..Default::default()
+                ..default()
             };
 
             // render order test: reddest in the back, whitest in the front (flex center)
@@ -209,7 +218,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
-                            shadow,
+                            BoxShadow::from(shadow_style),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
@@ -223,7 +232,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -235,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -247,7 +256,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             // alpha test
                             parent.spawn((
@@ -260,10 +269,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
-                                BoxShadow {
+                                BoxShadow::from(ShadowStyle {
                                     color: Color::BLACK.with_alpha(0.3),
-                                    ..shadow
-                                },
+                                    ..shadow_style
+                                }),
                             ));
                         });
                 });
@@ -280,7 +289,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // bevy logo (image)
                     parent
                         .spawn((
-                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+                            ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png"))
+                                .with_mode(NodeImageMode::Stretch),
                             Node {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),
@@ -300,6 +310,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Bevy logo"),
                             ));
                         });
+                });
+
+            // four bevy icons demonstrating image flipping
+            parent
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexEnd,
+                    column_gap: Val::Px(10.),
+                    padding: UiRect::all(Val::Px(10.)),
+                    ..default()
+                })
+                .insert(PickingBehavior::IGNORE)
+                .with_children(|parent| {
+                    for (flip_x, flip_y) in
+                        [(false, false), (false, true), (true, true), (true, false)]
+                    {
+                        parent.spawn((
+                            ImageNode {
+                                image: asset_server.load("branding/icon.png"),
+                                flip_x,
+                                flip_y,
+                                ..default()
+                            },
+                            Node {
+                                // The height will be chosen automatically to preserve the image's aspect ratio
+                                width: Val::Px(75.),
+                                ..default()
+                            },
+                        ));
+                    }
                 });
         });
 }

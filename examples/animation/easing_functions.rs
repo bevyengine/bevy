@@ -138,7 +138,7 @@ fn display_curves(
         );
 
         // Draw the curve
-        let f = easing_curve(0.0, 1.0, *function);
+        let f = EasingCurve::new(0.0, 1.0, *function);
         let drawn_curve = f.by_ref().graph().map(|(x, y)| {
             Vec2::new(
                 x * SIZE_PER_FUNCTION + transform.translation.x,

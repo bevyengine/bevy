@@ -374,7 +374,7 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [trait reflection example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/trait_reflection.rs)
+//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
 //! # Serialization

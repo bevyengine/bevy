@@ -1,11 +1,11 @@
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
 
@@ -121,6 +121,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

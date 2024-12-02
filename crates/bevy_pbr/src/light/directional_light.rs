@@ -95,6 +95,7 @@ pub struct DirectionalLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadow_size: Option<f32>,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
@@ -120,9 +121,10 @@ impl Default for DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
-            soft_shadow_size: None,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadow_size: None,
         }
     }
 }

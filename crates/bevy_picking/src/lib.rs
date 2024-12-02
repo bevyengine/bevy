@@ -30,8 +30,8 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
+//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
@@ -73,8 +73,8 @@
 //!
 //! #### Input Agnostic
 //!
-//! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether its the included mouse
+//! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
+//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
 //! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
 //!
 //! ## Robustness
@@ -156,7 +156,7 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
-#[cfg(feature = "bevy_mesh")]
+#[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
 pub mod pointer;
 
@@ -168,7 +168,7 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh")]
+    #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
@@ -277,24 +277,10 @@ pub struct DefaultPickingPlugins;
 
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
-        #[cfg_attr(
-            not(feature = "bevy_mesh"),
-            expect(
-                unused_mut,
-                reason = "Group is not mutated when `bevy_mesh` is not enabled."
-            )
-        )]
-        let mut group = PluginGroupBuilder::start::<Self>()
+        PluginGroupBuilder::start::<Self>()
             .add(input::PointerInputPlugin::default())
             .add(PickingPlugin::default())
-            .add(InteractionPlugin);
-
-        #[cfg(feature = "bevy_mesh")]
-        {
-            group = group.add(mesh_picking::MeshPickingPlugin);
-        };
-
-        group
+            .add(InteractionPlugin)
     }
 }
 
@@ -395,6 +381,21 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
+            .add_event::<Pointer<Cancel>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<DragDrop>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Up>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

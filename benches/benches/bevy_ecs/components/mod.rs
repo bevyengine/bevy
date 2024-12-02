@@ -5,6 +5,7 @@ mod add_remove_big_table;
 mod add_remove_sparse_set;
 mod add_remove_table;
 mod add_remove_very_big_table;
+mod add_remove;
 mod archetype_updates;
 mod insert_simple;
 mod insert_simple_unbatched;

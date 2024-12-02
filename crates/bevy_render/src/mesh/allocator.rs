@@ -955,12 +955,18 @@ impl ElementLayout {
     /// Creates an [`ElementLayout`] for mesh data of the given class (vertex or
     /// index) with the given byte size.
     fn new(class: ElementClass, size: u64) -> ElementLayout {
+        const {
+            assert!(4 == COPY_BUFFER_ALIGNMENT);
+        }
+        // this is equivalent to `4 / gcd(4,size)` but lets us not implement gcd.
+        // ping @atlv if above assert ever fails (likely never)
+        let elements_per_slot = [1, 4, 2, 4][size as usize & 3];
         ElementLayout {
             class,
             size,
             // Make sure that slot boundaries begin and end on
             // `COPY_BUFFER_ALIGNMENT`-byte (4-byte) boundaries.
-            elements_per_slot: (COPY_BUFFER_ALIGNMENT / gcd(size, COPY_BUFFER_ALIGNMENT)) as u32,
+            elements_per_slot,
         }
     }
 
@@ -998,18 +1004,6 @@ impl GeneralSlab {
     fn is_empty(&self) -> bool {
         self.resident_allocations.is_empty() && self.pending_allocations.is_empty()
     }
-}
-
-/// Returns the greatest common divisor of the two numbers.
-///
-/// <https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations>
-fn gcd(mut a: u64, mut b: u64) -> u64 {
-    while b != 0 {
-        let t = b;
-        b = a % b;
-        a = t;
-    }
-    a
 }
 
 /// Returns a string describing the given buffer usages.

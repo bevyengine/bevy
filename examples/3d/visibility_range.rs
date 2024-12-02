@@ -26,10 +26,12 @@ const MIN_ZOOM_DISTANCE: f32 = 0.5;
 static NORMAL_VISIBILITY_RANGE_HIGH_POLY: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 3.0..4.0,
+    use_aabb: false,
 };
 static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
     start_margin: 3.0..4.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility model that we use to always show a model (until the camera is so
@@ -37,12 +39,14 @@ static NORMAL_VISIBILITY_RANGE_LOW_POLY: VisibilityRange = VisibilityRange {
 static SINGLE_MODEL_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 8.0..9.0,
+    use_aabb: false,
 };
 
 // A visibility range that we use to completely hide a model.
 static INVISIBLE_VISIBILITY_RANGE: VisibilityRange = VisibilityRange {
     start_margin: 0.0..0.0,
     end_margin: 0.0..0.0,
+    use_aabb: false,
 };
 
 // Allows us to identify the main model.
