@@ -7,6 +7,7 @@ use crate::{
     query::Access,
     result::Result,
     system::{input::SystemIn, BoxedSystem, System},
+    schedule::InternedSystemSet,
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -153,6 +154,15 @@ impl System for ScheduleSystem {
         match self {
             ScheduleSystem::Infallible(inner_system) => inner_system.check_change_tick(change_tick),
             ScheduleSystem::Fallible(inner_system) => inner_system.check_change_tick(change_tick),
+        }
+    }
+
+    
+    #[inline(always)]
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        match self {
+            ScheduleSystem::Infallible(inner_system) => inner_system.default_system_sets(),
+            ScheduleSystem::Fallible(inner_system) => inner_system.default_system_sets(),
         }
     }
 
