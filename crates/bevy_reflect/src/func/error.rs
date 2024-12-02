@@ -1,5 +1,7 @@
+use crate::func::signature::ArgumentSignature;
 use crate::func::{args::ArgError, Return};
 use alloc::borrow::Cow;
+use bevy_utils::HashSet;
 use derive_more::derive::{Display, Error, From};
 
 /// An error that occurs when calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -13,6 +15,12 @@ pub enum FunctionError {
     /// The number of arguments provided does not match the expected number.
     #[display("expected {expected} arguments but received {received}")]
     ArgCountMismatch { expected: usize, received: usize },
+    /// No overload was found for the given set of arguments.
+    #[display("no overload found for arguments with signature `{received:?}`, expected one of `{expected:?}`")]
+    NoOverload {
+        expected: HashSet<ArgumentSignature>,
+        received: ArgumentSignature,
+    },
 }
 
 /// The result of calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -23,6 +31,20 @@ pub enum FunctionError {
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
+
+/// A [`FunctionInfo`] was expected but none was found.
+///
+/// [`FunctionInfo`]: crate::func::FunctionInfo
+#[derive(Debug, Error, Display, PartialEq)]
+#[display("expected a `FunctionInfo` but found none")]
+pub struct MissingFunctionInfoError;
+
+/// An error that occurs when attempting to add a function overload with a duplicate signature.
+#[derive(Debug, Display, Error, PartialEq)]
+#[display("could not add function overload: duplicate found for signature `{signature:?}`")]
+pub struct FunctionOverloadError {
+    pub signature: ArgumentSignature,
+}
 
 /// An error that occurs when registering a function into a [`FunctionRegistry`].
 ///

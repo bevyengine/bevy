@@ -1,12 +1,82 @@
 use alloc::borrow::Cow;
-
 use bevy_utils::all_tuples;
+use core::fmt::{Debug, Formatter};
 
 use crate::{
-    func::args::{ArgInfo, GetOwnership, Ownership},
+    func::{
+        args::{ArgInfo, GetOwnership, Ownership},
+        MissingFunctionInfoError,
+    },
     type_info::impl_type_methods,
     Type, TypePath,
 };
+
+/// A wrapper around [`FunctionInfo`] used to represent either a standard function
+/// or an overloaded function.
+#[derive(Debug, Clone)]
+pub enum FunctionInfoType<'a> {
+    /// A standard function with a single set of arguments.
+    ///
+    /// This includes generic functions with a single set of monomorphized arguments.
+    Standard(Cow<'a, FunctionInfo>),
+    /// An overloaded function with multiple sets of arguments.
+    ///
+    /// This includes generic functions with multiple sets of monomorphized arguments,
+    /// as well as functions with a variable number of arguments (i.e. "variadic functions").
+    Overloaded(Cow<'a, [FunctionInfo]>),
+}
+
+impl From<FunctionInfo> for FunctionInfoType<'_> {
+    fn from(info: FunctionInfo) -> Self {
+        FunctionInfoType::Standard(Cow::Owned(info))
+    }
+}
+
+impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType<'_> {
+    type Error = MissingFunctionInfoError;
+
+    fn try_from(mut infos: Vec<FunctionInfo>) -> Result<Self, Self::Error> {
+        match infos.len() {
+            0 => Err(MissingFunctionInfoError),
+            1 => Ok(Self::Standard(Cow::Owned(infos.pop().unwrap()))),
+            _ => Ok(Self::Overloaded(Cow::Owned(infos))),
+        }
+    }
+}
+
+impl IntoIterator for FunctionInfoType<'_> {
+    type Item = FunctionInfo;
+    type IntoIter = std::vec::IntoIter<FunctionInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        // Allow `.into_owned()` so that we can create a `std::vec::IntoIter`
+        #[allow(clippy::unnecessary_to_owned)]
+        match self {
+            FunctionInfoType::Standard(info) => vec![info.into_owned()].into_iter(),
+            FunctionInfoType::Overloaded(infos) => infos.into_owned().into_iter(),
+        }
+    }
+}
+
+impl FunctionInfoType<'_> {
+    pub fn arg_count(&self) -> usize {
+        match self {
+            Self::Standard(info) => info.arg_count(),
+            Self::Overloaded(infos) => {
+                // TODO: This needs proper implementation
+                infos.iter().map(FunctionInfo::arg_count).min().unwrap()
+            } // match self {
+              //     Self::Standard(info) => RangeInclusive::new(info.arg_count(), info.arg_count()),
+              //     Self::Overloaded(infos) => infos.iter().map(FunctionInfo::arg_count).fold(
+              //         RangeInclusive::new(0, 0),
+              //         |acc, count| {
+              //             RangeInclusive::new((*acc.start()).min(count), (*acc.end()).max(count))
+              //         },
+              //     ),
+              // }
+        }
+    }
+}
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -135,6 +205,28 @@ impl FunctionInfo {
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info
     }
+
+    /// Returns a wrapper around this info that implements [`Debug`] for pretty-printing the function.
+    ///
+    /// This can be useful for more readable debugging and logging.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{FunctionInfo, TypedFunction};
+    /// #
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let info = add.get_function_info();
+    ///
+    /// let pretty = info.pretty_printer();
+    /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+    /// ```
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+        PrettyPrintFunctionInfo::new(self)
+    }
 }
 
 /// Information about the return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -161,6 +253,86 @@ impl ReturnInfo {
     /// The ownership of this type.
     pub fn ownership(&self) -> Ownership {
         self.ownership
+    }
+}
+
+/// A wrapper around [`FunctionInfo`] that implements [`Debug`] for pretty-printing function information.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::func::{FunctionInfo, PrettyPrintFunctionInfo, TypedFunction};
+/// #
+/// fn add(a: i32, b: i32) -> i32 {
+///     a + b
+/// }
+///
+/// let info = add.get_function_info();
+///
+/// let pretty = PrettyPrintFunctionInfo::new(&info);
+/// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+/// ```
+pub struct PrettyPrintFunctionInfo<'a> {
+    info: &'a FunctionInfo,
+    include_fn_token: bool,
+    include_name: bool,
+}
+
+impl<'a> PrettyPrintFunctionInfo<'a> {
+    /// Create a new pretty-printer for the given [`FunctionInfo`].
+    pub fn new(info: &'a FunctionInfo) -> Self {
+        Self {
+            info,
+            include_fn_token: false,
+            include_name: false,
+        }
+    }
+
+    /// Include the function name in the pretty-printed output.
+    pub fn include_name(mut self) -> Self {
+        self.include_name = true;
+        self
+    }
+
+    /// Include the `fn` token in the pretty-printed output.
+    pub fn include_fn_token(mut self) -> Self {
+        self.include_fn_token = true;
+        self
+    }
+}
+
+impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if self.include_fn_token {
+            write!(f, "fn")?;
+
+            if self.include_name {
+                write!(f, " ")?;
+            }
+        }
+
+        match (self.include_name, self.info.name()) {
+            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, None) => write!(f, "_")?,
+            _ => {}
+        }
+
+        write!(f, "(")?;
+
+        // We manually write the args instead of using `DebugTuple` to avoid trailing commas
+        // and (when used with `{:#?}`) unnecessary newlines
+        for (index, arg) in self.info.args().iter().enumerate() {
+            if index > 0 {
+                write!(f, ", ")?;
+            }
+
+            let name = arg.name().unwrap_or("_");
+            let ty = arg.type_path();
+            write!(f, "{name}: {ty}")?;
+        }
+
+        let ret = self.info.return_info().type_path();
+        write!(f, ") -> {ret}")
     }
 }
 
@@ -443,5 +615,26 @@ mod tests {
         assert_eq!(info.args()[0].type_path(), "i32");
         assert_eq!(info.args()[1].type_path(), "i32");
         assert_eq!(info.return_info().type_path(), "()");
+    }
+
+    #[test]
+    fn should_pretty_print_info() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let info = add.get_function_info().with_name("add");
+
+        let pretty = info.pretty_printer();
+        assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token();
+        assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_name();
+        assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token().include_name();
+        assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
     }
 }
