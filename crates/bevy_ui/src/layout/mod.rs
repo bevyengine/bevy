@@ -433,13 +433,19 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+            let clamped_scroll_position = scroll_position.clamp(
+                Vec2::ZERO,
+                max_possible_offset * inverse_target_scale_factor,
+            );
 
             if clamped_scroll_position != scroll_position {
                 commands
                     .entity(entity)
-                    .insert(ScrollPosition::from(&clamped_scroll_position));
+                    .insert(ScrollPosition::from(clamped_scroll_position));
             }
+
+            let physical_scroll_position =
+                (clamped_scroll_position / inverse_target_scale_factor).round();
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
@@ -451,7 +457,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
-                    clamped_scroll_position,
+                    physical_scroll_position,
                 );
             }
         }
