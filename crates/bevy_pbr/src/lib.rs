@@ -27,6 +27,7 @@ pub mod experimental {
 
 mod bundle;
 mod cluster;
+pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -349,6 +350,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceReflectionsPlugin,
             ))
             .add_plugins((
+                decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),

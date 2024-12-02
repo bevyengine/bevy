@@ -26,24 +26,36 @@
 #import bevy_core_pipeline::oit::oit_draw
 #endif // OIT_ENABLED
 
+#ifdef FORWARD_DECAL
+#import beby_pbr::decal::forward::get_forward_decal_info
+#endif
+
 @fragment
 fn fragment(
 #ifdef MESHLET_MESH_MATERIAL_PASS
     @builtin(position) frag_coord: vec4<f32>,
 #else
-    in: VertexOutput,
+    vertex_input: VertexOutput,
     @builtin(front_facing) is_front: bool,
 #endif
 ) -> FragmentOutput {
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    let in = resolve_vertex_output(frag_coord);
+    var in = resolve_vertex_output(frag_coord);
     let is_front = true;
+#else
+    var in = vertex_input;
 #endif
 
     // If we're in the crossfade section of a visibility range, conditionally
     // discard the fragment according to the visibility pattern.
 #ifdef VISIBILITY_RANGE_DITHER
     pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+#endif
+
+#ifdef FORWARD_DECAL
+    let forward_decal_info = get_forward_decal_info(in, 0, 0.0); // TODO
+    in.world_position = forward_decal_info.world_position;
+    in.uv = forward_decal_info.uv;
 #endif
 
     // generate a PbrInput struct from the StandardMaterial bindings
@@ -78,6 +90,10 @@ fn fragment(
         discard;
     }
 #endif // OIT_ENABLED
+
+#ifdef FORWARD_DECAL
+    out.color.a = min(decal_info.alpha, out.color.a);
+#endif
 
     return out;
 }
