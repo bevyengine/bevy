@@ -1017,7 +1017,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.queue(|world: &mut World| {
             if let Err(error) = world.try_run_schedule(label) {
-                error!("Failed to run schedule: {error}");
+                panic!("Failed to run schedule: {error}");
             }
         });
     }
