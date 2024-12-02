@@ -1,4 +1,7 @@
-use crate::{MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline};
+use crate::{
+    ExtendedMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
+    MaterialPlugin, StandardMaterial,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_ecs::component::Component;
@@ -21,22 +24,29 @@ pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        let plane_mesh = Rectangle::from_size(Vec2::ONE)
-            .mesh()
-            .build()
-            .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
-            .with_generated_tangents()
-            .unwrap();
-
-        app.world_mut()
-            .resource_mut::<Assets<Mesh>>()
-            .insert(FORWARD_DECAL_MESH_HANDLE.id(), plane_mesh);
-
         load_internal_asset!(
             app,
             FORWARD_DECAL_SHADER_HANDLE,
             "forward_decal.wgsl",
             Shader::from_wgsl
+        );
+
+        app.world_mut().resource_mut::<Assets<Mesh>>().insert(
+            FORWARD_DECAL_MESH_HANDLE.id(),
+            Rectangle::from_size(Vec2::ONE)
+                .mesh()
+                .build()
+                .rotated_by(Quat::from_rotation_arc(Vec3::Z, Vec3::Y))
+                .with_generated_tangents()
+                .unwrap(),
+        );
+
+        app.add_plugins(
+            MaterialPlugin::<ExtendedMaterial<StandardMaterial, ForwardDecalMaterial>> {
+                prepass_enabled: false,
+                shadows_enabled: false,
+                ..Default::default()
+            },
         );
     }
 }
