@@ -94,7 +94,8 @@ impl FromWorld for SkinUniforms {
 /// storage buffers aren't supported on the current platform.
 pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
     static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS.get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
+    *SKINS_USE_UNIFORM_BUFFERS
+        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
 }
 
 pub fn prepare_skins(
