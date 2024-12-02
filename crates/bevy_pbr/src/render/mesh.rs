@@ -45,6 +45,7 @@ use bevy_utils::{
     tracing::{error, warn},
     Entry, HashMap, Parallel,
 };
+use render::skin::{self, SkinIndex};
 
 use crate::{
     render::{
@@ -148,7 +149,6 @@ impl Plugin for MeshRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniforms>()
                 .init_resource::<SkinIndices>()
                 .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
@@ -184,7 +184,9 @@ impl Plugin for MeshRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<GpuPreprocessingSupport>();
+            render_app
+                .init_resource::<GpuPreprocessingSupport>()
+                .init_resource::<SkinUniforms>();
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
@@ -213,6 +215,7 @@ impl Plugin for MeshRenderPlugin {
                             collect_meshes_for_gpu_building
                                 .in_set(RenderSet::PrepareAssets)
                                 .after(allocator::allocate_and_free_meshes)
+                                .after(extract_skins)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
@@ -298,12 +301,12 @@ pub struct MeshUniform {
     /// [`MeshAllocator`]). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
+    /// The current skin index, or `u32::MAX` if there's no skin.
+    pub current_skin_index: u32,
+    /// The previous skin index, or `u32::MAX` if there's no previous skin.
+    pub previous_skin_index: u32,
     /// Padding.
     pub pad_a: u32,
-    /// Padding.
-    pub pad_b: u32,
-    /// Padding.
-    pub pad_c: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -340,12 +343,12 @@ pub struct MeshInputUniform {
     /// [`MeshAllocator`]). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
+    /// The current skin index, or `u32::MAX` if there's no skin.
+    pub current_skin_index: u32,
+    /// The previous skin index, or `u32::MAX` if there's no previous skin.
+    pub previous_skin_index: u32,
     /// Padding.
     pub pad_a: u32,
-    /// Padding.
-    pub pad_b: u32,
-    /// Padding.
-    pub pad_c: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -376,6 +379,8 @@ impl MeshUniform {
         mesh_transforms: &MeshTransforms,
         first_vertex_index: u32,
         maybe_lightmap_uv_rect: Option<Rect>,
+        current_skin_index: Option<u32>,
+        previous_skin_index: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -387,9 +392,9 @@ impl MeshUniform {
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             first_vertex_index,
+            current_skin_index: current_skin_index.unwrap_or(u32::MAX),
+            previous_skin_index: previous_skin_index.unwrap_or(u32::MAX),
             pad_a: 0,
-            pad_b: 0,
-            pad_c: 0,
         }
     }
 }
@@ -776,11 +781,21 @@ impl RenderMeshInstanceGpuBuilder {
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
+        skin_indices: &SkinIndices,
     ) -> usize {
         let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
         {
             Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
             None => 0,
+        };
+
+        let current_skin_index = match skin_indices.current.get(&entity) {
+            Some(skin_indices) => skin_indices.index(),
+            None => u32::MAX,
+        };
+        let previous_skin_index = match skin_indices.prev.get(&entity) {
+            Some(skin_indices) => skin_indices.index(),
+            None => u32::MAX,
         };
 
         // Push the mesh input uniform.
@@ -793,9 +808,9 @@ impl RenderMeshInstanceGpuBuilder {
                 None => u32::MAX,
             },
             first_vertex_index,
+            current_skin_index,
+            previous_skin_index,
             pad_a: 0,
-            pad_b: 0,
-            pad_c: 0,
         });
 
         // Record the [`RenderMeshInstance`].
@@ -1111,6 +1126,7 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
+    skin_indices: Res<SkinIndices>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1144,6 +1160,7 @@ pub fn collect_meshes_for_gpu_building(
                         &mut *render_mesh_instances,
                         current_input_buffer,
                         &mesh_allocator,
+                        &skin_indices,
                     );
                 }
             }
@@ -1154,6 +1171,7 @@ pub fn collect_meshes_for_gpu_building(
                         &mut *render_mesh_instances,
                         current_input_buffer,
                         &mesh_allocator,
+                        &skin_indices,
                     );
                     let culling_data_index =
                         mesh_culling_builder.add_to(&mut mesh_culling_data_buffer);
@@ -1191,6 +1209,10 @@ pub struct MeshPipeline {
     ///
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
+
+    /// Whether skins will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub skins_use_uniform_buffers: bool,
 }
 
 impl FromWorld for MeshPipeline {
@@ -1248,6 +1270,7 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
+            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
 }
@@ -1280,6 +1303,7 @@ impl GetBatchData for MeshPipeline {
         SRes<RenderLightmaps>,
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
+        SRes<SkinIndices>,
     );
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
@@ -1288,7 +1312,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, skin_indices): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1306,11 +1330,16 @@ impl GetBatchData for MeshPipeline {
             };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
+        let current_skin_index = skin_indices.current.get(&main_entity).map(SkinIndex::index);
+        let previous_skin_index = skin_indices.prev.get(&main_entity).map(SkinIndex::index);
+
         Some((
             MeshUniform::new(
                 &mesh_instance.transforms,
                 first_vertex_index,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+                current_skin_index,
+                previous_skin_index,
             ),
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
@@ -1325,7 +1354,7 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, _, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
@@ -1351,7 +1380,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, skin_indices): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1368,15 +1397,20 @@ impl GetFullBatchData for MeshPipeline {
             };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
+        let current_skin_index = skin_indices.current.get(&main_entity).map(SkinIndex::index);
+        let previous_skin_index = skin_indices.prev.get(&main_entity).map(SkinIndex::index);
+
         Some(MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
             maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            current_skin_index,
+            previous_skin_index,
         ))
     }
 
     fn get_binned_index(
-        (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _, _, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
@@ -1394,7 +1428,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_batch_indirect_parameters_index(
-        (mesh_instances, _, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, meshes, mesh_allocator, _): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
         entity: (Entity, MainEntity),
         instance_index: u32,
@@ -1632,15 +1666,22 @@ pub fn setup_morph_and_skinning_defs(
     key: &MeshPipelineKey,
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
+    skins_use_uniform_buffers: bool,
 ) -> BindGroupLayout {
+    let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
+    let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
+    let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+
+    if skins_use_uniform_buffers {
+        shader_defs.push("SKINS_USE_UNIFORM_BUFFERS".into());
+    }
+
     let mut add_skin_data = || {
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
     };
-    let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
-    let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
-    let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+
     match (
         is_skinned(layout),
         is_morphed,
@@ -1749,6 +1790,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             &key,
             &mut shader_defs,
             &mut vertex_attributes,
+            self.skins_use_uniform_buffers,
         ));
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
@@ -2241,6 +2283,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 pub struct SetMeshBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     type Param = (
+        SRes<RenderDevice>,
         SRes<MeshBindGroups>,
         SRes<RenderMeshInstances>,
         SRes<SkinIndices>,
@@ -2255,11 +2298,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         item: &P,
         has_motion_vector_prepass: bool,
         _item_query: Option<()>,
-        (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
-            'w,
-            '_,
-            Self::Param,
-        >,
+        (
+            render_device,
+            bind_groups,
+            mesh_instances,
+            skin_indices,
+            morph_indices,
+            lightmaps,
+        ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let bind_groups = bind_groups.into_inner();
@@ -2272,6 +2318,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
             return RenderCommandResult::Success;
         };
+
         let current_skin_index = skin_indices.current.get(entity);
         let prev_skin_index = skin_indices.prev.get(entity);
         let current_morph_index = morph_indices.current.get(entity);
@@ -2306,8 +2353,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_index {
-            dynamic_offsets[offset_count] = current_skin_index.index;
-            offset_count += 1;
+            if skin::skins_use_uniform_buffers(&render_device) {
+                dynamic_offsets[offset_count] = current_skin_index.byte_offset;
+                offset_count += 1;
+            }
         }
         if let Some(current_morph_index) = current_morph_index {
             dynamic_offsets[offset_count] = current_morph_index.index;
@@ -2320,7 +2369,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             // there isn't one, just use zero as the shader will ignore it.
             if current_skin_index.is_some() {
                 match prev_skin_index {
-                    Some(prev_skin_index) => dynamic_offsets[offset_count] = prev_skin_index.index,
+                    Some(prev_skin_index) => {
+                        dynamic_offsets[offset_count] = prev_skin_index.byte_offset;
+                    }
                     None => dynamic_offsets[offset_count] = 0,
                 }
                 offset_count += 1;
