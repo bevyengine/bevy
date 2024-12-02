@@ -164,7 +164,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 sink.pause();
             }
 
-            match settings.mode {
+            match source_handle.1 {
                 PlaybackMode::Loop => {
                     sink.append(audio_source.decoder().repeat_infinite());
                     commands.entity(entity).insert(SpatialAudioSink { sink });
@@ -204,7 +204,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 sink.pause();
             }
 
-            match settings.mode {
+            match source_handle.1 {
                 PlaybackMode::Loop => {
                     sink.append(audio_source.decoder().repeat_infinite());
                     commands.entity(entity).insert(AudioSink { sink });
