@@ -1,10 +1,9 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Sphere};
 use core::f32::consts::PI;
 use derive_more::derive::{Display, Error};
 use hexasphere::shapes::IcoSphere;
-use wgpu::PrimitiveTopology;
 
 /// An error when creating an icosphere [`Mesh`] from a [`SphereMeshBuilder`].
 #[derive(Clone, Copy, Debug, Error, Display)]

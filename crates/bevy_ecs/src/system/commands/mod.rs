@@ -2256,7 +2256,7 @@ fn observe<E: Event, B: Bundle, M>(
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::Component,
+        component::{require, Component},
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };
