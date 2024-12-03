@@ -77,7 +77,7 @@ impl Prepare for CompileCheckNoStdCommand {
             ),
             "Please fix compiler errors in output above for bevy_reflect no_std compatibility.",
         ));
-      
+
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
