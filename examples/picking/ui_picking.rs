@@ -4,7 +4,7 @@
 //! This example displays a simple inventory. Items can be dragged and dropped within the
 //! inventory.
 
-use bevy::{ecs::system::RunSystemOnce, prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 
 fn main() {
     App::new()
