@@ -6,7 +6,7 @@ use bevy_utils::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use derive_more::derive::{Display, Error};
-use wgpu::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
+use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MeshVertexAttribute {
