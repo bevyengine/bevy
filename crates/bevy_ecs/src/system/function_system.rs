@@ -159,8 +159,12 @@ impl SystemMeta {
     /// they conflict if you just look at the [`ComponentId`];
     /// but no archetype that matches the first query will match the second and vice versa,
     /// which means there's no risk of conflict.
+    ///
+    /// # Safety
+    ///
+    /// No access can be removed from the returned [`Access`].
     #[inline]
-    pub fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
         &mut self.archetype_component_access
     }
 
@@ -173,8 +177,12 @@ impl SystemMeta {
 
     /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
     /// Used internally to statically check if systems have conflicting access.
+    ///
+    /// # Safety
+    ///
+    /// No access can be removed from the returned [`FilteredAccessSet`].
     #[inline]
-    pub fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
         &mut self.component_access_set
     }
 }
