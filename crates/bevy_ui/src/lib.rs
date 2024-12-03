@@ -170,7 +170,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
-            .register_type::<UiBoxShadowSamples>()
+            .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .configure_sets(
                 PostUpdate,

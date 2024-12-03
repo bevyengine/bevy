@@ -1,7 +1,7 @@
 use crate::{mesh::Mesh, view::Visibility};
 use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, prelude::require, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
