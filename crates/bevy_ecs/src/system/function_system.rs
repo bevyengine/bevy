@@ -175,7 +175,7 @@ impl SystemMeta {
     /// Used internally to statically check if systems have conflicting access.
     #[inline]
     pub fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
-        &mut self.component_access
+        &mut self.component_access_set
     }
 }
 
