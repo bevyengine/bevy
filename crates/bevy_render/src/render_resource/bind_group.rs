@@ -7,12 +7,13 @@ use crate::{
     texture::GpuImage,
 };
 use alloc::sync::Arc;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
 use derive_more::derive::{Display, Error};
 use encase::ShaderType;
-use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource, TextureViewDimension};
 
 define_atomic_id!(BindGroupId);
 
@@ -247,6 +248,28 @@ impl Deref for BindGroup {
 ///         as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///         the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
 ///         is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+/// * `bindless(COUNT)`
+///     * This switch enables *bindless resources*, which changes the way Bevy
+///       supplies resources (uniforms, textures, and samplers) to the shader.
+///       When bindless resources are enabled, and the current platform supports
+///       them, instead of presenting a single instance of a resource to your
+///       shader Bevy will instead present a *binding array* of `COUNT` elements.
+///       In your shader, the index of the element of each binding array
+///       corresponding to the mesh currently being drawn can be retrieved with
+///       `mesh[in.instance_index].material_bind_group_slot`.
+///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
+///       uniform buffers are automatically replaced with read-only storage
+///       buffers.
+///     * The purpose of bindless mode is to improve performance by reducing
+///       state changes. By grouping resources together into binding arrays, Bevy
+///       doesn't have to modify GPU state as often, decreasing API and driver
+///       overhead.
+///     * If bindless mode is enabled, the `BINDLESS` definition will be
+///       available. Because not all platforms support bindless resources, you
+///       should check for the presence of this definition via `#ifdef` and fall
+///       back to standard bindings if it isn't present.
+///     * See the `shaders/shader_material_bindless` example for an example of
+///       how to use bindless mode.
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
@@ -306,6 +329,15 @@ pub trait AsBindGroup {
     type Data: Send + Sync;
 
     type Param: SystemParam + 'static;
+
+    /// The number of slots per bind group, if bindless mode is enabled.
+    ///
+    /// If this bind group doesn't use bindless, then this will be `None`.
+    ///
+    /// Note that the *actual* slot count may be different from this value, due
+    /// to platform limitations. For example, if bindless resources aren't
+    /// supported on this platform, the actual slot count will be 1.
+    const BINDLESS_SLOT_COUNT: Option<u32> = None;
 
     /// label
     fn label() -> Option<&'static str> {
@@ -379,16 +411,21 @@ pub enum AsBindGroupError {
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
 pub struct PreparedBindGroup<T> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub data: T,
 }
 
 /// a map containing `OwnedBindingResource`s, keyed by the target binding index
 pub struct UnpreparedBindGroup<T> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub data: T,
 }
+
+/// A pair of binding index and binding resource, used as part of
+/// [`PreparedBindGroup`] and [`UnpreparedBindGroup`].
+#[derive(Deref, DerefMut)]
+pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
@@ -396,7 +433,7 @@ pub struct UnpreparedBindGroup<T> {
 #[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
-    TextureView(TextureView),
+    TextureView(TextureViewDimension, TextureView),
     Sampler(Sampler),
 }
 
@@ -404,7 +441,7 @@ impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
-            OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
+            OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
         }
     }
