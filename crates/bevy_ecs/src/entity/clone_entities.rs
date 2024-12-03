@@ -118,12 +118,13 @@ impl EntityCloner {
 /// Here's an example of how to do it using [`get_component_clone_handler`](Component::get_component_clone_handler):
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::component::{StorageType, component_clone_via_clone, ComponentCloneHandler};
+/// # use bevy_ecs::component::{StorageType, component_clone_via_clone, ComponentCloneHandler, Mutable};
 /// #[derive(Clone)]
 /// struct SomeComponent;
 ///
 /// impl Component for SomeComponent {
 ///     const STORAGE_TYPE: StorageType = StorageType::Table;
+///     type Mutability = Mutable;
 ///     fn get_component_clone_handler() -> ComponentCloneHandler {
 ///         ComponentCloneHandler::Custom(component_clone_via_clone::<Self>)
 ///     }
