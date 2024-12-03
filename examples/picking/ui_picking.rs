@@ -120,7 +120,7 @@ fn add_items_to_inventory(
                     ImageNode::new(asset_server.load(paths[i])),
                     // Nodes with a higher GlobalZIndex will be drawn on top of those without this
                     // component, or with a lower GlobalZIndex.
-                    GlobalZIndex(1),
+                    GlobalZIndex(0),
                 ))
                 .observe(drag_start())
                 .observe(drag_end());
@@ -133,11 +133,12 @@ fn add_items_to_inventory(
 fn drag_start() -> impl Fn(
     Trigger<Pointer<DragStart>>,
     Commands,
-    Query<(Entity, &mut Node, &mut Transform, &Parent), With<Draggable>>,
+    Query<(Entity, &ComputedNode, &mut Node, &Parent), With<Draggable>>,
     ResMut<DragDetails>,
 ) {
     move |ev, mut commands, mut draggable, mut drag_details| {
-        let Ok((item, mut item_node, mut transform, parent)) = draggable.get_mut(ev.target) else {
+        let Ok((item, item_computed_node, mut item_node, parent)) = draggable.get_mut(ev.target)
+        else {
             return;
         };
 
@@ -147,14 +148,20 @@ fn drag_start() -> impl Fn(
         // Absolutely-positioned items can be made to follow the cursor.
         item_node.position_type = PositionType::Absolute;
 
-        // TODO: is there a better solution for the scaling problem? Without this, and without a
-        // parent element, the asset will be un-scaled (and appear tiny). Copying its current
-        // scaling doesn't seem to be helpful.
-        transform.scale *= 4.;
+        // Once we remove this node from its parent, it will cease to be scaled by it, and will
+        // appear at the original size of the texture (which in this case is too small). Here, we
+        // read the current computed size of the node and set it on the `height` and `width`
+        // fields.
+        let size = item_computed_node.size();
+        item_node.width = Val::Px(size.x);
+        item_node.height = Val::Px(size.y);
 
         // Add a marker to tell our systems that the node is being dragged, and remove it from the
         // list of children on its current parent entity.
-        commands.entity(item).insert(Dragging).remove_parent();
+        commands
+            .entity(item)
+            .insert((Dragging, GlobalZIndex(1)))
+            .remove_parent();
     }
 }
 
@@ -164,16 +171,19 @@ fn drag_start() -> impl Fn(
 fn drag_end() -> impl Fn(
     Trigger<Pointer<DragEnd>>,
     Commands,
-    Query<(Entity, &mut Node, &mut Transform), With<Dragging>>,
+    Query<(Entity, &mut Node), With<Dragging>>,
     ResMut<DragDetails>,
 ) {
     move |_ev, mut commands, mut dragging_item, drag_details| {
-        let Ok((item, mut item_node, mut transform)) = dragging_item.get_single_mut() else {
+        let Ok((item, mut item_node)) = dragging_item.get_single_mut() else {
             return;
         };
 
         // Not dragging anymore!
-        commands.entity(item).remove::<Dragging>();
+        commands
+            .entity(item)
+            .insert(GlobalZIndex(0))
+            .remove::<Dragging>();
 
         // We either want the new location, or the original one. In theory, both being `None`
         // shouldn't happen.
@@ -188,7 +198,8 @@ fn drag_end() -> impl Fn(
         item_node.position_type = PositionType::Relative;
         item_node.left = Val::Auto;
         item_node.top = Val::Auto;
-        transform.scale /= 4.;
+        item_node.height = Val::Auto;
+        item_node.width = Val::Auto;
     }
 }
 
