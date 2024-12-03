@@ -53,6 +53,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_utils::tracing::warn;
 use core::{
     fmt::{self, Debug, Formatter},
     hash::Hash,
@@ -418,6 +419,7 @@ where
                 // Fetch the draw function.
                 let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
                 else {
+                    warn!("No draw function found for phase item",);
                     continue;
                 };
 

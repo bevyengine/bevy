@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::sprite::RenderPhase2dType;
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -34,6 +35,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
+use bevy_render::render_phase::DrawFunctionId;
 use std::f32::consts::PI;
 
 fn main() {
@@ -352,6 +354,9 @@ pub fn extract_colored_mesh2d(
                 transforms,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
+                render_phase_type: RenderPhase2dType::Opaque,
+                depth_bias: 0.0,
+                draw_function_id: DrawFunctionId::INVALID,
             },
         );
     }

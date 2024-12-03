@@ -160,7 +160,6 @@ pub struct OpaqueNoLightmap3dBinKey {
 
     /// The ID of the asset.
     pub asset_id: UntypedAssetId,
-
     /// The ID of a bind group specific to the material.
     ///
     /// In the case of PBR, this is the `MaterialBindGroupId`.
