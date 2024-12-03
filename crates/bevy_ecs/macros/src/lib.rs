@@ -403,6 +403,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         change_tick,
                     }
                 }
+
+                fn is_exclusive() -> bool {
+                    false #(|| <#param as SystemParam>::is_exclusive())*
+                }
             }
 
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>

@@ -1,7 +1,7 @@
 use crate::{
     component::Tick,
     prelude::World,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use alloc::borrow::Cow;
@@ -74,19 +74,6 @@ unsafe impl SystemParam for SystemName<'_> {
 
 // SAFETY: Only reads internal system state
 unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
-
-impl ExclusiveSystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'s> = SystemName<'s>;
-
-    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
-
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        SystemName(state)
-    }
-}
 
 #[cfg(test)]
 mod tests {
