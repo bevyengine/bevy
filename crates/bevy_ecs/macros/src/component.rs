@@ -163,6 +163,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #on_replace
                 #on_remove
             }
+
+            fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
+                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
+                (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
+                    .get_component_clone_handler()
+            }
         }
     })
 }

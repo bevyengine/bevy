@@ -1,4 +1,4 @@
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};

@@ -1,5 +1,5 @@
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{

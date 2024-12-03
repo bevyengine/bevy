@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec};
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::{
     func::args::{ArgInfo, GetOwnership, Ownership},
