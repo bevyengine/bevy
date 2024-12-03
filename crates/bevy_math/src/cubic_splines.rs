@@ -63,9 +63,9 @@ pub struct CubicBezier<P: VectorSpace> {
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
-    pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
+    pub fn new(control_points: impl IntoIterator<Item = [P; 4]>) -> Self {
         Self {
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 }
@@ -287,18 +287,18 @@ pub struct CubicCardinalSpline<P: VectorSpace> {
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
-    pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new(tension: f32, control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
             tension,
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
     /// Build a new Catmull-Rom spline, the special case of a Cardinal spline where tension = 1/2.
-    pub fn new_catmull_rom(control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new_catmull_rom(control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
             tension: 0.5,
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
@@ -444,9 +444,9 @@ pub struct CubicBSpline<P: VectorSpace> {
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
-    pub fn new(control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new(control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
@@ -630,11 +630,11 @@ impl<P: VectorSpace> CubicNurbs<P> {
     ///
     /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
-        control_points: impl Into<Vec<P>>,
-        weights: Option<impl Into<Vec<f32>>>,
-        knots: Option<impl Into<Vec<f32>>>,
+        control_points: impl IntoIterator<Item = P>,
+        weights: Option<impl IntoIterator<Item = f32>>,
+        knots: Option<impl IntoIterator<Item = f32>>,
     ) -> Result<Self, CubicNurbsError> {
-        let mut control_points: Vec<P> = control_points.into();
+        let mut control_points: Vec<P> = control_points.into_iter().collect();
         let control_points_len = control_points.len();
 
         if control_points_len < 4 {
@@ -643,11 +643,11 @@ impl<P: VectorSpace> CubicNurbs<P> {
             });
         }
 
-        let weights = weights
-            .map(Into::into)
+        let weights: Vec<f32> = weights
+            .map(|ws| ws.into_iter().collect())
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
-        let mut knots: Vec<f32> = knots.map(Into::into).unwrap_or_else(|| {
+        let mut knots: Vec<f32> = knots.map(|ks| ks.into_iter().collect()).unwrap_or_else(|| {
             Self::open_uniform_knots(control_points_len)
                 .expect("The amount of control points was checked")
         });
@@ -846,9 +846,9 @@ pub struct LinearSpline<P: VectorSpace> {
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline from a list of points to be interpolated.
-    pub fn new(points: impl Into<Vec<P>>) -> Self {
+    pub fn new(points: impl IntoIterator<Item = P>) -> Self {
         Self {
-            points: points.into(),
+            points: points.into_iter().collect(),
         }
     }
 }
@@ -1139,8 +1139,8 @@ pub struct CubicCurve<P: VectorSpace> {
 impl<P: VectorSpace> CubicCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
-    pub fn from_segments(segments: impl Into<Vec<CubicSegment<P>>>) -> Option<Self> {
-        let segments: Vec<_> = segments.into();
+    pub fn from_segments(segments: impl IntoIterator<Item = CubicSegment<P>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into_iter().collect();
         if segments.is_empty() {
             None
         } else {
@@ -1455,8 +1455,8 @@ pub struct RationalCurve<P: VectorSpace> {
 impl<P: VectorSpace> RationalCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
-    pub fn from_segments(segments: impl Into<Vec<RationalSegment<P>>>) -> Option<Self> {
-        let segments: Vec<_> = segments.into();
+    pub fn from_segments(segments: impl IntoIterator<Item = RationalSegment<P>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into_iter().collect();
         if segments.is_empty() {
             None
         } else {
