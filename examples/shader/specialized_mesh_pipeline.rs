@@ -338,7 +338,7 @@ fn queue_custom_mesh_pipeline(
                     batch_set_key: Opaque3dBatchSetKey {
                         draw_function: draw_function_id,
                         pipeline: pipeline_id,
-                        material_bind_group_id: None,
+                        material_bind_group_index: None,
                         vertex_slab: default(),
                         index_slab: None,
                         lightmap_image: None,

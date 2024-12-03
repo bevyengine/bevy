@@ -21,7 +21,7 @@ use bevy_ecs::{
     component::{Component, ComponentId},
     entity::Entity,
     event::EventReader,
-    prelude::With,
+    prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},

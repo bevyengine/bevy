@@ -273,7 +273,7 @@ fn queue_custom_phase_item(
                     batch_set_key: Opaque3dBatchSetKey {
                         draw_function: draw_custom_phase_item,
                         pipeline: pipeline_id,
-                        material_bind_group_id: None,
+                        material_bind_group_index: None,
                         lightmap_image: None,
                         vertex_slab: default(),
                         index_slab: None,

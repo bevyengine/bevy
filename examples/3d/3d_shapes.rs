@@ -16,6 +16,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
+use bevy_render::view::GpuCulling;
 
 fn main() {
     App::new()

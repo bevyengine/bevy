@@ -8,7 +8,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::{Entity, EntityHashMap},
-    prelude::Component,
+    prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},

@@ -95,8 +95,6 @@ impl Neg for FloatOrd {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::DefaultHasher;
-
     use super::*;
 
     const NAN: FloatOrd = FloatOrd(f32::NAN);
@@ -157,10 +155,11 @@ mod tests {
         assert!(ONE >= ZERO);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn float_ord_hash() {
         let hash = |num| {
-            let mut h = DefaultHasher::new();
+            let mut h = std::hash::DefaultHasher::new();
             FloatOrd(num).hash(&mut h);
             h.finish()
         };

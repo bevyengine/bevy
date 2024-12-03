@@ -20,6 +20,7 @@ mod animation_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
+use bevy_render::view::GpuCulling;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
