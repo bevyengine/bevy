@@ -8,7 +8,7 @@ use std::{alloc::Layout, io::Write, ptr::NonNull};
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::QueryData,
+        query::{ComponentAccessKind, QueryData},
         world::FilteredEntityMut,
     },
     prelude::*,
@@ -150,12 +150,12 @@ fn main() {
                 let mut query = builder.build();
 
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
-                    #[allow(deprecated)]
                     let terms = filtered_entity
                         .access()
-                        .component_reads_and_writes()
-                        .0
-                        .map(|id| {
+                        .try_iter_component_access()
+                        .unwrap()
+                        .map(|component_access| {
+                            let id = *component_access.index();
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
                             let len = info.layout().size() / size_of::<u64>();
@@ -171,7 +171,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_component_write(id) {
+                            if matches!(component_access, ComponentAccessKind::Exclusive(_)) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });
