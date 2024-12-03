@@ -32,6 +32,8 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::WindowId,
 };
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::EventLoopExtWebSys;
 
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
@@ -858,16 +860,23 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     let mut runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
-    if let Err(err) = event_loop.run_app(&mut runner_state) {
-        error!("winit event loop returned an error: {err}");
+    // The winit docs mention using `spawn` instead of `run` on Wasm.
+    // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            event_loop.spawn_app(runner_state);
+            AppExit::Success
+        } else {
+            if let Err(err) = event_loop.run_app(&mut runner_state) {
+                error!("winit event loop returned an error: {err}");
+            }
+            // If everything is working correctly then the event loop only exits after it's sent an exit code.
+            runner_state.app_exit.unwrap_or_else(|| {
+                error!("Failed to receive a app exit code! This is a bug");
+                AppExit::error()
+            })
+        }
     }
-
-    // If everything is working correctly then the event loop only exits after it's sent an exit code.
-    runner_state.app_exit.unwrap_or_else(|| {
-        error!("Failed to receive a app exit code! This is a bug");
-        AppExit::error()
-    })
 }
 
 pub(crate) fn react_to_resize(
