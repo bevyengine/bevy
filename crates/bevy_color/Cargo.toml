@@ -17,7 +17,9 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ], optional = true }
 bytemuck = { version = "1", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"], default-features = false, optional = true }
+serde = { version = "1.0", features = [
+  "derive",
+], default-features = false, optional = true }
 derive_more = { version = "1", default-features = false, features = [
   "error",
   "from",
@@ -28,15 +30,8 @@ encase = { version = "0.10", default-features = false, optional = true }
 
 [features]
 default = ["std", "bevy_reflect", "encase"]
-std = [
-  "alloc",
-  "bevy_math/std",
-  "serde?/std",
-]
-alloc = [
-  "bevy_math/alloc",
-  "serde?/alloc",
-]
+std = ["alloc", "bevy_math/std", "serde?/std"]
+alloc = ["bevy_math/alloc", "serde?/alloc"]
 serialize = ["serde", "bevy_math/serialize"]
 bevy_reflect = ["dep:bevy_reflect", "std"]
 wgpu-types = ["dep:wgpu-types", "std"]
