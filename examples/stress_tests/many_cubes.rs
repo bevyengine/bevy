@@ -444,7 +444,7 @@ fn move_camera(
         * if args.benchmark {
             1.0 / 60.0
         } else {
-            time.delta_seconds()
+            time.delta_secs()
         };
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

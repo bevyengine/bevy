@@ -285,7 +285,7 @@ fn drag(
 
     // Calculate how fast we are dragging the Bevy logo (unit/second)
     let drag_velocity =
-        (new_translation - bevy_transform.translation.truncate()) / time.delta_seconds();
+        (new_translation - bevy_transform.translation.truncate()) / time.delta_secs();
 
     // Update the translation of Bevy logo transform to new translation
     bevy_transform.translation = new_translation.extend(bevy_transform.translation.z);
@@ -366,9 +366,9 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= ops::powf(0.04f32, time.delta_seconds());
+        pupil.velocity *= ops::powf(0.04f32, time.delta_secs());
         // Move the pupil
-        translation += pupil.velocity * time.delta_seconds();
+        translation += pupil.velocity * time.delta_secs();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.
         // This is not physically accurate but it's good enough for the googly eyes effect.
         if translation.length() > wiggle_radius {

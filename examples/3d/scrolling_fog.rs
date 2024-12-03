@@ -15,12 +15,12 @@ use bevy::{
         bloom::Bloom,
         experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
-    prelude::*,
-    render::texture::{
+    image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
+    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    prelude::*,
 };
 
 /// Initializes the example.
@@ -125,6 +125,6 @@ fn setup(
 /// Moves fog density texture offset every frame.
 fn scroll_fog(time: Res<Time>, mut query: Query<&mut FogVolume>) {
     for mut fog_volume in query.iter_mut() {
-        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_seconds();
+        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_secs();
     }
 }

@@ -22,8 +22,8 @@ pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::WorldEntityFetch;
 pub use entity_ref::{
-    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
-    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
+    DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
+    Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -34,8 +34,9 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
+        ComponentInfo, ComponentTicks, Components, RequiredComponents, RequiredComponentsError,
+        Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -515,7 +516,7 @@ impl World {
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
-                .register_required_components::<R>(required, requiree, constructor)
+                .register_required_components::<R>(requiree, required, constructor)
         }
     }
 
@@ -1668,6 +1669,84 @@ impl World {
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
+    }
+
+    /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component, Debug, PartialEq)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_batch(vec![
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Position { x: 1.0, y: 1.0 },
+    /// ]);
+    ///
+    /// fn get_positions(world: &World) -> Vec<(Entity, &Position)> {
+    ///     let mut query = world.try_query::<(Entity, &Position)>().unwrap();
+    ///     query.iter(world).collect()
+    /// }
+    ///
+    /// let positions = get_positions(&world);
+    ///
+    /// assert_eq!(world.get::<Position>(positions[0].0).unwrap(), positions[0].1);
+    /// assert_eq!(world.get::<Position>(positions[1].0).unwrap(), positions[1].1);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let none_query = world.try_query::<&A>();
+    /// assert!(none_query.is_none());
+    ///
+    /// world.register_component::<A>();
+    ///
+    /// let some_query = world.try_query::<&A>();
+    /// assert!(some_query.is_some());
+    /// ```
+    #[inline]
+    pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
+        self.try_query_filtered::<D, ()>()
+    }
+
+    /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
+    ///
+    /// let mut query = world.try_query_filtered::<Entity, With<B>>().unwrap();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    #[inline]
+    pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
+        QueryState::try_new(self)
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
@@ -3257,8 +3336,37 @@ impl World {
         let id = self
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
-        // SAFETY: We just initialised the bundle so its id should definitely be valid.
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
+    /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::world::DeferredWorld;
+    ///
+    /// fn custom_clone_handler(
+    ///     _world: &mut DeferredWorld,
+    ///     _entity_cloner: &EntityCloner,
+    /// ) {
+    ///     // Custom cloning logic for component
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let component_id = world.register_component::<ComponentA>();
+    ///
+    /// world.get_component_clone_handlers_mut()
+    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    /// ```
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        self.components.get_component_clone_handlers_mut()
     }
 }
 

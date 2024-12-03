@@ -6,6 +6,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
+    winit::WinitSettings,
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -27,11 +28,16 @@ fn main() {
                     // on iOS, gestures must be enabled.
                     // This doesn't work on Android
                     recognize_rotation_gesture: true,
+                    // Only has an effect on iOS
+                    prefers_home_indicator_hidden: true,
                     ..default()
                 }),
                 ..default()
             }),
     )
+    // Make the winit loop wait more aggressively when no user input is received
+    // This can help reduce cpu usage on mobile devices
+    .insert_resource(WinitSettings::mobile())
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
     .run();
@@ -114,8 +120,9 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
@@ -124,8 +131,7 @@ fn setup_scene(
                 bottom: Val::Px(50.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((
             Text::new("Test Button"),
             TextFont {
@@ -160,7 +166,7 @@ fn button_handler(
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn((
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP,
     ));
 }
@@ -169,12 +175,8 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
     mut lifecycle_events: EventReader<AppLifecycle>,
-    music_controller: Query<&AudioSink>,
+    music_controller: Single<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller.get_single() else {
-        return;
-    };
-
     for event in lifecycle_events.read() {
         match event {
             AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}

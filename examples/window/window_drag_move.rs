@@ -62,15 +62,12 @@ fn setup(mut commands: Commands) {
     // UI
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    padding: UiRect::all(Val::Px(5.0)),
-                    ..default()
-                },
-                background_color: Color::BLACK.with_alpha(0.75).into(),
+            Node {
+                position_type: PositionType::Absolute,
+                padding: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
+            BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {

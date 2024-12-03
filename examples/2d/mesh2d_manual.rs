@@ -25,7 +25,6 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         sync_world::MainEntityHashMap,
-        texture::BevyDefault,
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
@@ -220,6 +219,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("colored_mesh2d_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

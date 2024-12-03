@@ -100,7 +100,7 @@ fn move_target(
         // The target and the present position of the target sphere are far enough to have a well-
         // defined direction between them, so let's move closer:
         Ok(dir) => {
-            let delta_time = time.delta_seconds();
+            let delta_time = time.delta_secs();
             let abs_delta = (target_pos.0 - target.translation).norm();
 
             // Avoid overshooting in case of high values of `delta_time`:
@@ -123,7 +123,7 @@ fn move_follower(
     time: Res<Time>,
 ) {
     let decay_rate = decay_rate.0;
-    let delta_time = time.delta_seconds();
+    let delta_time = time.delta_secs();
 
     // Calling `smooth_nudge` is what moves the following sphere smoothly toward the target.
     following

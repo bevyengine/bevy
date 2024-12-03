@@ -1,6 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, Measure, MeasureArgs, Node,
-    NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
+    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure, TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -14,16 +14,16 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
+use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image, view::Visibility};
+use bevy_render::camera::Camera;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
@@ -67,7 +67,7 @@ pub struct TextBundle {}
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
-/// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
+/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
 ///
 /// ```
@@ -103,19 +103,7 @@ pub struct TextBundle {}
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    TextLayout,
-    TextFont,
-    TextColor,
-    TextNodeFlags,
-    Node,
-    Style, // TODO: Remove when Node uses required components.
-    ContentSize, // TODO: Remove when Node uses required components.
-    FocusPolicy, // TODO: Remove when Node uses required components.
-    ZIndex, // TODO: Remove when Node uses required components.
-    Visibility, // TODO: Remove when Node uses required components.
-    Transform // TODO: Remove when Node uses required components.
-)]
+#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {
@@ -344,7 +332,7 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     block: &TextLayout,
-    node: Ref<Node>,
+    node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
@@ -362,10 +350,7 @@ fn queue_text(
         TextBounds::UNBOUNDED
     } else {
         // `scale_factor` is already multiplied by `UiScale`
-        TextBounds::new(
-            node.unrounded_size.x * scale_factor,
-            node.unrounded_size.y * scale_factor,
-        )
+        TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
     };
 
     let text_layout_info = text_layout_info.into_inner();
@@ -410,56 +395,24 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<Node>,
+        Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        Option<&TargetCamera>,
     )>,
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    scale_factors_buffer.clear();
-
-    for (entity, node, block, text_layout_info, text_flags, mut computed, maybe_camera) in
-        &mut text_query
-    {
-        let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
-        let inverse_scale_factor = scale_factor.recip();
-
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || node.is_changed()
-            || text_flags.needs_recompute
-        {
+    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+        if node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
                 &fonts,
@@ -467,8 +420,8 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                scale_factor,
-                inverse_scale_factor,
+                node.inverse_scale_factor.recip(),
+                node.inverse_scale_factor,
                 block,
                 node,
                 text_flags,
@@ -480,5 +433,4 @@ pub fn text_system(
             );
         }
     }
-    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }

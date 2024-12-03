@@ -1523,10 +1523,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
             infos: &AssetInfos,
             paths_to_reload: &mut HashSet<AssetPath<'static>>,
         ) {
-            if let Some(dependants) = infos.loader_dependants.get(asset_path) {
-                for dependant in dependants {
-                    paths_to_reload.insert(dependant.to_owned());
-                    queue_ancestors(dependant, infos, paths_to_reload);
+            if let Some(dependents) = infos.loader_dependents.get(asset_path) {
+                for dependent in dependents {
+                    paths_to_reload.insert(dependent.to_owned());
+                    queue_ancestors(dependent, infos, paths_to_reload);
                 }
             }
         }

@@ -21,10 +21,11 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
-use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
+use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -32,7 +33,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialised if this is not met.
+/// panic once initialized if this is not met.
 ///
 /// ## Insertion
 ///

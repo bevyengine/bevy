@@ -1,14 +1,15 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*};
+use bevy::{
+    core_pipeline::motion_blur::MotionBlur,
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
+    math::ops,
+    prelude::*,
+};
 
 fn main() {
     let mut app = App::new();
-
-    // MSAA and Motion Blur together are not compatible on WebGL
-    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-    app.insert_resource(Msaa::Off);
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
@@ -28,6 +29,9 @@ fn setup_camera(mut commands: Commands) {
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding: Default::default(),
         },
+        // MSAA and Motion Blur together are not compatible on WebGL
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 }
 
@@ -234,7 +238,7 @@ fn setup_ui(mut commands: Commands) {
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -300,7 +304,7 @@ fn move_cars(
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
-        let time = time.elapsed_seconds() * 0.25;
+        let time = time.elapsed_secs() * 0.25;
         let t = time + 0.5 * moves.0;
         let dx = ops::cos(t);
         let dz = -ops::sin(3.0 * t);
@@ -350,7 +354,7 @@ fn move_camera(
 }
 
 fn uv_debug_texture() -> Image {
-    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*, texture::*};
+    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*};
     const TEXTURE_SIZE: usize = 7;
 
     let mut palette = [

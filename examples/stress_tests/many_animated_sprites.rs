@@ -84,6 +84,7 @@ fn setup(
             commands.spawn((
                 Sprite {
                     image: texture_handle.clone(),
+                    texture_atlas: Some(TextureAtlas::from(texture_atlas_handle.clone())),
                     custom_size: Some(tile_size),
                     ..default()
                 },
@@ -92,7 +93,6 @@ fn setup(
                     rotation,
                     scale,
                 },
-                TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),
             ));
         }
@@ -101,9 +101,9 @@ fn setup(
 
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_secs() * 0.5));
     **camera_transform = **camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -112,13 +112,16 @@ struct AnimationTimer(Timer);
 fn animate_sprite(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut AnimationTimer, &mut TextureAtlas)>,
+    mut query: Query<(&mut AnimationTimer, &mut Sprite)>,
 ) {
-    for (mut timer, mut sheet) in query.iter_mut() {
+    for (mut timer, mut sprite) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(&sheet.layout).unwrap();
-            sheet.index = (sheet.index + 1) % texture_atlas.textures.len();
+            let Some(atlas) = &mut sprite.texture_atlas else {
+                continue;
+            };
+            let texture_atlas = texture_atlases.get(&atlas.layout).unwrap();
+            atlas.index = (atlas.index + 1) % texture_atlas.textures.len();
         }
     }
 }

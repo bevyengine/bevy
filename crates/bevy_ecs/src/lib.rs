@@ -49,7 +49,7 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -2319,6 +2319,118 @@ mod tests {
             world.entity(id).get::<Z>().unwrap().0,
             "Z should have the value provided by the constructor defined in X"
         );
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_up() {
+        // `A` requires `B` directly.
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        // `B` requires `C` with a runtime registration.
+        // `A` should also require `C` because it requires `B`.
+        world.register_required_components::<B, C>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<C>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_up_even_more() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<D>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components_with::<D, Counter>(|| Counter(2));
+        // This should replace the require constructor in A since it is
+        // shallower.
+        world.register_required_components_with::<C, Counter>(|| Counter(1));
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require_deep_subtree_after_shallow(
+    ) {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component, Default)]
+        struct D;
+        #[derive(Component, Default)]
+        struct E;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct F;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components::<D, E>();
+        world.register_required_components_with::<E, Counter>(|| Counter(1));
+        world.register_required_components_with::<F, Counter>(|| Counter(2));
+        world.register_required_components::<E, F>();
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
     }
 
     #[test]

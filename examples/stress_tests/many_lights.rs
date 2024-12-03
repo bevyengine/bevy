@@ -93,7 +93,9 @@ fn setup(
         Some("orthographic") => commands.spawn((
             Camera3d::default(),
             Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                scaling_mode: ScalingMode::FixedHorizontal {
+                    viewport_width: 20.0,
+                },
                 ..OrthographicProjection::default_3d()
             }),
         )),
@@ -134,7 +136,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
-    let delta = time.delta_seconds() * 0.15;
+    let delta = time.delta_secs() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);
 }

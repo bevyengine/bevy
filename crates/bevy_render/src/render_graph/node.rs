@@ -13,10 +13,10 @@ use bevy_ecs::{
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
-use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
+use variadics_please::all_tuples_with_size;
 
 pub use bevy_render_macros::RenderLabel;
 
@@ -36,7 +36,8 @@ pub trait IntoRenderNodeArray<const N: usize> {
 }
 
 macro_rules! impl_render_label_tuples {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: RenderLabel),*> IntoRenderNodeArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [InternedRenderLabel; $N] {
@@ -47,7 +48,14 @@ macro_rules! impl_render_label_tuples {
     }
 }
 
-all_tuples_with_size!(impl_render_label_tuples, 1, 32, T, l);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_render_label_tuples,
+    1,
+    32,
+    T,
+    l
+);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///

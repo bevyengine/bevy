@@ -34,6 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod material_bind_groups;
 mod mesh_material;
 mod parallax;
 mod pbr_material;
@@ -42,6 +43,8 @@ mod render;
 mod ssao;
 mod ssr;
 mod volumetric_fog;
+
+use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 use core::marker::PhantomData;
@@ -116,6 +119,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
     camera::{
@@ -128,10 +132,11 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
-    texture::{GpuImage, Image},
+    texture::GpuImage,
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+
 use bevy_transform::TransformSystem;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
@@ -455,6 +460,7 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
+        render_app.world_mut().add_observer(extracted_light_removed);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -471,7 +477,8 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalClusterableObjectMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>()
+            .init_resource::<FallbackBindlessResources>();
     }
 }
 

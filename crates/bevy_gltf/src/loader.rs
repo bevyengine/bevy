@@ -15,6 +15,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+    ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
+};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
@@ -31,10 +35,6 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
-    texture::{
-        CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
-        ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
-    },
     view::Visibility,
 };
 use bevy_scene::Scene;
@@ -274,8 +274,8 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
-        use bevy_math::curve::{constant_curve, Interval, UnevenSampleAutoCurve};
+        use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
+        use bevy_math::curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
         use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
@@ -310,12 +310,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
+                            let translation_property = animated_field!(Transform::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, translations[0]))
-                                    .map(TranslationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    translation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, translations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -323,34 +324,47 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, translations)
                                             .ok()
-                                            .map(TranslationCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    translation_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Rotations(rots) => {
+                            let rotation_property = animated_field!(Transform::rotation);
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, rotations[0]))
-                                    .map(RotationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    rotation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, rotations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -358,16 +372,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicRotationCurve::new(
@@ -375,19 +397,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             rotations.into_iter().map(Vec4::from),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Scales(scale) => {
+                            let scale_property = animated_field!(Transform::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, scales[0]))
-                                    .map(ScaleCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    scale_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, scales[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -395,22 +422,34 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, scales)
                                             .ok()
-                                            .map(ScaleCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    scale_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }
@@ -419,7 +458,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, weights))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
                             } else {
@@ -1398,7 +1437,9 @@ fn load_node(
                     let orthographic_projection = OrthographicProjection {
                         near: orthographic.znear(),
                         far: orthographic.zfar(),
-                        scaling_mode: ScalingMode::FixedHorizontal(xmag),
+                        scaling_mode: ScalingMode::FixedHorizontal {
+                            viewport_width: xmag,
+                        },
                         ..OrthographicProjection::default_3d()
                     };
 
@@ -1834,7 +1875,7 @@ async fn load_buffers(
 /// Iterator for a Gltf tree.
 ///
 /// It resolves a Gltf tree and allows for a safe Gltf nodes iteration,
-/// putting dependant nodes before dependencies.
+/// putting dependent nodes before dependencies.
 struct GltfTreeIterator<'a> {
     nodes: Vec<Node<'a>>,
 }

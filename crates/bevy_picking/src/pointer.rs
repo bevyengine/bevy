@@ -9,7 +9,7 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_utils::HashMap;
@@ -17,7 +17,7 @@ use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
 
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::Deref};
 
 use crate::backend::HitData;
 
@@ -69,6 +69,21 @@ impl PointerId {
 #[reflect(Component, Default, Debug)]
 pub struct PointerInteraction {
     pub(crate) sorted_entities: Vec<(Entity, HitData)>,
+}
+
+impl PointerInteraction {
+    /// Returns the nearest hit entity and data about that intersection.
+    pub fn get_nearest_hit(&self) -> Option<&(Entity, HitData)> {
+        self.sorted_entities.first()
+    }
+}
+
+impl Deref for PointerInteraction {
+    type Target = Vec<(Entity, HitData)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sorted_entities
+    }
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
@@ -218,13 +233,9 @@ impl Location {
             return false;
         }
 
-        let position = Vec2::new(self.position.x, self.position.y);
-
         camera
             .logical_viewport_rect()
-            .map(|Rect { min, max }| {
-                (position - min).min_element() >= 0.0 && (position - max).max_element() <= 0.0
-            })
+            .map(|rect| rect.contains(self.position))
             .unwrap_or(false)
     }
 }
@@ -268,6 +279,26 @@ impl PointerInput {
             pointer_id,
             location,
             action,
+        }
+    }
+
+    /// Returns true if the `target_button` of this pointer was just pressed.
+    #[inline]
+    pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Down && button == target_button
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the `target_button` of this pointer was just released.
+    #[inline]
+    pub fn button_just_released(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Up && button == target_button
+        } else {
+            false
         }
     }
 

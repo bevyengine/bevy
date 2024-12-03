@@ -19,7 +19,7 @@ impl ReflectMapEntities {
     /// A general method for remapping entities in a reflected value via an [`EntityMapper`].
     ///
     /// # Panics
-    /// Panics if the the type of the reflected value doesn't match.
+    /// Panics if the type of the reflected value doesn't match.
     pub fn map_entities(&self, reflected: &mut dyn PartialReflect, mapper: &mut dyn EntityMapper) {
         (self.map_entities)(reflected, mapper);
     }

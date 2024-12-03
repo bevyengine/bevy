@@ -35,12 +35,14 @@
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+mod clone_entities;
 mod map_entities;
 mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+pub use clone_entities::*;
 pub use map_entities::*;
 pub use visit_entities::*;
 
@@ -153,7 +155,7 @@ type IdCursor = isize;
     reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
-// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+// optimized codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -170,7 +172,7 @@ pub struct Entity {
 impl PartialEq for Entity {
     #[inline]
     fn eq(&self, other: &Entity) -> bool {
-        // By using `to_bits`, the codegen can be optimised out even
+        // By using `to_bits`, the codegen can be optimized out even
         // further potentially. Relies on the correct alignment/field
         // order of `Entity`.
         self.to_bits() == other.to_bits()
@@ -179,10 +181,10 @@ impl PartialEq for Entity {
 
 impl Eq for Entity {}
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Entity {
@@ -193,10 +195,10 @@ impl PartialOrd for Entity {
     }
 }
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Entity {
@@ -310,7 +312,7 @@ impl Entity {
 
         match id {
             Ok(entity) => entity,
-            Err(_) => panic!("Attempted to initialise invalid bits as an entity"),
+            Err(_) => panic!("Attempted to initialize invalid bits as an entity"),
         }
     }
 

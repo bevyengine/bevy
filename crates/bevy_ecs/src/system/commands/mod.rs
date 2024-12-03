@@ -4,15 +4,17 @@ use core::{marker::PhantomData, panic::Location};
 
 use super::{
     Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+    UnregisterSystem,
 };
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entities, Entity},
+    entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
+    schedule::ScheduleLabel,
     system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
@@ -267,6 +269,69 @@ impl<'w, 's> Commands<'w, 's> {
                 unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
             }
         }
+    }
+
+    /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`], returning [`EntityCommands`] of the cloned entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and retrieve its id.
+    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
+    ///
+    ///     // Create a clone of the first entity, but without ComponentB
+    ///     let entity_clone = commands.clone_entity_with(entity, |builder| {
+    ///         builder.deny::<ComponentB>();
+    ///     }).id();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_entity_with(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> EntityCommands<'_> {
+        let cloned_entity = self.spawn_empty().id();
+        self.queue(move |world: &mut World| {
+            let mut builder = EntityCloneBuilder::new(world);
+            f(&mut builder);
+            builder.clone_entity(entity, cloned_entity);
+        });
+        EntityCommands {
+            commands: self.reborrow(),
+            entity: cloned_entity,
+        }
+    }
+
+    /// Clones an entity and returns [`EntityCommands`] of the cloned entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and retrieve its id.
+    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
+    ///
+    ///     // Create a clone of the first entity
+    ///     let entity_clone = commands.clone_entity(entity).id();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_entity(&mut self, entity: Entity) -> EntityCommands<'_> {
+        self.clone_entity_with(entity, |_| {})
     }
 
     /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
@@ -735,10 +800,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn initialise_scoreboard(mut commands: Commands) {
+    /// # fn initialize_scoreboard(mut commands: Commands) {
     /// commands.init_resource::<Scoreboard>();
     /// # }
-    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// # bevy_ecs::system::assert_is_system(initialize_scoreboard);
     /// ```
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
@@ -890,6 +955,17 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
+    /// Removes a system previously registered with [`Commands::register_system`] or [`World::register_system`].
+    ///
+    /// See [`World::unregister_system`] for more information.
+    pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        self.queue(UnregisterSystem::new(system_id));
+    }
+
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
@@ -960,6 +1036,53 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
         self.queue(SendEvent { event });
         self
+    }
+
+    /// Runs the schedule corresponding to the given [`ScheduleLabel`].
+    ///
+    /// Calls [`World::try_run_schedule`](World::try_run_schedule).
+    ///
+    /// This will log an error if the schedule is not available to be run.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// #
+    /// # #[derive(Default, Resource)]
+    /// # struct Counter(u32);
+    /// #
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSchedule;
+    ///
+    /// # fn foo_system(mut counter: ResMut<Counter>) {
+    /// #     counter.0 += 1;
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::new(FooSchedule);
+    /// # schedule.add_systems(foo_system);
+    /// #
+    /// # let mut world = World::default();
+    /// #
+    /// # world.init_resource::<Counter>();
+    /// # world.add_schedule(schedule);
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 0);
+    /// #
+    /// # let mut commands = world.commands();
+    /// commands.run_schedule(FooSchedule);
+    /// #
+    /// # world.flush();
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        self.queue(|world: &mut World| {
+            if let Err(error) = world.try_run_schedule(label) {
+                panic!("Failed to run schedule: {error}");
+            }
+        });
     }
 }
 
@@ -1665,7 +1788,7 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
-    /// Modify the component `T` if it exists, using the the function `modify`.
+    /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {

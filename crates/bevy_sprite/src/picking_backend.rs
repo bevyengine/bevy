@@ -8,6 +8,7 @@ use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
 use bevy_render::prelude::*;
@@ -15,9 +16,9 @@ use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 #[derive(Clone)]
-pub struct SpritePickingBackend;
+pub struct SpritePickingPlugin;
 
-impl Plugin for SpritePickingBackend {
+impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
@@ -70,8 +71,13 @@ pub fn sprite_picking(
             continue;
         };
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, location.position)
-        else {
+        let viewport_pos = camera
+            .logical_viewport_rect()
+            .map(|v| v.min)
+            .unwrap_or_default();
+        let pos_in_viewport = location.position - viewport_pos;
+
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
             continue;
         };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;

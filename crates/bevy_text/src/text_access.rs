@@ -171,11 +171,11 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
-            if let Ok((text, style, color, maybe_children)) = self.roots.get(root_entity) {
+            if let Ok((text, text_font, color, maybe_children)) = self.roots.get(root_entity) {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((root_entity, 0, text.read_span(), style, color.0));
+                return Some((root_entity, 0, text.read_span(), text_font, color.0));
             }
             return None;
         }
@@ -193,7 +193,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 *idx += 1;
 
                 let entity = *child;
-                let Ok((span, style, color, maybe_children)) = self.spans.get(entity) else {
+                let Ok((span, text_font, color, maybe_children)) = self.spans.get(entity) else {
                     continue;
                 };
 
@@ -201,7 +201,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((entity, depth, span.read_span(), style, color.0));
+                return Some((entity, depth, span.read_span(), text_font, color.0));
             }
 
             // All children at this stack entry have been iterated.

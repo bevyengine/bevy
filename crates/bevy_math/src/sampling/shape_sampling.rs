@@ -154,7 +154,7 @@ impl ShapeSample for Circle {
         // https://mathworld.wolfram.com/DiskPointPicking.html
         let theta = rng.gen_range(0.0..TAU);
         let r_squared = rng.gen_range(0.0..=(self.radius * self.radius));
-        let r = r_squared.sqrt();
+        let r = ops::sqrt(r_squared);
         let (sin, cos) = ops::sin_cos(theta);
         Vec2::new(r * cos, r * sin)
     }
@@ -171,7 +171,7 @@ impl ShapeSample for Circle {
 fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
     let z = rng.gen_range(-1f32..=1f32);
     let (a_sin, a_cos) = ops::sin_cos(rng.gen_range(-PI..=PI));
-    let c = (1f32 - z * z).sqrt();
+    let c = ops::sqrt(1f32 - z * z);
     let x = a_sin * c;
     let y = a_cos * c;
 
@@ -202,7 +202,7 @@ impl ShapeSample for Annulus {
 
         // Like random sampling for a circle, radius is weighted by the square.
         let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
-        let r = r_squared.sqrt();
+        let r = ops::sqrt(r_squared);
         let theta = rng.gen_range(0.0..TAU);
         let (sin, cos) = ops::sin_cos(theta);
 
@@ -420,7 +420,7 @@ impl ShapeSample for Cylinder {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // This uses the area of the ends divided by the overall surface area (optimised)
+        // This uses the area of the ends divided by the overall surface area (optimized)
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
@@ -627,7 +627,7 @@ mod tests {
             let point = circle.sample_boundary(&mut rng);
 
             let angle = ops::atan(point.y / point.x) + PI / 2.0;
-            let wedge = (angle * 8.0 / PI).floor() as usize;
+            let wedge = ops::floor(angle * 8.0 / PI) as usize;
             wedge_hits[wedge] += 1;
         }
 

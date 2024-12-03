@@ -261,15 +261,12 @@ fn setup(
     commands.spawn(Camera2d);
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    padding: UiRect::all(Val::Px(5.0)),
-                    ..default()
-                },
-                background_color: Color::BLACK.with_alpha(0.75).into(),
+            Node {
+                position_type: PositionType::Absolute,
+                padding: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
+            BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
@@ -350,7 +347,7 @@ fn mouse_handler(
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_secs_f64()) as usize;
         spawn_birds(
             &mut commands,
             args.into_inner(),
@@ -514,7 +511,7 @@ fn movement_system(
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
     } else {
-        time.delta_seconds()
+        time.delta_secs()
     };
     for (mut bird, mut transform) in &mut bird_query {
         step_movement(&mut transform.translation, &mut bird.velocity, dt);

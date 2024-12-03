@@ -408,7 +408,7 @@ impl<const N: usize> Meshable for ConvexPolygon<N> {
 
     fn mesh(&self) -> Self::Output {
         Self::Output {
-            vertices: self.vertices,
+            vertices: *self.vertices(),
         }
     }
 }

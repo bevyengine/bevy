@@ -651,6 +651,11 @@ impl ScheduleGraph {
             .and_then(|system| system.inner.as_deref())
     }
 
+    /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
+    pub fn contains_set(&self, set: impl SystemSet) -> bool {
+        self.system_set_ids.contains_key(&set.intern())
+    }
+
     /// Returns the system at the given [`NodeId`].
     ///
     /// Panics if it doesn't exist.
@@ -1139,7 +1144,7 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    // modify the graph to have sync nodes for any dependants after a system with deferred system params
+    // modify the graph to have sync nodes for any dependents after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
         dependency_flattened: &mut DiGraph,
@@ -1950,13 +1955,13 @@ pub enum ScheduleBuildError {
     #[display("System dependencies contain cycle(s).\n{_0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[display("`{0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[display("`{_0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[display("`{0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[display("`{_0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[display("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[display("Tried to order against `{_0}` in a schedule that has more than one `{_0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///

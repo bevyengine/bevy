@@ -5,19 +5,17 @@ use std::ops::Range;
 use bevy::{
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::{fxaa::Fxaa, Skybox},
+    image::{
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageSamplerDescriptor,
+    },
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     prelude::*,
-    render::{
-        render_resource::{AsBindGroup, ShaderRef, ShaderType},
-        texture::{
-            ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
-            ImageSamplerDescriptor,
-        },
-    },
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -253,7 +251,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn((
         create_text(app_settings),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -292,7 +290,7 @@ fn rotate_model(
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds(), 0.0);
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_secs(), 0.0);
     }
 }
 

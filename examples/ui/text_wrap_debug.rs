@@ -52,16 +52,15 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     let root = commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::BLACK.into(),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .id();
 
     for linebreak in [
@@ -71,16 +70,13 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         LineBreak::NoWrap,
     ] {
         let row_id = commands
-            .spawn(NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceAround,
-                    align_items: AlignItems::Center,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(50.),
-                    ..Default::default()
-                },
-                ..Default::default()
+            .spawn(Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Center,
+                width: Val::Percent(100.),
+                height: Val::Percent(50.),
+                ..default()
             })
             .id();
 
@@ -96,18 +92,17 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         for (i, justification) in justifications.into_iter().enumerate() {
             let c = 0.3 + i as f32 * 0.1;
             let column_id = commands
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
                         width: Val::Percent(16.),
                         height: Val::Percent(95.),
                         overflow: Overflow::clip_x(),
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: Color::srgb(0.5, c, 1.0 - c).into(),
-                    ..Default::default()
-                })
+                    BackgroundColor(Color::srgb(0.5, c, 1.0 - c)),
+                ))
                 .id();
 
             let messages = [

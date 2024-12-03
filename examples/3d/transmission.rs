@@ -333,7 +333,7 @@ fn setup(
     // Controls Text
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -402,39 +402,39 @@ fn example_control_system(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Digit2) {
-        state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
+        state.diffuse_transmission = (state.diffuse_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::Digit1) {
-        state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
+        state.diffuse_transmission = (state.diffuse_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyW) {
-        state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
+        state.specular_transmission = (state.specular_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyQ) {
-        state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
+        state.specular_transmission = (state.specular_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyS) {
-        state.thickness = (state.thickness + time.delta_seconds()).min(5.0);
+        state.thickness = (state.thickness + time.delta_secs()).min(5.0);
     } else if input.pressed(KeyCode::KeyA) {
-        state.thickness = (state.thickness - time.delta_seconds()).max(0.0);
+        state.thickness = (state.thickness - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyX) {
-        state.ior = (state.ior + time.delta_seconds()).min(3.0);
+        state.ior = (state.ior + time.delta_secs()).min(3.0);
     } else if input.pressed(KeyCode::KeyZ) {
-        state.ior = (state.ior - time.delta_seconds()).max(1.0);
+        state.ior = (state.ior - time.delta_secs()).max(1.0);
     }
 
     if input.pressed(KeyCode::KeyI) {
-        state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
+        state.reflectance = (state.reflectance + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyU) {
-        state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
+        state.reflectance = (state.reflectance - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyR) {
-        state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
+        state.perceptual_roughness = (state.perceptual_roughness + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyE) {
-        state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
+        state.perceptual_roughness = (state.perceptual_roughness - time.delta_secs()).max(0.0);
     }
 
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
@@ -522,21 +522,21 @@ fn example_control_system(
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
         state.auto_camera = false;
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowLeft) {
         state.auto_camera = false;
-        -time.delta_seconds()
+        -time.delta_secs()
     } else if state.auto_camera {
-        time.delta_seconds() * 0.25
+        time.delta_secs() * 0.25
     } else {
         0.0
     };
 
     let distance_change =
         if input.pressed(KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
-            time.delta_seconds()
+            time.delta_secs()
         } else if input.pressed(KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
-            -time.delta_seconds()
+            -time.delta_secs()
         } else {
             0.0
         };
@@ -603,7 +603,7 @@ fn flicker_system(
     light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
-    let s = time.elapsed_seconds();
+    let s = time.elapsed_secs();
     let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
     let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
     let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;

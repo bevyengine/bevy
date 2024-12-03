@@ -16,6 +16,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     mesh::{
@@ -37,7 +38,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    texture::{BevyDefault as _, GpuImage, Image},
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
@@ -276,6 +277,15 @@ pub fn extract_volumetric_fog(
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
+        // TODO: needs better way to handle clean up in render world
+        for (entity, ..) in view_targets.iter() {
+            commands
+                .entity(entity)
+                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
+        }
+        for (entity, ..) in fog_volumes.iter() {
+            commands.entity(entity).remove::<FogVolume>();
+        }
         return;
     }
 
@@ -591,6 +601,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

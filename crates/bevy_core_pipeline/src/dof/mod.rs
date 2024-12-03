@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
@@ -46,8 +47,9 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
-    texture::{BevyDefault, CachedTexture, TextureCache},
+    texture::{CachedTexture, TextureCache},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
@@ -210,6 +212,8 @@ impl Plugin for DepthOfFieldPlugin {
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+
+        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -803,6 +807,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 },
                 targets,
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -820,8 +825,21 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Depth of field entity wasn't synced.");
+
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                DepthOfField,
+                DepthOfFieldUniform,
+                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
+                DepthOfFieldPipelines,
+                AuxiliaryDepthOfFieldTexture,
+                ViewDepthOfFieldBindGroupLayouts,
+            )>();
             continue;
         };
 
@@ -829,24 +847,20 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        commands
-            .get_entity(entity)
-            .expect("Depth of field entity wasn't synced.")
-            .insert((
-                *depth_of_field,
-                DepthOfFieldUniform {
-                    focal_distance: depth_of_field.focal_distance,
-                    focal_length,
-                    coc_scale_factor: focal_length * focal_length
-                        / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
-                    max_circle_of_confusion_diameter: depth_of_field
-                        .max_circle_of_confusion_diameter,
-                    max_depth: depth_of_field.max_depth,
-                    pad_a: 0,
-                    pad_b: 0,
-                    pad_c: 0,
-                },
-            ));
+        entity_commands.insert((
+            *depth_of_field,
+            DepthOfFieldUniform {
+                focal_distance: depth_of_field.focal_distance,
+                focal_length,
+                coc_scale_factor: focal_length * focal_length
+                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
+                max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
+                max_depth: depth_of_field.max_depth,
+                pad_a: 0,
+                pad_b: 0,
+                pad_c: 0,
+            },
+        ));
     }
 }
 

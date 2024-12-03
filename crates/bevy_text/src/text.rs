@@ -28,7 +28,8 @@ impl Default for CosmicBuffer {
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
@@ -41,7 +42,8 @@ pub struct TextEntity {
 /// See [`TextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Debug, Default)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -49,6 +51,7 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
     /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
+    #[reflect(ignore)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     ///
@@ -286,6 +289,28 @@ pub struct TextFont {
 }
 
 impl TextFont {
+    /// Returns a new [`TextFont`] with the specified font face handle.
+    pub fn from_font(font: Handle<Font>) -> Self {
+        Self::default().with_font(font)
+    }
+
+    /// Returns a new [`TextFont`] with the specified font size.
+    pub fn from_font_size(font_size: f32) -> Self {
+        Self::default().with_font_size(font_size)
+    }
+
+    /// Returns this [`TextFont`] with the specified font face handle.
+    pub fn with_font(mut self, font: Handle<Font>) -> Self {
+        self.font = font;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font size.
+    pub const fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;

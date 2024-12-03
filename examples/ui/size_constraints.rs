@@ -52,33 +52,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::BLACK.into(),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Size Constraints Example"),
                         text_font.clone(),
-                        Style {
+                        Node {
                             margin: UiRect::bottom(Val::Px(25.)),
                             ..Default::default()
                         },
@@ -87,17 +83,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     spawn_bar(parent);
 
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
                                 padding: UiRect::all(Val::Px(10.)),
                                 margin: UiRect::top(Val::Px(50.)),
-                                ..Default::default()
+                                ..default()
                             },
-                            background_color: YELLOW.into(),
-                            ..Default::default()
-                        })
+                            BackgroundColor(YELLOW.into()),
+                        ))
                         .with_children(|parent| {
                             for constraint in [
                                 Constraint::MinWidth,
@@ -114,40 +109,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn spawn_bar(parent: &mut ChildBuilder) {
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
-                ..Default::default()
+                ..default()
             },
-            background_color: YELLOW.into(),
-            ..Default::default()
-        })
+            BackgroundColor(YELLOW.into()),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         align_items: AlignItems::Stretch,
                         width: Val::Percent(100.),
                         height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: Color::BLACK.into(),
-                    ..Default::default()
-                })
+                    BackgroundColor(Color::BLACK),
+                ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        NodeBundle {
-                            style: Style {
-                                ..Default::default()
-                            },
-                            background_color: Color::WHITE.into(),
-                            ..Default::default()
-                        },
-                        Bar,
-                    ));
+                    parent.spawn((Node::default(), BackgroundColor(Color::WHITE), Bar));
                 });
         });
 }
@@ -165,67 +149,56 @@ fn spawn_button_row(
     };
 
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(Val::Px(2.)),
                 align_items: AlignItems::Stretch,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::BLACK.into(),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::End,
-                        padding: UiRect::all(Val::Px(2.)),
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::End,
+                    padding: UiRect::all(Val::Px(2.)),
+                    ..default()
                 })
                 .with_children(|parent| {
                     // spawn row label
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                min_width: Val::Px(200.),
-                                max_width: Val::Px(200.),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        })
+                        .spawn((Node {
+                            min_width: Val::Px(200.),
+                            max_width: Val::Px(200.),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },))
                         .with_child((Text::new(label), text_style.clone()));
 
                     // spawn row buttons
-                    parent
-                        .spawn(NodeBundle {
-                            ..Default::default()
-                        })
-                        .with_children(|parent| {
+                    parent.spawn(Node::default()).with_children(|parent| {
+                        spawn_button(
+                            parent,
+                            constraint,
+                            ButtonValue(Val::Auto),
+                            "Auto".to_string(),
+                            text_style.clone(),
+                            true,
+                        );
+                        for percent in [0., 25., 50., 75., 100., 125.] {
                             spawn_button(
                                 parent,
                                 constraint,
-                                ButtonValue(Val::Auto),
-                                "Auto".to_string(),
+                                ButtonValue(Val::Percent(percent)),
+                                format!("{percent}%"),
                                 text_style.clone(),
-                                true,
+                                false,
                             );
-                            for percent in [0., 25., 50., 75., 100., 125.] {
-                                spawn_button(
-                                    parent,
-                                    constraint,
-                                    ButtonValue(Val::Percent(percent)),
-                                    format!("{percent}%"),
-                                    text_style.clone(),
-                                    false,
-                                );
-                            }
-                        });
+                        }
+                    });
                 });
         });
 }
@@ -240,41 +213,36 @@ fn spawn_button(
 ) {
     parent
         .spawn((
-            ButtonBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border: UiRect::all(Val::Px(2.)),
-                    margin: UiRect::horizontal(Val::Px(2.)),
-                    ..Default::default()
-                },
-                border_color: if active {
-                    ACTIVE_BORDER_COLOR
-                } else {
-                    INACTIVE_BORDER_COLOR
-                }
-                .into(),
+            Button,
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(Val::Px(2.)),
+                margin: UiRect::horizontal(Val::Px(2.)),
                 ..Default::default()
             },
+            BorderColor(if active {
+                ACTIVE_BORDER_COLOR
+            } else {
+                INACTIVE_BORDER_COLOR
+            }),
             constraint,
             action,
         ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: if active {
+                    BackgroundColor(if active {
                         ACTIVE_INNER_COLOR
                     } else {
                         INACTIVE_INNER_COLOR
-                    }
-                    .into(),
-                    ..Default::default()
-                })
+                    }),
+                ))
                 .with_child((
                     Text::new(label),
                     text_style.0,
@@ -293,7 +261,7 @@ fn update_buttons(
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
     >,
-    mut bar_style: Single<&mut Style, With<Bar>>,
+    mut bar_node: Single<&mut Node, With<Bar>>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
@@ -304,16 +272,16 @@ fn update_buttons(
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
-                        bar_style.flex_basis = value.0;
+                        bar_node.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        bar_style.width = value.0;
+                        bar_node.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        bar_style.min_width = value.0;
+                        bar_node.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        bar_style.max_width = value.0;
+                        bar_node.max_width = value.0;
                     }
                 }
             }
