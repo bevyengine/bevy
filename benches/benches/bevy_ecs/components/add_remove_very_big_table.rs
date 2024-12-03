@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use bevy_ecs::prelude::*;
 use glam::*;
 
@@ -23,66 +21,61 @@ pub struct Benchmark(World, Vec<Entity>);
 impl Benchmark {
     pub fn new() -> Self {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..10_000 {
-            entities.push(
-                world
-                    .spawn((
-                        (
-                            A::<1>(Mat4::from_scale(Vec3::ONE)),
-                            B::<1>(Mat4::from_scale(Vec3::ONE)),
-                            C::<1>(Mat4::from_scale(Vec3::ONE)),
-                            D::<1>(Mat4::from_scale(Vec3::ONE)),
-                            E::<1>(Mat4::from_scale(Vec3::ONE)),
-                            A::<2>(Mat4::from_scale(Vec3::ONE)),
-                            B::<2>(Mat4::from_scale(Vec3::ONE)),
-                            C::<2>(Mat4::from_scale(Vec3::ONE)),
-                            D::<2>(Mat4::from_scale(Vec3::ONE)),
-                            E::<2>(Mat4::from_scale(Vec3::ONE)),
-                        ),
-                        (
-                            A::<3>(Mat4::from_scale(Vec3::ONE)),
-                            B::<3>(Mat4::from_scale(Vec3::ONE)),
-                            C::<3>(Mat4::from_scale(Vec3::ONE)),
-                            D::<3>(Mat4::from_scale(Vec3::ONE)),
-                            E::<3>(Mat4::from_scale(Vec3::ONE)),
-                            A::<4>(Mat4::from_scale(Vec3::ONE)),
-                            B::<4>(Mat4::from_scale(Vec3::ONE)),
-                            C::<4>(Mat4::from_scale(Vec3::ONE)),
-                            D::<4>(Mat4::from_scale(Vec3::ONE)),
-                            E::<4>(Mat4::from_scale(Vec3::ONE)),
-                        ),
-                        (
-                            A::<5>(Mat4::from_scale(Vec3::ONE)),
-                            B::<5>(Mat4::from_scale(Vec3::ONE)),
-                            C::<5>(Mat4::from_scale(Vec3::ONE)),
-                            D::<5>(Mat4::from_scale(Vec3::ONE)),
-                            E::<5>(Mat4::from_scale(Vec3::ONE)),
-                            A::<6>(Mat4::from_scale(Vec3::ONE)),
-                            B::<6>(Mat4::from_scale(Vec3::ONE)),
-                            C::<6>(Mat4::from_scale(Vec3::ONE)),
-                            D::<6>(Mat4::from_scale(Vec3::ONE)),
-                            E::<6>(Mat4::from_scale(Vec3::ONE)),
-                        ),
-                        (
-                            A::<7>(Mat4::from_scale(Vec3::ONE)),
-                            B::<7>(Mat4::from_scale(Vec3::ONE)),
-                            C::<7>(Mat4::from_scale(Vec3::ONE)),
-                            D::<7>(Mat4::from_scale(Vec3::ONE)),
-                            E::<7>(Mat4::from_scale(Vec3::ONE)),
-                            Z::<1>,
-                            Z::<2>,
-                            Z::<3>,
-                            Z::<4>,
-                            Z::<5>,
-                            Z::<6>,
-                            Z::<7>,
-                        ),
-                    ))
-                    .id(),
-            );
-        }
-
+        let entities = super::make_entities(
+            &mut world,
+            (
+                (
+                    A::<1>(Mat4::from_scale(Vec3::ONE)),
+                    B::<1>(Mat4::from_scale(Vec3::ONE)),
+                    C::<1>(Mat4::from_scale(Vec3::ONE)),
+                    D::<1>(Mat4::from_scale(Vec3::ONE)),
+                    E::<1>(Mat4::from_scale(Vec3::ONE)),
+                    A::<2>(Mat4::from_scale(Vec3::ONE)),
+                    B::<2>(Mat4::from_scale(Vec3::ONE)),
+                    C::<2>(Mat4::from_scale(Vec3::ONE)),
+                    D::<2>(Mat4::from_scale(Vec3::ONE)),
+                    E::<2>(Mat4::from_scale(Vec3::ONE)),
+                ),
+                (
+                    A::<3>(Mat4::from_scale(Vec3::ONE)),
+                    B::<3>(Mat4::from_scale(Vec3::ONE)),
+                    C::<3>(Mat4::from_scale(Vec3::ONE)),
+                    D::<3>(Mat4::from_scale(Vec3::ONE)),
+                    E::<3>(Mat4::from_scale(Vec3::ONE)),
+                    A::<4>(Mat4::from_scale(Vec3::ONE)),
+                    B::<4>(Mat4::from_scale(Vec3::ONE)),
+                    C::<4>(Mat4::from_scale(Vec3::ONE)),
+                    D::<4>(Mat4::from_scale(Vec3::ONE)),
+                    E::<4>(Mat4::from_scale(Vec3::ONE)),
+                ),
+                (
+                    A::<5>(Mat4::from_scale(Vec3::ONE)),
+                    B::<5>(Mat4::from_scale(Vec3::ONE)),
+                    C::<5>(Mat4::from_scale(Vec3::ONE)),
+                    D::<5>(Mat4::from_scale(Vec3::ONE)),
+                    E::<5>(Mat4::from_scale(Vec3::ONE)),
+                    A::<6>(Mat4::from_scale(Vec3::ONE)),
+                    B::<6>(Mat4::from_scale(Vec3::ONE)),
+                    C::<6>(Mat4::from_scale(Vec3::ONE)),
+                    D::<6>(Mat4::from_scale(Vec3::ONE)),
+                    E::<6>(Mat4::from_scale(Vec3::ONE)),
+                ),
+                (
+                    A::<7>(Mat4::from_scale(Vec3::ONE)),
+                    B::<7>(Mat4::from_scale(Vec3::ONE)),
+                    C::<7>(Mat4::from_scale(Vec3::ONE)),
+                    D::<7>(Mat4::from_scale(Vec3::ONE)),
+                    E::<7>(Mat4::from_scale(Vec3::ONE)),
+                    Z::<1>,
+                    Z::<2>,
+                    Z::<3>,
+                    Z::<4>,
+                    Z::<5>,
+                    Z::<6>,
+                    Z::<7>,
+                ),
+            ),
+        );
         Self(world, entities)
     }
 

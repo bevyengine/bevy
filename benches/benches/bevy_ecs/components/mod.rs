@@ -1,3 +1,4 @@
+use bevy_ecs::{bundle::Bundle, entity::Entity, world::World};
 use criterion::*;
 
 mod add_remove_big_sparse_set;
@@ -76,4 +77,15 @@ fn insert_simple(c: &mut Criterion) {
         b.iter(move || bench.run());
     });
     group.finish();
+}
+
+pub const ENTITY_COUNT: usize = 10_000;
+
+pub fn make_entities<B>(world: &mut World, bundle: B) -> Vec<Entity>
+where
+    B: Bundle + Clone,
+{
+    world
+        .spawn_batch(core::iter::repeat(bundle).take(ENTITY_COUNT))
+        .collect()
 }

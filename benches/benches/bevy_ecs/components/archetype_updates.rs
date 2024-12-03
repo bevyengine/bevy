@@ -23,7 +23,7 @@ fn setup(system_count: usize) -> (World, Schedule) {
 
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
     if i & 1 << B != 0 {
-        entity.insert(A::<B>(1.0));
+        entity.insert(A::<B>(1.));
     }
 }
 /// create `count` entities with distinct archetypes
@@ -69,7 +69,7 @@ pub fn no_archetypes(criterion: &mut Criterion) {
 pub fn added_archetypes(criterion: &mut Criterion) {
     const SYSTEM_COUNT: usize = 100;
     let mut group = criterion.benchmark_group("added_archetypes");
-    for archetype_count in [100, 200, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [100, 200, 500, 1000, 2000, 5000, 10_000] {
         group.bench_with_input(
             BenchmarkId::new("archetype_count", archetype_count),
             &archetype_count,

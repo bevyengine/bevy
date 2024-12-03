@@ -68,10 +68,10 @@ pub fn busy_systems(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     for entity_bunches in 1..6 {
-        world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
-        world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0))));
-        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
-        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
+        world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.), B(0.))));
+        world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.), B(0.), C(0.))));
+        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.), B(0.), C(0.), D(0.))));
+        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.), B(0.), C(0.), E(0.))));
         for system_amount in 0..5 {
             let mut schedule = Schedule::default();
             schedule.add_systems((ab, cd, ce));
@@ -120,9 +120,9 @@ pub fn contrived(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     for entity_bunches in 1..6 {
-        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
-        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
-        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
+        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.), B(0.), C(0.), D(0.))));
+        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.), B(0.))));
+        world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.), D(0.))));
         for system_amount in 0..5 {
             let mut schedule = Schedule::default();
             schedule.add_systems((s_0, s_1, s_2));

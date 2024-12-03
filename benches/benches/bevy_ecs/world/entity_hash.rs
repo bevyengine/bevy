@@ -6,18 +6,19 @@ use rand_chacha::ChaCha8Rng;
 criterion_group!(benches, entity_set_build_and_lookup,);
 criterion_main!(benches);
 
-const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
+// Evenly spaced on a log scale
+const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10_000];
 
 fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
-    // -log₂(1-x) gives an exponential distribution with median 1.0
+    // -log₂(1-x) gives an exponential distribution with median 1.
     // That lets us get values that are mostly small, but some are quite large
     // * For ids, half are in [0, size), half are unboundedly larger.
     // * For generations, half are in [1, 3), half are unboundedly larger.
 
     let x: f64 = rng.gen();
-    let id = -(1.0 - x).log2() * (size as f64);
+    let id = -(1. - x).log2() * (size as f64);
     let x: f64 = rng.gen();
-    let gen = 1.0 + -(1.0 - x).log2() * 2.0;
+    let gen = 1. + -(1. - x).log2() * 2.;
 
     // this is not reliable, but we're internal so a hack is ok
     let bits = ((gen as u64) << 32) | (id as u64);

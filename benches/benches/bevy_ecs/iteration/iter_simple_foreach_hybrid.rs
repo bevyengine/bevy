@@ -19,8 +19,8 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         let mut v = vec![];
-        for _ in 0..10000 {
-            world.spawn((TableData(0.0), SparseData(0.0)));
+        for _ in 0..10_000 {
+            world.spawn((TableData(0.), SparseData(0.)));
             v.push(world.spawn(TableData(0.)).id());
         }
 

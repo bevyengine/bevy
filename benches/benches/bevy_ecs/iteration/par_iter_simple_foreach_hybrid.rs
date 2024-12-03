@@ -21,8 +21,8 @@ impl<'w> Benchmark<'w> {
         ComputeTaskPool::get_or_init(TaskPool::default);
 
         let mut v = vec![];
-        for _ in 0..100000 {
-            world.spawn((TableData(0.0), SparseData(0.0)));
+        for _ in 0..100_000 {
+            world.spawn((TableData(0.), SparseData(0.)));
             v.push(world.spawn(TableData(0.)).id());
         }
 

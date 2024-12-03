@@ -10,10 +10,7 @@ pub struct Benchmark(World, Vec<Entity>);
 impl Benchmark {
     pub fn new() -> Self {
         let mut world = World::default();
-
-        let entities = world
-            .spawn_batch(core::iter::repeat(A(0.)).take(10000))
-            .collect();
+        let entities = super::make_entities(&mut world, A(0.));
         Self(world, entities)
     }
 

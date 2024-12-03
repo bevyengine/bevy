@@ -3,10 +3,10 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use bevy_math::prelude::*;
 
 fn easing(c: &mut Criterion) {
-    let cubic_bezier = CubicSegment::new_bezier(vec2(0.25, 0.1), vec2(0.25, 1.0));
+    let cubic_bezier = CubicSegment::new_bezier(vec2(0.25, 0.1), vec2(0.25, 1.));
     c.bench_function("easing_1000", |b| {
         b.iter(|| {
-            (0..1000).map(|i| i as f32 / 1000.0).for_each(|t| {
+            (0..1000).map(|i| i as f32 / 1000.).for_each(|t| {
                 black_box(cubic_bezier.ease(black_box(t)));
             })
         });
@@ -15,10 +15,10 @@ fn easing(c: &mut Criterion) {
 
 fn cubic_2d(c: &mut Criterion) {
     let bezier = CubicBezier::new([[
-        vec2(0.0, 0.0),
-        vec2(0.0, 1.0),
-        vec2(1.0, 0.0),
-        vec2(1.0, 1.0),
+        vec2(0., 0.),
+        vec2(0., 1.),
+        vec2(1., 0.),
+        vec2(1., 1.),
     ]])
     .to_curve()
     .expect("Unable to build a curve from this data");
@@ -29,10 +29,10 @@ fn cubic_2d(c: &mut Criterion) {
 
 fn cubic(c: &mut Criterion) {
     let bezier = CubicBezier::new([[
-        vec3a(0.0, 0.0, 0.0),
-        vec3a(0.0, 1.0, 0.0),
-        vec3a(1.0, 0.0, 0.0),
-        vec3a(1.0, 1.0, 1.0),
+        vec3a(0., 0., 0.),
+        vec3a(0., 1., 0.),
+        vec3a(1., 0., 0.),
+        vec3a(1., 1., 1.),
     ]])
     .to_curve()
     .expect("Unable to build a curve from this data");
@@ -43,10 +43,10 @@ fn cubic(c: &mut Criterion) {
 
 fn cubic_vec3(c: &mut Criterion) {
     let bezier = CubicBezier::new([[
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
-        vec3(1.0, 0.0, 0.0),
-        vec3(1.0, 1.0, 1.0),
+        vec3(0., 0., 0.),
+        vec3(0., 1., 0.),
+        vec3(1., 0., 0.),
+        vec3(1., 1., 1.),
     ]])
     .to_curve()
     .expect("Unable to build a curve from this data");
@@ -57,10 +57,10 @@ fn cubic_vec3(c: &mut Criterion) {
 
 fn build_pos_cubic(c: &mut Criterion) {
     let bezier = CubicBezier::new([[
-        vec3a(0.0, 0.0, 0.0),
-        vec3a(0.0, 1.0, 0.0),
-        vec3a(1.0, 0.0, 0.0),
-        vec3a(1.0, 1.0, 1.0),
+        vec3a(0., 0., 0.),
+        vec3a(0., 1., 0.),
+        vec3a(1., 0., 0.),
+        vec3a(1., 1., 1.),
     ]])
     .to_curve()
     .expect("Unable to build a curve from this data");
@@ -71,10 +71,10 @@ fn build_pos_cubic(c: &mut Criterion) {
 
 fn build_accel_cubic(c: &mut Criterion) {
     let bezier = CubicBezier::new([[
-        vec3a(0.0, 0.0, 0.0),
-        vec3a(0.0, 1.0, 0.0),
-        vec3a(1.0, 0.0, 0.0),
-        vec3a(1.0, 1.0, 1.0),
+        vec3a(0., 0., 0.),
+        vec3a(0., 1., 0.),
+        vec3a(1., 0., 0.),
+        vec3a(1., 1., 1.),
     ]])
     .to_curve()
     .expect("Unable to build a curve from this data");
