@@ -2,7 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis, OverflowClipBox, TargetCamera,
 };
 
 use super::ComputedNode;
@@ -105,9 +105,10 @@ fn update_clipping(
         // `clip_inset` should always fit inside `node_rect`.
         // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
         let clip_inset = match node.overflow_clip_margin.visual_box {
-            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
-            crate::OverflowClipBox::ContentBox => computed_node.content_inset(),
-            crate::OverflowClipBox::PaddingBox => computed_node.border(),
+            OverflowClipBox::MarginBox => -computed_node.margin(),
+            OverflowClipBox::BorderBox => BorderRect::ZERO,
+            OverflowClipBox::ContentBox => computed_node.content_inset(),
+            OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
         clip_rect.min.x += clip_inset.left;

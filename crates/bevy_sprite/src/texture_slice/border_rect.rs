@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use bevy_reflect::Reflect;
 
 /// Struct defining a [`Sprite`](crate::Sprite) border with padding values
@@ -40,6 +42,20 @@ impl BorderRect {
             right: horizontal,
             top: vertical,
             bottom: vertical,
+        }
+    }
+}
+
+impl Neg for BorderRect {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self {
+        Self {
+            left: -self.left,
+            right: -self.right,
+            top: -self.top,
+            bottom: -self.bottom,
         }
     }
 }
