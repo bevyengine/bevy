@@ -217,9 +217,8 @@ pub enum AnimationNodeType {
     /// additively.
     ///
     /// The weights of all the children of this node are *not* normalized to
-    /// 1.0. Rather, the first child is used as a base, ignoring its weight,
-    /// while the others are multiplied by their respective weights and then
-    /// added in sequence to the base.
+    /// 1.0. Rather, each child is multiplied by its respective weight and
+    /// added in sequence.
     ///
     /// Add nodes are primarily useful for superimposing an animation for a
     /// portion of a rig on top of the main animation. For example, an add node
@@ -441,7 +440,7 @@ impl AnimationGraph {
     /// All of the animation clips will be direct children of the root with
     /// weight 1.0.
     ///
-    /// Returns the the graph and indices of the new nodes.
+    /// Returns the graph and indices of the new nodes.
     pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,

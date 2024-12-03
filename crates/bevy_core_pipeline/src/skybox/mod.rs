@@ -6,6 +6,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
 use bevy_render::{
     camera::Exposure,
@@ -19,7 +20,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, GpuImage, Image},
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
@@ -233,6 +234,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

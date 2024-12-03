@@ -11,7 +11,6 @@ use bevy::{
 };
 
 fn main() {
-    std::env::set_var("RUST_BACKTRACE", "1");
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -26,18 +25,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            // Add this component to this camera to render transparent meshes using OIT
-            OrderIndependentTransparencySettings::default(),
-            RenderLayers::layer(1),
-        ))
-        .insert(
-            // Msaa currently doesn't work with OIT
-            Msaa::Off,
-        );
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Add this component to this camera to render transparent meshes using OIT
+        OrderIndependentTransparencySettings::default(),
+        RenderLayers::layer(1),
+        // Msaa currently doesn't work with OIT
+        Msaa::Off,
+    ));
 
     // light
     commands.spawn((
@@ -51,7 +47,16 @@ fn setup(
 
     // spawn help text
     commands
-        .spawn((Text::default(), RenderLayers::layer(1)))
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            RenderLayers::layer(1),
+        ))
         .with_children(|p| {
             p.spawn(TextSpan::new("Press T to toggle OIT\n"));
             p.spawn(TextSpan::new("OIT Enabled"));
@@ -66,11 +71,11 @@ fn toggle_oit(
     mut commands: Commands,
     text: Single<Entity, With<Text>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    q: Query<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
-    mut text_writer: UiTextWriter,
+    q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    mut text_writer: TextUiWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
-        let (e, has_oit) = q.single();
+        let (e, has_oit) = *q;
         *text_writer.text(*text, 2) = if has_oit {
             // Removing the component will completely disable OIT for this camera
             commands

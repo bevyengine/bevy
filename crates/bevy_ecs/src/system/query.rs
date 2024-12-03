@@ -352,6 +352,8 @@ use core::{
 /// [`par_iter`]: Self::par_iter
 /// [`par_iter_mut`]: Self::par_iter_mut
 /// [performance]: #performance
+/// [`Single`]: Single
+/// [`Option<Single>`]: Single
 /// [`single`]: Self::single
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
@@ -649,7 +651,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///
@@ -1384,7 +1386,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]
@@ -1651,6 +1653,8 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
@@ -1687,6 +1691,8 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// which must individually check each query result for a match.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {

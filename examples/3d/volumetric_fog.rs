@@ -125,7 +125,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     // Add the help text.
     commands.spawn((
         create_text(&app_settings),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -202,7 +202,7 @@ fn move_point_light(
     for (mut transform, mut move_data) in objects.iter_mut() {
         let mut translation = transform.translation;
         let mut need_toggle = false;
-        translation.x += move_data.speed * timer.delta_seconds();
+        translation.x += move_data.speed * timer.delta_secs();
         if translation.x > move_data.max_x {
             translation.x = move_data.max_x;
             need_toggle = true;

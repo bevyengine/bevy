@@ -108,7 +108,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings
 /// will be ignored.
 ///
-/// Also, to disable colour terminal output (ANSI escape codes), you can
+/// Also, to disable color terminal output (ANSI escape codes), you can
 /// set the environment variable `NO_COLOR` to any value. This common
 /// convention is documented at [no-color.org](https://no-color.org/).
 /// For example:

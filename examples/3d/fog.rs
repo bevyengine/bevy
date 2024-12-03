@@ -118,7 +118,7 @@ fn setup_pyramid_scene(
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -128,16 +128,15 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn update_system(
-    mut camera: Query<(&mut DistanceFog, &mut Transform)>,
-    mut text: Query<&mut Text>,
+    camera: Single<(&mut DistanceFog, &mut Transform)>,
+    mut text: Single<&mut Text>,
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
 ) {
-    let now = time.elapsed_seconds();
-    let delta = time.delta_seconds();
+    let now = time.elapsed_secs();
+    let delta = time.delta_secs();
 
-    let (mut fog, mut transform) = camera.single_mut();
-    let mut text = text.single_mut();
+    let (mut fog, mut transform) = camera.into_inner();
 
     // Orbit camera around pyramid
     let orbit_scale = 8.0 + ops::sin(now / 10.0) * 7.0;
@@ -149,7 +148,7 @@ fn update_system(
     .looking_at(Vec3::ZERO, Vec3::Y);
 
     // Fog Information
-    **text = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
+    text.0 = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
 
     // Fog Falloff Mode Switching
     text.push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");

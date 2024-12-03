@@ -11,6 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -21,7 +22,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -60,9 +60,9 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>()
-            .register_type::<UiMaterialHandle<M>>()
+            .register_type::<MaterialNode<M>>()
             .add_plugins((
-                ExtractComponentPlugin::<UiMaterialHandle<M>>::extract_visible(),
+                ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
@@ -199,6 +199,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_material_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
@@ -363,20 +364,17 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     materials: Extract<Res<Assets<M>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &Node,
-                &GlobalTransform,
-                &UiMaterialHandle<M>,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-            ),
-            Without<BackgroundColor>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &MaterialNode<M>,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+        )>,
     >,
-    render_entity_lookup: Extract<Query<&RenderEntity>>,
+    render_entity_lookup: Extract<Query<RenderEntity>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
@@ -386,7 +384,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(&camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
             continue;
         };
 
@@ -419,7 +417,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 main_entity: entity.into(),
             },
         );
@@ -642,15 +640,17 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 bind_group_data: material.key.clone(),
             },
         );
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.uinodes.len());
+        if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+            transparent_phase.items.reserve_exact(
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
+            );
+        }
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
                 entity.index(),
             ),
             batch_range: 0..0,

@@ -28,7 +28,6 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
@@ -53,7 +52,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )
-    .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
+    .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         vec![
@@ -80,11 +79,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
             Mesh3d(meshes.add(mesh.clone())),
-            // This bundle's components are needed for something to be rendered
-            SpatialBundle {
-                transform: Transform::from_xyz(x, y, 0.0),
-                ..SpatialBundle::INHERITED_IDENTITY
-            },
+            Transform::from_xyz(x, y, 0.0),
         ));
     }
 
@@ -267,6 +262,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

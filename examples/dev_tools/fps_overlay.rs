@@ -19,16 +19,16 @@ fn main() {
             DefaultPlugins,
             FpsOverlayPlugin {
                 config: FpsOverlayConfig {
-                    text_config: TextStyle {
+                    text_config: TextFont {
                         // Here we define size of our overlay
                         font_size: 42.0,
-                        // We can also change color of the overlay
-                        color: OverlayColor::GREEN,
                         // If we want, we can use a custom font
                         font: default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
                     },
+                    // We can also change color of the overlay
+                    text_color: OverlayColor::GREEN,
                     enabled: true,
                 },
             },
@@ -43,34 +43,30 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     // Instruction text
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+
+    commands.spawn((
+        Text::new(concat!(
+            "Press 1 to toggle the overlay color.\n",
+            "Press 2 to decrease the overlay size.\n",
+            "Press 3 to increase the overlay size.\n",
+            "Press 4 to toggle the overlay visibility."
+        )),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.),
+            left: Val::Px(12.),
             ..default()
-        })
-        .with_children(|c| {
-            c.spawn(Text::new(concat!(
-                "Press 1 to toggle the overlay color.\n",
-                "Press 2 to decrease the overlay size.\n",
-                "Press 3 to increase the overlay size.\n",
-                "Press 4 to toggle the overlay visibility."
-            )));
-        });
+        },
+    ));
 }
 
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
-        if overlay.text_config.color == OverlayColor::GREEN {
-            overlay.text_config.color = OverlayColor::RED;
+        if overlay.text_color == OverlayColor::GREEN {
+            overlay.text_color = OverlayColor::RED;
         } else {
-            overlay.text_config.color = OverlayColor::GREEN;
+            overlay.text_color = OverlayColor::GREEN;
         }
     }
     if input.just_pressed(KeyCode::Digit2) {

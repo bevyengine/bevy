@@ -33,7 +33,7 @@ where
     /// # use bevy_color::palettes::basic::{RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
-    ///     let curve = function_curve(domain, |t| Vec2::from(t.sin_cos()));
+    ///     let curve = FunctionCurve::new(domain, |t| Vec2::from(t.sin_cos()));
     ///     gizmos.curve_2d(curve, (0..=100).map(|n| n as f32 / 100.0), RED);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -67,7 +67,7 @@ where
     /// # use bevy_color::palettes::basic::{RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
-    ///     let curve = function_curve(domain, |t| {
+    ///     let curve = FunctionCurve::new(domain, |t| {
     ///         let (x,y) = t.sin_cos();
     ///         Vec3::new(x, y, t)
     ///     });
@@ -104,7 +104,7 @@ where
     /// # use bevy_color::{Mix, palettes::basic::{GREEN, RED}};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
-    ///     let curve = function_curve(domain, |t| Vec2::from(t.sin_cos()));
+    ///     let curve = FunctionCurve::new(domain, |t| Vec2::from(t.sin_cos()));
     ///     gizmos.curve_gradient_2d(
     ///         curve,
     ///         (0..=100).map(|n| n as f32 / 100.0)
@@ -147,7 +147,7 @@ where
     /// # use bevy_color::{Mix, palettes::basic::{GREEN, RED}};
     /// fn system(mut gizmos: Gizmos) {
     ///     let domain = Interval::UNIT;
-    ///     let curve = function_curve(domain, |t| {
+    ///     let curve = FunctionCurve::new(domain, |t| {
     ///         let (x,y) = t.sin_cos();
     ///         Vec3::new(x, y, t)
     ///     });

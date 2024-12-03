@@ -13,7 +13,6 @@ use bevy::{
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
-    math::{vec3, Vec3A},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -30,7 +29,6 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
@@ -198,18 +196,16 @@ fn main() {
 fn setup(mut commands: Commands) {
     // Spawn a single entity that has custom rendering. It'll be extracted into
     // the render world via [`ExtractComponent`].
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::IDENTITY,
-            ..default()
-        })
+    commands.spawn((
+        Visibility::default(),
+        Transform::default(),
         // This `Aabb` is necessary for the visibility checks to work.
-        .insert(Aabb {
+        Aabb {
             center: Vec3A::ZERO,
             half_extents: Vec3A::splat(0.5),
-        })
-        .insert(CustomRenderedEntity);
+        },
+        CustomRenderedEntity,
+    ));
 
     // Spawn the camera.
     commands.spawn((
@@ -345,6 +341,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

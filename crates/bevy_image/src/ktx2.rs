@@ -13,9 +13,9 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
-    TextureViewDimension,
+use wgpu::TextureViewDescriptor;
+use wgpu_types::{
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
 };
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
@@ -166,8 +166,8 @@ pub fn ktx2_buffer_to_image(
                             (height >> level as u32).max(1),
                         );
                         let (num_blocks_x, num_blocks_y) = (
-                            ((level_width + block_width_pixels - 1) / block_width_pixels) .max(1),
-                            ((level_height + block_height_pixels - 1) / block_height_pixels) .max(1),
+                            level_width.div_ceil(block_width_pixels) .max(1),
+                            level_height.div_ceil(block_height_pixels) .max(1),
                         );
                         let level_bytes = (num_blocks_x * num_blocks_y * block_bytes) as usize;
 
@@ -247,8 +247,8 @@ pub fn ktx2_buffer_to_image(
             (depth as usize >> level).max(1),
         );
         let (num_blocks_x, num_blocks_y) = (
-            ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
-            ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
+            level_width.div_ceil(block_width_pixels).max(1),
+            level_height.div_ceil(block_height_pixels).max(1),
         );
         let level_bytes = num_blocks_x * num_blocks_y * level_depth * block_bytes;
 
@@ -641,7 +641,7 @@ pub fn ktx2_dfd_to_texture_format(
                         && sample_information[2].channel_type == 2
                         && sample_information[2].bit_length == 10
                     {
-                        TextureFormat::Rg11b10Float
+                        TextureFormat::Rg11b10Ufloat
                     } else if sample_information[0].channel_type == 0
                         && sample_information[0].bit_length == 9
                         && sample_information[1].channel_type == 1
@@ -1276,7 +1276,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R32G32B32A32_SINT => TextureFormat::Rgba32Sint,
         ktx2::Format::R32G32B32A32_SFLOAT => TextureFormat::Rgba32Float,
 
-        ktx2::Format::B10G11R11_UFLOAT_PACK32 => TextureFormat::Rg11b10Float,
+        ktx2::Format::B10G11R11_UFLOAT_PACK32 => TextureFormat::Rg11b10Ufloat,
         ktx2::Format::E5B9G9R9_UFLOAT_PACK32 => TextureFormat::Rgb9e5Ufloat,
 
         ktx2::Format::X8_D24_UNORM_PACK32 => TextureFormat::Depth24Plus,

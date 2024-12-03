@@ -135,7 +135,7 @@ fn setup(
     #[cfg(not(target_arch = "wasm32"))]
     commands.spawn((
         Text::new("Press space to toggle wireframes"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -146,7 +146,7 @@ fn setup(
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.);
+        transform.rotate_y(time.delta_secs() / 2.);
     }
 }
 

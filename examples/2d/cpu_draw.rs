@@ -11,7 +11,8 @@ use bevy::render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 const IMAGE_WIDTH: u32 = 256;
 const IMAGE_HEIGHT: u32 = 256;
@@ -32,6 +33,9 @@ fn main() {
 /// Store the image handle that we will draw to, here.
 #[derive(Resource)]
 struct MyProcGenImage(Handle<Image>);
+
+#[derive(Resource)]
+struct SeededRng(ChaCha8Rng);
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // spawn a camera
@@ -80,6 +84,11 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // create a sprite entity using our image
     commands.spawn(Sprite::from_image(handle.clone()));
     commands.insert_resource(MyProcGenImage(handle));
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
+    commands.insert_resource(SeededRng(seeded_rng));
 }
 
 /// Every fixed update tick, draw one more pixel to make a spiral pattern
@@ -89,12 +98,11 @@ fn draw(
     // used to keep track of where we are
     mut i: Local<u32>,
     mut draw_color: Local<Color>,
+    mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let mut rng = rand::thread_rng();
-
     if *i == 0 {
         // Generate a random color on first run.
-        *draw_color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
+        *draw_color = Color::linear_rgb(seeded_rng.0.gen(), seeded_rng.0.gen(), seeded_rng.0.gen());
     }
 
     // Get the image from Bevy's asset storage.
@@ -117,7 +125,7 @@ fn draw(
     // If the old color is our current color, change our drawing color.
     let tolerance = 1.0 / 255.0;
     if old_color.distance(&draw_color) <= tolerance {
-        *draw_color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
+        *draw_color = Color::linear_rgb(seeded_rng.0.gen(), seeded_rng.0.gen(), seeded_rng.0.gen());
     }
 
     // Set the new color, but keep old alpha value from image.

@@ -800,8 +800,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -863,8 +863,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }
@@ -928,8 +928,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -993,8 +993,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }
@@ -1008,12 +1008,18 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
-    /// Returns a reference to the [`World`].
+    /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main().world()`].
+    ///
+    /// [`app.main().world()`]: SubApp::world
     pub fn world(&self) -> &World {
         self.main().world()
     }
 
-    /// Returns a mutable reference to the [`World`].
+    /// Returns a mutable reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main_mut().world_mut()`].
+    ///
+    /// [`app.main_mut().world_mut()`]: SubApp::world_mut
     pub fn world_mut(&mut self) -> &mut World {
         self.main_mut().world_mut()
     }

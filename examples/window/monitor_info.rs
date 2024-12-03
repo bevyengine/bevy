@@ -67,7 +67,7 @@ fn update(
         );
         commands.spawn((
             Text(info_text),
-            Style {
+            Node {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),

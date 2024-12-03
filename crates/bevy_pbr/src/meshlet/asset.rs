@@ -9,6 +9,7 @@ use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use derive_more::derive::{Display, Error, From};
+use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 
@@ -51,6 +52,8 @@ pub struct MeshletMesh {
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
     pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    /// Meshlet group and parent group simplification errors.
+    pub(crate) meshlet_simplification_errors: Arc<[MeshletSimplificationError]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -70,11 +73,11 @@ pub struct Meshlet {
     pub triangle_count: u8,
     /// Unused.
     pub padding: u16,
-    /// Number of bits used to to store the X channel of vertex positions within this meshlet.
+    /// Number of bits used to store the X channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_x: u8,
-    /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
+    /// Number of bits used to store the Y channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_y: u8,
-    /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
+    /// Number of bits used to store the Z channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_z: u8,
     /// Power of 2 factor used to quantize vertex positions within this meshlet.
     pub vertex_position_quantization_factor: u8,
@@ -90,12 +93,12 @@ pub struct Meshlet {
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSpheres {
-    /// The bounding sphere used for frustum and occlusion culling for this meshlet.
-    pub self_culling: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
-    pub self_lod: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet's parent is at the correct level of detail for a given view.
-    pub parent_lod: MeshletBoundingSphere,
+    /// Bounding sphere used for frustum and occlusion culling for this meshlet.
+    pub culling_sphere: MeshletBoundingSphere,
+    /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
+    pub lod_group_sphere: MeshletBoundingSphere,
+    /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    pub lod_parent_group_sphere: MeshletBoundingSphere,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
@@ -104,6 +107,16 @@ pub struct MeshletBoundingSpheres {
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
+}
+
+/// Simplification error used for choosing level of detail for a [`Meshlet`].
+#[derive(Copy, Clone, Pod, Zeroable)]
+#[repr(C)]
+pub struct MeshletSimplificationError {
+    /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
+    pub group_error: f16,
+    /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
+    pub parent_group_error: f16,
 }
 
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
@@ -139,6 +152,7 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.indices, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
+        write_slice(&asset.meshlet_simplification_errors, &mut writer)?;
         writer.finish()?;
 
         Ok(())
@@ -179,6 +193,7 @@ impl AssetLoader for MeshletMeshLoader {
         let indices = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
         let meshlet_bounding_spheres = read_slice(reader)?;
+        let meshlet_simplification_errors = read_slice(reader)?;
 
         Ok(MeshletMesh {
             vertex_positions,
@@ -187,6 +202,7 @@ impl AssetLoader for MeshletMeshLoader {
             indices,
             meshlets,
             meshlet_bounding_spheres,
+            meshlet_simplification_errors,
         })
     }
 

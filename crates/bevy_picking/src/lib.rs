@@ -30,8 +30,8 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
+//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
@@ -73,8 +73,8 @@
 //!
 //! #### Input Agnostic
 //!
-//! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether its the included mouse
+//! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
+//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
 //! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
 //!
 //! ## Robustness
@@ -144,7 +144,7 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the the earlier stages of the pipeline, you can easily
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
 //! extend the plugin with arbitrary backends and input methods, yet still use all the high level
 //! features.
 
@@ -156,9 +156,11 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
+#[cfg(feature = "bevy_mesh_picking_backend")]
+pub mod mesh_picking;
 pub mod pointer;
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -166,6 +168,12 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::mesh_picking::{
+        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+    };
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
@@ -267,13 +275,12 @@ pub enum PickSet {
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
-impl Plugin for DefaultPickingPlugins {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            input::PointerInputPlugin::default(),
-            PickingPlugin::default(),
-            InteractionPlugin,
-        ));
+impl PluginGroup for DefaultPickingPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(input::PointerInputPlugin::default())
+            .add(PickingPlugin::default())
+            .add(InteractionPlugin)
     }
 }
 
@@ -374,6 +381,21 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
+            .add_event::<Pointer<Cancel>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<DragDrop>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Up>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

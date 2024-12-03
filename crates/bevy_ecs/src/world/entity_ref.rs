@@ -730,6 +730,34 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.0) }
     }
 
+    /// Returns [untyped mutable reference](MutUntyped) to component for
+    /// the current entity, based on the given [`ComponentId`].
+    ///
+    /// Unlike [`EntityMut::get_mut_by_id`], this method borrows &self instead of
+    /// &mut self, allowing the caller to access multiple components simultaneously.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_mut_by_id_unchecked<F: DynamicComponentFetch>(
+        &self,
+        component_ids: F,
+    ) -> Result<F::Mut<'_>, EntityComponentError> {
+        // SAFETY:
+        // - The caller must ensure simultaneous access is limited
+        // - to components that are mutually independent.
+        unsafe { component_ids.fetch_mut(self.0) }
+    }
+
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
     /// to component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
@@ -2774,13 +2802,19 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
+/// Error type returned by [`TryFrom`] conversions from filtered entity types
+/// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
+/// ([`EntityRef`]/[`EntityMut`]).
 #[derive(Error, Display, Debug)]
 pub enum TryFromFilteredError {
+    /// Error indicating that the filtered entity does not have read access to
+    /// all components.
     #[display(
         "Conversion failed, filtered entity ref does not have read access to all components"
     )]
     MissingReadAllAccess,
-
+    /// Error indicating that the filtered entity does not have write access to
+    /// all components.
     #[display(
         "Conversion failed, filtered entity ref does not have write access to all components"
     )]
@@ -4036,7 +4070,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn ref_compatible_with_resource_mut() {
         fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
 
@@ -4067,7 +4100,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource() {
         fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
 
@@ -4075,7 +4107,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource_mut() {
         fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
 
@@ -4427,5 +4458,28 @@ mod tests {
                 .get_mut_by_id(&[x_id, x_id])
                 .map(|_| { unreachable!() })
         );
+    }
+
+    #[test]
+    fn get_mut_by_id_unchecked() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+
+        let e1_mut = &world.get_entity_mut([e1]).unwrap()[0];
+        // SAFETY: The entity e1 contains component X.
+        let x_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(x_id) }.unwrap();
+        // SAFETY: The entity e1 contains component Y, with components X and Y being mutually independent.
+        let y_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(y_id) }.unwrap();
+
+        // SAFETY: components match the id they were fetched with
+        let x_component = unsafe { x_ptr.into_inner().deref_mut::<X>() };
+        x_component.0 += 1;
+        // SAFETY: components match the id they were fetched with
+        let y_component = unsafe { y_ptr.into_inner().deref_mut::<Y>() };
+        y_component.0 -= 1;
+
+        assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 }

@@ -11,6 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -19,18 +20,18 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::{BevyDefault, GpuImage, Image, TRANSPARENT_IMAGE_HANDLE},
+    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{
-    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlas, TextureAtlasLayout,
-    TextureSlicer,
+    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
+use widget::ImageNode;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -219,6 +220,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_texture_slice_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -232,9 +234,10 @@ pub struct ExtractedUiTextureSlice {
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
-    pub image_scale_mode: ImageScaleMode,
+    pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
 }
 
@@ -251,48 +254,53 @@ pub fn extract_ui_texture_slices(
     slicers_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            &UiImage,
-            &ImageScaleMode,
-            Option<&TextureAtlas>,
+            &ImageNode,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (
-        entity,
-        uinode,
-        transform,
-        view_visibility,
-        clip,
-        camera,
-        image,
-        image_scale_mode,
-        atlas,
-    ) in &slicers_query
-    {
+    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
+        };
+
+        let image_scale_mode = match image.image_mode.clone() {
+            widget::NodeImageMode::Sliced(texture_slicer) => {
+                SpriteImageMode::Sliced(texture_slicer)
+            }
+            widget::NodeImageMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            } => SpriteImageMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            },
+            _ => continue,
         };
 
         // Skip invisible images
         if !view_visibility.get()
             || image.color.is_fully_transparent()
-            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             continue;
         }
 
-        let atlas_rect = atlas
+        let atlas_rect = image
+            .texture_atlas
+            .as_ref()
             .and_then(|s| s.texture_rect(&texture_atlases))
             .map(|r| r.as_rect());
 
@@ -315,15 +323,16 @@ pub fn extract_ui_texture_slices(
                 color: image.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: uinode.size,
                 },
                 clip: clip.map(|clip| clip.clip),
-                image: image.texture.id(),
-                camera_entity: camera_entity.id(),
-                image_scale_mode: image_scale_mode.clone(),
+                image: image.image.id(),
+                camera_entity,
+                image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
+                inverse_scale_factor: uinode.inverse_scale_factor,
                 main_entity: entity.into(),
             },
         );
@@ -360,7 +369,7 @@ pub fn queue_ui_slices(
             pipeline,
             entity: (*entity, extracted_slicer.main_entity),
             sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32),
+                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
                 entity.index(),
             ),
             batch_range: 0..0,
@@ -601,7 +610,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size(),
+                        uinode_rect.size() * texture_slices.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 
@@ -727,10 +736,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
 fn compute_texture_slices(
     image_size: Vec2,
     target_size: Vec2,
-    image_scale_mode: &ImageScaleMode,
+    image_scale_mode: &SpriteImageMode,
 ) -> [[f32; 4]; 3] {
     match image_scale_mode {
-        ImageScaleMode::Sliced(TextureSlicer {
+        SpriteImageMode::Sliced(TextureSlicer {
             border: border_rect,
             center_scale_mode,
             sides_scale_mode,
@@ -783,7 +792,7 @@ fn compute_texture_slices(
                 ],
             ]
         }
-        ImageScaleMode::Tiled {
+        SpriteImageMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
@@ -791,6 +800,9 @@ fn compute_texture_slices(
             let rx = compute_tiled_axis(*tile_x, image_size.x, target_size.x, *stretch_value);
             let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
+        }
+        SpriteImageMode::Auto => {
+            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     }
 }

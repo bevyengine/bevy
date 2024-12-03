@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.81.0"
+rust-version = "1.82.0"
 
 [workspace]
 exclude = [
@@ -40,6 +40,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -80,6 +81,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -101,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -111,9 +112,9 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -122,6 +123,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_window",
   "bevy_winit",
   "custom_cursor",
   "default_font",
@@ -136,11 +138,23 @@ default = [
   "x11",
 ]
 
-# Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking meshes
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
+
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -212,6 +226,9 @@ bevy_ui = [
   "bevy_ui_picking_backend",
 ]
 
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
+
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
@@ -242,9 +259,6 @@ trace_tracy_memory = [
 
 # Tracing support
 trace = ["bevy_internal/trace"]
-
-# AVIF image format support
-avif = ["bevy_internal/avif"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -401,6 +415,9 @@ pbr_multi_layer_material_textures = [
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
+# Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
+experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
+
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -440,6 +457,9 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_internal/ghost_nodes"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
@@ -467,6 +487,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
+accesskit = "0.17"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -1209,9 +1230,20 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
   ],
 ]
+
+[[example]]
+name = "mesh_ray_cast"
+path = "examples/3d/mesh_ray_cast.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_ray_cast]
+name = "Mesh Ray Cast"
+description = "Demonstrates ray casting with the `MeshRayCast` system parameter"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "lightmaps"
@@ -2686,6 +2718,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
@@ -2963,6 +3006,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_clip_margin"
+path = "examples/ui/overflow_clip_margin.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_clip_margin]
+name = "Overflow Clip Margin"
+description = "Simple example demonstrating the OverflowClipMargin style property"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
 doc-scrape-examples = true
@@ -3054,6 +3109,7 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/ghost_nodes.rs"
 doc-scrape-examples = true
+required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -3102,17 +3158,6 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "ui"
-path = "examples/ui/ui.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ui]
-name = "UI"
-description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3272,6 +3317,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "window_drag_move"
+path = "examples/window/window_drag_move.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.window_drag_move]
+name = "Window Drag Move"
+description = "Demonstrates drag move and drag resize without window decoration"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
 doc-scrape-examples = true
@@ -3288,11 +3344,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "minimising"
-path = "tests/window/minimising.rs"
+name = "minimizing"
+path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.minimising]
+[package.metadata.example.minimizing]
 hidden = true
 
 [[example]]
@@ -3598,6 +3654,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3609,6 +3666,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
@@ -3696,6 +3754,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "mesh_picking"
+path = "examples/picking/mesh_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
+
+[package.metadata.example.mesh_picking]
+name = "Mesh Picking"
+description = "Demonstrates picking meshes"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
@@ -3735,6 +3805,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
+required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
@@ -3784,3 +3855,36 @@ name = "Monitor info"
 description = "Displays information about available monitors (displays)."
 category = "Window"
 wasm = false
+
+# Testbed
+[[example]]
+name = "testbed_2d"
+path = "examples/testbed/2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_2d]
+hidden = true
+
+[[example]]
+name = "testbed_3d"
+path = "examples/testbed/3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_3d]
+hidden = true
+
+[[example]]
+name = "testbed_ui"
+path = "examples/testbed/ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui]
+hidden = true
+
+[[example]]
+name = "testbed_ui_layout_rounding"
+path = "examples/testbed/ui_layout_rounding.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui_layout_rounding]
+hidden = true

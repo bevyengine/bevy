@@ -102,9 +102,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn player_movement_system(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform)>,
+    query: Single<(&Player, &mut Transform)>,
 ) {
-    let (ship, mut transform) = query.single_mut();
+    let (ship, mut transform) = query.into_inner();
 
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
@@ -122,14 +122,14 @@ fn player_movement_system(
     }
 
     // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_seconds());
+    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_secs());
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing
     // vector
     let movement_direction = transform.rotation * Vec3::Y;
     // get the distance the ship will move based on direction, the ship's movement speed and delta
     // time
-    let movement_distance = movement_factor * ship.movement_speed * time.delta_seconds();
+    let movement_distance = movement_factor * ship.movement_speed * time.delta_secs();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
@@ -143,9 +143,8 @@ fn player_movement_system(
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
     mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_query: Query<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -186,9 +185,8 @@ fn snap_to_player_system(
 fn rotate_to_player_system(
     time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_query: Query<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -230,7 +228,7 @@ fn rotate_to_player_system(
 
         // calculate angle of rotation with limit
         let rotation_angle =
-            rotation_sign * (config.rotation_speed * time.delta_seconds()).min(max_angle);
+            rotation_sign * (config.rotation_speed * time.delta_secs()).min(max_angle);
 
         // rotate the enemy to face the player
         enemy_transform.rotate_z(rotation_angle);

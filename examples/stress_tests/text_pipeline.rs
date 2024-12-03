@@ -44,21 +44,21 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         [
             (
                 TextSpan("text".repeat(i)),
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: (4 + i % 10) as f32,
-                    color: BLUE.into(),
                     ..Default::default()
                 },
+                TextColor(BLUE.into()),
             ),
             (
                 TextSpan("pipeline".repeat(i)),
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,
-                    color: YELLOW.into(),
                     ..default()
                 },
+                TextColor(YELLOW.into()),
             ),
         ]
     };
@@ -83,7 +83,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // changing the bounds of the text will cause a recomputation
 fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut TextBounds>) {
-    let width = (1. + ops::sin(time.elapsed_seconds())) * 600.0;
+    let width = (1. + ops::sin(time.elapsed_secs())) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.width = Some(width);
     }

@@ -11,39 +11,27 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<MessageEvent>()
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, (animate_text_opacity, edit_message))
+        .add_systems(Update, animate_text_opacity)
+        .add_observer(edit_message)
         .run();
 }
 
 #[derive(Component)]
 struct MessageText;
 
-#[derive(Event, Reflect, Clone)]
-#[reflect(AnimationEvent)]
+#[derive(Event, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,
 }
 
-// AnimationEvent can also be derived, but doing so will
-// trigger it as an observer event which is triggered in PostUpdate.
-// We need to set the message text before that so it is
-// updated before rendering without a one frame delay.
-impl AnimationEvent for MessageEvent {
-    fn trigger(&self, _time: f32, _weight: f32, _entity: Entity, world: &mut World) {
-        world.send_event(self.clone());
-    }
-}
-
 fn edit_message(
-    mut event_reader: EventReader<MessageEvent>,
-    text: Single<(&mut Text2d, &mut TextStyle), With<MessageText>>,
+    trigger: Trigger<MessageEvent>,
+    text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
-    let (mut text, mut style) = text.into_inner();
-    for event in event_reader.read() {
-        text.0 = event.value.clone();
-        style.color = event.color;
-    }
+    let (mut text, mut color) = text.into_inner();
+    text.0 = trigger.event().value.clone();
+    color.0 = trigger.event().color;
 }
 
 fn setup(
@@ -69,11 +57,11 @@ fn setup(
     commands.spawn((
         MessageText,
         Text2d::default(),
-        TextStyle {
+        TextFont {
             font_size: 119.0,
-            color: Color::NONE,
             ..default()
         },
+        TextColor(Color::NONE),
     ));
 
     // Create a new animation clip.
@@ -108,9 +96,9 @@ fn setup(
 }
 
 // Slowly fade out the text opacity.
-fn animate_text_opacity(mut styles: Query<&mut TextStyle>, time: Res<Time>) {
-    for mut style in &mut styles {
-        let a = style.color.alpha();
-        style.color.set_alpha(a - time.delta_seconds());
+fn animate_text_opacity(mut colors: Query<&mut TextColor>, time: Res<Time>) {
+    for mut color in &mut colors {
+        let a = color.0.alpha();
+        color.0.set_alpha(a - time.delta_secs());
     }
 }

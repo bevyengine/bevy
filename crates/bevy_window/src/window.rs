@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::{Entity, VisitEntities, VisitEntitiesMut},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, UVec2, Vec2};
+use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -388,6 +388,16 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
     pub titlebar_show_buttons: bool,
+    /// Sets whether the Window prefers the home indicator hidden.
+    ///
+    /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on iOS.
+    ///
+    /// [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_prefers_home_indicator_hidden
+    pub prefers_home_indicator_hidden: bool,
 }
 
 impl Default for Window {
@@ -429,6 +439,7 @@ impl Default for Window {
             titlebar_transparent: false,
             titlebar_show_title: true,
             titlebar_show_buttons: true,
+            prefers_home_indicator_hidden: false,
         }
     }
 }
@@ -460,7 +471,7 @@ impl Window {
     ///
     /// There is no guarantee that this will work unless the left mouse button was
     /// pressed immediately before this function was called.
-    pub fn start_drag_resize(&mut self, direction: ResizeDirection) {
+    pub fn start_drag_resize(&mut self, direction: CompassOctant) {
         self.internal.drag_resize_request = Some(direction);
     }
 
@@ -994,32 +1005,6 @@ pub enum CursorGrabMode {
     Locked,
 }
 
-/// Defines the orientation in which a window resize will be performed.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum ResizeDirection {
-    /// Resize the window to the west.
-    West,
-    /// Resize the window to the north.
-    North,
-    /// Resize the window to the east.
-    East,
-    /// Resize the window to the south.
-    South,
-    /// Resize the window to the northwest.
-    Northwest,
-    /// Resize the window to the northeast.
-    Northeast,
-    /// Resize the window to the southwest.
-    Southwest,
-    /// Resize the window to the southeast.
-    Southeast,
-}
-
 /// Stores internal [`Window`] state that isn't directly accessible.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
 #[cfg_attr(
@@ -1036,7 +1021,7 @@ pub struct InternalWindowState {
     /// If this is true then next frame we will ask to drag-move the window.
     drag_move_request: bool,
     /// If this is `Some` then the next frame we will ask to drag-resize the window.
-    drag_resize_request: Option<ResizeDirection>,
+    drag_resize_request: Option<CompassOctant>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
 }
@@ -1058,7 +1043,7 @@ impl InternalWindowState {
     }
 
     /// Consumes the current resize request, if it exists. This should only be called by window backends.
-    pub fn take_resize_request(&mut self) -> Option<ResizeDirection> {
+    pub fn take_resize_request(&mut self) -> Option<CompassOctant> {
         self.drag_resize_request.take()
     }
 }

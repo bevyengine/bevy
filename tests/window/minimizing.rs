@@ -1,4 +1,4 @@
-//! A test to confirm that `bevy` allows minimising the window
+//! A test to confirm that `bevy` allows minimizing the window
 //! This is run in CI to ensure that this doesn't regress again.
 use bevy::{core::FrameCount, prelude::*};
 
@@ -8,22 +8,21 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Minimising".into(),
+                title: "Minimizing".into(),
                 ..default()
             }),
             ..default()
         }))
         .add_systems(Startup, (setup_3d, setup_2d))
-        .add_systems(Update, minimise_automatically)
+        .add_systems(Update, minimize_automatically)
         .run();
 }
 
-fn minimise_automatically(mut windows: Query<&mut Window>, frames: Res<FrameCount>) {
+fn minimize_automatically(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
     if frames.0 != 60 {
         return;
     }
 
-    let mut window = windows.single_mut();
     window.set_minimized(true);
 }
 
