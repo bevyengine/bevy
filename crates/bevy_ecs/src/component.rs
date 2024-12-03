@@ -895,6 +895,7 @@ impl ComponentDescriptor {
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+        mutable: bool,
     ) -> Self {
         Self {
             name: name.into(),
@@ -903,29 +904,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
-            mutable: true,
-        }
-    }
-
-    /// Create a new `ComponentDescriptor` for an immutable [`Component`].
-    ///
-    /// # Safety
-    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
-    /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
-    pub unsafe fn new_immutable_with_layout(
-        name: impl Into<Cow<'static, str>>,
-        storage_type: StorageType,
-        layout: Layout,
-        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            storage_type,
-            is_send_and_sync: true,
-            type_id: None,
-            layout,
-            drop,
-            mutable: false,
+            mutable,
         }
     }
 

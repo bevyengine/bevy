@@ -25,11 +25,12 @@ fn setup(world: &mut World) {
             // - No drop command is required
             // - The component will store [u8; size], which is Send + Sync
             let descriptor = unsafe {
-                ComponentDescriptor::new_immutable_with_layout(
+                ComponentDescriptor::new_with_layout(
                     name.to_string(),
                     StorageType::Table,
                     Layout::array::<u8>(size).unwrap(),
                     None,
+                    false,
                 )
             };
 
