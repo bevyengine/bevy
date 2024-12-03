@@ -48,6 +48,9 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
+/// The method path for a `bevy/components` request.
+pub const BRP_COMPONENTS_METHOD: &str = "bevy/components";
+
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
 
@@ -791,6 +794,23 @@ pub fn process_remote_list_watching_request(
             serde_json::to_value(response).map_err(BrpError::internal)?,
         ))
     }
+}
+
+/// Handles a `bevy/components` request (list all world components) coming from a client.
+pub fn process_remote_components_request(
+    In(_): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+
+    let components = world.components();
+    let mut response = BrpListResponse::default();
+
+    for component in components.iter() {
+        response.push(component.name().to_owned());
+    }
+
+    response.sort();
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the

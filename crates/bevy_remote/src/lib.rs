@@ -257,6 +257,14 @@
 //!   in the last tick.
 //!
 //!
+//! ### bevy/components
+//!
+//! list all components present on the world.
+//!
+//! `params`: None
+//!
+//! `result`: An array of fully-qualified type names of all world components
+//!
 //! ## Custom methods
 //!
 //! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
@@ -403,6 +411,10 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_COMPONENTS_METHOD,
+                builtin_methods::process_remote_components_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
