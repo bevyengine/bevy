@@ -22,14 +22,14 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
     // Create a list of all nodes we need to visit.
     let unchecked_nodes = graph.nodes();
 
-    // For each node we need to visit, we also need to visit its neighbours.
-    // Storing the iterator for each set of neighbours allows this list to be computed without
+    // For each node we need to visit, we also need to visit its neighbors.
+    // Storing the iterator for each set of neighbors allows this list to be computed without
     // an additional allocation.
     let nodes = graph
         .nodes()
         .map(|node| NodeData {
             root_index: None,
-            neighbours: graph.neighbors(node),
+            neighbors: graph.neighbors(node),
         })
         .collect::<Vec<_>>();
 
@@ -48,7 +48,7 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
 
 struct NodeData<N: Iterator<Item = NodeId>> {
     root_index: Option<NonZeroUsize>,
-    neighbours: N,
+    neighbors: N,
 }
 
 /// A state for computing the *strongly connected components* using [Tarjan's algorithm][1].
@@ -58,11 +58,11 @@ struct NodeData<N: Iterator<Item = NodeId>> {
 /// [1]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 /// [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 /// [`TarjanScc`]: https://docs.rs/petgraph/0.6.5/petgraph/algo/struct.TarjanScc.html
-struct TarjanScc<'graph, Hasher, AllNodes, Neighbours>
+struct TarjanScc<'graph, Hasher, AllNodes, Neighbors>
 where
     Hasher: BuildHasher,
     AllNodes: Iterator<Item = NodeId>,
-    Neighbours: Iterator<Item = NodeId>,
+    Neighbors: Iterator<Item = NodeId>,
 {
     /// Source of truth [`DiGraph`]
     graph: &'graph DiGraph<Hasher>,
@@ -73,8 +73,8 @@ where
     /// A count of potentially remaining SCCs
     component_count: usize,
     /// Information about each [`NodeId`], including a possible SCC index and an
-    /// [`Iterator`] of possibly unvisited neighbours.
-    nodes: Vec<NodeData<Neighbours>>,
+    /// [`Iterator`] of possibly unvisited neighbors.
+    nodes: Vec<NodeData<Neighbors>>,
     /// A stack of [`NodeId`]s where a SCC will be found starting at the top of the stack.
     stack: Vec<NodeId>,
     /// A stack of [`NodeId`]s which need to be visited to determine which SCC they belong to.
@@ -127,7 +127,7 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
 
             let visited = self.nodes[self.graph.to_index(node)].root_index.is_some();
 
-            // If this node hasn't already been visited (e.g., it was the neighbour of a previously checked node)
+            // If this node hasn't already been visited (e.g., it was the neighbor of a previously checked node)
             // add it to the visitation stack.
             if !visited {
                 self.visitation_stack.push((node, true));
@@ -135,8 +135,8 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
         }
     }
 
-    /// Attempt to find the starting point on the stack for a new SCC without visiting neighbours.
-    /// If a visitation is required, this will return `None` and mark the required neighbour and the
+    /// Attempt to find the starting point on the stack for a new SCC without visiting neighbors.
+    /// If a visitation is required, this will return `None` and mark the required neighbor and the
     /// current node as in need of visitation again.
     /// If no SCC can be found in the current visitation stack, returns `None`.
     fn visit_once(&mut self, v: NodeId, mut v_is_local_root: bool) -> Option<usize> {
@@ -148,11 +148,11 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
             self.index += 1;
         }
 
-        while let Some(w) = self.nodes[self.graph.to_index(v)].neighbours.next() {
-            // If a neighbour hasn't been visited yet...
+        while let Some(w) = self.nodes[self.graph.to_index(v)].neighbors.next() {
+            // If a neighbor hasn't been visited yet...
             if self.nodes[self.graph.to_index(w)].root_index.is_none() {
-                // Push the current node and the neighbour back onto the visitation stack.
-                // On the next execution of `visit_once`, the neighbour will be visited.
+                // Push the current node and the neighbor back onto the visitation stack.
+                // On the next execution of `visit_once`, the neighbor will be visited.
                 self.visitation_stack.push((v, v_is_local_root));
                 self.visitation_stack.push((w, true));
 
