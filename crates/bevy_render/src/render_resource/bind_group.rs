@@ -172,7 +172,7 @@ impl Deref for BindGroup {
 ///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
 ///       will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
 ///       buffer, and the buffer will be bound as a storage buffer in shaders.
-///     * It supports and optional `read_only` parameter. Defaults to false if not present.
+///     * It supports an optional `read_only` parameter. Defaults to false if not present.
 ///
 /// | Arguments              | Values                                                                  | Default              |
 /// |------------------------|-------------------------------------------------------------------------|----------------------|

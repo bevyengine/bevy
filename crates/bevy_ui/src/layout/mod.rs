@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale,
+    ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -343,31 +343,33 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok((layout, unrounded_unscaled_size)) = ui_surface.get_layout(entity) else {
+            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
 
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node, stored in the node's transform
             let node_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.size != layout_size || node.unrounded_size != unrounded_size {
+            if node.size != layout_size
+                || node.unrounded_size != unrounded_size
+                || node.inverse_scale_factor != inverse_target_scale_factor
+            {
                 node.size = layout_size;
                 node.unrounded_size = unrounded_size;
+                node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
-                left: rect.left * inverse_target_scale_factor,
-                right: rect.right * inverse_target_scale_factor,
-                top: rect.top * inverse_target_scale_factor,
-                bottom: rect.bottom * inverse_target_scale_factor,
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
             };
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
@@ -377,28 +379,35 @@ with UI components as a child of an entity without UI components, your UI layout
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.size, viewport_size);
+                node.bypass_change_detection().border_radius = border_radius.resolve(
+                    node.size,
+                    viewport_size,
+                    inverse_target_scale_factor.recip(),
+                );
             }
 
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    outline
-                        .width
-                        .resolve(node.size().x, viewport_size)
-                        .unwrap_or(0.)
-                        .max(0.)
+                    match outline.width {
+                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                        width => width,
+                    }
+                    .resolve(node.size().x, viewport_size)
+                    .unwrap_or(0.)
+                    .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = outline
-                    .offset
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+                node.outline_offset = match outline.offset {
+                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
+                    offset => offset,
+                }
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.);
             }
 
             if transform.translation.truncate() != node_center {
@@ -422,8 +431,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height)
-                * inverse_target_scale_factor;
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
@@ -1131,7 +1139,7 @@ mod tests {
                     .sum();
                 let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
-                assert!((width_sum - 320.).abs() <= 1.);
+                assert!((width_sum - 320. * s).abs() <= 1.);
                 s += r;
             }
         }
