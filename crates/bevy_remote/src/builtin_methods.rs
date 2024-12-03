@@ -797,11 +797,7 @@ pub fn process_remote_list_watching_request(
 }
 
 /// Handles a `bevy/components` request (list all world components) coming from a client.
-pub fn process_remote_components_request(
-    In(_): In<Option<Value>>,
-    world: &World,
-) -> BrpResult {
-
+pub fn process_remote_components_request(In(_): In<Option<Value>>, world: &World) -> BrpResult {
     let components = world.components();
     let mut response = BrpListResponse::default();
 
