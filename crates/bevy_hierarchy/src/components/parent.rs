@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentCloneHandler, StorageType},
     entity::{Entity, VisitEntities, VisitEntitiesMut},
     traversal::Traversal,
     world::{FromWorld, World},
@@ -24,7 +24,7 @@ use core::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq, VisitEntities, VisitEntitiesMut)]
+#[derive(Debug, Eq, PartialEq, VisitEntities, VisitEntitiesMut)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
@@ -39,6 +39,14 @@ use core::ops::Deref;
     )
 )]
 pub struct Parent(pub(crate) Entity);
+
+impl Component for Parent {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::Ignore
+    }
+}
 
 impl Parent {
     /// Gets the [`Entity`] ID of the parent.
