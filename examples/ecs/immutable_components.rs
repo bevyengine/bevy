@@ -2,15 +2,17 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentId, Mutable},
+        component::{ComponentDescriptor, ComponentId, StorageType},
         world::DeferredWorld,
     },
     prelude::*,
+    ptr::OwningPtr,
     utils::HashMap,
 };
+use core::alloc::Layout;
 
 /// This component is mutable, the default case. This is indicated by components
-/// implementing two traits, [`Component`], and [`Component<Mutability = Mutable>`].
+/// implementing [`Component`] where [`Component::Mutability`] is [`Mutable`](bevy::ecs::component::Mutable).
 #[derive(Component)]
 pub struct MyMutableComponent(bool);
 
@@ -124,9 +126,73 @@ fn demo_2(world: &mut World) {
     assert_eq!(index.get_entity("Steven"), Some(steven));
 }
 
+/// This example demonstrates how to work with _dynamic_ immutable components.
+#[allow(unsafe_code)]
+fn demo_3(world: &mut World) {
+    // This is a list of dynamic components we will create.
+    // The first item is the name of the component, and the second is the size
+    // in bytes.
+    let my_dynamic_components = [("Foo", 1), ("Bar", 2), ("Baz", 4)];
+
+    // This pipeline takes our component descriptions, registers them, and gets
+    // their ComponentId's.
+    let my_registered_components = my_dynamic_components
+        .into_iter()
+        .map(|(name, size)| {
+            // SAFETY:
+            // - No drop command is required
+            // - The component will store [u8; size], which is Send + Sync
+            let descriptor = unsafe {
+                ComponentDescriptor::new_with_layout(
+                    name.to_string(),
+                    StorageType::Table,
+                    Layout::array::<u8>(size).unwrap(),
+                    None,
+                    false,
+                )
+            };
+
+            (name, size, descriptor)
+        })
+        .map(|(name, size, descriptor)| {
+            let component_id = world.register_component_with_descriptor(descriptor);
+
+            (name, size, component_id)
+        })
+        .collect::<Vec<(&str, usize, ComponentId)>>();
+
+    // Now that our components are registered, let's add them to an entity
+    let mut entity = world.spawn_empty();
+
+    for (_name, size, component_id) in &my_registered_components {
+        // We're just storing some zeroes for the sake of demonstration.
+        let data = core::iter::repeat_n(0, *size).collect::<Vec<u8>>();
+
+        OwningPtr::make(data, |ptr| {
+            // SAFETY:
+            // - ComponentId has been taken from the same world
+            // - Array is created to the layout specified in the world
+            unsafe {
+                entity.insert_by_id(*component_id, ptr);
+            }
+        });
+    }
+
+    for (_name, _size, component_id) in &my_registered_components {
+        // With immutable components, we can read the values...
+        assert!(entity.get_by_id(*component_id).is_ok());
+
+        // ...but we cannot gain a mutable reference.
+        assert!(entity.get_mut_by_id(*component_id).is_err());
+
+        // Instead, you must either remove or replace the value.
+    }
+}
+
 fn main() {
     App::new()
         .add_systems(Startup, demo_1)
         .add_systems(Startup, demo_2)
+        .add_systems(Startup, demo_3)
         .run();
 }
