@@ -186,7 +186,7 @@ mod tests {
         self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{Commands, In, IntoSystem, Res, WithParamWarnPolicy},
         world::World,
     };
 
@@ -219,7 +219,8 @@ mod tests {
                 (|mut commands: Commands| {
                     commands.insert_resource(R1);
                 })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
+                .param_warn_once()
+                .pipe((|_: In<()>, _: Res<R1>| {}).param_warn_once()),
                 // This system depends on a system that is always skipped.
                 |mut commands: Commands| {
                     commands.insert_resource(R2);
@@ -252,11 +253,13 @@ mod tests {
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
+            .param_warn_once()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
+            .param_warn_once()
             .run_if(|_: Res<R2>| true),
         ));
         schedule.run(&mut world);
