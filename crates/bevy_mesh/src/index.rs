@@ -2,7 +2,7 @@ use bevy_reflect::Reflect;
 use core::iter;
 use core::iter::FusedIterator;
 use derive_more::derive::{Display, Error};
-use wgpu::IndexFormat;
+use wgpu_types::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
 /// of [`Mesh::triangles`](super::Mesh::triangles), which produces iterators of four different types depending on the
@@ -176,7 +176,7 @@ impl From<&Indices> for IndexFormat {
 #[cfg(test)]
 mod tests {
     use crate::Indices;
-    use wgpu::IndexFormat;
+    use wgpu_types::IndexFormat;
 
     #[test]
     fn test_indices_push() {
