@@ -3835,6 +3835,17 @@ description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
 wasm = true
 
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
