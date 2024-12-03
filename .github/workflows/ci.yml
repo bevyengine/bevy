@@ -230,10 +230,10 @@ jobs:
       - name: Taplo info
         if: failure()
         run: |
-          echo 'To fix toml fmt, please run `taplo fmt`'
-          echo 'To check for a diff, run `taplo fmt --check --diff'
+          echo 'To fix toml fmt, please run `taplo fmt`.'
+          echo 'To check for a diff, run `taplo fmt --check --diff`.'
           echo 'You can find taplo here: https://taplo.tamasfe.dev/'
-          echo 'Or if you use VSCode, use the `Even Better Toml` extension with 2 spaces'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension.'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
   typos:
@@ -242,7 +242,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.27.0
+        uses: crate-ci/typos@v1.27.3
       - name: Typos info
         if: failure()
         run: |
@@ -261,10 +261,6 @@ jobs:
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do

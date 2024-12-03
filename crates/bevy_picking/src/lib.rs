@@ -156,7 +156,7 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
-#[cfg(feature = "bevy_mesh")]
+#[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
 pub mod pointer;
 
@@ -168,7 +168,7 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh")]
+    #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},

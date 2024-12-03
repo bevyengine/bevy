@@ -11,39 +11,27 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<MessageEvent>()
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, (animate_text_opacity, edit_message))
+        .add_systems(Update, animate_text_opacity)
+        .add_observer(edit_message)
         .run();
 }
 
 #[derive(Component)]
 struct MessageText;
 
-#[derive(Event, Reflect, Clone)]
-#[reflect(AnimationEvent)]
+#[derive(Event, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,
 }
 
-// AnimationEvent can also be derived, but doing so will
-// trigger it as an observer event which is triggered in PostUpdate.
-// We need to set the message text before that so it is
-// updated before rendering without a one frame delay.
-impl AnimationEvent for MessageEvent {
-    fn trigger(&self, _time: f32, _weight: f32, _entity: Entity, world: &mut World) {
-        world.send_event(self.clone());
-    }
-}
-
 fn edit_message(
-    mut event_reader: EventReader<MessageEvent>,
+    trigger: Trigger<MessageEvent>,
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
-    for event in event_reader.read() {
-        text.0 = event.value.clone();
-        color.0 = event.color;
-    }
+    text.0 = trigger.event().value.clone();
+    color.0 = trigger.event().color;
 }
 
 fn setup(

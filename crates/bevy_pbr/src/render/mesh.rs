@@ -1489,7 +1489,9 @@ bitflags::bitflags! {
                                                             // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const ENVIRONMENT_MAP                   = 1 << 8;
         const SCREEN_SPACE_AMBIENT_OCCLUSION    = 1 << 9;
-        const DEPTH_CLAMP_ORTHO                 = 1 << 10;
+        const UNCLIPPED_DEPTH_ORTHO             = 1 << 10; // Disables depth clipping for use with directional light shadow views
+                                                            // Emulated via fragment shader depth on hardware that doesn't support it natively
+                                                            // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
         const TEMPORAL_JITTER                   = 1 << 11;
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
@@ -1859,7 +1861,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
-        #[cfg(feature = "pbr_pcss")]
+        #[cfg(feature = "experimental_pbr_pcss")]
         shader_defs.push("PCSS_SAMPLERS_AVAILABLE".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
