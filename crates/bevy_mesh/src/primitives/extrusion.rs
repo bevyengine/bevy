@@ -72,7 +72,7 @@ impl PerimeterSegment {
 /// ## Warning
 ///
 /// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by
-/// this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
+/// this builder is [`PrimitiveTopology::TriangleList`](crate::PrimitiveTopology::TriangleList)
 /// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute.
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
