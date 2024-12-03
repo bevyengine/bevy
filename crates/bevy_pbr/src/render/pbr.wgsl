@@ -27,7 +27,7 @@
 #endif // OIT_ENABLED
 
 #ifdef FORWARD_DECAL
-#import beby_pbr::decal::forward::get_forward_decal_info
+#import bevy_pbr::decal::forward::get_forward_decal_info
 #endif
 
 @fragment
@@ -92,7 +92,7 @@ fn fragment(
 #endif // OIT_ENABLED
 
 #ifdef FORWARD_DECAL
-        out.color.a = min(decal_info.alpha, out.color.a);
+        out.color.a = min(forward_decal_info.alpha, out.color.a);
 #endif
 
         return out;
