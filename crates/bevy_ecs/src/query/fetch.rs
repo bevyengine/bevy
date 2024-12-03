@@ -12,9 +12,9 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
+use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
