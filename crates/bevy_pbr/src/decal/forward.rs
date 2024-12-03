@@ -1,5 +1,5 @@
 use crate::{
-    ExtendedMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
+    ExtendedMaterial, Material, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
@@ -43,13 +43,11 @@ impl Plugin for ForwardDecalPlugin {
                 .unwrap(),
         );
 
-        app.add_plugins(
-            MaterialPlugin::<ExtendedMaterial<StandardMaterial, ForwardDecalMaterial>> {
-                prepass_enabled: false,
-                shadows_enabled: false,
-                ..Default::default()
-            },
-        );
+        app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
+            prepass_enabled: false,
+            shadows_enabled: false,
+            ..Default::default()
+        });
     }
 }
 
@@ -59,13 +57,18 @@ impl Plugin for ForwardDecalPlugin {
 pub struct ForwardDecal;
 
 /// TODO: Docs.
+#[expect(type_alias_bounds)]
+pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
+
+/// TODO: Docs.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
-pub struct ForwardDecalMaterial {
+pub struct ForwardDecalMaterialExt {
+    /// TODO: Docs.
     #[uniform(200)]
     pub depth_fade_factor: f32,
 }
 
-impl MaterialExtension for ForwardDecalMaterial {
+impl MaterialExtension for ForwardDecalMaterialExt {
     fn alpha_mode() -> Option<AlphaMode> {
         Some(AlphaMode::Blend)
     }
@@ -96,7 +99,7 @@ impl MaterialExtension for ForwardDecalMaterial {
     }
 }
 
-impl Default for ForwardDecalMaterial {
+impl Default for ForwardDecalMaterialExt {
     fn default() -> Self {
         Self {
             depth_fade_factor: 8.0,

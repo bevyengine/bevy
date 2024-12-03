@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::decal::forward
 
 #import bevy_pbr::{
+    forward_io::VertexOutput,
     mesh_functions::get_world_from_local,
     mesh_view_bindings::view,
     pbr_functions::calculate_tbn_mikktspace,
@@ -8,12 +9,6 @@
     view_transformations::depth_ndc_to_view_z,
     parallax_mapping::parallaxed_uv,
 }
-
-#ifdef PREPASS_PIPELINE
-#import bevy_pbr::prepass_io::VertexOutput
-#else
-#import bevy_pbr::forward_io::VertexOutput
-#endif
 
 @group(2) @binding(200)
 var<uniform> depth_fade_factor: f32;
