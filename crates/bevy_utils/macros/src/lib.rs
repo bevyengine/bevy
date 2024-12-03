@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use proc_macro::TokenStream;
@@ -138,8 +137,7 @@ impl Parse for AllTuples {
 /// Add the following to your lib.rs if not already present:
 ///
 /// ```
-/// // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-/// #![allow(internal_features)]
+/// #![cfg_attr(any(docsrs, docsrs_dep), expect(internal_features, reason = "rustdoc_internals is needed for fake_variadic"))]
 /// #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 /// ```
 ///
@@ -280,8 +278,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 /// Add the following to your lib.rs if not already present:
 ///
 /// ```
-/// // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-/// #![allow(internal_features)]
+/// #![cfg_attr(any(docsrs, docsrs_dep), expect(internal_features, reason = "rustdoc_internals is needed for fake_variadic"))]
 /// #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 /// ```
 ///

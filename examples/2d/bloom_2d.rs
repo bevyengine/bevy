@@ -65,6 +65,7 @@ fn setup(
             left: Val::Px(12.0),
             ..default()
         },
+        TextColor(Color::srgb(5., 5., 5.)),
     ));
 }
 

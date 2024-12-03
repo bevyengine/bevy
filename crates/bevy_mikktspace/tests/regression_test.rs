@@ -1,12 +1,8 @@
-#![allow(
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(
     clippy::bool_assert_comparison,
-    clippy::explicit_iter_loop,
-    clippy::map_flatten,
-    clippy::match_same_arms,
-    clippy::redundant_else,
     clippy::semicolon_if_nothing_returned,
-    clippy::useless_conversion,
-    missing_docs
+    clippy::useless_conversion
 )]
 
 use bevy_mikktspace::{generate_tangents, Geometry};
