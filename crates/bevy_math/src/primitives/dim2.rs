@@ -12,6 +12,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, vec::Vec};
+
 /// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -64,7 +67,7 @@ impl Circle {
         } else {
             // The point is outside the circle.
             // Find the closest point on the perimeter of the circle.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
     }
@@ -230,7 +233,7 @@ impl Arc2d {
     // used by Wolfram MathWorld, which is the distance rather than the segment.
     pub fn apothem(&self) -> f32 {
         let sign = if self.is_minor() { 1.0 } else { -1.0 };
-        sign * f32::sqrt(self.radius.squared() - self.half_chord_length().squared())
+        sign * ops::sqrt(self.radius.squared() - self.half_chord_length().squared())
     }
 
     /// Get the length of the sagitta of this arc, that is,
@@ -280,7 +283,7 @@ impl Arc2d {
 )]
 pub struct CircularSector {
     /// The arc defining the sector
-    #[cfg_attr(feature = "serialize", serde(flatten))]
+    #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSector {}
@@ -423,7 +426,7 @@ impl CircularSector {
 )]
 pub struct CircularSegment {
     /// The arc defining the segment
-    #[cfg_attr(feature = "serialize", serde(flatten))]
+    #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSegment {}
@@ -676,7 +679,7 @@ mod arc_tests {
 
     #[test]
     fn quarter_circle() {
-        let sqrt_half: f32 = f32::sqrt(0.5);
+        let sqrt_half: f32 = ops::sqrt(0.5);
         let tests = ArcTestCase {
             radius: 1.0,
             half_angle: FRAC_PI_4,
@@ -687,7 +690,7 @@ mod arc_tests {
             endpoints: [Vec2::new(-sqrt_half, sqrt_half), Vec2::splat(sqrt_half)],
             midpoint: Vec2::Y,
             half_chord_length: sqrt_half,
-            chord_length: f32::sqrt(2.0),
+            chord_length: ops::sqrt(2.0),
             chord_midpoint: Vec2::new(0.0, sqrt_half),
             apothem: sqrt_half,
             sagitta: 1.0 - sqrt_half,
@@ -822,7 +825,7 @@ impl Ellipse {
         let a = self.semi_major();
         let b = self.semi_minor();
 
-        (a * a - b * b).sqrt() / a
+        ops::sqrt(a * a - b * b) / a
     }
 
     #[inline(always)]
@@ -833,7 +836,7 @@ impl Ellipse {
         let a = self.semi_major();
         let b = self.semi_minor();
 
-        (a * a - b * b).sqrt()
+        ops::sqrt(a * a - b * b)
     }
 
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
@@ -982,13 +985,13 @@ impl Annulus {
             } else {
                 // The point is outside the annulus and closer to the outer perimeter.
                 // Find the closest point on the perimeter of the annulus.
-                let dir_to_point = point / distance_squared.sqrt();
+                let dir_to_point = point / ops::sqrt(distance_squared);
                 self.outer_circle.radius * dir_to_point
             }
         } else {
             // The point is outside the annulus and closer to the inner perimeter.
             // Find the closest point on the perimeter of the annulus.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.inner_circle.radius * dir_to_point
         }
     }
@@ -1301,14 +1304,18 @@ impl<const N: usize> Polyline2d<N> {
 /// in a `Box<[Vec2]>`.
 ///
 /// For a version without alloc: [`Polyline2d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline2d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec2]>,
 }
+
+#[cfg(feature = "alloc")]
 impl Primitive2d for BoxedPolyline2d {}
 
+#[cfg(feature = "alloc")]
 impl FromIterator<Vec2> for BoxedPolyline2d {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
         let vertices: Vec<Vec2> = iter.into_iter().collect();
@@ -1318,6 +1325,7 @@ impl FromIterator<Vec2> for BoxedPolyline2d {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoxedPolyline2d {
     /// Create a new `BoxedPolyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
@@ -1480,7 +1488,7 @@ impl Measured2d for Triangle2d {
     #[inline(always)]
     fn area(&self) -> f32 {
         let [a, b, c] = self.vertices;
-        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+        ops::abs(a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)) / 2.0
     }
 
     /// Get the perimeter of the triangle
@@ -1709,14 +1717,18 @@ impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
 /// in a `Box<[Vec2]>`.
 ///
 /// For a version without alloc: [`Polygon`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolygon {
     /// The vertices of the `BoxedPolygon`
     pub vertices: Box<[Vec2]>,
 }
+
+#[cfg(feature = "alloc")]
 impl Primitive2d for BoxedPolygon {}
 
+#[cfg(feature = "alloc")]
 impl FromIterator<Vec2> for BoxedPolygon {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
         let vertices: Vec<Vec2> = iter.into_iter().collect();
@@ -1726,6 +1738,7 @@ impl FromIterator<Vec2> for BoxedPolygon {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoxedPolygon {
     /// Create a new `BoxedPolygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
