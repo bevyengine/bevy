@@ -136,6 +136,47 @@ impl SystemMeta {
     {
         self.param_warn_policy.try_warn::<P>(&self.name);
     }
+
+    /// Archetype component access that is used to determine which systems can run in parallel with each other
+    /// in the multithreaded executor.
+    ///
+    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
+    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
+    /// they conflict if you just look at the [`ComponentId`];
+    /// but no archetype that matches the first query will match the second and vice versa,
+    /// which means there's no risk of conflict.
+    #[inline]
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns a mutable reference to the [`Access`] for [`ArchetypeComponentId`].
+    /// This is used to determine which systems can run in parallel with each other
+    /// in the multithreaded executor.
+    ///
+    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
+    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
+    /// they conflict if you just look at the [`ComponentId`];
+    /// but no archetype that matches the first query will match the second and vice versa,
+    /// which means there's no risk of conflict.
+    #[inline]
+    pub fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+        &mut self.archetype_component_access
+    }
+
+    /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
+    /// Used to check if systems and/or system params have conflicting access.
+    #[inline]
+    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
+    }
+
+    /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
+    /// Used internally to statically check if systems have conflicting access.
+    #[inline]
+    pub fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+        &mut self.component_access
+    }
 }
 
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
