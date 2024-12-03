@@ -140,6 +140,7 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
+        result::Result,
         system::{ReadOnlySystem, ScheduleSystem, System},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -147,10 +148,10 @@ mod __rust_begin_short_backtrace {
     /// # Safety
     /// See `System::run_unsafe`.
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) {
-        // TODO: implement an error-handling API instead of suppressing a possible failure.
-        let _ = system.run_unsafe((), world);
+    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
+        let result = system.run_unsafe((), world);
         black_box(());
+        result
     }
 
     /// # Safety
@@ -164,10 +165,10 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) {
-        // TODO: implement an error-handling API instead of suppressing a possible failure.
-        let _ = system.run((), world);
+    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
+        let result = system.run((), world);
         black_box(());
+        result
     }
 
     #[inline(never)]
