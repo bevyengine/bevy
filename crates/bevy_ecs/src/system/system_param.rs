@@ -11,7 +11,7 @@ use crate::{
     },
     resource::Resource,
     storage::ResourceData,
-    system::{Query, Single, SystemMeta},
+    system::{Query, Single, SystemMeta, SystemState},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -287,6 +287,15 @@ pub unsafe trait SystemParam: Sized {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
+
+    /// Returns true if this [`SystemParam`] requires exclusive access to the
+    /// entire [`World`]. [`System`]s with exclusive parameters cannot run in
+    /// parallel with other systems.
+    ///
+    /// [`System`]: crate::system::System
+    fn is_exclusive() -> bool {
+        false
+    }
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -1022,7 +1031,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 }
 
-/// SAFETY: only reads world
+// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
@@ -1066,7 +1075,11 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+const MUT_DEFERRED_WORLD_ERROR: &str = "DeferredWorld requires exclusive access
+    to the entire world, but a previous system parameter already registered \
+    access to a part of it. Allowing this would break Rust's mutability rules";
+
+// SAFETY: `DeferredWorld` registers exclusive access to the entire world.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
@@ -1091,6 +1104,111 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         world.into_deferred()
+    }
+
+    fn is_exclusive() -> bool {
+        true
+    }
+}
+
+const MUT_WORLD_ERROR: &str = "&mut World requires exclusive access to the \
+    entire world, but a previous system parameter already registered access to \
+    a part of it. Allowing this would break Rust's mutability rules";
+
+// SAFETY: `&mut World` registers exclusive access to the entire world.
+unsafe impl SystemParam for &mut World {
+    type State = ();
+    type Item<'w, 's> = &'w mut World;
+
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        let mut access = Access::default();
+        access.read_all();
+        if !system_meta
+            .archetype_component_access
+            .is_compatible(&access)
+        {
+            panic!("{}", MUT_WORLD_ERROR);
+        }
+        system_meta.archetype_component_access.extend(&access);
+
+        let mut filtered_access = FilteredAccess::default();
+
+        filtered_access.read_all();
+        if !system_meta
+            .component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!("{}", MUT_WORLD_ERROR);
+        }
+        system_meta.component_access_set.add(filtered_access);
+        system_meta.set_has_deferred();
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: Exclusive access to the entire world was registered in `init_state`.
+        unsafe { world.world_mut() }
+    }
+
+    fn is_exclusive() -> bool {
+        true
+    }
+}
+
+// SAFETY: `&mut QueryState` only accesses internal state
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for &mut QueryState<D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = &'s mut QueryState<D, F>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        QueryState::new(world)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+    }
+}
+
+// SAFETY: `&mut SystemState` only accesses internal state
+unsafe impl<P: SystemParam + 'static> SystemParam for &mut SystemState<P> {
+    type State = SystemState<P>;
+    type Item<'w, 's> = &'s mut SystemState<P>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        SystemState::new(world)
+    }
+
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        state.apply(world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
     }
 }
 
@@ -2039,6 +2157,10 @@ macro_rules! impl_system_param_tuple {
                     reason = "Zero-length tuples won't have any params to get."
                 )]
                 ($($param::get_param($param, system_meta, world, change_tick),)*)
+            }
+
+            fn is_exclusive() -> bool {
+                false $(|| $param::is_exclusive())*
             }
         }
     };

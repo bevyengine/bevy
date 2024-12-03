@@ -12,10 +12,7 @@ pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use crate::{
     define_label,
     intern::Interned,
-    system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
-    },
+    system::{FunctionSystem, IsFunctionSystem, SystemParamFunction},
 };
 
 define_label!(
@@ -197,20 +194,6 @@ where
     #[inline]
     fn into_system_set(self) -> Self::Set {
         SystemTypeSet::<FunctionSystem<Marker, F>>::new()
-    }
-}
-
-// exclusive systems
-impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
-where
-    Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker>,
-{
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
-
-    #[inline]
-    fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
     }
 }
 

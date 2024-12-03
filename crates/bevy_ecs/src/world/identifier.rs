@@ -1,7 +1,7 @@
 use crate::{
     component::Tick,
     storage::SparseSetIndex,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
 use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
@@ -63,19 +63,6 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Self::Item<'world, 'state> {
         world.id()
-    }
-}
-
-impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.id()
-    }
-
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        *state
     }
 }
 
