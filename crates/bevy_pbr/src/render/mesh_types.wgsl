@@ -17,9 +17,10 @@ struct Mesh {
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
+    // Index of the material inside the bind group data.
+    material_bind_group_slot: u32,
     pad_a: u32,
     pad_b: u32,
-    pad_c: u32,
 };
 
 #ifdef SKINNED
