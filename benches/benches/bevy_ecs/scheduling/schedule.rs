@@ -182,13 +182,11 @@ fn base_system(mut query: Query<FilteredEntityMut>) {
 
         // we assign this value to all the components we can write to
         for component_id in filtered_entity.access().component_reads_and_writes().0 {
-            let ptr = filtered_entity.get_by_id(component_id).unwrap();
-            if filtered_entity.access().has_component_write(component_id) {
+            if let Some(ptr) = filtered_entity.get_mut_by_id(component_id) {
                 // SAFETY:
-                // We have exclusive access so the pointer is unique
                 // All components have a u8 layout
                 unsafe {
-                    let value = ptr.assert_unique().deref_mut::<u8>();
+                    let value = ptr.with_type::<u8>();
                     *value = total.0;
                 }
             }
