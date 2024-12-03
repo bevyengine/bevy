@@ -2682,14 +2682,14 @@ pub enum UiAntiAlias {
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
 ///         Camera2d,
-///         UiBoxShadowSamples(6),
+///         BoxShadowSamples(6),
 ///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-pub struct UiBoxShadowSamples(pub u32);
+pub struct BoxShadowSamples(pub u32);
 
-impl Default for UiBoxShadowSamples {
+impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
     }
