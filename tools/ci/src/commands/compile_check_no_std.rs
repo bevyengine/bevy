@@ -70,6 +70,14 @@ impl Prepare for CompileCheckNoStdCommand {
             "Please fix compiler errors in output above for bevy_math no_std compatibility.",
         ));
 
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_color --no-default-features --features libm --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_color no_std compatibility.",
+        ));
+
         commands
     }
 }
