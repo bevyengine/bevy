@@ -1,5 +1,6 @@
 use bevy_color::Color;
 use bevy_ecs::{
+    component::Mutable,
     prelude::*,
     system::{Query, SystemParam},
 };

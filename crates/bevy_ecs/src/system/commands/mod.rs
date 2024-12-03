@@ -10,11 +10,10 @@ use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
-    prelude::Mutable,
     schedule::ScheduleLabel,
     system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{

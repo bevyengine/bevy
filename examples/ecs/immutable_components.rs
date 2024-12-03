@@ -1,7 +1,10 @@
 //! This example demonstrates immutable components.
 
 use bevy::{
-    ecs::{component::ComponentId, world::DeferredWorld},
+    ecs::{
+        component::{ComponentId, Mutable},
+        world::DeferredWorld,
+    },
     prelude::*,
     utils::HashMap,
 };

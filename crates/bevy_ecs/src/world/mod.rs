@@ -35,12 +35,11 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    prelude::Mutable,
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},

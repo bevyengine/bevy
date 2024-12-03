@@ -3,11 +3,11 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::ComponentId,
+    component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
-    prelude::{Component, Mutable, QueryState},
+    prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
     traversal::Traversal,

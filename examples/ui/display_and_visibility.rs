@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
+    ecs::component::Mutable,
     prelude::*,
     winit::WinitSettings,
 };
