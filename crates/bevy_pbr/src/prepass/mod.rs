@@ -251,6 +251,7 @@ pub struct PrepassPipeline<M: Material> {
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+    pub depth_clip_control_supported: bool,
     _marker: PhantomData<M>,
 }
 
@@ -289,6 +290,10 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
+        let depth_clip_control_supported = render_device
+            .features()
+            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
+
         PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
@@ -315,6 +320,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            depth_clip_control_supported,
             _marker: PhantomData,
         }
     }
@@ -379,8 +385,14 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
+        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
+        let emulate_unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && !self.depth_clip_control_supported;
+        if emulate_unclipped_depth {
+            shader_defs.push("UNCLIPPED_DEPTH_ORTHO_EMULATION".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -389,6 +401,10 @@ where
             // https://github.com/bevyengine/bevy/pull/8877
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
+        let unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && self.depth_clip_control_supported;
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -488,10 +504,10 @@ where
         }
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
-        // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader or we are clamping the orthographic depth.
+        // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
+        // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
-            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+            || emulate_unclipped_depth
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
 
@@ -544,7 +560,7 @@ where
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
-                unclipped_depth: false,
+                unclipped_depth,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
