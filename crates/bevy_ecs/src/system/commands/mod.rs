@@ -1754,7 +1754,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue_with_different_failure_handling_mode(despawn(), FailureHandlingMode::Warn);
+        self.queue(despawn());
     }
 
     /// Despawns the entity.
@@ -2504,7 +2504,7 @@ mod tests {
         {
             let mut commands = Commands::new(&mut command_queue, &world);
             commands.entity(entity).despawn();
-            commands.entity(entity).despawn(); // double despawn shouldn't panic
+            commands.entity(entity).warn_if_missing().despawn(); // shouldn't panic
         }
         command_queue.apply(&mut world);
         let results2 = world

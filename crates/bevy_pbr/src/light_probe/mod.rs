@@ -443,6 +443,7 @@ fn gather_light_probes<C>(
             commands
                 .get_entity(view_entity)
                 .expect("View entity wasn't synced.")
+                .ignore_if_missing()
                 .remove::<RenderViewLightProbes<C>>();
         } else {
             commands

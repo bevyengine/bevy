@@ -46,7 +46,7 @@ pub fn close_when_requested(
 ) {
     // This was inserted by us on the last frame so now we can despawn the window
     for window in closing.iter() {
-        commands.entity(window).despawn();
+        commands.entity(window).warn_if_missing().despawn();
     }
     // Mark the window as closing so we can despawn it on the next frame
     for event in closed.read() {

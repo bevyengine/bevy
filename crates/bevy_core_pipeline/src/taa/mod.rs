@@ -386,7 +386,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
             taa_settings.reset = false;
         } else {
             // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
+            entity_commands.ignore_if_missing().remove::<(
                 TemporalAntiAliasing,
                 // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
                 TemporalAntiAliasHistoryTextures,

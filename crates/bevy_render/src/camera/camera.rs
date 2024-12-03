@@ -1056,16 +1056,19 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
-            commands.entity(render_entity).remove::<(
-                ExtractedCamera,
-                ExtractedView,
-                RenderVisibleEntities,
-                TemporalJitter,
-                RenderLayers,
-                Projection,
-                GpuCulling,
-                ViewUniformOffset,
-            )>();
+            commands
+                .entity(render_entity)
+                .ignore_if_missing()
+                .remove::<(
+                    ExtractedCamera,
+                    ExtractedView,
+                    RenderVisibleEntities,
+                    TemporalJitter,
+                    RenderLayers,
+                    Projection,
+                    GpuCulling,
+                    ViewUniformOffset,
+                )>();
             continue;
         }
 

@@ -552,6 +552,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
+                .ignore_if_missing()
                 .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }

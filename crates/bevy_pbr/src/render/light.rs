@@ -394,6 +394,7 @@ pub fn extract_lights(
             commands
                 .get_entity(entity)
                 .expect("Light entity wasn't synced.")
+                .ignore_if_missing()
                 .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
             continue;
         }
@@ -498,7 +499,7 @@ pub(crate) fn extracted_light_removed(
     mut commands: Commands,
 ) {
     if let Some(mut v) = commands.get_entity(trigger.entity()) {
-        v.remove::<LightViewEntities>();
+        v.ignore_if_missing().remove::<LightViewEntities>();
     }
 }
 
@@ -511,7 +512,7 @@ pub(crate) fn remove_light_view_entities(
         for v in entities.0.values() {
             for e in v.iter().copied() {
                 if let Some(mut v) = commands.get_entity(e) {
-                    v.despawn();
+                    v.warn_if_missing().despawn();
                 }
             }
         }

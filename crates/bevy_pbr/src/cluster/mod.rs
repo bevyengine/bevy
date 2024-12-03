@@ -539,7 +539,9 @@ pub fn extract_clusters(
             .get_entity(entity)
             .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
-            entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
+            entity_commands
+                .ignore_if_missing()
+                .remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }
 

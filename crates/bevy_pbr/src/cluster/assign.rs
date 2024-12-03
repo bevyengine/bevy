@@ -212,6 +212,7 @@ pub(crate) fn assign_objects_to_clusters(
             if visible_clusterable_objects.is_some() {
                 commands
                     .entity(view_entity)
+                    .ignore_if_missing()
                     .remove::<VisibleClusterableObjects>();
             }
             clusters.clear();

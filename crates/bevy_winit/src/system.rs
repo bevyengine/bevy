@@ -210,7 +210,7 @@ pub fn create_monitors(
             true
         } else {
             info!("Monitor removed {:?}", entity);
-            commands.entity(*entity).despawn();
+            commands.entity(*entity).warn_if_missing().despawn();
             idx += 1;
             false
         }

@@ -73,7 +73,10 @@ fn update_clipping(
             }
         } else {
             // No inherited clipping rect, remove the component
-            commands.entity(entity).remove::<CalculatedClip>();
+            commands
+                .entity(entity)
+                .ignore_if_missing()
+                .remove::<CalculatedClip>();
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
         // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
@@ -201,7 +204,10 @@ fn update_children_target_camera(
                 commands.entity(child).try_insert(camera.clone());
             }
             None => {
-                commands.entity(child).remove::<TargetCamera>();
+                commands
+                    .entity(child)
+                    .ignore_if_missing()
+                    .remove::<TargetCamera>();
             }
         }
         updated_entities.insert(child);

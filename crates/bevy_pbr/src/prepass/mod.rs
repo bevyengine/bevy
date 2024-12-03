@@ -597,7 +597,7 @@ pub fn extract_camera_previous_view_data(
                 entity.insert(previous_view_data.clone());
             }
         } else {
-            entity.remove::<PreviousViewData>();
+            entity.ignore_if_missing().remove::<PreviousViewData>();
         }
     }
 }
