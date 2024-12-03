@@ -75,23 +75,8 @@ use derive_more::derive::{Display, Error};
 ///
 /// Components can be marked as immutable by adding the `#[component(immutable)]`
 /// attribute when using the derive macro.
-///
-/// ```
-/// # use bevy_ecs::component::Component;
-/// #
-/// #[derive(Component)]
-/// #[component(immutable)]
-/// struct ImmutableFoo;
-/// ```
-///
-/// Immutable components are guaranteed to never have an exclusive reference,
-/// `&mut ...`, created while inserted onto an entity.
-/// In all other ways, they are identical to mutable components.
-/// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
-/// `OnMutate` hook.
-/// This is not practical for mutable components, as the runtime cost of invoking
-/// a hook for every exclusive reference created would be far too high.
+/// See the documentation for [`ComponentMutability`] for more details around this
+/// feature.
 ///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
@@ -99,6 +84,7 @@ use derive_more::derive::{Display, Error};
 ///
 /// [`entity`]: crate::entity#usage
 /// [`Query`]: crate::system::Query
+/// [`ComponentMutability`]: crate::component::ComponentMutability
 ///
 /// # Choosing a storage type
 ///
@@ -427,6 +413,28 @@ mod private {
 /// The mutability option for a [`Component`]. This can either be:
 /// * [`Mutable`]
 /// * [`Immutable`]
+///
+/// This is controlled through either [`Component::Mutability`] or `#[component(immutable)]`
+/// when using the derive macro.
+///
+/// Immutable components are guaranteed to never have an exclusive reference,
+/// `&mut ...`, created while inserted onto an entity.
+/// In all other ways, they are identical to mutable components.
+/// This restriction allows hooks to observe all changes made to an immutable
+/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// `OnMutate` hook.
+/// This is not practical for mutable components, as the runtime cost of invoking
+/// a hook for every exclusive reference created would be far too high.
+///
+/// # Examples
+///
+/// ```rust
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct ImmutableFoo;
+/// ```
 pub trait ComponentMutability: private::Seal + 'static {
     /// Boolean to indicate if this mutability setting implies a mutable or immutable
     /// component.
@@ -434,6 +442,8 @@ pub trait ComponentMutability: private::Seal + 'static {
 }
 
 /// Parameter indicating a [`Component`] is immutable.
+///
+/// See [`ComponentMutability`] for details.
 pub struct Immutable;
 
 impl private::Seal for Immutable {}
@@ -442,6 +452,8 @@ impl ComponentMutability for Immutable {
 }
 
 /// Parameter indicating a [`Component`] is mutable.
+///
+/// See [`ComponentMutability`] for details.
 pub struct Mutable;
 
 impl private::Seal for Mutable {}
