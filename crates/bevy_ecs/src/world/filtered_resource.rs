@@ -479,6 +479,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         // SAFETY: We have access to this resource in `access`, and the caller ensures that there are no conflicting borrows for the duration of the returned value.
         unsafe { self.world.get_resource_with_ticks(component_id) }.map(
             |(value, ticks, _caller)| MutUntyped {
+                on_change: None,
                 // SAFETY: We have exclusive access to the underlying storage.
                 value: unsafe { value.assert_unique() },
                 // SAFETY: We have exclusive access to the underlying storage.

@@ -43,14 +43,6 @@ impl RenderAppChannels {
         self.app_to_render_sender.send_blocking(render_app).unwrap();
         self.render_app_in_render_thread = true;
     }
-
-    /// Receive the `render_app` from the rendering thread.
-    /// Return `None` if the render thread has panicked.
-    pub async fn recv(&mut self) -> Option<SubApp> {
-        let render_app = self.render_to_app_receiver.recv().await.ok()?;
-        self.render_app_in_render_thread = false;
-        Some(render_app)
-    }
 }
 
 impl Drop for RenderAppChannels {
@@ -186,15 +178,16 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
         world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
+            let render_to_app_receiver = render_channels.render_to_app_receiver.clone();
             if let Some(mut render_app) = ComputeTaskPool::get()
                 .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
-                    s.spawn(async { render_channels.recv().await });
+                    s.spawn(async { render_to_app_receiver.recv().await.ok() });
                 })
                 .pop()
                 .unwrap()
             {
+                render_channels.render_app_in_render_thread = false;
                 render_app.extract(world);
-
                 render_channels.send_blocking(render_app);
             } else {
                 // Renderer thread panicked

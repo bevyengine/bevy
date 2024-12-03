@@ -1,5 +1,6 @@
 //! Types that detect when their internal data mutate.
 
+use crate::world::entity_change::{EntityChange, EntityChanges};
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -10,6 +11,7 @@ use core::{
     mem,
     ops::{Deref, DerefMut},
 };
+use std::cell::RefCell;
 #[cfg(feature = "track_change_detection")]
 use {
     bevy_ptr::ThinSlicePtr,
@@ -370,6 +372,62 @@ macro_rules! change_detection_mut_impl {
     };
 }
 
+macro_rules! change_detection_mut_with_onchange_impl {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChangesMut for $name<$($generics),*> {
+            type Inner = $target;
+
+            #[inline]
+            #[track_caller]
+            fn set_changed(&mut self) {
+                *self.ticks.changed = self.ticks.this_run;
+                if let Some((change, changes)) = self.on_change {
+                    changes.borrow_mut().push(change);
+                }
+                #[cfg(feature = "track_change_detection")]
+                {
+                    *self.changed_by = Location::caller();
+                }
+            }
+
+            #[inline]
+            #[track_caller]
+            fn set_last_changed(&mut self, last_changed: Tick) {
+                *self.ticks.changed = last_changed;
+                #[cfg(feature = "track_change_detection")]
+                {
+                    *self.changed_by = Location::caller();
+                }
+            }
+
+            #[inline]
+            fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+                self.value
+            }
+        }
+
+        impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
+            #[inline]
+            #[track_caller]
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.set_changed();
+                #[cfg(feature = "track_change_detection")]
+                {
+                    *self.changed_by = Location::caller();
+                }
+                self.value
+            }
+        }
+
+        impl<$($generics),* $(: $traits)?> AsMut<$target> for $name<$($generics),*> {
+            #[inline]
+            fn as_mut(&mut self) -> &mut $target {
+                self.deref_mut()
+            }
+        }
+    };
+}
+
 macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
@@ -387,6 +445,7 @@ macro_rules! impl_methods {
             /// <T>`, but you need a `Mut<T>`.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
+                    on_change: None,
                     value: self.value,
                     ticks: TicksMut {
                         added: self.ticks.added,
@@ -423,6 +482,7 @@ macro_rules! impl_methods {
             /// ```
             pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'w, U> {
                 Mut {
+                    on_change: None,
                     value: f(self.value),
                     ticks: self.ticks,
                     #[cfg(feature = "track_change_detection")]
@@ -437,6 +497,96 @@ macro_rules! impl_methods {
             pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
                 let value = f(self.value);
                 value.map(|value| Mut {
+                    on_change: None,
+                    value,
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: self.changed_by,
+                })
+            }
+
+            /// Allows you access to the dereferenced value of this pointer without immediately
+            /// triggering change detection.
+            pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
+                where $target: DerefMut
+            {
+                self.reborrow().map_unchanged(|v| v.deref_mut())
+            }
+
+        }
+    };
+}
+
+macro_rules! impl_methods_with_onchange {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
+            /// Consume `self` and return a mutable reference to the
+            /// contained value while marking `self` as "changed".
+            #[inline]
+            pub fn into_inner(mut self) -> &'w mut $target {
+                self.set_changed();
+                self.value
+            }
+
+            /// Returns a `Mut<>` with a smaller lifetime.
+            /// This is useful if you have `&mut
+            #[doc = stringify!($name)]
+            /// <T>`, but you need a `Mut<T>`.
+            pub fn reborrow(&mut self) -> Mut<'_, $target> {
+                Mut {
+                    on_change: self.on_change,
+                    value: self.value,
+                    ticks: TicksMut {
+                        added: self.ticks.added,
+                        changed: self.ticks.changed,
+                        last_run: self.ticks.last_run,
+                        this_run: self.ticks.this_run,
+                    },
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: self.changed_by,
+                }
+            }
+
+            /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
+            ///
+            /// You should never modify the argument passed to the closure -- if you want to modify the data
+            /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
+            ///
+            /// ```
+            /// # use bevy_ecs::prelude::*;
+            /// # #[derive(PartialEq)] pub struct Vec2;
+            /// # impl Vec2 { pub const ZERO: Self = Self; }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+            /// // When run, zeroes the translation of every entity.
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         // We pinky promise not to modify `t` within the closure.
+            ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
+            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         // Only reset the translation if it isn't already zero;
+            ///         translation.set_if_neq(Vec2::ZERO);
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
+            /// ```
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'w, U> {
+                Mut {
+                    on_change: self.on_change,
+                    value: f(self.value),
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: self.changed_by,
+                }
+            }
+
+            /// Optionally maps to an inner value by applying a function to the contained reference.
+            /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
+            ///
+            /// As with `map_unchanged`, you should never modify the argument passed to the closure.
+            pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
+                let value = f(self.value);
+                value.map(|value| Mut {
+                    on_change: self.on_change,
                     value,
                     ticks: self.ticks,
                     #[cfg(feature = "track_change_detection")]
@@ -667,6 +817,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
     /// while losing the specificity of `ResMut` for resources.
     fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
         Mut {
+            on_change: None,
             value: other.value,
             ticks: other.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -703,6 +854,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
     /// while losing the specificity of `NonSendMut`.
     fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
         Mut {
+            on_change: None,
             value: other.value,
             ticks: other.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -869,6 +1021,7 @@ impl_debug!(Ref<'w, T>,);
 /// # fn update_player_position(player: &Player, new_position: Position) {}
 /// ```
 pub struct Mut<'w, T: ?Sized> {
+    pub(crate) on_change: Option<(EntityChange, &'w RefCell<EntityChanges>)>,
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
@@ -900,6 +1053,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         #[cfg(feature = "track_change_detection")] caller: &'w mut &'static Location<'static>,
     ) -> Self {
         Self {
+            on_change: None,
             value,
             ticks: TicksMut {
                 added,
@@ -950,8 +1104,8 @@ where
 }
 
 change_detection_impl!(Mut<'w, T>, T,);
-change_detection_mut_impl!(Mut<'w, T>, T,);
-impl_methods!(Mut<'w, T>, T,);
+change_detection_mut_with_onchange_impl!(Mut<'w, T>, T,);
+impl_methods_with_onchange!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
@@ -963,6 +1117,7 @@ impl_debug!(Mut<'w, T>,);
 /// [`Mut`], but in situations where the types are not known at compile time
 /// or are defined outside of rust this can be used.
 pub struct MutUntyped<'w> {
+    pub(crate) on_change: Option<(EntityChange, &'w RefCell<EntityChanges>)>,
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
@@ -984,6 +1139,7 @@ impl<'w> MutUntyped<'w> {
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
+            on_change: self.on_change,
             value: self.value.reborrow(),
             ticks: TicksMut {
                 added: self.ticks.added,
@@ -1041,6 +1197,7 @@ impl<'w> MutUntyped<'w> {
     /// ```
     pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'w>) -> &'w mut T) -> Mut<'w, T> {
         Mut {
+            on_change: None, // TODO
             value: f(self.value),
             ticks: self.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1054,6 +1211,7 @@ impl<'w> MutUntyped<'w> {
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
     pub unsafe fn with_type<T>(self) -> Mut<'w, T> {
         Mut {
+            on_change: None,
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
@@ -1098,6 +1256,9 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     #[track_caller]
     fn set_changed(&mut self) {
         *self.ticks.changed = self.ticks.this_run;
+        if let Some((change, changes)) = self.on_change {
+            changes.borrow_mut().push(change);
+        }
         #[cfg(feature = "track_change_detection")]
         {
             *self.changed_by = Location::caller();
@@ -1132,6 +1293,7 @@ impl core::fmt::Debug for MutUntyped<'_> {
 impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
     fn from(value: Mut<'w, T>) -> Self {
         MutUntyped {
+            on_change: value.on_change,
             value: value.value.into(),
             ticks: value.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1423,6 +1585,7 @@ mod tests {
         let mut caller = Location::caller();
 
         let ptr = Mut {
+            on_change: None,
             value: &mut outer,
             ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1513,6 +1676,7 @@ mod tests {
         let mut caller = Location::caller();
 
         let value = MutUntyped {
+            on_change: None,
             value: PtrMut::from(&mut value),
             ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1551,6 +1715,7 @@ mod tests {
         let mut caller = Location::caller();
 
         let mut_typed = Mut {
+            on_change: None,
             value: &mut c,
             ticks,
             #[cfg(feature = "track_change_detection")]

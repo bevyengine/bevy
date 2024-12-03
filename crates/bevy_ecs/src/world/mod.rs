@@ -1,8 +1,10 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
+
 mod component_constants;
 mod deferred_world;
+pub(crate) mod entity_change;
 mod entity_fetch;
 mod entity_ref;
 pub mod error;
@@ -61,8 +63,8 @@ use core::{
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 
+use crate::world::entity_change::ParallelEntityChanges;
 use core::panic::Location;
-
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
@@ -134,6 +136,7 @@ pub struct World {
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
+    pub(crate) entity_changes: ParallelEntityChanges,
 }
 
 impl Default for World {
@@ -154,6 +157,7 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
+            entity_changes: ParallelEntityChanges::new(),
         };
         world.bootstrap();
         world
@@ -182,6 +186,7 @@ impl World {
         assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
         assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
+        assert_eq!(ON_MUTATE, self.register_component::<OnMutate>());
     }
     /// Creates a new empty [`World`].
     ///
@@ -2889,6 +2894,7 @@ impl World {
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
+            on_change: None,
             value: &mut value,
             ticks: TicksMut {
                 added: &mut ticks.added,
@@ -3093,6 +3099,24 @@ impl World {
         }
     }
 
+    pub(crate) fn flush_entity_changes(&mut self) {
+        let mut parallel_entity_changes = std::mem::take(&mut self.entity_changes);
+        let mut deferred_world = DeferredWorld::from(&mut *self);
+        parallel_entity_changes
+            .iter_mut()
+            .for_each(|entity_changes| {
+                entity_changes.drain(..).for_each(|entity_change| unsafe {
+                    // SAFETY: [`OnMutate`] Event is ZST
+                    deferred_world.trigger_observers(
+                        ON_MUTATE,
+                        entity_change.entity(),
+                        std::iter::once(entity_change.component()),
+                    )
+                })
+            });
+        _ = std::mem::replace(&mut self.entity_changes, parallel_entity_changes);
+    }
+
     /// Flushes queued entities and commands.
     ///
     /// Queued entities will be spawned, and then commands will be applied.
@@ -3100,6 +3124,7 @@ impl World {
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_commands();
+        self.flush_entity_changes();
     }
 
     /// Increments the world's current change tick and returns the old value.
@@ -3282,6 +3307,7 @@ impl World {
             ref mut sparse_sets,
             ref mut resources,
             ref mut non_send_resources,
+            ..
         } = self.storages;
 
         #[cfg(feature = "trace")]
@@ -3567,6 +3593,7 @@ impl World {
                 };
 
                 let mut_untyped = MutUntyped {
+                    on_change: None,
                     // SAFETY:
                     // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one

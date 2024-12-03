@@ -147,6 +147,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
         let (ptr, ticks, _caller) = self.get_with_ticks()?;
         Some(MutUntyped {
+            on_change: None,
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.

@@ -151,6 +151,7 @@ pub(crate) fn world_query_impl(
             }
 
             const IS_DENSE: bool = true #(&& <#field_types>::IS_DENSE)*;
+            const IS_MUTATE: bool = false #(|| <#field_types>::IS_MUTATE)*;
 
             /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
             #[inline]

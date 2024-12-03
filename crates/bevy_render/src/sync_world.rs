@@ -293,6 +293,7 @@ mod render_entities_world_query_impls {
         }
 
         const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
+        const IS_MUTATE: bool = <&'static RenderEntity as WorldQuery>::IS_MUTATE;
 
         #[inline]
         unsafe fn set_archetype<'w>(
@@ -392,6 +393,7 @@ mod render_entities_world_query_impls {
         }
 
         const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
+        const IS_MUTATE: bool = <&'static MainEntity as WorldQuery>::IS_MUTATE;
 
         #[inline]
         unsafe fn set_archetype<'w>(

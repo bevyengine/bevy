@@ -1,3 +1,4 @@
+use super::Populated;
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
@@ -28,8 +29,6 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-
-use super::Populated;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -295,6 +294,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        if D::IS_MUTATE {
+            system_meta.set_has_deferred()
+        }
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         init_query_param(world, system_meta, &state);
         state

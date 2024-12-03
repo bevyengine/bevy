@@ -164,6 +164,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype(
@@ -275,6 +276,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype(
@@ -409,6 +411,7 @@ macro_rules! impl_or_query_filter {
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
+            const IS_MUTATE: bool = false;
 
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
@@ -693,6 +696,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -926,6 +930,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(

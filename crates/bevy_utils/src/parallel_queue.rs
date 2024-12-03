@@ -41,6 +41,12 @@ impl<T: Default + Send> Parallel<T> {
     pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
         self.locals.get_or_default().borrow_mut()
     }
+
+    /// Borrows the thread-local RefCell ref which wrap the value.
+    /// If there is no thread-local value, it will be initialized to it's default.
+    pub fn borrow_local_cell(&self) -> &RefCell<T> {
+        self.locals.get_or_default()
+    }
 }
 
 impl<T, I> Parallel<I>

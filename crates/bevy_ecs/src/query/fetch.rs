@@ -1,3 +1,4 @@
+use crate::world::entity_change::{EntityChange, EntityChanges};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
@@ -15,6 +16,7 @@ use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
+use std::cell::RefCell;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -315,6 +317,7 @@ unsafe impl WorldQuery for Entity {
     }
 
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -390,6 +393,7 @@ unsafe impl WorldQuery for EntityLocation {
     // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
     // in most practical use case.
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -465,6 +469,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -545,6 +550,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -613,6 +619,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     }
 
     const IS_DENSE: bool = false;
+    const IS_MUTATE: bool = false;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -708,6 +715,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     }
 
     const IS_DENSE: bool = false;
+    const IS_MUTATE: bool = true;
 
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -813,6 +821,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     unsafe fn set_archetype<'w>(
         _: &mut Self::Fetch<'w>,
@@ -912,6 +921,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = true;
 
     unsafe fn set_archetype<'w>(
         _: &mut Self::Fetch<'w>,
@@ -1007,6 +1017,7 @@ unsafe impl WorldQuery for &Archetype {
     // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1127,6 +1138,7 @@ unsafe impl<T: Component> WorldQuery for &T {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1295,6 +1307,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1418,6 +1431,8 @@ unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
+    component_id: ComponentId,
+    changes: &'w RefCell<EntityChanges>,
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
@@ -1467,6 +1482,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         this_run: Tick,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
+            component_id,
+            changes: &world.entity_changes(),
             components: StorageSwitch::new(
                 || None,
                 || {
@@ -1494,6 +1511,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::SparseSet => false,
         }
     };
+
+    const IS_MUTATE: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1553,6 +1572,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Mut {
+                    on_change: Some((EntityChange::new(entity, fetch.component_id), fetch.changes)),
                     value: component.deref_mut(),
                     ticks: TicksMut {
                         added: added.deref_mut(),
@@ -1570,6 +1590,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
                 Mut {
+                    on_change: Some((EntityChange::new(entity, fetch.component_id), fetch.changes)),
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                     #[cfg(feature = "track_change_detection")]
@@ -1648,6 +1669,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     // Forwarded to `&mut T`
     const IS_DENSE: bool = <&mut T as WorldQuery>::IS_DENSE;
+    const IS_MUTATE: bool = true;
 
     #[inline]
     // Forwarded to `&mut T`
@@ -1767,6 +1789,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     const IS_DENSE: bool = T::IS_DENSE;
+    const IS_MUTATE: bool = T::IS_MUTATE;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1949,6 +1972,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_MUTATE: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -2067,6 +2091,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+            const IS_MUTATE: bool = false $(|| $name::IS_MUTATE)*;
 
             #[inline]
             unsafe fn set_archetype<'w>(
@@ -2212,6 +2237,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 
     const IS_DENSE: bool = D::IS_DENSE;
+    const IS_MUTATE: bool = false;
 
     #[inline(always)]
     unsafe fn set_archetype(
@@ -2284,6 +2310,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     // `PhantomData` does not match any components, so all components it matches
     // are stored in a Table (vacuous truth).
     const IS_DENSE: bool = true;
+    const IS_MUTATE: bool = false;
 
     unsafe fn set_archetype<'w>(
         _fetch: &mut Self::Fetch<'w>,
