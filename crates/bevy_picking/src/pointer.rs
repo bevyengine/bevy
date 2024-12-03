@@ -9,7 +9,7 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_utils::HashMap;
@@ -233,13 +233,9 @@ impl Location {
             return false;
         }
 
-        let position = Vec2::new(self.position.x, self.position.y);
-
         camera
             .logical_viewport_rect()
-            .map(|Rect { min, max }| {
-                (position - min).min_element() >= 0.0 && (position - max).max_element() <= 0.0
-            })
+            .map(|rect| rect.contains(self.position))
             .unwrap_or(false)
     }
 }

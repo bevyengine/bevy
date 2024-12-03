@@ -181,6 +181,10 @@ pub struct PostUpdate;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
 
+/// Animation system set. This exists in [`PostUpdate`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
+
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
 #[derive(Resource, Debug)]

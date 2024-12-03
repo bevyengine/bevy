@@ -272,7 +272,8 @@ use smallvec::SmallVec;
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid to request as data in a `Query`",
-    label = "invalid `Query` data"
+    label = "invalid `Query` data",
+    note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.

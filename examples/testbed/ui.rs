@@ -10,14 +10,11 @@ use bevy::{
     picking::focus::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
-    winit::WinitSettings,
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
 
@@ -193,7 +190,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
 
-            let shadow = BoxShadow {
+            let shadow_style = ShadowStyle {
                 color: Color::BLACK.with_alpha(0.5),
                 blur_radius: Val::Px(2.),
                 x_offset: Val::Px(10.),
@@ -221,7 +218,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
-                            shadow,
+                            BoxShadow::from(shadow_style),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
@@ -235,7 +232,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -247,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -259,7 +256,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             // alpha test
                             parent.spawn((
@@ -272,10 +269,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
-                                BoxShadow {
+                                BoxShadow::from(ShadowStyle {
                                     color: Color::BLACK.with_alpha(0.3),
-                                    ..shadow
-                                },
+                                    ..shadow_style
+                                }),
                             ));
                         });
                 });
@@ -327,6 +324,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     padding: UiRect::all(Val::Px(10.)),
                     ..default()
                 })
+                .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     for (flip_x, flip_y) in
                         [(false, false), (false, true), (true, true), (true, false)]
