@@ -459,6 +459,7 @@ Example | Description
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
+[Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights
 [Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
 [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
 [Many Gizmos](../examples/stress_tests/many_gizmos.rs) | Test rendering of many gizmos
@@ -516,7 +517,6 @@ Example | Description
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
-[UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
@@ -547,6 +547,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 # Platform-Specific Examples

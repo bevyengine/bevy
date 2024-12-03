@@ -4,6 +4,7 @@ use core::{marker::PhantomData, panic::Location};
 
 use super::{
     Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+    UnregisterSystem,
 };
 use crate::{
     self as bevy_ecs,
@@ -13,6 +14,7 @@ use crate::{
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
+    schedule::ScheduleLabel,
     system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
@@ -890,6 +892,17 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
+    /// Removes a system previously registered with [`Commands::register_system`] or [`World::register_system`].
+    ///
+    /// See [`World::unregister_system`] for more information.
+    pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        self.queue(UnregisterSystem::new(system_id));
+    }
+
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
@@ -960,6 +973,53 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
         self.queue(SendEvent { event });
         self
+    }
+
+    /// Runs the schedule corresponding to the given [`ScheduleLabel`].
+    ///
+    /// Calls [`World::try_run_schedule`](World::try_run_schedule).
+    ///
+    /// This will log an error if the schedule is not available to be run.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// #
+    /// # #[derive(Default, Resource)]
+    /// # struct Counter(u32);
+    /// #
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSchedule;
+    ///
+    /// # fn foo_system(mut counter: ResMut<Counter>) {
+    /// #     counter.0 += 1;
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::new(FooSchedule);
+    /// # schedule.add_systems(foo_system);
+    /// #
+    /// # let mut world = World::default();
+    /// #
+    /// # world.init_resource::<Counter>();
+    /// # world.add_schedule(schedule);
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 0);
+    /// #
+    /// # let mut commands = world.commands();
+    /// commands.run_schedule(FooSchedule);
+    /// #
+    /// # world.flush();
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        self.queue(|world: &mut World| {
+            if let Err(error) = world.try_run_schedule(label) {
+                panic!("Failed to run schedule: {error}");
+            }
+        });
     }
 }
 

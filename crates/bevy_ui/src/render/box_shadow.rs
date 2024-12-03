@@ -1,8 +1,10 @@
+//! Box shadows rendering
+
 use core::{hash::Hash, ops::Range};
 
 use crate::{
     BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
-    TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
+    TargetCamera, TransparentUi, UiBoxShadowSamples, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -16,6 +18,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
@@ -25,7 +28,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -133,14 +135,14 @@ impl FromWorld for BoxShadowPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiTextureSlicePipelineKey {
+pub struct BoxShadowPipelineKey {
     pub hdr: bool,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
 }
 
 impl SpecializedRenderPipeline for BoxShadowPipeline {
-    type Key = UiTextureSlicePipelineKey;
+    type Key = BoxShadowPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -206,6 +208,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("box_shadow_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -234,7 +237,6 @@ pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     default_ui_camera: Extract<DefaultUiCamera>,
-    ui_scale: Extract<Res<UiScale>>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
@@ -261,79 +263,85 @@ pub fn extract_shadows(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || box_shadow.color.is_fully_transparent() || uinode.is_empty() {
+        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
-        let ui_logical_viewport_size = camera_query
+        let ui_physical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
+            .and_then(|(_, c)| {
+                c.physical_viewport_size()
+                    .map(|size| Vec2::new(size.x as f32, size.y as f32))
+            })
+            .unwrap_or(Vec2::ZERO);
 
-        let resolve_val = |val, base| match val {
-            Val::Auto => 0.,
-            Val::Px(px) => px,
-            Val::Percent(percent) => percent / 100. * base,
-            Val::Vw(percent) => percent / 100. * ui_logical_viewport_size.x,
-            Val::Vh(percent) => percent / 100. * ui_logical_viewport_size.y,
-            Val::VMin(percent) => percent / 100. * ui_logical_viewport_size.min_element(),
-            Val::VMax(percent) => percent / 100. * ui_logical_viewport_size.max_element(),
-        };
+        let scale_factor = uinode.inverse_scale_factor.recip();
 
-        let spread_x = resolve_val(box_shadow.spread_radius, uinode.size().x);
-        let spread_ratio_x = (spread_x + uinode.size().x) / uinode.size().x;
+        for drop_shadow in box_shadow.iter() {
+            if drop_shadow.color.is_fully_transparent() {
+                continue;
+            }
 
-        let spread = vec2(
-            spread_x,
-            (spread_ratio_x * uinode.size().y) - uinode.size().y,
-        );
+            let resolve_val = |val, base, scale_factor| match val {
+                Val::Auto => 0.,
+                Val::Px(px) => px * scale_factor,
+                Val::Percent(percent) => percent / 100. * base,
+                Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
+                Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
+                Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
+                Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
+            };
 
-        let blur_radius = resolve_val(box_shadow.blur_radius, uinode.size().x);
-        let offset = vec2(
-            resolve_val(box_shadow.x_offset, uinode.size().x),
-            resolve_val(box_shadow.y_offset, uinode.size().y),
-        );
+            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
-        let shadow_size = uinode.size() + spread;
-        if shadow_size.cmple(Vec2::ZERO).any() {
-            continue;
-        }
+            let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-        let radius = ResolvedBorderRadius {
-            top_left: uinode.border_radius.top_left * spread_ratio_x,
-            top_right: uinode.border_radius.top_right * spread_ratio_x,
-            bottom_left: uinode.border_radius.bottom_left * spread_ratio_x,
-            bottom_right: uinode.border_radius.bottom_right * spread_ratio_x,
-        };
+            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let offset = vec2(
+                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
+                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+            );
 
-        extracted_box_shadows.box_shadows.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedBoxShadow {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
-                color: box_shadow.color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: shadow_size + 6. * blur_radius,
+            let shadow_size = uinode.size() + spread;
+            if shadow_size.cmple(Vec2::ZERO).any() {
+                continue;
+            }
+
+            let radius = ResolvedBorderRadius {
+                top_left: uinode.border_radius.top_left * spread_ratio,
+                top_right: uinode.border_radius.top_right * spread_ratio,
+                bottom_left: uinode.border_radius.bottom_left * spread_ratio,
+                bottom_right: uinode.border_radius.bottom_right * spread_ratio,
+            };
+
+            extracted_box_shadows.box_shadows.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                ExtractedBoxShadow {
+                    stack_index: uinode.stack_index,
+                    transform: transform.compute_matrix()
+                        * Mat4::from_translation(offset.extend(0.)),
+                    color: drop_shadow.color.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: shadow_size + 6. * blur_radius,
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    camera_entity,
+                    radius,
+                    blur_radius,
+                    size: shadow_size,
+                    main_entity: entity.into(),
                 },
-                clip: clip.map(|clip| clip.clip),
-                camera_entity,
-                radius,
-                blur_radius,
-                size: shadow_size,
-                main_entity: entity.into(),
-            },
-        );
+            );
+        }
     }
 }
 
 pub fn queue_shadows(
-    extracted_ui_slicers: ResMut<ExtractedBoxShadows>,
-    ui_slicer_pipeline: Res<BoxShadowPipeline>,
+    extracted_box_shadows: ResMut<ExtractedBoxShadows>,
+    box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
@@ -341,7 +349,7 @@ pub fn queue_shadows(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
+    for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
         let Ok((view_entity, view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity)
         else {
             continue;
@@ -353,8 +361,8 @@ pub fn queue_shadows(
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
-            &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey {
+            &box_shadow_pipeline,
+            BoxShadowPipelineKey {
                 hdr: view.hdr,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
@@ -382,7 +390,7 @@ pub fn prepare_shadows(
     mut ui_meta: ResMut<BoxShadowMeta>,
     mut extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
-    texture_slicer_pipeline: Res<BoxShadowPipeline>,
+    box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
@@ -392,8 +400,8 @@ pub fn prepare_shadows(
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            "ui_texture_slice_view_bind_group",
-            &texture_slicer_pipeline.view_layout,
+            "box_shadow_view_bind_group",
+            &box_shadow_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
 

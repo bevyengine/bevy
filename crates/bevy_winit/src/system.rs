@@ -158,6 +158,16 @@ pub fn create_monitors(
                 seen_monitors[idx] = true;
                 continue 'outer;
             }
+            // on iOS, equality doesn't work, so we need to compare the names
+            // otherwise the monitor entity is recreated every time
+            // TODO: remove after https://github.com/rust-windowing/winit/pull/4013 has been released
+            #[cfg(target_os = "ios")]
+            {
+                if monitor.name() == m.name() {
+                    seen_monitors[idx] = true;
+                    continue 'outer;
+                }
+            }
         }
 
         let size = monitor.size();
@@ -385,8 +395,11 @@ pub(crate) fn changed_windows(
             }
         }
 
-        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode);
+        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
+                .is_err()
+        {
+            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
         if window.cursor_options.visible != cache.window.cursor_options.visible {

@@ -6,6 +6,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
+    winit::WinitSettings,
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -34,6 +35,9 @@ fn main() {
                 ..default()
             }),
     )
+    // Make the winit loop wait more aggressively when no user input is received
+    // This can help reduce cpu usage on mobile devices
+    .insert_resource(WinitSettings::mobile())
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
     .run();
@@ -162,7 +166,7 @@ fn button_handler(
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn((
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP,
     ));
 }
