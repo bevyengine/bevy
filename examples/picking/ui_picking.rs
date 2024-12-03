@@ -41,11 +41,11 @@ struct Dragging;
 ///
 /// Systems that accept a &mut World argument implement the `Command` trait. We use this rather
 /// than a system accepting `Commands`, because we want access to one-shot systems below.
-fn setup(world: &mut World) {
+fn setup(mut commands: Commands) {
     // We need a simple camera to display our UI.
-    world.spawn((Name::new("Camera"), Camera2d));
+    commands.spawn((Name::new("Camera"), Camera2d));
 
-    world.spawn((
+    commands.spawn((
         Name::new("Inventory"),
         Inventory,
         // This first node acts like a container. You can think of it as the box in which
@@ -68,13 +68,13 @@ fn setup(world: &mut World) {
     // are each identical, and the UI Layout engine takes care of arranging them for us in the
     // above container. The `.unwrap()` is for simplicity in this example, whereas you might
     // use `.expect()`.
-    world.run_system_once(spawn_inventory_slot).unwrap();
-    world.run_system_once(spawn_inventory_slot).unwrap();
-    world.run_system_once(spawn_inventory_slot).unwrap();
-    world.run_system_once(spawn_inventory_slot).unwrap();
+    commands.run_system_cached(spawn_inventory_slot);
+    commands.run_system_cached(spawn_inventory_slot);
+    commands.run_system_cached(spawn_inventory_slot);
+    commands.run_system_cached(spawn_inventory_slot);
 
     // Now we need to add some items to the inventory.
-    world.run_system_once(add_items_to_inventory).unwrap();
+    commands.run_system_cached(add_items_to_inventory);
 }
 
 /// Spawn individual inventory slots, using the `Inventory` root UI node as its parent.
@@ -118,8 +118,9 @@ fn add_items_to_inventory(
                     // components.
                     Node::default(),
                     ImageNode::new(asset_server.load(paths[i])),
-                    // TODO: seems clumsy, better solution?
-                    ZIndex(99),
+                    // Nodes with a higher GlobalZIndex will be drawn on top of those without this
+                    // component, or with a lower GlobalZIndex.
+                    GlobalZIndex(1),
                 ))
                 .observe(drag_start())
                 .observe(drag_end());
