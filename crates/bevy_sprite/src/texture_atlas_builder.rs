@@ -155,16 +155,6 @@ impl<'a> TextureAtlasBuilder<'a> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
-    )]
-    pub fn finish(
-        &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
-        self.build()
-    }
-
     /// Consumes the builder, and returns the newly created texture atlas and
     /// the associated atlas layout.
     ///

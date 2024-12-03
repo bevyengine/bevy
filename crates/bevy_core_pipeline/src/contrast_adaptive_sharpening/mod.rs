@@ -54,9 +54,6 @@ pub struct ContrastAdaptiveSharpening {
     pub denoise: bool,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `ContrastAdaptiveSharpening`")]
-pub type ContrastAdaptiveSharpeningSettings = ContrastAdaptiveSharpening;
-
 impl Default for ContrastAdaptiveSharpening {
     fn default() -> Self {
         ContrastAdaptiveSharpening {

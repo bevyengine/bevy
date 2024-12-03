@@ -61,29 +61,17 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-#[allow(deprecated)]
-pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
-    VolumetricLight,
-};
+pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
 
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::{
-            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
-            SpotLightBundle,
-        },
         fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{
-            environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
-            LightProbe,
-        },
+        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,

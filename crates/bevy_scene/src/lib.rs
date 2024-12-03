@@ -41,12 +41,11 @@ pub use scene_spawner::*;
 /// The scene prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, DynamicSceneRoot, Scene,
-        SceneBundle, SceneFilter, SceneRoot, SceneSpawner,
+        DynamicScene, DynamicSceneBuilder, DynamicSceneRoot, Scene, SceneFilter, SceneRoot,
+        SceneSpawner,
     };
 }
 

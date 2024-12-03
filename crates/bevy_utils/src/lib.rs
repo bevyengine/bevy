@@ -115,18 +115,6 @@ impl BuildHasher for FixedState {
 /// but it will not be stable between multiple executions of the program.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
-/// A stable hash map implementing aHash, a high speed keyed hashing algorithm
-/// intended for use in in-memory hashmaps.
-///
-/// Unlike [`HashMap`] the iteration order stability extends between executions
-/// using the same Bevy version on the same device.
-///
-/// aHash is designed for performance and is NOT cryptographically secure.
-#[deprecated(
-    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashMap<K, V, FixedState>"
-)]
-pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
-
 /// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
@@ -136,18 +124,6 @@ pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 /// `HashSet`s only depends on the order of insertions and deletions,
 /// but it will not be stable between multiple executions of the program.
 pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
-
-/// A stable hash set implementing aHash, a high speed keyed hashing algorithm
-/// intended for use in in-memory hashmaps.
-///
-/// Unlike [`HashMap`] the iteration order stability extends between executions
-/// using the same Bevy version on the same device.
-///
-/// aHash is designed for performance and is NOT cryptographically secure.
-#[deprecated(
-    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashSet<K, FixedState>"
-)]
-pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
 ///
