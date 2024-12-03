@@ -122,6 +122,7 @@ impl SpecializedRenderPipeline for UiPipeline {
             },
             label: Some("ui_pipeline".into()),
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         }
     }
 }

@@ -22,7 +22,7 @@
 #endif
 
 // Creates the deferred gbuffer from a PbrInput.
-fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
+fn deferred_gbuffer_from_pbr_input(view_index: i32, in: PbrInput) -> vec4<u32> {
      // Only monochrome occlusion supported. May not be worth including at all.
      // Some models have baked occlusion, GLTF only supports monochrome.
      // Real time occlusion is applied in the deferred lighting pass.
@@ -67,7 +67,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    emissive += in.lightmap_light * diffuse_color * view.exposure;
+    emissive += in.lightmap_light * diffuse_color * view[view_index].exposure;
 
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
@@ -79,7 +79,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
 }
 
 // Creates a PbrInput from the deferred gbuffer.
-fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
+fn pbr_input_from_deferred_gbuffer(view_index: i32, frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
     var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
@@ -110,9 +110,9 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);
     let N = octahedral_decode(octahedral_normal);
 
-    let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
-    let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let V = pbr_functions::calculate_view(world_position, is_orthographic);
+    let world_position = vec4(position_ndc_to_world(view_index, frag_coord_to_ndc(view_index, frag_coord)), 1.0);
+    let is_orthographic = view[view_index].clip_from_view[3].w == 1.0;
+    let V = pbr_functions::calculate_view(view_index, world_position, is_orthographic);
 
     pbr.frag_coord = frag_coord;
     pbr.world_normal = N;
@@ -125,11 +125,11 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
 }
 
 #ifdef PREPASS_PIPELINE
-fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
+fn deferred_output(view_index: i32, in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
     var out: FragmentOutput;
 
     // gbuffer
-    out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    out.deferred = deferred_gbuffer_from_pbr_input(view_index, pbr_input);
     // lighting pass id (used to determine which lighting shader to run for the fragment)
     out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
     // normal if required

@@ -439,19 +439,19 @@ fn depth_ray_march_to_cs_dir(raymarch: ptr<function, DepthRayMarch>, dir: vec4<f
 /// March to a world-space position.
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_ws(raymarch: ptr<function, DepthRayMarch>, end: vec3<f32>) {
-    depth_ray_march_to_cs(raymarch, position_world_to_ndc(end));
+fn depth_ray_march_to_ws(view_index: i32, raymarch: ptr<function, DepthRayMarch>, end: vec3<f32>) {
+    depth_ray_march_to_cs(raymarch, position_world_to_ndc(view_index, end));
 }
 
 /// March towards a world-space direction. Infinite (ray is extended to cover the whole view frustum).
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_ws_dir(raymarch: ptr<function, DepthRayMarch>, dir: vec3<f32>) {
-    depth_ray_march_to_cs_dir_impl(raymarch, direction_world_to_clip(dir), true);
+fn depth_ray_march_to_ws_dir(view_index: i32, raymarch: ptr<function, DepthRayMarch>, dir: vec3<f32>) {
+    depth_ray_march_to_cs_dir_impl(raymarch, direction_world_to_clip(view_index, dir), true);
 }
 
 /// Perform the ray march.
-fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarchResult {
+fn depth_ray_march_march(view_index: i32, raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarchResult {
     var res = DepthRayMarchResult(false, 0.0, vec2(0.0), 0.0, 0.0);
 
     let ray_start_uv = ndc_to_uv((*raymarch).ray_start_cs.xy);
@@ -466,7 +466,7 @@ fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarc
         min(i32((*raymarch).linear_steps), i32(floor(length(ray_len_px) / f32(min_px_per_step))))
     );
 
-    let linear_z_to_scaled_linear_z = 1.0 / perspective_camera_near();
+    let linear_z_to_scaled_linear_z = 1.0 / perspective_camera_near(view_index);
     let depth_thickness = (*raymarch).depth_thickness_linear_z * linear_z_to_scaled_linear_z;
 
     var distance_fn: DepthRaymarchDistanceFn;

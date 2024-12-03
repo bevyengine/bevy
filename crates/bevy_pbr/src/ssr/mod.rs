@@ -557,6 +557,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                 })],
             }),
             push_constant_ranges: vec![],
+            multiview: None,
             primitive: default(),
             depth_stencil: None,
             multisample: default(),

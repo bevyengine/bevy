@@ -209,6 +209,7 @@ fn specialize_oit_resolve_pipeline(
         multisample: MultisampleState::default(),
         push_constant_ranges: vec![],
         zero_initialize_workgroup_memory: false,
+        multiview: None,
     }
 }
 

@@ -5,6 +5,10 @@ struct FullscreenVertexOutput {
     position: vec4<f32>,
     @location(0)
     uv: vec2<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index)
+    view_index: i32,
+#endif
 };
 
 // This vertex shader produces the following, when drawn using indices 0..3:

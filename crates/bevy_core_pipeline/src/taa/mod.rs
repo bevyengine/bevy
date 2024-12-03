@@ -357,6 +357,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         }
     }
 }

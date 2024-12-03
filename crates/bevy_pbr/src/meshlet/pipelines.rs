@@ -246,6 +246,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
@@ -293,6 +294,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
@@ -335,6 +337,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
@@ -378,6 +381,7 @@ impl FromWorld for MeshletPipelines {
                     stages: ShaderStages::FRAGMENT,
                     range: 0..4,
                 }],
+                multiview: None,
                 vertex: fullscreen_shader_vertex_state(),
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
@@ -405,6 +409,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::FRAGMENT,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -433,6 +438,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::FRAGMENT,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {

@@ -28,6 +28,7 @@
 
 // prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
 fn pbr_input_from_vertex_output(
+    view_index: i32,
     in: VertexOutput,
     is_front: bool,
     double_sided: bool,
@@ -40,8 +41,8 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = mesh[in.instance_index].flags;
 #endif
 
-    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
-    pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
+    pbr_input.is_orthographic = view[view_index].clip_from_view[3].w == 1.0;
+    pbr_input.V = pbr_functions::calculate_view(view_index, in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
 
@@ -67,12 +68,13 @@ fn pbr_input_from_vertex_output(
 // Prepare a full PbrInput by sampling all textures to resolve
 // the material members
 fn pbr_input_from_standard_material(
+    view_index: i32,
     in: VertexOutput,
     is_front: bool,
 ) -> pbr_types::PbrInput {
     let double_sided = (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
-    var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(in, is_front, double_sided);
+    var pbr_input: pbr_types::PbrInput = pbr_input_from_vertex_output(view_index, in, is_front, double_sided);
     pbr_input.material.flags = pbr_bindings::material.flags;
     pbr_input.material.base_color *= pbr_bindings::material.base_color;
     pbr_input.material.deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
@@ -86,7 +88,7 @@ fn pbr_input_from_standard_material(
     bias.ddx_uv = in.ddx_uv;
     bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-    bias.mip_bias = view.mip_bias;
+    bias.mip_bias = view[view_index].mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
 // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass

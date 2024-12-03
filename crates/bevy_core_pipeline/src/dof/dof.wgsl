@@ -111,7 +111,7 @@ const SIN_NEG_FRAC_PI_5_6: f32 = -0.5;
 // confusion].
 //
 // [circle of confusion]: https://en.wikipedia.org/wiki/Circle_of_confusion
-fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
+fn calculate_circle_of_confusion(view_index: i32, in_frag_coord: vec4<f32>) -> f32 {
     // Unpack the depth of field parameters.
     let focus = dof_params.focal_distance;
     let f = dof_params.focal_length;
@@ -121,7 +121,7 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // Sample the depth.
     let frag_coord = vec2<i32>(floor(in_frag_coord.xy));
     let raw_depth = textureLoad(depth_texture, frag_coord, 0);
-    let depth = min(-depth_ndc_to_view_z(raw_depth), dof_params.max_depth);
+    let depth = min(-depth_ndc_to_view_z(view_index, raw_depth), dof_params.max_depth);
 
     // Calculate the circle of confusion.
     //
@@ -251,15 +251,31 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
 // Calculates the horizontal component of the separable Gaussian blur.
 @fragment
-fn gaussian_horizontal(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let coc = calculate_circle_of_confusion(in.position);
+fn gaussian_horizontal(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    let coc = calculate_circle_of_confusion(view_index, in.position);
     return gaussian_blur(in.position, coc, vec2(1.0, 0.0));
 }
 
 // Calculates the vertical component of the separable Gaussian blur.
 @fragment
-fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let coc = calculate_circle_of_confusion(in.position);
+fn gaussian_vertical(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    let coc = calculate_circle_of_confusion(view_index, in.position);
     return gaussian_blur(in.position, coc, vec2(0.0, 1.0));
 }
 
@@ -272,8 +288,16 @@ fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 //       │
 //       │
 @fragment
-fn bokeh_pass_0(in: FullscreenVertexOutput) -> DualOutput {
-    let coc = calculate_circle_of_confusion(in.position);
+fn bokeh_pass_0(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> DualOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    let coc = calculate_circle_of_confusion(view_index, in.position);
     let vertical = box_blur_a(in.position, coc, vec2(0.0, 1.0));
     let diagonal = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
 
@@ -292,8 +316,16 @@ fn bokeh_pass_0(in: FullscreenVertexOutput) -> DualOutput {
 //       •
 #ifdef DUAL_INPUT
 @fragment
-fn bokeh_pass_1(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let coc = calculate_circle_of_confusion(in.position);
+fn bokeh_pass_1(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    let coc = calculate_circle_of_confusion(view_index, in.position);
     let output_0 = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
     let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));
     return mix(output_0, output_1, 0.5);

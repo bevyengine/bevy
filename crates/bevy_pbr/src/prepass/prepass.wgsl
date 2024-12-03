@@ -57,7 +57,15 @@ fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
 #endif  // MORPH_TARGETS
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+fn vertex(
+    vertex_no_morph: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
@@ -75,7 +83,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // SKINNED
 
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
-    out.position = position_world_to_clip(out.world_position.xyz);
+    out.position = position_world_to_clip(view_index, out.world_position.xyz);
 #ifdef DEPTH_CLAMP_ORTHO
     out.clip_position_unclamped = out.position;
     out.position.z = min(out.position.z, 1.0);

@@ -346,6 +346,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             multisample: default(),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         }
     }
 }

@@ -95,7 +95,7 @@ impl ViewNode for TonemappingNode {
                     None,
                     &tonemapping_pipeline.texture_bind_group,
                     &BindGroupEntries::sequential((
-                        view_uniforms,
+                        view_uniforms.binding().unwrap(),
                         source,
                         &tonemapping_pipeline.sampler,
                         lut_bindings.0,

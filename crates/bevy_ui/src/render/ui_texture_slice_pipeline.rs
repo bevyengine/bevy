@@ -221,6 +221,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
             },
             label: Some("ui_texture_slice_pipeline".into()),
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         }
     }
 }

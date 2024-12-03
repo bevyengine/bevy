@@ -220,6 +220,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             },
             label: Some("colored_mesh2d_pipeline".into()),
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         }
     }
 }

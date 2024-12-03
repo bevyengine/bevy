@@ -16,7 +16,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderContext,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 #[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
@@ -57,7 +57,6 @@ impl Node for AutoExposureNode {
 
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
-        let view_uniforms_buffer = view_uniforms.buffer().unwrap();
 
         let globals_buffer = world.resource::<GlobalsBuffer>();
 
@@ -110,11 +109,7 @@ impl Node for AutoExposureNode {
                 &compensation_curve.extents,
                 resources.histogram.as_entire_buffer_binding(),
                 &auto_exposure_buffers.state,
-                BufferBinding {
-                    buffer: view_uniforms_buffer,
-                    size: Some(ViewUniform::min_size()),
-                    offset: 0,
-                },
+                view_uniforms.binding().unwrap(),
             )),
         );
 

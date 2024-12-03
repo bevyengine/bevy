@@ -23,10 +23,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
     texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
-    view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
-    },
+    view::{Msaa, RenderVisibilityRanges, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
 };
 use core::{array, num::NonZero};
 
@@ -203,7 +200,7 @@ fn layout_entries(
             // View
             (
                 0,
-                uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+                uniform_buffer_sized(true, None).visibility(ShaderStages::VERTEX_FRAGMENT),
             ),
             // Lights
             (1, uniform_buffer::<GpuLights>(true)),

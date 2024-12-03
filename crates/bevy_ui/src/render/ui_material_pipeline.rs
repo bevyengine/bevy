@@ -200,6 +200,7 @@ where
             },
             label: Some("ui_material_pipeline".into()),
             zero_initialize_workgroup_memory: false,
+            multiview: None,
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();

@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::camera::SortedCameras;
-use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -20,7 +19,9 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::*,
+    view::ViewUniforms,
     view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
 };
@@ -1509,6 +1510,7 @@ pub fn queue_shadows<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
+    view_uniforms: Res<ViewUniforms>,
     view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
@@ -1553,7 +1555,10 @@ pub fn queue_shadows<M: Material>(
                     .get(*light_entity)
                     .expect("Failed to get spot light visible entities"),
             };
-            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
+            let mut light_key = MeshPipelineKey::DEPTH_PREPASS
+                | MeshPipelineKey::from_max_view_count(
+                    view_uniforms.uniforms.current_max_capacity() as _,
+                );
             light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
