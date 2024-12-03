@@ -167,7 +167,7 @@ pub fn document_required_components(attr: TokenStream, item: TokenStream) -> Tok
     for tt in item {
         if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
             end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
+            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's required components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
             out.extend(doc);
         }
         out.extend(Some(tt));
