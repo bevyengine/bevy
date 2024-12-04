@@ -2207,7 +2207,8 @@ pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
-    QuerySortedManyIter<'w, 's, D, F, I> {
+    QuerySortedManyIter<'w, 's, D, F, I>
+{
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -2324,11 +2325,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QuerySortedManyIter<'w, 's, D, F, Int
 }
 
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> Iterator
-    for QuerySortedManyIter<'w, 's, D, F, I> {
-        type Item = D::Item<'w>;
-    
-        #[inline(always)]
-        fn next(&mut self) -> Option<Self::Item> {
+    for QuerySortedManyIter<'w, 's, D, F, I>
+{
+    type Item = D::Item<'w>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
         let entity = self.entity_iter.next()?;
         // SAFETY:
         // It is safe to alias for ReadOnlyWorldQuery.
@@ -2340,7 +2342,6 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> I
         self.entity_iter.size_hint()
     }
 }
-
 
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>>
     DoubleEndedIterator for QuerySortedManyIter<'w, 's, D, F, I>
@@ -2365,7 +2366,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QuerySortedManyIter").finish()
-
     }
 }
 
