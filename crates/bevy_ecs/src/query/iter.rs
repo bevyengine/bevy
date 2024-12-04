@@ -1506,19 +1506,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
         last_run: Tick,
         this_run: Tick,
     ) -> QueryManyUniqueIter<'w, 's, D, F, I> {
-        let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
-        let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
-        QueryManyUniqueIter(QueryManyIter {
+        QueryManyUniqueIter(QueryManyIter::new(
+            world,
             query_state,
-            entities: world.entities(),
-            archetypes: world.archetypes(),
-            // SAFETY: We only access table data that has been registered in `query_state`.
-            // This means `world` has permission to access the data we use.
-            tables: &world.storages().tables,
-            fetch,
-            filter,
-            entity_iter: entity_list.into_iter(),
-        })
+            entity_list,
+            last_run,
+            this_run,
+        ))
     }
 }
 

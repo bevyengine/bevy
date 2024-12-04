@@ -76,7 +76,7 @@ impl<T: EntityBorrow> EntityBorrow for &mut T {
 //  `&mut T` is `Freeze`.
 unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for &mut T {}
 
-impl<T: TrustedEntityBorrow> EntityBorrow for Box<T> {
+impl<T: EntityBorrow> EntityBorrow for Box<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -88,7 +88,7 @@ impl<T: TrustedEntityBorrow> EntityBorrow for Box<T> {
 // `Box<T>` is `Freeze`.
 unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Box<T> {}
 
-impl<T: TrustedEntityBorrow> EntityBorrow for Rc<T> {
+impl<T: EntityBorrow> EntityBorrow for Rc<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
@@ -100,7 +100,7 @@ impl<T: TrustedEntityBorrow> EntityBorrow for Rc<T> {
 // `Rc<T>` is `Freeze`.
 unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Rc<T> {}
 
-impl<T: TrustedEntityBorrow> EntityBorrow for Arc<T> {
+impl<T: EntityBorrow> EntityBorrow for Arc<T> {
     fn entity(&self) -> Entity {
         (**self).entity()
     }
