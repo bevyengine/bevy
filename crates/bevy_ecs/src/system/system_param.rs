@@ -2703,8 +2703,9 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::assert_is_system,
+        self as bevy_ecs,
+        prelude::Component,
+        system::{assert_is_system, IntoSystem, System},
     };
     use core::cell::RefCell;
 
@@ -2934,5 +2935,133 @@ mod tests {
         let _query: Query<()> = p.downcast_mut().unwrap();
         let _query: Query<()> = p.downcast_mut_inner().unwrap();
         let _query: Query<()> = p.downcast().unwrap();
+    }
+
+    #[derive(Component, Resource)]
+    struct Foo;
+
+    fn check_conflict<M>(system: impl IntoSystem<(), (), M>) {
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(system);
+        system.initialize(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_multiple() {
+        fn system(_: &mut World, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_deferred_world() {
+        fn system(_: &mut World, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_query() {
+        fn system(_: &mut World, _: Query<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_query_mut_world() {
+        fn system(_: Query<&Foo>, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_resource() {
+        fn system(_: &mut World, _: Res<Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_resource_mut_world() {
+        fn system(_: Res<Foo>, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_local() {
+        fn system(_: &mut World, _: Local<u32>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_query_state() {
+        fn system(_: &mut World, _: &mut QueryState<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_system_state() {
+        fn system(_: &mut World, _: &mut SystemState<Query<&Foo>>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_system_state_recursive() {
+        fn system(_: &mut World, _: &mut SystemState<&mut SystemState<Query<&Foo>>>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_multiple() {
+        fn system(_: DeferredWorld, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_query() {
+        fn system(_: DeferredWorld, _: Query<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_query_deferred_world() {
+        fn system(_: Query<&Foo>, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_resource() {
+        fn system(_: DeferredWorld, _: Res<Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_resource_deferred_world() {
+        fn system(_: Res<Foo>, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_local() {
+        fn system(_: DeferredWorld, _: Local<u32>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_query_state() {
+        fn system(_: DeferredWorld, _: &mut QueryState<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_system_state() {
+        fn system(_: DeferredWorld, _: &mut SystemState<Query<&Foo>>) {}
+        check_conflict(system);
     }
 }
