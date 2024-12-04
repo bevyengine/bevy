@@ -1213,9 +1213,9 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
 /// despawned by the time the command is executed. Use the following commands to set how you
 /// would like subsequent commands to respond if the entity is missing:
 /// - [`ignore_if_missing`](Self::ignore_if_missing)
-/// - [`log_if_missing`](Self::log_if_missing) (default)
+/// - [`log_if_missing`](Self::log_if_missing)
 /// - [`warn_if_missing`](Self::warn_if_missing)
-/// - [`panic_if_missing`](Self::panic_if_missing)
+/// - [`panic_if_missing`](Self::panic_if_missing) (default)
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
@@ -1472,6 +1472,14 @@ impl<'a> EntityCommands<'a> {
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
     /// - `T` must have the same layout as the one passed during `component_id` creation.
+    ///
+    /// # Note
+    ///
+    /// [`EntityCommands::insert_by_id`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityCommands` instance.
     pub unsafe fn try_insert_by_id<T: Send + 'static>(
         &mut self,
         component_id: ComponentId,
@@ -1490,8 +1498,11 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// [`Self::insert`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert`].
+    /// [`EntityCommands::insert`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityCommands` instance.
     ///
     /// # Example
     ///
@@ -1544,6 +1555,14 @@ impl<'a> EntityCommands<'a> {
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
     /// This is useful for chaining method calls.
     ///
+    /// # Note
+    ///
+    /// [`EntityCommands::insert_if`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityCommands` instance.
+    ///
     /// # Example
     ///
     /// ```
@@ -1591,8 +1610,11 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// [`Self::insert_if_new_and`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new_and`].
+    /// [`EntityCommands::insert_if_new_and`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityCommands` instance.
     ///
     /// # Example
     ///
@@ -1636,8 +1658,11 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// [`Self::insert_if_new`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new`].
+    /// [`EntityCommands::insert_if_new`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityCommands` instance.
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_with_different_failure_handling_mode(
             try_insert(bundle, InsertMode::Keep),
@@ -1726,7 +1751,6 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Despawns the entity.
-    /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
     ///
@@ -1758,8 +1782,18 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Despawns the entity.
-    /// This will not emit a warning if the entity does not exist, essentially performing
-    /// the same function as [`Self::despawn`] without emitting warnings.
+    ///
+    /// This will ignore the command if the entity does not exist,
+    /// essentially performing the same function as [`Self::despawn`]
+    /// without respecting the instance's failure handling mode.
+    ///
+    /// # Note
+    ///
+    /// [`EntityCommands::despawn`] used to warn if the entity was missing,
+    /// and this was the silent version.
+    /// [`EntityCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityCommands::ignore_if_missing`] (or another variant)
+    /// to change the failure response for all commands from that `EntityCommands` instance.
     #[track_caller]
     pub fn try_despawn(&mut self) {
         self.queue_with_different_failure_handling_mode(try_despawn(), FailureHandlingMode::Ignore);
@@ -1790,10 +1824,10 @@ impl<'a> EntityCommands<'a> {
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// Allows commands to use a specific failure handling mode instead of the instance's internal setting.
-    /// Used to avoid breaking `try_` variants and [`Self::despawn`].
+    /// Used to avoid breaking `try_` variants before their deprecation.
     ///
-    /// TODO: deprecate alongside `try_` variants
-    pub(crate) fn queue_with_different_failure_handling_mode<M: 'static>(
+    /// TODO: remove alongside `try_` variants
+    fn queue_with_different_failure_handling_mode<M: 'static>(
         &mut self,
         command: impl EntityCommand<M>,
         failure_handling_mode: FailureHandlingMode,
@@ -1940,14 +1974,11 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
-            .queue_with_different_failure_handling_mode(
-                move |mut entity: EntityWorldMut| {
-                    if let Some(value) = entity.get_mut() {
-                        modify(value);
-                    }
-                },
-                FailureHandlingMode::Ignore,
-            );
+            .queue(move |mut entity: EntityWorldMut| {
+                if let Some(value) = entity.get_mut() {
+                    modify(value);
+                }
+            });
         self
     }
 
@@ -1963,10 +1994,15 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
-    /// [`Self::or_insert`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert`].
-    ///
     /// See also [`or_insert_with`](Self::or_insert_with).
+    ///
+    /// # Note
+    ///
+    /// [`EntityEntryCommands::or_insert`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityEntryCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityEntryCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityEntryCommands` instance.
     #[track_caller]
     pub fn or_try_insert(&mut self, default: T) -> &mut Self {
         self.entity_commands
@@ -1987,10 +2023,15 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
     ///
-    /// [`Self::or_insert_with`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert_with`].
+    /// See also [`or_insert`](Self::or_insert).
     ///
-    /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
+    /// # Note
+    ///
+    /// [`EntityEntryCommands::or_insert_with`] used to panic if the entity was missing,
+    /// and this was the non-panicking version.
+    /// [`EntityEntryCommands`] no longer need to handle missing entities individually;
+    /// you can now use [`EntityEntryCommands::ignore_if_missing`] (or another variant)
+    /// to disable panicking for all commands from that `EntityEntryCommands` instance.
     #[track_caller]
     pub fn or_try_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
         self.or_try_insert(default())

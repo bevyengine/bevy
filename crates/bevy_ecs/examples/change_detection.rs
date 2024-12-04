@@ -99,7 +99,7 @@ fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) 
     for (entity, age) in &entities {
         if age.frames > 2 {
             println!("    despawning {entity:?} due to age > 2");
-            commands.entity(entity).warn_if_missing().despawn();
+            commands.entity(entity).despawn();
         }
     }
 }
