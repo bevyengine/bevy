@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
+use core::hint::black_box;
 use criterion::*;
 use glam::*;
-use core::hint::black_box;
 
 criterion_group!(fragmentation_benches, iter_frag_empty);
 

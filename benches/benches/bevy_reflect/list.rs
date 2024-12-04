@@ -2,8 +2,8 @@ use core::{iter, time::Duration};
 
 use bevy_reflect::{DynamicList, List};
 use criterion::{
-    black_box, criterion_group, measurement::Measurement, BatchSize,
-    BenchmarkGroup, BenchmarkId, Criterion, Throughput,
+    black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, Throughput,
 };
 
 criterion_group!(
