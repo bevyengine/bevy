@@ -274,7 +274,7 @@ fn queue_custom_phase_item(
                     pipeline: pipeline_id,
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                     material_bind_group_index: None,
-                    lightmap_image: None,
+                    lightmap_slab: None,
                 },
                 entity,
                 BinnedRenderPhaseType::NonMesh,

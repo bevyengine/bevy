@@ -342,7 +342,7 @@ fn queue_custom_mesh_pipeline(
                     // not be the ID of a [`Mesh`].
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                     material_bind_group_index: None,
-                    lightmap_image: None,
+                    lightmap_slab: None,
                 },
                 (render_entity, visible_entity),
                 // This example supports batching, but if your pipeline doesn't

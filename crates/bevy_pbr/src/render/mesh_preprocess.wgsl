@@ -25,8 +25,8 @@ struct MeshInput {
     first_vertex_index: u32,
     // Index of the material inside the bind group data.
     material_bind_group_slot: u32,
+    lightmap_slot: u32,
     pad_a: u32,
-    pad_b: u32,
 }
 
 // Information about each mesh instance needed to cull it on GPU.
@@ -194,4 +194,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].material_bind_group_slot =
         current_input[input_index].material_bind_group_slot;
+    output[mesh_output_index].lightmap_slot = current_input[input_index].lightmap_slot;
 }
