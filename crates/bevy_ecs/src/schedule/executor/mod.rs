@@ -132,7 +132,7 @@ impl SystemSchedule {
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`Schedule`]: super::Schedule
 #[doc(alias = "apply_system_buffers")]
-#[allow(unused_variables, non_camel_case_types)]
+#[allow(non_camel_case_types)]
 pub struct apply_deferred;
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
