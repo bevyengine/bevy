@@ -19,7 +19,8 @@ struct Mesh {
     first_vertex_index: u32,
     current_skin_index: u32,
     previous_skin_index: u32,
-    pad_a: u32,
+    // Index of the material inside the bind group data.
+    material_bind_group_slot: u32,
 };
 
 #ifdef SKINNED

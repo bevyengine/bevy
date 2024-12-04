@@ -1,7 +1,7 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances,
+    PreviousGlobalTransform, RenderMaterialInstances, RenderMeshMaterialIds,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
@@ -89,6 +89,7 @@ impl InstanceManager {
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
+        mesh_material_ids: &RenderMeshMaterialIds,
         not_shadow_receiver: bool,
         not_shadow_caster: bool,
     ) {
@@ -108,7 +109,19 @@ impl InstanceManager {
             previous_world_from_local: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        let mesh_uniform = MeshUniform::new(&transforms, 0, None, None, None);
+
+        let Some(mesh_material_asset_id) = mesh_material_ids.mesh_to_material.get(&instance) else {
+            return;
+        };
+        let Some(mesh_material_binding_id) = mesh_material_ids
+            .material_to_binding
+            .get(mesh_material_asset_id)
+        else {
+            return;
+        };
+
+        let mesh_uniform =
+            MeshUniform::new(&transforms, 0, mesh_material_binding_id.slot, None, None);
 
         // Append instance data
         self.instances.push((
@@ -170,6 +183,7 @@ pub fn extract_meshlet_mesh_entities(
     mut instance_manager: ResMut<InstanceManager>,
     // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
+    mesh_material_ids: Res<RenderMeshMaterialIds>,
     mut system_state: Local<
         Option<
             SystemState<(
@@ -238,6 +252,7 @@ pub fn extract_meshlet_mesh_entities(
             transform,
             previous_transform,
             render_layers,
+            &mesh_material_ids,
             not_shadow_receiver,
             not_shadow_caster,
         );
