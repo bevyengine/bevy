@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentCloneHandler, StorageType},
     entity::{Entity, VisitEntitiesMut},
     prelude::FromWorld,
     world::World,
@@ -25,7 +25,7 @@ use smallvec::SmallVec;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, VisitEntitiesMut)]
+#[derive(Debug, VisitEntitiesMut)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
@@ -39,6 +39,14 @@ use smallvec::SmallVec;
     )
 )]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
+
+impl Component for Children {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::Ignore
+    }
+}
 
 // TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.

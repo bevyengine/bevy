@@ -103,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -3823,6 +3822,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]
