@@ -4,6 +4,8 @@ edition = "2021"
 description = "Benchmarks that test Bevy's performance"
 publish = false
 license = "MIT OR Apache-2.0"
+# Do not automatically discover benchmarks, we specify them manually instead.
+autobenches = false
 
 [dev-dependencies]
 glam = "0.29"
@@ -31,61 +33,31 @@ opt-level = 3
 lto = true
 
 [[bench]]
-name = "change_detection"
-path = "benches/bevy_ecs/change_detection.rs"
-harness = false
-
-[[bench]]
 name = "ecs"
-path = "benches/bevy_ecs/benches.rs"
+path = "benches/bevy_ecs/main.rs"
 harness = false
 
 [[bench]]
-name = "ray_mesh_intersection"
-path = "benches/bevy_picking/ray_mesh_intersection.rs"
+name = "math"
+path = "benches/bevy_math/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_function"
-path = "benches/bevy_reflect/function.rs"
+name = "picking"
+path = "benches/bevy_picking/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_list"
-path = "benches/bevy_reflect/list.rs"
+name = "reflect"
+path = "benches/bevy_reflect/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_map"
-path = "benches/bevy_reflect/map.rs"
+name = "render"
+path = "benches/bevy_render/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_struct"
-path = "benches/bevy_reflect/struct.rs"
-harness = false
-
-[[bench]]
-name = "parse_reflect_path"
-path = "benches/bevy_reflect/path.rs"
-harness = false
-
-[[bench]]
-name = "iter"
-path = "benches/bevy_tasks/iter.rs"
-harness = false
-
-[[bench]]
-name = "bezier"
-path = "benches/bevy_math/bezier.rs"
-harness = false
-
-[[bench]]
-name = "torus"
-path = "benches/bevy_render/torus.rs"
-harness = false
-
-[[bench]]
-name = "entity_hash"
-path = "benches/bevy_ecs/world/entity_hash.rs"
+name = "tasks"
+path = "benches/bevy_tasks/main.rs"
 harness = false

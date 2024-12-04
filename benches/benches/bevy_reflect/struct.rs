@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
 use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+    black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput,
 };
 
 criterion_group!(
@@ -16,7 +16,6 @@ criterion_group!(
     dynamic_struct_get_field,
     dynamic_struct_insert,
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);

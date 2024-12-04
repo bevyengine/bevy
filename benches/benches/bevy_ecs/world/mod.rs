@@ -39,5 +39,5 @@ criterion_group!(
     query_get_many::<2>,
     query_get_many::<5>,
     query_get_many::<10>,
-    entity_set_build_and_lookup
+    entity_set_build_and_lookup,
 );

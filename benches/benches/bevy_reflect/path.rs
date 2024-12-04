@@ -2,13 +2,12 @@ use core::{fmt::Write, str, time::Duration};
 
 use bevy_reflect::ParsedPath;
 use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+    black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput,
 };
 use rand::{distributions::Uniform, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(benches, parse_reflect_path);
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(2);

@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
 
 use bevy_render::view::RenderLayers;
 
@@ -16,4 +16,3 @@ criterion_group!(
     benches,
     render_layers,
 );
-criterion_main!(benches);

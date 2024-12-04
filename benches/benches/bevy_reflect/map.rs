@@ -3,7 +3,7 @@ use core::{fmt::Write, iter, time::Duration};
 use bevy_reflect::{DynamicMap, Map};
 use bevy_utils::HashMap;
 use criterion::{
-    black_box, criterion_group, criterion_main, measurement::Measurement, BatchSize,
+    black_box, criterion_group, measurement::Measurement, BatchSize,
     BenchmarkGroup, BenchmarkId, Criterion, Throughput,
 };
 
@@ -14,7 +14,6 @@ criterion_group!(
     dynamic_map_get,
     dynamic_map_insert
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);

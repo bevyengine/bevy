@@ -5,19 +5,18 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(
-    benches,
+    change_detection_benches,
     all_added_detection,
     all_changed_detection,
     few_changed_detection,
     none_changed_detection,
     multiple_archetype_none_changed_detection
 );
-criterion_main!(benches);
 
 macro_rules! modify {
     ($components:ident;$($index:tt),*) => {

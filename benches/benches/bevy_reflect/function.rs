@@ -1,8 +1,7 @@
 use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, BatchSize, Criterion};
 
 criterion_group!(benches, typed, into, call, clone);
-criterion_main!(benches);
 
 fn add(a: i32, b: i32) -> i32 {
     a + b
