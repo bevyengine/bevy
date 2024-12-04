@@ -13,7 +13,7 @@ use crate::{entity::Entity, query::ReadOnlyQueryData};
 /// for documenting possible looping behavior, and consumers of those implementations are responsible for
 /// avoiding infinite loops in their code.
 ///
-/// Traversials may be parameterized with additional data. For example, in observer event propagation, the
+/// Traversals may be parameterized with additional data. For example, in observer event propagation, the
 /// parameter `D` is the event type given in `Trigger<E>`. This allows traversal to differ depending on event
 /// data.
 ///
