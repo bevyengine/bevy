@@ -106,11 +106,21 @@ pub struct MaterialNonBindlessBindGroup<M>
 where
     M: Material,
 {
-    /// The actual bind group, along with the material-specific data.
-    ///
-    /// This will be `Some` if the bind group is allocated or `None` if it's
-    /// free.
-    bind_group: Option<(BindGroup, M::Data)>,
+    /// The single allocation in a non-bindless bind group.
+    allocation: MaterialNonBindlessBindGroupAllocation<M>,
+}
+
+/// The single allocation in a non-bindless bind group.
+enum MaterialNonBindlessBindGroupAllocation<M>
+where
+    M: Material,
+{
+    /// The allocation is free.
+    Unallocated,
+    /// The allocation has been allocated, but not yet initialized.
+    Allocated,
+    /// The allocation is full and contains both a bind group and extra data.
+    Initialized(BindGroup, M::Data),
 }
 
 /// Where the GPU data for a material is located.
@@ -663,7 +673,9 @@ where
 {
     /// Creates a new material bind group.
     fn new() -> MaterialNonBindlessBindGroup<M> {
-        MaterialNonBindlessBindGroup { bind_group: None }
+        MaterialNonBindlessBindGroup {
+            allocation: MaterialNonBindlessBindGroupAllocation::Unallocated,
+        }
     }
 
     /// Allocates a new slot and returns its index.
@@ -671,6 +683,7 @@ where
     /// This bind group must not be full.
     fn allocate(&mut self) -> MaterialBindGroupSlot {
         debug_assert!(!self.is_full());
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Allocated;
         MaterialBindGroupSlot(0)
     }
 
@@ -695,10 +708,10 @@ where
             })
             .collect::<Vec<_>>();
 
-        self.bind_group = Some((
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Initialized(
             render_device.create_bind_group(M::label(), bind_group_layout, &entries),
             unprepared_bind_group.data,
-        ));
+        );
     }
 
     /// Fills the slot directly with a custom bind group.
@@ -707,31 +720,43 @@ where
     /// rarely used, but see the `texture_binding_array` example for an example
     /// demonstrating how this feature might see use in practice.
     fn init_custom(&mut self, bind_group: BindGroup, extra_data: M::Data) {
-        self.bind_group = Some((bind_group, extra_data));
+        self.allocation =
+            MaterialNonBindlessBindGroupAllocation::Initialized(bind_group, extra_data);
     }
 
     /// Deletes the stored bind group.
     fn free(&mut self, _: MaterialBindGroupSlot) {
-        self.bind_group = None;
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Unallocated;
     }
 
     /// Returns true if the slot is full or false if it's free.
     fn is_full(&self) -> bool {
-        self.bind_group.is_some()
+        !matches!(
+            self.allocation,
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+        )
     }
 
     /// Returns the actual bind group, or `None` if it hasn't been created yet.
     fn get_bind_group(&self) -> Option<&BindGroup> {
-        self.bind_group.as_ref().map(|(bind_group, _)| bind_group)
+        match self.allocation {
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+            | MaterialNonBindlessBindGroupAllocation::Allocated => None,
+            MaterialNonBindlessBindGroupAllocation::Initialized(ref bind_group, _) => {
+                Some(bind_group)
+            }
+        }
     }
 
     /// Returns the associated extra data for the material.
     fn get_extra_data(&self, _: MaterialBindGroupSlot) -> &M::Data {
-        &self
-            .bind_group
-            .as_ref()
-            .expect("Bind group not allocated")
-            .1
+        match self.allocation {
+            MaterialNonBindlessBindGroupAllocation::Initialized(_, ref extra_data) => extra_data,
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+            | MaterialNonBindlessBindGroupAllocation::Allocated => {
+                panic!("Bind group not initialized")
+            }
+        }
     }
 }
 
