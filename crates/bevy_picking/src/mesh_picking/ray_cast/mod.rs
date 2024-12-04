@@ -274,9 +274,9 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
-                let backfaces = match has_backfaces {
-                    true => Backfaces::Include,
-                    false => Backfaces::Cull,
+                let backfaces = match (has_backfaces, mesh2d.is_some()) {
+                    (false, false) => Backfaces::Cull,
+                    _ => Backfaces::Include,
                 };
 
                 // Perform the actual ray cast.
