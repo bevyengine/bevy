@@ -1296,38 +1296,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     where
         L::Item<'w>: Ord,
     {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
-            .collect();
-        keyed_query.sort();
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
     /// Sorts all query items into a new iterator, using the query lens as a key.
@@ -1385,38 +1354,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     where
         L::Item<'w>: Ord,
     {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
-            .collect();
-        keyed_query.sort_unstable();
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
     /// Sorts all query items into a new iterator with a comparator function over the query lens.
@@ -1479,36 +1417,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
+        })
     }
 
     /// Sorts all query items into a new iterator with a comparator function over the query lens.
@@ -1537,36 +1448,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_unstable_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_unstable_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
+        })
     }
 
     /// Sorts all query items into a new iterator with a key extraction function over the query lens.
@@ -1661,36 +1545,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     where
         K: Ord,
     {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| keyed_query.sort_by_key(|(lens, _)| f(lens)))
     }
 
     /// Sorts all query items into a new iterator with a key extraction function over the query lens.
@@ -1722,36 +1577,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     where
         K: Ord,
     {
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_many_unchecked_manual(
-                self.entity_iter,
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedManyIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
+        })
     }
 
     /// Sort all query items into a new iterator with a key extraction function over the query lens.
@@ -1783,6 +1611,32 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     where
         K: Ord,
     {
+        self.sort_impl::<L>(move |keyed_query| keyed_query.sort_by_cached_key(|(lens, _)| f(lens)))
+    }
+
+    /// Shared implementation for the various `sort` methods.
+    /// This uses the lens to collect the items for sorting, but delegates the actual sorting to the provided closure.
+    ///
+    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// This includes the allowed parameter type changes listed under [allowed transmutes].
+    /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The sort is not cached across system runs.
+    ///
+    /// [allowed transmutes]: crate::system::Query#allowed-transmutes
+    ///
+    /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
+    /// called on [`QueryManyIter`] before.
+    fn sort_impl<L: ReadOnlyQueryData + 'w>(
+        self,
+        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+    ) -> QuerySortedManyIter<
+        'w,
+        's,
+        D,
+        F,
+        impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+    > {
         let world = self.world;
 
         let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
@@ -1798,9 +1652,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by_cached_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
+        let mut keyed_query: Vec<_> = query_lens
+            .map(|(key, entity)| (key, NeutralOrd(entity)))
+            .collect();
+        f(&mut keyed_query);
+        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
         // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
