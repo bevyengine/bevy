@@ -324,6 +324,7 @@ mod tests {
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
+        result::Result,
         schedule::{
             apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
             Schedule,
@@ -373,7 +374,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);
@@ -1750,5 +1751,16 @@ mod tests {
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
         assert_eq!(world.get_resource(), Some(&C(3)));
+    }
+
+    #[test]
+    fn simple_fallible_system() {
+        fn sys() -> Result {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        run_system(&mut world, sys);
     }
 }
