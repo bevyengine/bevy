@@ -26,9 +26,16 @@ fn fragment(
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
     let is_front = true;
-#else
+#else   // MESHLET_MESH_MATERIAL_PASS
+
+    // If we're in the crossfade section of a visibility range, conditionally
+    // discard the fragment according to the visibility pattern.
+#ifdef VISIBILITY_RANGE_DITHER
+    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+#endif  // VISIBILITY_RANGE_DITHER
+
     pbr_prepass_functions::prepass_alpha_discard(in);
-#endif
+#endif  // MESHLET_MESH_MATERIAL_PASS
 
     var out: prepass_io::FragmentOutput;
 
