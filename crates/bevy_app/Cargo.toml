@@ -34,6 +34,7 @@ derive_more = { version = "1", default-features = false, features = [
   "from",
   "display",
 ] }
+variadics_please = "1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = "3.4.4"

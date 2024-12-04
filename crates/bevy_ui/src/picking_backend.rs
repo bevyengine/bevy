@@ -65,7 +65,6 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
@@ -95,15 +94,15 @@ pub fn ui_picking(
             let Ok((_, camera_data, _)) = camera_query.get(camera) else {
                 continue;
             };
-            let mut pointer_pos = pointer_location.position;
-            if let Some(viewport) = camera_data.logical_viewport_rect() {
-                pointer_pos -= viewport.min;
+            let mut pointer_pos =
+                pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
+            if let Some(viewport) = camera_data.physical_viewport_rect() {
+                pointer_pos -= viewport.min.as_vec2();
             }
-            let scaled_pointer_pos = pointer_pos / **ui_scale;
             pointer_pos_by_camera
                 .entry(camera)
                 .or_default()
-                .insert(pointer_id, scaled_pointer_pos);
+                .insert(pointer_id, pointer_pos);
         }
     }
 

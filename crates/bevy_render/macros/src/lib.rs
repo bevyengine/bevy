@@ -57,7 +57,15 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(
     AsBindGroup,
-    attributes(uniform, storage_texture, texture, sampler, bind_group_data, storage)
+    attributes(
+        uniform,
+        storage_texture,
+        texture,
+        sampler,
+        bind_group_data,
+        storage,
+        bindless
+    )
 )]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

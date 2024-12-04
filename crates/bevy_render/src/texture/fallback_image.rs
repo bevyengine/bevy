@@ -34,6 +34,20 @@ pub struct FallbackImage {
     pub d3: GpuImage,
 }
 
+impl FallbackImage {
+    /// Returns the appropriate fallback image for the given texture dimension.
+    pub fn get(&self, texture_dimension: TextureViewDimension) -> &GpuImage {
+        match texture_dimension {
+            TextureViewDimension::D1 => &self.d1,
+            TextureViewDimension::D2 => &self.d2,
+            TextureViewDimension::D2Array => &self.d2_array,
+            TextureViewDimension::Cube => &self.cube,
+            TextureViewDimension::CubeArray => &self.cube_array,
+            TextureViewDimension::D3 => &self.d3,
+        }
+    }
+}
+
 /// A [`RenderApp`](crate::RenderApp) resource that contains a _zero-filled_ "fallback image",
 /// which can be used in place of [`FallbackImage`], when a fully transparent or black fallback
 /// is required instead of fully opaque white.

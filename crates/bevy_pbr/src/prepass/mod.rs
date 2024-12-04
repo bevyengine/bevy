@@ -1,5 +1,6 @@
 mod prepass_bindings;
 
+use crate::material_bind_groups::MaterialBindGroupAllocator;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
@@ -252,6 +253,7 @@ pub struct PrepassPipeline<M: Material> {
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+    pub depth_clip_control_supported: bool,
     _marker: PhantomData<M>,
 }
 
@@ -313,6 +315,10 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
+        let depth_clip_control_supported = render_device
+            .features()
+            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
+
         PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
@@ -339,6 +345,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            depth_clip_control_supported,
             _marker: PhantomData,
         }
     }
@@ -403,8 +410,14 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
+        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
+        let emulate_unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && !self.depth_clip_control_supported;
+        if emulate_unclipped_depth {
+            shader_defs.push("UNCLIPPED_DEPTH_ORTHO_EMULATION".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -413,6 +426,10 @@ where
             // https://github.com/bevyengine/bevy/pull/8877
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
+        let unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && self.depth_clip_control_supported;
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -519,10 +536,10 @@ where
         }
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
-        // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader or we are clamping the orthographic depth.
+        // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
+        // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
-            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+            || emulate_unclipped_depth
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
 
@@ -575,7 +592,7 @@ where
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
-                unclipped_depth: false,
+                unclipped_depth,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
@@ -735,6 +752,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -823,6 +841,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material) = render_materials.get(*material_asset_id) else {
                 continue;
             };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
@@ -895,7 +918,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 &mesh.layout,
             );
@@ -907,9 +932,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance
-                .material_bind_group_id
-                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -920,7 +942,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
+                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -931,7 +953,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
+                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -945,7 +967,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
+                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -957,7 +979,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
+                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_phase.add(
                             bin_key,

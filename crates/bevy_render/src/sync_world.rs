@@ -117,7 +117,7 @@ impl Plugin for SyncWorldPlugin {
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
@@ -165,8 +165,7 @@ pub type MainEntityHashMap<V> = hashbrown::HashMap<MainEntity, V, EntityHash>;
 pub type MainEntityHashSet = hashbrown::HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[component(storage = "SparseSet")]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.

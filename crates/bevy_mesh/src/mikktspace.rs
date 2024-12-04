@@ -1,7 +1,7 @@
 use super::{Indices, Mesh, VertexAttributeValues};
 use bevy_math::Vec3;
 use derive_more::derive::{Display, Error};
-use wgpu::{PrimitiveTopology, VertexFormat};
+use wgpu_types::{PrimitiveTopology, VertexFormat};
 
 struct MikktspaceGeometryHelper<'a> {
     indices: Option<&'a Indices>,
