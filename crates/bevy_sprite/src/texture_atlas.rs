@@ -171,7 +171,7 @@ pub struct TextureAtlas {
     pub layout: Handle<TextureAtlasLayout>,
     /// Texture atlas section index
     pub index: usize,
-    /// Texture atlas default index range (first, last)
+    /// The index of the first and last images in the atlas
     pub index_range: (usize, usize),
 }
 
