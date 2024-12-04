@@ -804,7 +804,7 @@ impl Entities {
         }
     }
 
-    /// Returns the location of an Entity without checking its generation or archetype.
+    /// Returns the location of an [`Entity`] without checking its generation or archetype.
     ///
     /// # Safety
     ///

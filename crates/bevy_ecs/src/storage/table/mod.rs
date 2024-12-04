@@ -716,7 +716,7 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
-    /// Fetches a Table by its TableId, without checking validity.
+    /// Fetches a Table by its [`TableId`], without checking validity.
     ///
     /// # Safety
     ///

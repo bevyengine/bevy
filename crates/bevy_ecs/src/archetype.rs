@@ -868,7 +868,7 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// Fetches an immutable reference to an Archetype using its
+    /// Fetches an immutable reference to an [`Archetype`] using its
     /// ID, without checking whether it exists.
     ///
     /// # Safety
