@@ -328,6 +328,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.failure_handling_mode = FailureHandlingMode::Panic;
         self
+    }
 
     /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`], returning [`EntityCommands`] of the cloned entity.
     ///
