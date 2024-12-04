@@ -79,6 +79,12 @@
 //! }
 //! ```
 //!
+//! # System return type
+//!
+//! Systems added to a schedule through [`add_systems`](crate::schedule::Schedule) may either return
+//! empty `()` or a [`Result`](crate::result::Result). Other contexts (like one shot systems) allow
+//! systems to return arbitrary values.
+//!
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
 //!
