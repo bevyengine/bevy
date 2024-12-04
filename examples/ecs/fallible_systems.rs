@@ -1,3 +1,5 @@
+//! Showcases how fallible systems can be make use of rust's powerful result handling syntax.
+
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
@@ -63,7 +65,7 @@ fn setup(
         ..default()
     });
 
-    /// Add sample points as children of the sphere:
+    // Add sample points as children of the sphere:
     for point in distribution.sample_iter(&mut rng).take(10000) {
         sphere.with_child((
             Mesh3d(point_mesh.clone()),
@@ -72,6 +74,6 @@ fn setup(
         ));
     }
 
-    /// Indicate the system completed successfully:
+    // Indicate the system completed successfully:
     Ok(())
 }
