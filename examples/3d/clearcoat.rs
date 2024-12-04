@@ -22,9 +22,9 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    image::ImageLoaderSettings,
     math::vec3,
     prelude::*,
-    render::texture::ImageLoaderSettings,
 };
 
 /// The size of each sphere.

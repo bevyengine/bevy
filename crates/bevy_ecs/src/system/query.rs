@@ -352,6 +352,8 @@ use core::{
 /// [`par_iter`]: Self::par_iter
 /// [`par_iter_mut`]: Self::par_iter_mut
 /// [performance]: #performance
+/// [`Single`]: Single
+/// [`Option<Single>`]: Single
 /// [`single`]: Self::single
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
@@ -649,7 +651,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///

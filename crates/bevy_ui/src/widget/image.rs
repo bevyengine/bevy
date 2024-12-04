@@ -2,18 +2,19 @@ use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::{Image, TRANSPARENT_IMAGE_HANDLE};
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
-/// The 2D texture displayed for this UI node
+/// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize)]
-pub struct UiImage {
+#[require(Node, ImageNodeSize, ContentSize)]
+pub struct ImageNode {
     /// The tint color used to draw the image.
     ///
     /// This is multiplied by the color of each pixel in the image.
@@ -39,16 +40,16 @@ pub struct UiImage {
     pub image_mode: NodeImageMode,
 }
 
-impl Default for UiImage {
+impl Default for ImageNode {
     /// A transparent 1x1 image with a solid white tint.
     ///
     /// # Warning
     ///
     /// This will be invisible by default.
     /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`ImageNode::solid_color`]).
     fn default() -> Self {
-        UiImage {
+        ImageNode {
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
             color: Color::WHITE,
@@ -63,8 +64,8 @@ impl Default for UiImage {
     }
 }
 
-impl UiImage {
-    /// Create a new [`UiImage`] with the given texture.
+impl ImageNode {
+    /// Create a new [`ImageNode`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             image: texture,
@@ -73,7 +74,7 @@ impl UiImage {
         }
     }
 
-    /// Create a solid color [`UiImage`].
+    /// Create a solid color [`ImageNode`].
     ///
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
@@ -88,7 +89,7 @@ impl UiImage {
         }
     }
 
-    /// Create a [`UiImage`] from an image, with an associated texture atlas
+    /// Create a [`ImageNode`] from an image, with an associated texture atlas
     pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
         Self {
             image,
@@ -131,7 +132,7 @@ impl UiImage {
     }
 }
 
-impl From<Handle<Image>> for UiImage {
+impl From<Handle<Image>> for ImageNode {
     fn from(texture: Handle<Image>) -> Self {
         Self::new(texture)
     }
@@ -175,14 +176,14 @@ impl NodeImageMode {
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct UiImageSize {
+pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
     size: UVec2,
 }
 
-impl UiImageSize {
+impl ImageNodeSize {
     /// The size of the image's texture
     pub fn size(&self) -> UVec2 {
         self.size
@@ -259,7 +260,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, Ref<UiImage>, &mut UiImageSize), UpdateImageFilter>,
+    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -268,7 +269,9 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
-        if !matches!(image.image_mode, NodeImageMode::Auto) {
+        if !matches!(image.image_mode, NodeImageMode::Auto)
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             if image.is_changed() {
                 // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
                 content_size.measure = None;
@@ -276,10 +279,15 @@ pub fn update_image_content_size_system(
             continue;
         }
 
-        if let Some(size) = match &image.texture_atlas {
-            Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.image).map(Image::size),
-        } {
+        if let Some(size) =
+            image
+                .rect
+                .map(|rect| rect.size().as_uvec2())
+                .or_else(|| match &image.texture_atlas {
+                    Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
+                    None => textures.get(&image.image).map(Image::size),
+                })
+        {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
                 || combined_scale_factor != *previous_combined_scale_factor

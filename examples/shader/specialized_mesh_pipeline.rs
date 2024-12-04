@@ -28,7 +28,6 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
@@ -263,6 +262,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
+            zero_initialize_workgroup_memory: false,
         })
     }
 }
@@ -341,7 +341,7 @@ fn queue_custom_mesh_pipeline(
                     // but you can use anything you like. Note that the asset ID need
                     // not be the ID of a [`Mesh`].
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_id: None,
+                    material_bind_group_index: None,
                     lightmap_image: None,
                 },
                 (render_entity, visible_entity),

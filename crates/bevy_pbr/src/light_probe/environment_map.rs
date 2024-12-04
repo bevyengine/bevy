@@ -51,6 +51,7 @@ use bevy_ecs::{
     bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
     system::lifetimeless::Read,
 };
+use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -63,7 +64,7 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
 
 use core::{num::NonZero, ops::Deref};

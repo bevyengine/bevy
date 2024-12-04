@@ -61,6 +61,7 @@ pub struct PointLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
@@ -95,10 +96,11 @@ impl Default for PointLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: false,
         }
     }
 }

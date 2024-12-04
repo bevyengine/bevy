@@ -31,7 +31,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-install-${{ hashFiles('**/Cargo.lock') }}
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
@@ -101,10 +101,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -155,11 +151,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        shell: bash
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         shell: bash
         run: |
@@ -191,17 +182,6 @@ jobs:
         with:
           name: example-run-windows
           path: example-run/
-
-  compare-windows-screenshots:
-    name: Compare Windows screenshots
-    needs: [run-examples-on-windows-dx12]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
-    with:
-      commit: ${{ github.sha }}
-      branch: ${{ github.ref_name }}
-      artifact: screenshots-windows
-      os: windows
-    secrets: inherit
 
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
@@ -244,7 +224,7 @@ jobs:
 
       - name: First Wasm build
         run: |
-          cargo build --release --example ui --target wasm32-unknown-unknown
+          cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
       - name: Run examples
         shell: bash

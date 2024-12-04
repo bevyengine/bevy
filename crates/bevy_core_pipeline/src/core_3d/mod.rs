@@ -65,14 +65,15 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_asset::{AssetId, UntypedAssetId};
-use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_image::{BevyDefault, Image};
 use bevy_math::FloatOrd;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -86,12 +87,12 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
-        Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     sync_world::RenderEntity,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
+    texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -232,16 +233,16 @@ pub struct Opaque3dBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
+    /// The ID of a bind group specific to the material instance.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
+
     /// The asset that this phase item is associated with.
     ///
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-
-    /// The ID of a bind group specific to the material.
-    ///
-    /// In the case of PBR, this is the `MaterialBindGroupId`.
-    pub material_bind_group_id: Option<BindGroupId>,
 
     /// The lightmap, if present.
     pub lightmap_image: Option<AssetId<Image>>,
