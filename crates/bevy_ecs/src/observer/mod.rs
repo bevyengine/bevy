@@ -4,6 +4,7 @@ mod entity_observer;
 mod runner;
 mod trigger_event;
 
+pub use entity_observer::CloneEntityWithObserversExt;
 pub use runner::*;
 pub use trigger_event::*;
 

@@ -1,5 +1,5 @@
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
-use bevy_picking::{mesh_picking::ray_cast, prelude::*};
+use bevy_picking::mesh_picking::ray_cast;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {

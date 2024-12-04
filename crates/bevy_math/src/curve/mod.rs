@@ -56,13 +56,13 @@
 //! # use bevy_math::vec3;
 //! # use bevy_math::curve::*;
 //! // A sinusoid:
-//! let sine_curve = function_curve(Interval::EVERYWHERE, f32::sin);
+//! let sine_curve = FunctionCurve::new(Interval::EVERYWHERE, f32::sin);
 //!
 //! // A sawtooth wave:
-//! let sawtooth_curve = function_curve(Interval::EVERYWHERE, |t| t % 1.0);
+//! let sawtooth_curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t % 1.0);
 //!
 //! // A helix:
-//! let helix_curve = function_curve(Interval::EVERYWHERE, |theta| vec3(theta.sin(), theta, theta.cos()));
+//! let helix_curve = FunctionCurve::new(Interval::EVERYWHERE, |theta| vec3(theta.sin(), theta, theta.cos()));
 //! ```
 //!
 //! Sample-interpolated curves commonly arises in both rasterization and in animation, and this library
@@ -127,7 +127,7 @@
 //! # use bevy_math::{vec2, prelude::*};
 //! # use std::f32::consts::TAU;
 //! // Our original curve, which may look something like this:
-//! let ellipse_curve = function_curve(
+//! let ellipse_curve = FunctionCurve::new(
 //!     interval(0.0, TAU).unwrap(),
 //!     |t| vec2(t.cos(), t.sin() * 2.0)
 //! );
@@ -141,7 +141,7 @@
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! # use std::f32::consts::TAU;
-//! # let ellipse_curve = function_curve(interval(0.0, TAU).unwrap(), |t| vec2(t.cos(), t.sin() * 2.0));
+//! # let ellipse_curve = FunctionCurve::new(interval(0.0, TAU).unwrap(), |t| vec2(t.cos(), t.sin() * 2.0));
 //! # let ellipse_motion_curve = ellipse_curve.map(|pos| pos.extend(0.0));
 //! // Change the domain to `[0, 1]` instead of `[0, TAU]`:
 //! let final_curve = ellipse_motion_curve.reparametrize_linear(Interval::UNIT).unwrap();
@@ -155,7 +155,7 @@
 //! // A line segment curve connecting two points in the plane:
 //! let start = vec2(-1.0, 1.0);
 //! let end = vec2(1.0, 1.0);
-//! let segment = function_curve(Interval::UNIT, |t| start.lerp(end, t));
+//! let segment = FunctionCurve::new(Interval::UNIT, |t| start.lerp(end, t));
 //!
 //! // Let's make a curve that goes back and forth along this line segment forever.
 //! //
@@ -177,13 +177,13 @@
 //! # use bevy_math::{vec2, prelude::*};
 //! # use std::f32::consts::PI;
 //! // A line segment connecting `(-1, 0)` to `(0, 0)`:
-//! let line_curve = function_curve(
+//! let line_curve = FunctionCurve::new(
 //!     Interval::UNIT,
 //!     |t| vec2(-1.0, 0.0).lerp(vec2(0.0, 0.0), t)
 //! );
 //!
 //! // A half-circle curve starting at `(0, 0)`:
-//! let half_circle_curve = function_curve(
+//! let half_circle_curve = FunctionCurve::new(
 //!     interval(0.0, PI).unwrap(),
 //!     |t| vec2(t.cos() * -1.0 + 1.0, t.sin())
 //! );
@@ -198,10 +198,10 @@
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! // Some entity's position in 2D:
-//! let position_curve = function_curve(Interval::UNIT, |t| vec2(t.cos(), t.sin()));
+//! let position_curve = FunctionCurve::new(Interval::UNIT, |t| vec2(t.cos(), t.sin()));
 //!
 //! // The same entity's orientation, described as a rotation. (In this case it will be spinning.)
-//! let orientation_curve = function_curve(Interval::UNIT, |t| Rot2::radians(5.0 * t));
+//! let orientation_curve = FunctionCurve::new(Interval::UNIT, |t| Rot2::radians(5.0 * t));
 //!
 //! // Both in one curve with `(Vec2, Rot2)` output:
 //! let position_and_orientation = position_curve.zip(orientation_curve).unwrap();
@@ -220,7 +220,7 @@
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
 //! // A curve that is not easily transported because it relies on evaluating a function:
-//! let interesting_curve = function_curve(Interval::UNIT, |t| vec2(t * 3.0, t.exp()));
+//! let interesting_curve = FunctionCurve::new(Interval::UNIT, |t| vec2(t * 3.0, t.exp()));
 //!
 //! // A rasterized form of the preceding curve which is just a `SampleAutoCurve`. Inside, this
 //! // just stores an `Interval` along with a buffer of sample data, so it's easy to serialize
@@ -250,7 +250,7 @@
 //! Here is a demonstration:
 //! ```rust
 //! # use bevy_math::prelude::*;
-//! # let some_magic_constructor = || easing_curve(0.0, 1.0, EaseFunction::ElasticInOut).graph();
+//! # let some_magic_constructor = || EasingCurve::new(0.0, 1.0, EaseFunction::ElasticInOut).graph();
 //! //`my_curve` is obtained somehow. It is a `Curve<(f32, f32)>`.
 //! let my_curve = some_magic_constructor();
 //!
@@ -272,7 +272,7 @@
 //! [changing parametrizations]: Curve::reparametrize
 //! [mapping output]: Curve::map
 //! [rasterization]: Curve::resample
-//! [functions]: function_curve
+//! [functions]: FunctionCurve
 //! [sample interpolation]: SampleCurve
 //! [splines]: crate::cubic_splines
 //! [easings]: easing
@@ -282,7 +282,7 @@
 //! [`zip`]: Curve::zip
 //! [`resample`]: Curve::resample
 //!
-//! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `function_curve
+//! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `FunctionCurve::new
 //! (curve.domain(), |t| curve.sample_unchecked(t))` is an equivalent function curve.
 
 pub mod adaptors;
@@ -290,21 +290,27 @@ pub mod cores;
 pub mod easing;
 pub mod interval;
 pub mod iterable;
+
+#[cfg(feature = "alloc")]
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
 pub use easing::*;
 pub use interval::{interval, Interval};
-pub use sample_curves::*;
 
-use cores::{EvenCore, UnevenCore};
+#[cfg(feature = "alloc")]
+pub use {
+    crate::StableInterpolate,
+    cores::{EvenCore, UnevenCore},
+    itertools::Itertools,
+    sample_curves::*,
+};
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::VectorSpace;
 use core::{marker::PhantomData, ops::Deref};
 use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
-use itertools::Itertools;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -414,7 +420,7 @@ pub trait Curve<T> {
     /// factor rather than multiplying:
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
+    /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
@@ -425,12 +431,12 @@ pub trait Curve<T> {
     /// // Reverse a curve:
     /// # use bevy_math::curve::*;
     /// # use bevy_math::vec2;
-    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
+    /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
     /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - (t - domain.start()));
     ///
     /// // Take a segment of a curve:
-    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
+    /// # let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
     /// ```
     #[must_use]
@@ -712,10 +718,11 @@ pub trait Curve<T> {
     /// ```
     /// # use bevy_math::*;
     /// # use bevy_math::curve::*;
-    /// let quarter_rotation = function_curve(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
+    /// let quarter_rotation = FunctionCurve::new(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
     /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
     /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
     /// ```
+    #[cfg(feature = "alloc")]
     fn resample<I>(
         &self,
         segments: usize,
@@ -743,6 +750,7 @@ pub trait Curve<T> {
     /// domain, then a [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
         Self: Sized,
@@ -794,6 +802,7 @@ pub trait Curve<T> {
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    #[cfg(feature = "alloc")]
     fn resample_uneven<I>(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -832,6 +841,7 @@ pub trait Curve<T> {
     /// sample times of the iterator.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -863,7 +873,7 @@ pub trait Curve<T> {
     /// # Example
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = function_curve(Interval::UNIT, |t| t * t + 1.0);
+    /// let my_curve = FunctionCurve::new(Interval::UNIT, |t| t * t + 1.0);
     ///
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
@@ -903,7 +913,7 @@ where
     }
 }
 
-/// An error indicating that a linear reparametrization couldn't be performed because of
+/// An error indicating that a linear reparameterization couldn't be performed because of
 /// malformed inputs.
 #[derive(Debug, Error, Display)]
 #[display("Could not build a linear function to reparametrize this curve")]
@@ -912,8 +922,8 @@ pub enum LinearReparamError {
     #[display("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
-    /// The target interval for reparametrization was unbounded.
-    #[display("The target interval for reparametrization is unbounded")]
+    /// The target interval for reparameterization was unbounded.
+    #[display("The target interval for reparameterization is unbounded")]
     TargetIntervalUnbounded,
 }
 
@@ -976,27 +986,8 @@ pub enum ResamplingError {
     UnboundedDomain,
 }
 
-/// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
-pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> ConstantCurve<T> {
-    ConstantCurve { domain, value }
-}
-
-/// Convert the given function `f` into a [`Curve`] with the given `domain`, sampled by
-/// evaluating the function.
-pub fn function_curve<T, F>(domain: Interval, f: F) -> FunctionCurve<T, F>
-where
-    F: Fn(f32) -> T,
-{
-    FunctionCurve {
-        domain,
-        f,
-        _phantom: PhantomData,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::easing::*;
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
@@ -1005,7 +996,7 @@ mod tests {
 
     #[test]
     fn curve_can_be_made_into_an_object() {
-        let curve = constant_curve(Interval::UNIT, 42.0);
+        let curve = ConstantCurve::new(Interval::UNIT, 42.0);
         let curve: &dyn Curve<f64> = &curve;
 
         assert_eq!(curve.sample(1.0), Some(42.0));
@@ -1014,21 +1005,21 @@ mod tests {
 
     #[test]
     fn constant_curves() {
-        let curve = constant_curve(Interval::EVERYWHERE, 5.0);
+        let curve = ConstantCurve::new(Interval::EVERYWHERE, 5.0);
         assert!(curve.sample_unchecked(-35.0) == 5.0);
 
-        let curve = constant_curve(Interval::UNIT, true);
+        let curve = ConstantCurve::new(Interval::UNIT, true);
         assert!(curve.sample_unchecked(2.0));
         assert!(curve.sample(2.0).is_none());
     }
 
     #[test]
     fn function_curves() {
-        let curve = function_curve(Interval::EVERYWHERE, |t| t * t);
+        let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * t);
         assert!(curve.sample_unchecked(2.0).abs_diff_eq(&4.0, f32::EPSILON));
         assert!(curve.sample_unchecked(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
 
-        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), ops::log2);
+        let curve = FunctionCurve::new(interval(0.0, f32::INFINITY).unwrap(), ops::log2);
         assert_eq!(curve.sample_unchecked(3.5), ops::log2(3.5));
         assert!(curve.sample_unchecked(-1.0).is_nan());
         assert!(curve.sample(-1.0).is_none());
@@ -1038,7 +1029,7 @@ mod tests {
     fn linear_curve() {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
-        let curve = easing_curve(start, end, EaseFunction::Linear);
+        let curve = EasingCurve::new(start, end, EaseFunction::Linear);
 
         let mid = (start + end) / 2.0;
 
@@ -1054,7 +1045,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = easing_curve(start, end, EaseFunction::Steps(4));
+        let curve = EasingCurve::new(start, end, EaseFunction::Steps(4));
         [
             (0.0, start),
             (0.124, start),
@@ -1078,7 +1069,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = easing_curve(start, end, EaseFunction::QuadraticIn);
+        let curve = EasingCurve::new(start, end, EaseFunction::QuadraticIn);
         [
             (0.0, start),
             (0.25, Vec2::new(0.0625, 0.125)),
@@ -1093,7 +1084,7 @@ mod tests {
 
     #[test]
     fn mapping() {
-        let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
         let mapped_curve = curve.map(|x| x / 7.0);
         assert_eq!(mapped_curve.sample_unchecked(3.5), (3.5 * 3.0 + 1.0) / 7.0);
         assert_eq!(
@@ -1102,7 +1093,7 @@ mod tests {
         );
         assert_eq!(mapped_curve.domain(), Interval::EVERYWHERE);
 
-        let curve = function_curve(Interval::UNIT, |t| t * TAU);
+        let curve = FunctionCurve::new(Interval::UNIT, |t| t * TAU);
         let mapped_curve = curve.map(Quat::from_rotation_z);
         assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
@@ -1111,7 +1102,7 @@ mod tests {
 
     #[test]
     fn reverse() {
-        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let rev_curve = curve.reverse().unwrap();
         assert_eq!(rev_curve.sample(-0.1), None);
         assert_eq!(rev_curve.sample(0.0), Some(1.0 * 3.0 + 1.0));
@@ -1119,7 +1110,7 @@ mod tests {
         assert_eq!(rev_curve.sample(1.0), Some(0.0 * 3.0 + 1.0));
         assert_eq!(rev_curve.sample(1.1), None);
 
-        let curve = function_curve(Interval::new(-2.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::new(-2.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let rev_curve = curve.reverse().unwrap();
         assert_eq!(rev_curve.sample(-2.1), None);
         assert_eq!(rev_curve.sample(-2.0), Some(1.0 * 3.0 + 1.0));
@@ -1130,7 +1121,7 @@ mod tests {
 
     #[test]
     fn repeat() {
-        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let repeat_curve = curve.by_ref().repeat(1).unwrap();
         assert_eq!(repeat_curve.sample(-0.1), None);
         assert_eq!(repeat_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
@@ -1159,7 +1150,7 @@ mod tests {
 
     #[test]
     fn ping_pong() {
-        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let ping_pong_curve = curve.ping_pong().unwrap();
         assert_eq!(ping_pong_curve.sample(-0.1), None);
         assert_eq!(ping_pong_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
@@ -1169,7 +1160,7 @@ mod tests {
         assert_eq!(ping_pong_curve.sample(2.0), Some(0.0 * 3.0 + 1.0));
         assert_eq!(ping_pong_curve.sample(2.1), None);
 
-        let curve = function_curve(Interval::new(-2.0, 2.0).unwrap(), |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::new(-2.0, 2.0).unwrap(), |t| t * 3.0 + 1.0);
         let ping_pong_curve = curve.ping_pong().unwrap();
         assert_eq!(ping_pong_curve.sample(-2.1), None);
         assert_eq!(ping_pong_curve.sample(-2.0), Some(-2.0 * 3.0 + 1.0));
@@ -1182,8 +1173,8 @@ mod tests {
 
     #[test]
     fn continue_chain() {
-        let first = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
-        let second = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
+        let first = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let second = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
         let c0_chain_curve = first.chain_continue(second).unwrap();
         assert_eq!(c0_chain_curve.sample(-0.1), None);
         assert_eq!(c0_chain_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
@@ -1195,8 +1186,8 @@ mod tests {
     }
 
     #[test]
-    fn reparametrization() {
-        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
+    fn reparameterization() {
+        let curve = FunctionCurve::new(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
         let reparametrized_curve = curve
             .by_ref()
             .reparametrize(interval(0.0, f32::INFINITY).unwrap(), ops::exp2);
@@ -1216,7 +1207,7 @@ mod tests {
     #[test]
     fn multiple_maps() {
         // Make sure these actually happen in the right order.
-        let curve = function_curve(Interval::UNIT, ops::exp2);
+        let curve = FunctionCurve::new(Interval::UNIT, ops::exp2);
         let first_mapped = curve.map(ops::log2);
         let second_mapped = first_mapped.map(|x| x * -2.0);
         assert_abs_diff_eq!(second_mapped.sample_unchecked(0.0), 0.0);
@@ -1227,7 +1218,7 @@ mod tests {
     #[test]
     fn multiple_reparams() {
         // Make sure these happen in the right order too.
-        let curve = function_curve(Interval::UNIT, ops::exp2);
+        let curve = FunctionCurve::new(Interval::UNIT, ops::exp2);
         let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);
         let second_reparam = first_reparam.reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
@@ -1237,7 +1228,7 @@ mod tests {
 
     #[test]
     fn resampling() {
-        let curve = function_curve(interval(1.0, 4.0).unwrap(), ops::log2);
+        let curve = FunctionCurve::new(interval(1.0, 4.0).unwrap(), ops::log2);
 
         // Need at least one segment to sample.
         let nice_try = curve.by_ref().resample_auto(0);
@@ -1257,7 +1248,7 @@ mod tests {
         }
 
         // Another example.
-        let curve = function_curve(interval(0.0, TAU).unwrap(), ops::cos);
+        let curve = FunctionCurve::new(interval(0.0, TAU).unwrap(), ops::cos);
         let resampled_curve = curve.by_ref().resample_auto(1000).unwrap();
         for test_pt in curve.domain().spaced_points(1001).unwrap() {
             let expected = curve.sample_unchecked(test_pt);
@@ -1271,7 +1262,7 @@ mod tests {
 
     #[test]
     fn uneven_resampling() {
-        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), ops::exp);
+        let curve = FunctionCurve::new(interval(0.0, f32::INFINITY).unwrap(), ops::exp);
 
         // Need at least two points to resample.
         let nice_try = curve.by_ref().resample_uneven_auto([1.0; 1]);
@@ -1290,7 +1281,7 @@ mod tests {
         assert_abs_diff_eq!(resampled_curve.domain().end(), 9.9, epsilon = 1e-6);
 
         // Another example.
-        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
+        let curve = FunctionCurve::new(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
         let sample_points = (0..10).map(|idx| ops::exp2(idx as f32));
         let resampled_curve = curve.by_ref().resample_uneven_auto(sample_points).unwrap();
         for idx in 0..10 {
@@ -1306,7 +1297,7 @@ mod tests {
     fn sample_iterators() {
         let times = [-0.5, 0.0, 0.5, 1.0, 1.5];
 
-        let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
+        let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
         let samples = curve.sample_iter_unchecked(times).collect::<Vec<_>>();
         let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
 
@@ -1316,7 +1307,7 @@ mod tests {
         assert_eq!(y3, 1.0 * 3.0 + 1.0);
         assert_eq!(y4, 1.5 * 3.0 + 1.0);
 
-        let finite_curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let finite_curve = FunctionCurve::new(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let samples = finite_curve.sample_iter(times).collect::<Vec<_>>();
         let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
 

@@ -19,7 +19,7 @@ use crate::{
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use bevy_utils::synccell::SyncCell;
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{
@@ -28,8 +28,10 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use disqualified::ShortName;
 
 use super::Populated;
+use variadics_please::all_tuples;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -353,7 +355,7 @@ fn assert_component_access_compatibility(
         return;
     }
     let accesses = conflicts.format_conflict_list(world);
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If

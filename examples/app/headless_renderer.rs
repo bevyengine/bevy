@@ -10,6 +10,7 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
+    image::TextureFormatPixelInfo,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -21,9 +22,9 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use std::{
@@ -81,16 +82,20 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
-                // Do not create a window on startup.
+                // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
+                // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
-                    exit_condition: bevy::window::ExitCondition::DontExit,
-                    close_when_requested: false,
-                }),
+                    ..default()
+                })
+                // WinitPlugin will panic in environments without a display server.
+                .disable::<WinitPlugin>(),
         )
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
         .add_plugins(CaptureFramePlugin)
+        // ScheduleRunnerPlugin provides an alternative to the default bevy_winit app runner, which
+        // manages the loop without creating a window.
         .add_plugins(ScheduleRunnerPlugin::run_loop(
             // Run 60 times per second.
             Duration::from_secs_f64(1.0 / 60.0),

@@ -15,7 +15,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
-    component::Component,
+    component::{require, Component},
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
@@ -23,6 +23,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -36,7 +37,6 @@ use bevy_render::{
         TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::BevyDefault as _,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -560,6 +560,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             primitive: default(),
             depth_stencil: None,
             multisample: default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

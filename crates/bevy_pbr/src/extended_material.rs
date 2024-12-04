@@ -17,6 +17,7 @@ pub struct MaterialExtensionPipeline {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
+    pub bindless: bool,
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
@@ -163,7 +164,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         let extended_bindgroup =
             E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
 
-        bindings.extend(extended_bindgroup.bindings);
+        bindings.extend(extended_bindgroup.bindings.0);
 
         Ok(UnpreparedBindGroup {
             bindings,
@@ -279,6 +280,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             material_layout,
             vertex_shader,
             fragment_shader,
+            bindless,
             ..
         } = pipeline.clone();
         let base_pipeline = MaterialPipeline::<B> {
@@ -286,6 +288,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             material_layout,
             vertex_shader,
             fragment_shader,
+            bindless,
             marker: Default::default(),
         };
         let base_key = MaterialPipelineKey::<B> {
@@ -300,6 +303,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             material_layout,
             vertex_shader,
             fragment_shader,
+            bindless,
             ..
         } = pipeline.clone();
 
@@ -309,6 +313,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
                 material_layout,
                 vertex_shader,
                 fragment_shader,
+                bindless,
             },
             descriptor,
             layout,

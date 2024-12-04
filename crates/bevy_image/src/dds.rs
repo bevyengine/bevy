@@ -1,10 +1,11 @@
+//! [DirectDraw Surface](https://en.wikipedia.org/wiki/DirectDraw_Surface) functionality.
+
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::{
-    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
-};
+use wgpu::TextureViewDescriptor;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -16,7 +17,8 @@ pub fn dds_buffer_to_image(
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
     let mut cursor = Cursor::new(buffer);
-    let dds = Dds::read(&mut cursor).expect("Failed to parse DDS file");
+    let dds = Dds::read(&mut cursor)
+        .map_err(|error| TextureError::InvalidData(format!("Failed to parse DDS file: {error}")))?;
     let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
@@ -182,7 +184,7 @@ pub fn dds_format_to_texture_format(
             DxgiFormat::R10G10B10A2_Typeless | DxgiFormat::R10G10B10A2_UNorm => {
                 TextureFormat::Rgb10a2Unorm
             }
-            DxgiFormat::R11G11B10_Float => TextureFormat::Rg11b10Float,
+            DxgiFormat::R11G11B10_Float => TextureFormat::Rg11b10Ufloat,
             DxgiFormat::R8G8B8A8_Typeless
             | DxgiFormat::R8G8B8A8_UNorm
             | DxgiFormat::R8G8B8A8_UNorm_sRGB => {
@@ -281,14 +283,18 @@ pub fn dds_format_to_texture_format(
 
 #[cfg(test)]
 mod test {
-    use wgpu::{util::TextureDataOrder, TextureDescriptor, TextureDimension};
+    use wgpu::util::TextureDataOrder;
+    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat};
 
     use crate::CompressedImageFormats;
 
     use super::dds_buffer_to_image;
 
     /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to your GPU
-    fn fake_wgpu_create_texture_with_data(desc: &TextureDescriptor<'_>, data: &[u8]) {
+    fn fake_wgpu_create_texture_with_data(
+        desc: &TextureDescriptor<Option<&'_ str>, &'_ [TextureFormat]>,
+        data: &[u8],
+    ) {
         // Will return None only if it's a combined depth-stencil format
         // If so, default to 4, validation will fail later anyway since the depth or stencil
         // aspect needs to be written to individually

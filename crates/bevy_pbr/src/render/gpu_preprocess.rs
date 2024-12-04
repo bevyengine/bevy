@@ -10,11 +10,10 @@ use core::num::NonZero;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryState},
+    query::{Has, QueryState, Without},
     schedule::{common_conditions::resource_exists, IntoSystemConfigs as _},
     system::{lifetimeless::Read, Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -24,7 +23,8 @@ use bevy_render::{
         BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
         IndirectParametersBuffer, PreprocessWorkItem,
     },
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    graph::CameraDriverLabel,
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, BufferBinding,
@@ -65,12 +65,15 @@ pub struct GpuMeshPreprocessPlugin {
 
 /// The render node for the mesh uniform building pass.
 pub struct GpuPreprocessNode {
-    view_query: QueryState<(
-        Entity,
-        Read<PreprocessBindGroup>,
-        Read<ViewUniformOffset>,
-        Has<GpuCulling>,
-    )>,
+    view_query: QueryState<
+        (
+            Entity,
+            Read<PreprocessBindGroup>,
+            Read<ViewUniformOffset>,
+            Has<GpuCulling>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
 }
 
 /// The compute shader pipelines for the mesh uniform building pass.
@@ -108,8 +111,13 @@ bitflags! {
 /// The compute shader bind group for the mesh uniform building pass.
 ///
 /// This goes on the view.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PreprocessBindGroup(BindGroup);
+
+/// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
+/// useful to avoid duplicating effort if the bind group is shared between views
+#[derive(Component)]
+pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
@@ -136,10 +144,12 @@ impl Plugin for GpuMeshPreprocessPlugin {
         }
 
         // Stitch the node in.
+        let gpu_preprocess_node = GpuPreprocessNode::from_world(render_app.world_mut());
+        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_graph.add_node(NodePbr::GpuPreprocess, gpu_preprocess_node);
+        render_graph.add_node_edge(NodePbr::GpuPreprocess, CameraDriverLabel);
+
         render_app
-            .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
             .init_resource::<PreprocessPipelines>()
             .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
             .add_systems(
@@ -200,7 +210,7 @@ impl Node for GpuPreprocessNode {
             // Grab the index buffer for this view.
             let Some(index_buffer) = index_buffers.get(&view) else {
                 warn!("The preprocessing index buffer wasn't present");
-                return Ok(());
+                continue;
             };
 
             // Select the right pipeline, depending on whether GPU culling is in
@@ -280,6 +290,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: MESH_PREPROCESS_SHADER_HANDLE,
             shader_defs,
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

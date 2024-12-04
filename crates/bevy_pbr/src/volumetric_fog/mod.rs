@@ -39,9 +39,12 @@ use bevy_core_pipeline::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    bundle::Bundle, component::Component, reflect::ReflectComponent,
+    bundle::Bundle,
+    component::{require, Component},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
 };
+use bevy_image::Image;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
@@ -52,7 +55,6 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
-    texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.81.0"
+rust-version = "1.82.0"
 
 [workspace]
 exclude = [
@@ -40,6 +40,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -80,6 +81,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -101,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -114,7 +115,6 @@ default = [
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -123,6 +123,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_window",
   "bevy_winit",
   "custom_cursor",
   "default_font",
@@ -138,13 +139,22 @@ default = [
 ]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_picking"]
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -215,6 +225,9 @@ bevy_ui = [
   "bevy_color",
   "bevy_ui_picking_backend",
 ]
+
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -403,7 +416,7 @@ pbr_multi_layer_material_textures = [
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
-pbr_pcss = ["bevy_internal/pbr_pcss"]
+experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
@@ -474,6 +487,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
+accesskit = "0.17"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -1216,7 +1230,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8483db58832542383820c3f44e4730e566910be7/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
   ],
 ]
 
@@ -2704,6 +2718,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
@@ -3133,17 +3158,6 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "ui"
-path = "examples/ui/ui.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ui]
-name = "UI"
-description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3640,6 +3654,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3651,6 +3666,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
@@ -3789,7 +3805,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["pbr_pcss"]
+required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
@@ -3806,6 +3822,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]
@@ -3855,4 +3882,20 @@ path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.testbed_3d]
+hidden = true
+
+[[example]]
+name = "testbed_ui"
+path = "examples/testbed/ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui]
+hidden = true
+
+[[example]]
+name = "testbed_ui_layout_rounding"
+path = "examples/testbed/ui_layout_rounding.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui_layout_rounding]
 hidden = true

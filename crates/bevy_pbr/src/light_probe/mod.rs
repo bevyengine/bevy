@@ -5,13 +5,14 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
+    component::{require, Component},
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
+use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -22,7 +23,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
-    texture::{FallbackImage, GpuImage, Image},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
