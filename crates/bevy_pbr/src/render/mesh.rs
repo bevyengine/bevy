@@ -46,8 +46,8 @@ use bevy_utils::{
     tracing::{error, warn},
     Entry, HashMap, Parallel,
 };
-use render::skin::{self, SkinIndex};
 use material_bind_groups::MaterialBindingId;
+use render::skin::{self, SkinIndex};
 
 use crate::{
     render::{
