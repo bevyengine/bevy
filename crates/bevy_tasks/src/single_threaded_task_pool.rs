@@ -1,7 +1,13 @@
-use alloc::{string::String, sync::Arc, vec::Vec};
+use alloc::{string::String, vec::Vec};
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 #[cfg(feature = "std")]
 use crate::executor::LocalExecutor;
