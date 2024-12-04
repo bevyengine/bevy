@@ -1163,13 +1163,11 @@ where
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
+        // Any invalid locations, archetypes and tables were skipped by the initial [`QueryIter`].
         unsafe {
-            location = self.entities.get(entity).debug_checked_unwrap();
-            archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            table = self.tables.get(location.table_id).debug_checked_unwrap();
+            location = self.entities.get_unchecked(entity);
+            archetype = self.archetypes.get_unchecked(location.archetype_id);
+            table = self.tables.get_unchecked(location.table_id);
         }
 
         // SAFETY: `archetype` is from the world that `fetch` was created for,

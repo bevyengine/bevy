@@ -804,6 +804,16 @@ impl Entities {
         }
     }
 
+    // Returns the location of an Entity without checking its generation or archetype.
+    //
+    // # Safety
+    //
+    // Must be an entity that currently exists, and that has an EntityLocation with a valid ArchetypeId.
+    #[inline]
+    pub(crate) unsafe fn get_unchecked(&self, entity: Entity) -> EntityLocation {
+        self.meta.get_unchecked(entity.index() as usize)
+    }
+
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
     /// the entity around in storage.
     ///

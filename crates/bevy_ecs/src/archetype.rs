@@ -868,6 +868,17 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
+    // Fetches an immutable reference to an Archetype using its
+    // ID, without checking whether it exists.
+    //
+    // # Safety
+    //
+    // A corresponding archetype must exist.
+    #[inline]
+    pub(crate) unsafe fn get_unchecked(&self, id: ArchetypeId) -> &Archetype {
+        self.archetypes.get_unchecked(id.index())
+    }
+
     /// # Panics
     ///
     /// Panics if `a` and `b` are equal.

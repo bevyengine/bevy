@@ -716,6 +716,16 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
+    // Fetches a Table by its TableId, without checking validity.
+    //
+    // # Safety
+    //
+    // This id must be valid.
+    #[inline]
+    pub(crate) unsafe fn get_unchecked(&self, id: TableId) -> &Table {
+        self.tables.get_unchecked(id.as_usize())
+    }
+
     /// Fetches mutable references to two different [`Table`]s.
     ///
     /// # Panics
