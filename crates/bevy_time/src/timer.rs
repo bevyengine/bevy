@@ -378,7 +378,7 @@ impl Timer {
         1.0 - self.fraction()
     }
 
-    /// Returns the remaining time in seconds
+    /// Returns the remaining time in seconds.
     ///
     /// # Examples
     /// ```
@@ -395,7 +395,7 @@ impl Timer {
         self.remaining().as_secs_f32()
     }
 
-    /// Returns the remaining time using Duration
+    /// Returns the remaining time using Duration.
     ///
     /// # Examples
     /// ```
