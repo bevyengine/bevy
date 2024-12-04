@@ -1,6 +1,6 @@
 use crate::{
     component::{Component, ComponentCloneHandler, ComponentHooks, StorageType},
-    entity::{Entity, EntityCloneBuilder, EntityCloner},
+    entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
     observer::ObserverState,
     world::{DeferredWorld, World},
 };
@@ -64,9 +64,9 @@ impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
-    let target = entity_cloner.target();
-    let source = entity_cloner.source();
+fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let target = ctx.target();
+    let source = ctx.source();
 
     world.commands().queue(move |world: &mut World| {
         let observed_by = world

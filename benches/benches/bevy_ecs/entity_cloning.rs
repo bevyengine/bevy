@@ -167,6 +167,21 @@ fn reflect_benches(c: &mut Criterion) {
     c.bench_function("hierarchy tall reflect", |b| {
         hierarchy::<ReflectComponent1>(b, 1, 50);
     });
+
+    c.bench_function("hierarchy many reflect", |b| {
+        hierarchy::<(
+            ReflectComponent1,
+            ReflectComponent2,
+            ReflectComponent3,
+            ReflectComponent4,
+            ReflectComponent5,
+            ReflectComponent6,
+            ReflectComponent7,
+            ReflectComponent8,
+            ReflectComponent9,
+            ReflectComponent10,
+        )>(b, 3, 3);
+    });
 }
 
 fn clone_benches(c: &mut Criterion) {
@@ -191,5 +206,20 @@ fn clone_benches(c: &mut Criterion) {
 
     c.bench_function("hierarchy tall clone", |b| {
         hierarchy::<CloneComponent1>(b, 1, 50);
+    });
+
+    c.bench_function("hierarchy many clone", |b| {
+        hierarchy::<(
+            CloneComponent1,
+            CloneComponent2,
+            CloneComponent3,
+            CloneComponent4,
+            CloneComponent5,
+            CloneComponent6,
+            CloneComponent7,
+            CloneComponent8,
+            CloneComponent9,
+            CloneComponent10,
+        )>(b, 3, 3);
     });
 }

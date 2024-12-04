@@ -5,7 +5,7 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
-    entity::{Entity, EntityCloner},
+    entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
@@ -883,7 +883,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut DeferredWorld, &EntityCloner);
+pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
 /// An enum instructing how to clone a component.
 #[derive(Debug, Default)]
@@ -1964,18 +1964,12 @@ impl RequiredComponents {
 ///
 /// See [`ComponentCloneHandlers`] for more details.
 pub fn component_clone_via_clone<C: Clone + Component>(
-    world: &mut DeferredWorld,
-    entity_cloner: &EntityCloner,
+    _world: &mut DeferredWorld,
+    ctx: &mut ComponentCloneCtx,
 ) {
-    let component = world
-        .entity(entity_cloner.source())
-        .get::<C>()
-        .expect("Component must exists on source entity")
-        .clone();
-    world
-        .commands()
-        .entity(entity_cloner.target())
-        .insert(component);
+    if let Some(component) = ctx.read_source_component::<C>() {
+        ctx.write_target_component(component.clone());
+    }
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
@@ -1984,10 +1978,10 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// See [`ComponentCloneHandlers`] for more details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
-    let component_id = entity_cloner.component_id();
-    let source = entity_cloner.source();
-    let target = entity_cloner.target();
+pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let component_id = ctx.component_id();
+    let source = ctx.source();
+    let target = ctx.target();
     world.commands().queue(move |world: &mut World| {
         world.resource_scope::<crate::reflect::AppTypeRegistry, ()>(|world, registry| {
             let registry = registry.read();
@@ -2019,7 +2013,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, entity_cloner: &En
 /// Noop implementation of component clone handler function.
 ///
 /// See [`ComponentCloneHandlers`] for more details.
-pub fn component_clone_ignore(_world: &mut DeferredWorld, _entity_cloner: &EntityCloner) {}
+pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
