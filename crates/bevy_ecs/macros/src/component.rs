@@ -194,10 +194,10 @@ pub const ON_REMOVE: &str = "on_remove";
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<ExprPath>,
-    on_insert: Option<ExprPath>,
-    on_replace: Option<ExprPath>,
-    on_remove: Option<ExprPath>,
+    on_add: Option<HookFunc>,
+    on_insert: Option<HookFunc>,
+    on_replace: Option<HookFunc>,
+    on_remove: Option<HookFunc>,
 }
 
 #[derive(Clone, Copy)]
@@ -214,6 +214,35 @@ struct Require {
 enum RequireFunc {
     Path(Path),
     Closure(ExprClosure),
+}
+
+enum HookFunc {
+    Path(ExprPath),
+    Closure(ExprClosure),
+}
+
+impl ToTokens for HookFunc {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        match self {
+            HookFunc::Path(path) => {
+                quote!(#path).to_tokens(tokens);
+            }
+            HookFunc::Closure(expr_closure) => {
+                quote!(#expr_closure).to_tokens(tokens);
+            }
+        }
+    }
+}
+
+impl Parse for HookFunc {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        if let Ok(func) = input.parse::<ExprClosure>() {
+            Ok(HookFunc::Closure(func))
+        } else {
+            let func = input.parse::<ExprPath>()?;
+            Ok(HookFunc::Path(func))
+        }
+    }
 }
 
 // values for `storage` attribute
@@ -246,16 +275,16 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_add = Some(nested.value()?.parse::<HookFunc>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_insert = Some(nested.value()?.parse::<HookFunc>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_replace = Some(nested.value()?.parse::<HookFunc>()?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_remove = Some(nested.value()?.parse::<HookFunc>()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
@@ -313,7 +342,7 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 
 fn hook_register_function_call(
     hook: TokenStream2,
-    function: Option<ExprPath>,
+    function: Option<HookFunc>,
 ) -> Option<TokenStream2> {
     function.map(|meta| quote! { hooks. #hook (#meta); })
 }

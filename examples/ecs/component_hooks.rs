@@ -12,31 +12,52 @@
 //!
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
 //!     between components (like hierarchies or parent-child links) and need to maintain correctness.
+//!
+//! Hooks can be registered during component initialization by using [`Component`] derive macro,
+//! where both functions and closures can be used:
+//!
+//! ```no_run
+//! #[derive(Component)]
+//! #[component(on_add = on_add_hook, on_remove = |deferred_world, entity, component_id| { /* do stuff */ }, on_insert = |_,_,_| { /* ignore parameters and do stuff */ })]
+//! struct MyComponent;
+//!
+//! fn on_add_hook(deferred_world: DeferredWorld<'_>, entity: Entity, component_id: ComponentId) {
+//!     // Do stuff...
+//! }
+//! ```
+//!
+//! Hooks can also be registered during component initialization by manually implementing [`Component`]
+//! and `register_component_hooks`
+//!
+//! ```no_run
+//! struct MyComponent;
+//!
+//! impl Component for MyComponent {
+//!     const STORAGE_TYPE: StorageType = StorageType::Table;
+//!
+//!     fn register_component_hooks(hooks: &mut ComponentHooks) {
+//!         hooks
+//!             .on_add(|_, _, _| { /* do stuff */ })
+//!             .on_insert(|deferred_world, entity, component_id| { /* do stuff */ })
+//!             .on_remove(on_remove_hook)
+//!             .on_replace(on_replace_hook);
+//!     }
+//! }
+//!
+//! fn on_remove_hook(deferred_world: DeferredWorld<'_>, entity: Entity, component_id: ComponentId) {
+//!     // Do stuff...
+//! }
+//!
+//! fn on_replace_hook(deferred_world: DeferredWorld<'_>, entity: Entity, component_id: ComponentId) {
+//!     // Do stuff...
+//! }
+//! ```
 
-use bevy::{
-    ecs::component::{ComponentHooks, StorageType},
-    prelude::*,
-};
+use bevy::prelude::*;
 use std::collections::HashMap;
 
-#[derive(Debug)]
-/// Hooks can also be registered during component initialization by
-/// using [`Component`] derive macro:
-/// ```no_run
-/// #[derive(Component)]
-/// #[component(on_add = ..., on_insert = ..., on_replace = ..., on_remove = ...)]
-/// ```
+#[derive(Component)]
 struct MyComponent(KeyCode);
-
-impl Component for MyComponent {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-
-    /// Hooks can also be registered during component initialization by
-    /// implementing `register_component_hooks`
-    fn register_component_hooks(_hooks: &mut ComponentHooks) {
-        // Register hooks...
-    }
-}
 
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 struct MyComponentIndex(HashMap<KeyCode, Entity>);
