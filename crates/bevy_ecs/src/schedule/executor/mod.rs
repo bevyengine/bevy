@@ -165,7 +165,8 @@ impl System for apply_deferred {
 
     fn is_exclusive(&self) -> bool {
         // This system is labeled exclusive because it is used by the system
-        // executor to find places where deferred commands should be applied.
+        // executor to find places where deferred commands should be applied,
+        // and commands can only be applied with exclusive access to the world.
         true
     }
 
