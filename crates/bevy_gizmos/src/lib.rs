@@ -32,6 +32,7 @@ pub enum GizmoRenderSystem {
 
 #[cfg(feature = "bevy_render")]
 pub mod aabb;
+pub mod animated;
 pub mod arcs;
 pub mod arrows;
 pub mod circles;
@@ -60,6 +61,7 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
+        animated::AnimatedGizmos,
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
             GizmoLineJoint, GizmoLineStyle,
