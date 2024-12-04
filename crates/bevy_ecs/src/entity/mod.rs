@@ -811,7 +811,7 @@ impl Entities {
     // Must be an entity that currently exists, and that has an EntityLocation with a valid ArchetypeId.
     #[inline]
     pub(crate) unsafe fn get_unchecked(&self, entity: Entity) -> EntityLocation {
-        self.meta.get_unchecked(entity.index() as usize)
+        self.meta.get_unchecked(entity.index() as usize).location
     }
 
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
