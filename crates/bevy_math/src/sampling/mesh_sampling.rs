@@ -4,6 +4,7 @@ use crate::{
     primitives::{Measured2d, Triangle3d},
     ShapeSample, Vec3,
 };
+use alloc::vec::Vec;
 use rand::Rng;
 use rand_distr::{Distribution, WeightedAliasIndex, WeightedError};
 
