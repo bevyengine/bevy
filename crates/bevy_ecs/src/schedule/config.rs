@@ -1,10 +1,10 @@
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::{
     result::Result,
     schedule::{
         condition::{BoxedCondition, Condition},
-        graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
+        graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },

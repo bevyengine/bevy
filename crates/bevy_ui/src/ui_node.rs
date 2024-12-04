@@ -324,6 +324,15 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/display>
     pub display: Display,
 
+    /// Which part of a Node's box length styles like width and height control
+    ///   - [`BoxSizing::BorderBox`]: They refer to the "border box" size (size including padding and border)
+    ///   - [`BoxSizing::ContentBox`]: They refer to the "content box" size (size excluding padding and border)
+    ///
+    /// `BoxSizing::BorderBox` is generally considered more intuitive and is the default in Bevy even though it is not on the web.
+    ///
+    /// See: <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>
+    pub box_sizing: BoxSizing,
+
     /// Whether a node should be laid out in-flow with, or independently of its siblings:
     ///  - [`PositionType::Relative`]: Layout this node in-flow with other nodes using the usual (flexbox/grid) layout algorithm.
     ///  - [`PositionType::Absolute`]: Layout this node on top and independently of other nodes.
@@ -591,6 +600,7 @@ pub struct Node {
 impl Node {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
+        box_sizing: BoxSizing::DEFAULT,
         position_type: PositionType::DEFAULT,
         left: Val::Auto,
         right: Val::Auto,
@@ -920,6 +930,31 @@ impl Display {
 }
 
 impl Default for Display {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Which part of a Node's box length styles like width and height control
+///
+/// See: <https://developer.mozilla.org/en-US/docs/Web/CSS/box-sizing>
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum BoxSizing {
+    /// Length styles like width and height refer to the "border box" size (size including padding and border)
+    BorderBox,
+    /// Length styles like width and height refer to the "content box" size (size excluding padding and border)
+    ContentBox,
+}
+impl BoxSizing {
+    pub const DEFAULT: Self = Self::BorderBox;
+}
+impl Default for BoxSizing {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -2647,14 +2682,14 @@ pub enum UiAntiAlias {
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
 ///         Camera2d,
-///         UiBoxShadowSamples(6),
+///         BoxShadowSamples(6),
 ///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-pub struct UiBoxShadowSamples(pub u32);
+pub struct BoxShadowSamples(pub u32);
 
-impl Default for UiBoxShadowSamples {
+impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
     }

@@ -49,10 +49,10 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::Component,
+        component::{require, Component},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         result::{Error, Result},
@@ -86,11 +86,10 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
