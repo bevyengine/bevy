@@ -81,17 +81,17 @@
 //! less ideal for this use case:
 //!
 //! 1. The level 1 spherical harmonic coefficients can be negative. That
-//! prevents the use of the efficient [RGB9E5 texture format], which only
-//! encodes unsigned floating point numbers, and forces the use of the
-//! less-efficient [RGBA16F format] if hardware interpolation is desired.
+//!     prevents the use of the efficient [RGB9E5 texture format], which only
+//!     encodes unsigned floating point numbers, and forces the use of the
+//!     less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//! normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//! allows them to be packed in standard LDR RGBA8 textures. However, this
-//! prevents the use of hardware trilinear filtering, as the nonuniform scale
-//! factor means that hardware interpolation no longer produces correct results.
-//! The 8 texture fetches needed to interpolate between voxels can be upwards of
-//! twice as slow as the hardware interpolation.
+//!     normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//!     allows them to be packed in standard LDR RGBA8 textures. However, this
+//!     prevents the use of hardware trilinear filtering, as the nonuniform scale
+//!     factor means that hardware interpolation no longer produces correct results.
+//!     The 8 texture fetches needed to interpolate between voxels can be upwards of
+//!     twice as slow as the hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
@@ -132,7 +132,8 @@
 //!
 //! [Why ambient cubes?]: #why-ambient-cubes
 
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -140,12 +141,12 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
-use std::{num::NonZeroU32, ops::Deref};
+use core::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
@@ -166,6 +167,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Default, Reflect, Component, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -306,7 +308,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_3d_binding =
-            texture_3d_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

@@ -67,16 +67,15 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let image0 = images.add(image.clone());
     let image1 = images.add(image);
 
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
+    commands.spawn((
+        Sprite {
+            image: image0.clone(),
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
             ..default()
         },
-        texture: image0.clone(),
-        transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
-        ..default()
-    });
-    commands.spawn(Camera2dBundle::default());
+        Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
+    ));
+    commands.spawn(Camera2d);
 
     commands.insert_resource(GameOfLifeImages {
         texture_a: image0,
@@ -85,12 +84,11 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 // Switch texture to display every frame to show the one that was written to most recently.
-fn switch_textures(images: Res<GameOfLifeImages>, mut displayed: Query<&mut Handle<Image>>) {
-    let mut displayed = displayed.single_mut();
-    if *displayed == images.texture_a {
-        *displayed = images.texture_b.clone_weak();
+fn switch_textures(images: Res<GameOfLifeImages>, mut sprite: Single<&mut Sprite>) {
+    if sprite.image == images.texture_a {
+        sprite.image = images.texture_b.clone_weak();
     } else {
-        *displayed = images.texture_a.clone_weak();
+        sprite.image = images.texture_a.clone_weak();
     }
 }
 
@@ -181,6 +179,7 @@ impl FromWorld for GameOfLifePipeline {
             shader: shader.clone(),
             shader_defs: vec![],
             entry_point: Cow::from("init"),
+            zero_initialize_workgroup_memory: false,
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
@@ -189,6 +188,7 @@ impl FromWorld for GameOfLifePipeline {
             shader,
             shader_defs: vec![],
             entry_point: Cow::from("update"),
+            zero_initialize_workgroup_memory: false,
         });
 
         GameOfLifePipeline {

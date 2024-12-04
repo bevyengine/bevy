@@ -1,22 +1,22 @@
-use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
-    StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 /// Non-linear standard RGB with alpha.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
@@ -168,10 +168,7 @@ impl Srgba {
 
     /// Convert this color to CSS-style hexadecimal notation.
     pub fn to_hex(&self) -> String {
-        let r = (self.red * 255.0).round() as u8;
-        let g = (self.green * 255.0).round() as u8;
-        let b = (self.blue * 255.0).round() as u8;
-        let a = (self.alpha * 255.0).round() as u8;
+        let [r, g, b, a] = self.to_u8_array();
         match a {
             255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
             _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
@@ -187,9 +184,8 @@ impl Srgba {
     /// * `b` - Blue channel. [0, 255]
     ///
     /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
-    ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::rgba_u8(r, g, b, u8::MAX)
+        Self::from_u8_array_no_alpha([r, g, b])
     }
 
     // Float operations in const fn are not stable yet
@@ -204,14 +200,8 @@ impl Srgba {
     /// * `a` - Alpha channel. [0, 255]
     ///
     /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
-    ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(
-            r as f32 / u8::MAX as f32,
-            g as f32 / u8::MAX as f32,
-            b as f32 / u8::MAX as f32,
-            a as f32 / u8::MAX as f32,
-        )
+        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
@@ -222,7 +212,7 @@ impl Srgba {
         if value <= 0.04045 {
             value / 12.92 // linear falloff in dark values
         } else {
-            ((value + 0.055) / 1.055).powf(2.4) // gamma curve in other area
+            ops::powf((value + 0.055) / 1.055, 2.4) // gamma curve in other area
         }
     }
 
@@ -235,7 +225,7 @@ impl Srgba {
         if value <= 0.0031308 {
             value * 12.92 // linear falloff in dark values
         } else {
-            (1.055 * value.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
+            (1.055 * ops::powf(value, 1.0 / 2.4)) - 0.055 // gamma curve in other area
         }
     }
 }
@@ -373,6 +363,25 @@ impl ColorToComponents for Srgba {
     }
 }
 
+impl ColorToPacked for Srgba {
+    fn to_u8_array(self) -> [u8; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+    }
+
+    fn to_u8_array_no_alpha(self) -> [u8; 3] {
+        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+    }
+
+    fn from_u8_array(color: [u8; 4]) -> Self {
+        Self::from_f32_array(color.map(|u| u as f32 / 255.0))
+    }
+
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self {
+        Self::from_f32_array_no_alpha(color.map(|u| u as f32 / 255.0))
+    }
+}
+
 impl From<LinearRgba> for Srgba {
     #[inline]
     fn from(value: LinearRgba) -> Self {
@@ -412,16 +421,17 @@ impl From<Srgba> for Xyza {
 }
 
 /// Error returned if a hex string could not be parsed as a color.
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, Display, PartialEq, Eq, From)]
 pub enum HexColorError {
     /// Parsing error.
-    #[error("Invalid hex string")]
-    Parse(#[from] std::num::ParseIntError),
+    #[display("Invalid hex string")]
+    Parse(core::num::ParseIntError),
     /// Invalid length.
-    #[error("Unexpected length of hex string")]
+    #[display("Unexpected length of hex string")]
     Length,
     /// Invalid character.
-    #[error("Invalid hex char")]
+    #[display("Invalid hex char")]
+    #[error(ignore)]
     Char(char),
 }
 

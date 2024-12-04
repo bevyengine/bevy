@@ -11,8 +11,7 @@ fn main() {
 }
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioBundle {
-        source: asset_server.load("sounds/Windless Slopes.ogg"),
-        ..default()
-    });
+    commands.spawn(AudioPlayer::new(
+        asset_server.load("sounds/Windless Slopes.ogg"),
+    ));
 }

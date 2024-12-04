@@ -1,12 +1,13 @@
-use std::ops::Range;
+use core::ops::Range;
 
-use super::{UiBatch, UiImageBindGroups, UiMeta};
+use super::{ImageNodeBindGroups, UiBatch, UiMeta};
 use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -15,6 +16,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
@@ -80,7 +82,9 @@ impl Node for UiPassNode {
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
         }
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
 
         Ok(())
     }
@@ -88,7 +92,7 @@ impl Node for UiPassNode {
 
 pub struct TransparentUi {
     pub sort_key: (FloatOrd, u32),
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -98,7 +102,11 @@ pub struct TransparentUi {
 impl PhaseItem for TransparentUi {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -137,7 +145,7 @@ impl SortedPhaseItem for TransparentUi {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 
@@ -168,17 +176,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
+        let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
+            return RenderCommandResult::Failure("view_bind_group not available");
+        };
+        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<UiImageBindGroups>;
+    type Param = SRes<ImageNodeBindGroups>;
     type ViewQuery = ();
     type ItemQuery = Read<UiBatch>;
 
@@ -192,13 +199,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }
+
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
@@ -214,15 +222,21 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
+        };
+        let ui_meta = ui_meta.into_inner();
+        let Some(vertices) = ui_meta.vertices.buffer() else {
+            return RenderCommandResult::Failure("missing vertices to draw ui");
+        };
+        let Some(indices) = ui_meta.indices.buffer() else {
+            return RenderCommandResult::Failure("missing indices to draw ui");
         };
 
-        let ui_meta = ui_meta.into_inner();
         // Store the vertices
-        pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
+        pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
         pass.set_index_buffer(
-            ui_meta.indices.buffer().unwrap().slice(..),
+            indices.slice(..),
             0,
             bevy_render::render_resource::IndexFormat::Uint32,
         );

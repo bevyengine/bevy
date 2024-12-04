@@ -7,9 +7,9 @@
 #
 # ## LLD
 #
-# LLD is a linker from the LLVM project that supports Linux, Windows, MacOS, and WASM. It has the greatest
+# LLD is a linker from the LLVM project that supports Linux, Windows, macOS, and Wasm. It has the greatest
 # platform support and the easiest installation process. It is enabled by default in this file for Linux
-# and Windows. On MacOS, the default linker yields higher performance than LLD and is used instead.
+# and Windows. On macOS, the default linker yields higher performance than LLD and is used instead.
 #
 # To install, please scroll to the corresponding table for your target (eg. `[target.x86_64-pc-windows-msvc]`
 # for Windows) and follow the steps under `LLD linker`.
@@ -21,18 +21,18 @@
 # Mold is a newer linker written by one of the authors of LLD. It boasts even greater performance, specifically
 # through its high parallelism, though it only supports Linux.
 #
-# Mold is  disabled by default in this file. If you wish to enable it, follow the installation instructions for
+# Mold is disabled by default in this file. If you wish to enable it, follow the installation instructions for
 # your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
 # *uncommenting* its `-Clink-arg=...` line.
 #
-# There is a fork of Mold named Sold that supports MacOS, but it is unmaintained and is about the same speed as
+# There is a fork of Mold named Sold that supports macOS, but it is unmaintained and is about the same speed as
 # the default ld64 linker. For this reason, it is not included in this file.
 #
 # For more information, please see Mold's repository at <https://github.com/rui314/mold>.
 #
 # # Nightly configuration
 #
-# Be warned that the following features require nightly Rust, which is expiremental and may contain bugs. If you
+# Be warned that the following features require nightly Rust, which is experimental and may contain bugs. If you
 # are having issues, skip this section and use stable Rust instead.
 #
 # There are a few unstable features that can improve performance. To use them, first install nightly Rust
@@ -51,7 +51,7 @@
 # crates to share monomorphized generic code, so they do not duplicate work.
 #
 # In other words, instead of crate 1 generating `Foo<String>` and crate 2 generating `Foo<String>` separately,
-# only one crate generates `Foo<String>` and the other adds on to the pre-exiting work.
+# only one crate generates `Foo<String>` and the other adds on to the pre-existing work.
 #
 # Note that you may have some issues with this flag on Windows. If compiling fails due to the 65k symbol limit,
 # you may have to disable this setting. For more information and possible solutions to this error, see
@@ -83,11 +83,20 @@ rustflags = [
   # - Ubuntu: `sudo apt-get install mold clang`
   # - Fedora: `sudo dnf install mold clang`
   # - Arch: `sudo pacman -S mold clang`
-  # "-Clink-arg=-fuse-ld=/usr/bin/mold",
+  # "-Clink-arg=-fuse-ld=mold",
 
   # Nightly
   # "-Zshare-generics=y",
   # "-Zthreads=0",
+]
+# Some systems may experience linker performance issues when running doc tests.
+# See https://github.com/bevyengine/bevy/issues/12207 for details.
+rustdocflags = [
+  # LLD linker
+  "-Clink-arg=-fuse-ld=lld",
+
+  # Mold linker
+  # "-Clink-arg=-fuse-ld=mold",
 ]
 
 [target.x86_64-apple-darwin]
@@ -134,18 +143,19 @@ rustflags = [
 # rustup component add llvm-tools
 # ```
 linker = "rust-lld.exe"
+rustdocflags = ["-Clinker=rust-lld.exe"]
 rustflags = [
   # Nightly
-  # "-Zshare-generics=y",
+  # "-Zshare-generics=n", # This needs to be off if you use dynamic linking on Windows.
   # "-Zthreads=0",
 ]
 
-# Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
-# In most cases the gains are negligible, but if you are on macos and have slow compile times you should see significant gains.
+# Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'.
+# In most cases the gains are negligible, but if you are on macOS and have slow compile times you should see significant gains.
 # [profile.dev]
 # debug = 1
 
-# This is enables you to run the CI tool using `cargo ci`.
+# This enables you to run the CI tool using `cargo ci`.
 # This is not enabled by default, you need to copy this file to `config.toml`.
 [alias]
 ci = "run --package ci --"

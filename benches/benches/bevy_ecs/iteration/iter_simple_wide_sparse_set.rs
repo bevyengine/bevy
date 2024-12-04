@@ -36,7 +36,7 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         world.spawn_batch(
-            std::iter::repeat((
+            core::iter::repeat((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Rotation(Vec3::X),
                 Position::<0>(Vec3::X),

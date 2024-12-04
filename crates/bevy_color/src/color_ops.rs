@@ -115,6 +115,18 @@ pub trait ColorToComponents {
     fn from_vec3(color: Vec3) -> Self;
 }
 
+/// Trait with methods for converting colors to packed non-color types
+pub trait ColorToPacked {
+    /// Convert to [u8; 4] where that makes sense (Srgba is most relevant)
+    fn to_u8_array(self) -> [u8; 4];
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn to_u8_array_no_alpha(self) -> [u8; 3];
+    /// Convert from [u8; 4] where that makes sense (Srgba is most relevant)
+    fn from_u8_array(color: [u8; 4]) -> Self;
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
+}
+
 /// Utility function for interpolating hue values. This ensures that the interpolation
 /// takes the shortest path around the color wheel, and that the result is always between
 /// 0 and 360.
@@ -125,7 +137,7 @@ pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     use super::*;
     use crate::{testing::assert_approx_eq, Hsla};
@@ -171,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_gray() {
-        verify_gray::<crate::Hsla>();
+        verify_gray::<Hsla>();
         verify_gray::<crate::Hsva>();
         verify_gray::<crate::Hwba>();
         verify_gray::<crate::Laba>();

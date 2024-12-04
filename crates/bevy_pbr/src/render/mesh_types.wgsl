@@ -15,6 +15,12 @@ struct Mesh {
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     lightmap_uv_rect: vec2<u32>,
+    // The index of the mesh's first vertex in the vertex buffer.
+    first_vertex_index: u32,
+    // Index of the material inside the bind group data.
+    material_bind_group_slot: u32,
+    pad_a: u32,
+    pad_b: u32,
 };
 
 #ifdef SKINNED

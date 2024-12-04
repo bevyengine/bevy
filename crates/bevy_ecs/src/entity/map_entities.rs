@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 
-use super::EntityHashMap;
+use super::{EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -15,8 +15,15 @@ use super::EntityHashMap;
 /// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
+/// This trait is similar to [`VisitEntitiesMut`]. They differ in that [`VisitEntitiesMut`] operates
+/// on `&mut Entity` and allows for in-place modification, while this trait makes no assumption that
+/// such in-place modification is occurring, which is impossible for types such as [`HashSet<Entity>`]
+/// and [`EntityHashMap`] which must be rebuilt when their contained [`Entity`]s are remapped.
+///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
+///
+/// [`HashSet<Entity>`]: bevy_utils::HashSet
 ///
 /// ## Example
 ///
@@ -43,6 +50,14 @@ pub trait MapEntities {
     /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
+}
+
+impl<T: VisitEntitiesMut> MapEntities for T {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.visit_entities_mut(|entity| {
+            *entity = entity_mapper.map_entity(*entity);
+        });
+    }
 }
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
@@ -75,6 +90,12 @@ pub trait EntityMapper {
     fn map_entity(&mut self, entity: Entity) -> Entity;
 }
 
+impl EntityMapper for &mut dyn EntityMapper {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        (*self).map_entity(entity)
+    }
+}
+
 impl EntityMapper for SceneEntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
     fn map_entity(&mut self, entity: Entity) -> Entity {
@@ -101,8 +122,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
 ///
 /// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
+/// [`Entity`]. After it is finished being used, this entity is despawned and the requisite number of generations reserved.
 pub struct SceneEntityMapper<'m> {
     /// A mapping from one set of entities to another.
     ///
@@ -132,6 +152,9 @@ impl<'m> SceneEntityMapper<'m> {
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
     pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
+        // We're going to be calling methods on `Entities` that require advance
+        // flushing, such as `alloc` and `free`.
+        world.flush_entities();
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`
@@ -141,9 +164,8 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Reserves the allocated references to dead entities within the world. This frees the temporary base
-    /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
-    /// renders the [`SceneEntityMapper`] unable to safely allocate any more references, this method takes ownership of
-    /// `self` in order to render it unusable.
+    /// [`Entity`] while reserving extra generations. Because this makes the [`SceneEntityMapper`] unable to
+    /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
@@ -219,5 +241,22 @@ mod tests {
         let entity = world.spawn_empty().id();
         assert_eq!(entity.index(), dead_ref.index());
         assert!(entity.generation() > dead_ref.generation());
+    }
+
+    #[test]
+    fn entity_mapper_no_panic() {
+        let mut world = World::new();
+        // "Dirty" the `Entities`, requiring a flush afterward.
+        world.entities.reserve_entity();
+        assert!(world.entities.needs_flush());
+
+        // Create and exercise a SceneEntityMapper - should not panic because it flushes
+        // `Entities` first.
+        SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
+            m.map_entity(Entity::PLACEHOLDER);
+        });
+
+        // The SceneEntityMapper should leave `Entities` in a flushed state.
+        assert!(!world.entities.needs_flush());
     }
 }

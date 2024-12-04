@@ -74,8 +74,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
 
     // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    let position_a = view.inverse_clip_from_world * clip_a;
-    let position_b = view.inverse_clip_from_world * clip_b;
+    let position_a = view.world_from_clip * clip_a;
+    let position_b = view.world_from_clip * clip_b;
     let world_distance = length(position_a.xyz - position_b.xyz);
 
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.

@@ -5,6 +5,17 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A compass enum with 4 directions.
+/// ```text
+///          N (North)
+///          ▲
+///          │
+///          │
+/// W (West) ┼─────► E (East)
+///          │
+///          │
+///          ▼
+///          S (South)
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -24,6 +35,17 @@ pub enum CompassQuadrant {
 }
 
 /// A compass enum with 8 directions.
+/// ```text
+///          N (North)
+///          ▲
+///     NW   │   NE
+///        ╲ │ ╱
+/// W (West) ┼─────► E (East)
+///        ╱ │ ╲
+///     SW   │   SE
+///          ▼
+///          S (South)
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -118,7 +140,7 @@ mod test_compass_quadrant {
 
     #[test]
     fn test_cardinal_directions() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(1.0, 0.0)).unwrap(),
                 CompassQuadrant::East,
@@ -144,7 +166,7 @@ mod test_compass_quadrant {
 
     #[test]
     fn test_north_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.1, 0.9)).unwrap(),
                 CompassQuadrant::North,
@@ -162,7 +184,7 @@ mod test_compass_quadrant {
 
     #[test]
     fn test_east_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(0.9, 0.1)).unwrap(),
                 CompassQuadrant::East,
@@ -180,7 +202,7 @@ mod test_compass_quadrant {
 
     #[test]
     fn test_south_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.1, -0.9)).unwrap(),
                 CompassQuadrant::South,
@@ -198,7 +220,7 @@ mod test_compass_quadrant {
 
     #[test]
     fn test_west_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.9, -0.1)).unwrap(),
                 CompassQuadrant::West,
@@ -221,7 +243,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_cardinal_directions() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.5, 0.5)).unwrap(),
                 CompassOctant::NorthWest,
@@ -260,7 +282,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_north_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.1, 0.9)).unwrap(),
                 CompassOctant::North,
@@ -278,7 +300,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_north_east_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(0.4, 0.6)).unwrap(),
                 CompassOctant::NorthEast,
@@ -296,7 +318,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_east_pie_slice() {
-        let tests = vec![
+        let tests = [
             (Dir2::new(Vec2::new(0.9, 0.1)).unwrap(), CompassOctant::East),
             (
                 Dir2::new(Vec2::new(0.9, -0.1)).unwrap(),
@@ -311,7 +333,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_south_east_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(0.4, -0.6)).unwrap(),
                 CompassOctant::SouthEast,
@@ -329,7 +351,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_south_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.1, -0.9)).unwrap(),
                 CompassOctant::South,
@@ -347,7 +369,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_south_west_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.4, -0.6)).unwrap(),
                 CompassOctant::SouthWest,
@@ -365,7 +387,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_west_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.9, -0.1)).unwrap(),
                 CompassOctant::West,
@@ -383,7 +405,7 @@ mod test_compass_octant {
 
     #[test]
     fn test_north_west_pie_slice() {
-        let tests = vec![
+        let tests = [
             (
                 Dir2::new(Vec2::new(-0.4, 0.6)).unwrap(),
                 CompassOctant::NorthWest,

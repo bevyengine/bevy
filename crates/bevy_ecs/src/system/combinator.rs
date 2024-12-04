@@ -1,6 +1,5 @@
-use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
-
-use bevy_ptr::UnsafeCellDeref;
+use alloc::borrow::Cow;
+use core::marker::PhantomData;
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -8,10 +7,11 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -90,7 +90,7 @@ use super::{ReadOnlySystem, System};
 )]
 pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
-    type In;
+    type In: SystemInput;
 
     /// The [output](System::Out) type for a [`CombinatorSystem`].
     type Out;
@@ -100,9 +100,9 @@ pub trait Combine<A: System, B: System> {
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(A::In) -> A::Out,
-        b: impl FnOnce(B::In) -> B::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out;
 }
 
@@ -167,7 +167,11 @@ where
         self.a.has_deferred() || self.b.has_deferred()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -182,24 +186,35 @@ where
         )
     }
 
-    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
-        // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
-        // is explicitly allowed in the docs for `UnsafeCell`.
-        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
             // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
-            |input| self.a.run(input, unsafe { world.deref_mut() }),
+            |input| self.a.run(input, unsafe { world.world_mut() }),
             #[allow(clippy::undocumented_unsafe_blocks)]
-            |input| self.b.run(input, unsafe { world.deref_mut() }),
+            |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
 
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to other `System` implementations.
+        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -241,7 +256,7 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
-unsafe impl<A, B, Func> ReadOnlySystem for CombinatorSystem<Func, A, B>
+unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
     A: ReadOnlySystem,
@@ -257,6 +272,40 @@ where
     /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
     fn clone(&self) -> Self {
         CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
+}
+
+/// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+pub struct IntoPipeSystem<A, B> {
+    a: A,
+    b: B,
+}
+
+impl<A, B> IntoPipeSystem<A, B> {
+    /// Creates a new [`IntoSystem`] that pipes two inner systems.
+    pub const fn new(a: A, b: B) -> Self {
+        Self { a, b }
+    }
+}
+
+#[doc(hidden)]
+pub struct IsPipeSystemMarker;
+
+impl<A, B, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
+    for IntoPipeSystem<A, B>
+where
+    IA: SystemInput,
+    A: IntoSystem<IA, OA, MA>,
+    B: IntoSystem<IB, OB, MB>,
+    for<'a> IB: SystemInput<Inner<'a> = OA>,
+{
+    type System = PipeSystem<A::System, B::System>;
+
+    fn into_system(this: Self) -> Self::System {
+        let system_a = IntoSystem::into_system(this.a);
+        let system_b = IntoSystem::into_system(this.b);
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
@@ -283,7 +332,7 @@ where
 ///     world.insert_resource(Message("42".to_string()));
 ///
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = parse_message_system.pipe(filter_system);
+///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
 ///     piped_system.initialize(&mut world);
 ///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
@@ -299,25 +348,141 @@ where
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub type PipeSystem<SystemA, SystemB> = CombinatorSystem<Pipe, SystemA, SystemB>;
+pub struct PipeSystem<A, B> {
+    a: A,
+    b: B,
+    name: Cow<'static, str>,
+    component_access: Access<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
+}
 
-#[doc(hidden)]
-pub struct Pipe;
-
-impl<A, B> Combine<A, B> for Pipe
+impl<A, B> PipeSystem<A, B>
 where
     A: System,
-    B: System<In = A::Out>,
+    B: System,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
+{
+    /// Creates a new system that pipes two inner systems.
+    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+        Self {
+            a,
+            b,
+            name,
+            component_access: Access::new(),
+            archetype_component_access: Access::new(),
+        }
+    }
+}
+
+impl<A, B> System for PipeSystem<A, B>
+where
+    A: System,
+    B: System,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     type In = A::In;
     type Out = B::Out;
 
-    fn combine(
-        input: Self::In,
-        a: impl FnOnce(A::In) -> A::Out,
-        b: impl FnOnce(B::In) -> B::Out,
-    ) -> Self::Out {
-        let value = a(input);
-        b(value)
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
     }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        &self.component_access
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    fn is_send(&self) -> bool {
+        self.a.is_send() && self.b.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.a.is_exclusive() || self.b.is_exclusive()
+    }
+
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
+        let value = self.a.run_unsafe(input, world);
+        self.b.run_unsafe(value, world)
+    }
+
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let value = self.a.run(input, world);
+        self.b.run(value, world)
+    }
+
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
+    }
+
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
+    }
+
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to other `System` implementations.
+        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
+    }
+
+    fn validate_param(&mut self, world: &World) -> bool {
+        self.a.validate_param(world) && self.b.validate_param(world)
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.a.initialize(world);
+        self.b.initialize(world);
+        self.component_access.extend(self.a.component_access());
+        self.component_access.extend(self.b.component_access());
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        self.a.update_archetype_component_access(world);
+        self.b.update_archetype_component_access(world);
+
+        self.archetype_component_access
+            .extend(self.a.archetype_component_access());
+        self.archetype_component_access
+            .extend(self.b.archetype_component_access());
+    }
+
+    fn check_change_tick(&mut self, change_tick: Tick) {
+        self.a.check_change_tick(change_tick);
+        self.b.check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.a.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.a.set_last_run(last_run);
+        self.b.set_last_run(last_run);
+    }
+}
+
+/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
+where
+    A: ReadOnlySystem,
+    B: ReadOnlySystem,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
+{
 }

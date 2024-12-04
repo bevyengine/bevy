@@ -1,12 +1,13 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
-use std::num::NonZeroU64;
+use core::num::NonZero;
 
-use assign::ClusterableObjectType;
+use self::assign::ClusterableObjectType;
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::Without,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
@@ -20,6 +21,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -32,8 +34,13 @@ pub(crate) mod assign;
 #[cfg(test)]
 mod test;
 
-// NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 256;
+// NOTE: this must be kept in sync with the same constants in
+// `mesh_view_types.wgsl`.
+pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 204;
+// Make sure that the clusterable object buffer doesn't overflow the maximum
+// size of a UBO on WebGL 2.
+const _: () =
+    assert!(size_of::<GpuClusterableObject>() * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS <= 16384);
 
 // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
 // at least that many are supported using this constant and SupportedBindingType::from_device()
@@ -80,7 +87,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,
@@ -151,6 +158,10 @@ pub struct GpuClusterableObject {
     pub(crate) shadow_depth_bias: f32,
     pub(crate) shadow_normal_bias: f32,
     pub(crate) spot_light_tan_angle: f32,
+    pub(crate) soft_shadow_size: f32,
+    pub(crate) shadow_map_near_z: f32,
+    pub(crate) pad_a: f32,
+    pub(crate) pad_b: f32,
 }
 
 pub enum GpuClusterableObjects {
@@ -275,8 +286,9 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio: f32 =
-                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
+                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y)
+                    .expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values")
+                    .ratio();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");
@@ -367,7 +379,7 @@ impl Clusters {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), Without<Clusters>>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
 ) {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
@@ -486,7 +498,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZeroU64 {
+    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectsUniform::min_size(),
@@ -504,6 +516,11 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
+pub(crate) struct ClusterableObjectOrderData<'a> {
+    pub(crate) entity: &'a Entity,
+    pub(crate) object_type: &'a ClusterableObjectType,
+}
+
 #[allow(clippy::too_many_arguments)]
 // Sort clusterable objects by:
 //
@@ -518,22 +535,27 @@ impl Default for GpuClusterableObjectsUniform {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    (entity_1, object_type_1): (&Entity, &ClusterableObjectType),
-    (entity_2, object_type_2): (&Entity, &ClusterableObjectType),
-) -> std::cmp::Ordering {
-    object_type_1
+    a: ClusterableObjectOrderData,
+    b: ClusterableObjectOrderData,
+) -> core::cmp::Ordering {
+    a.object_type
         .ordering()
-        .cmp(&object_type_2.ordering()) // object type and shadow status
-        .then_with(|| entity_1.cmp(entity_2)) // stable
+        .cmp(&b.object_type.ordering())
+        .then_with(|| a.entity.cmp(b.entity)) // stable
 }
 
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
+            entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }
 
@@ -548,13 +570,15 @@ pub fn extract_clusters(
                 cluster_objects.counts,
             ));
             for clusterable_entity in &cluster_objects.entities {
-                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                    *clusterable_entity,
-                ));
+                if let Ok(entity) = mapper.get(*clusterable_entity) {
+                    data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                        entity,
+                    ));
+                }
             }
         }
 
-        commands.get_or_spawn(entity).insert((
+        entity_commands.insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
@@ -610,7 +634,7 @@ pub fn prepare_clusters(
 
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
-        commands.get_or_spawn(entity).insert(view_clusters_bindings);
+        commands.entity(entity).insert(view_clusters_bindings);
     }
 }
 
@@ -763,7 +787,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_clusterable_object_index_lists(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectIndexListsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectIndexListsUniform::min_size(),
@@ -772,7 +796,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_cluster_offsets_and_counts(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterOffsetsAndCountsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterOffsetsAndCountsUniform::min_size(),
@@ -810,8 +834,8 @@ impl ViewClusterBuffers {
 // platform: typically, on WebGL 2.
 //
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit 256 clusterable objects in one uniform
-// buffer, which means the count can be at most 256 so it
+// that means we can fit 204 clusterable objects in one uniform
+// buffer, which means the count can be at most 204 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address

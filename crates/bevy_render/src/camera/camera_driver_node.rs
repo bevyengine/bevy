@@ -1,5 +1,5 @@
 use crate::{
-    camera::{ExtractedCamera, NormalizedRenderTarget, SortedCameras},
+    camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
@@ -41,10 +41,14 @@ impl Node for CameraDriverNode {
             let mut run_graph = true;
             if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
                 let window_entity = window_ref.entity();
-                if windows.windows.get(&window_entity).is_some() {
+                if windows
+                    .windows
+                    .get(&window_entity)
+                    .is_some_and(|w| w.physical_width > 0 && w.physical_height > 0)
+                {
                     camera_windows.insert(window_entity);
                 } else {
-                    // The window doesn't exist anymore so we don't need to run the graph
+                    // The window doesn't exist anymore or zero-sized so we don't need to run the graph
                     run_graph = false;
                 }
             }
@@ -52,6 +56,8 @@ impl Node for CameraDriverNode {
                 graph.run_sub_graph(camera.render_graph, vec![], Some(sorted_camera.entity))?;
             }
         }
+
+        let clear_color_global = world.resource::<ClearColor>();
 
         // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
         // This ensures that Bevy doesn't crash, even when there are no cameras (and therefore no work submitted).
@@ -72,7 +78,7 @@ impl Node for CameraDriverNode {
                     view: swap_chain_texture,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(wgpu::Color::BLACK),
+                        load: LoadOp::Clear(clear_color_global.to_linear().into()),
                         store: StoreOp::Store,
                     },
                 })],

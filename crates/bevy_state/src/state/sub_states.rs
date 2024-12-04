@@ -150,7 +150,7 @@ pub trait SubStates: States + FreelyMutableState {
     ///
     /// This can either be a single type that implements [`States`], or a tuple
     /// containing multiple types that implement [`States`], or any combination of
-    /// types implementing [`States`] and Options of types implementing [`States`]
+    /// types implementing [`States`] and Options of types implementing [`States`].
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
@@ -161,7 +161,7 @@ pub trait SubStates: States + FreelyMutableState {
     /// it will be created from the returned [`Some`] as the initial state.
     ///
     /// Value within [`Some`] is ignored if the state already exists in the world
-    /// and only symbolises that the state should still exist.
+    /// and only symbolizes that the state should still exist.
     ///
     /// Initial value can also be overwritten by [`NextState`](crate::state::NextState).
     fn should_exist(sources: Self::SourceStates) -> Option<Self>;

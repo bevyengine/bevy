@@ -2,7 +2,8 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklab color space, with alpha
@@ -10,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Oklaba {
@@ -155,9 +156,9 @@ impl Luminance for Oklaba {
 impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2)
-            + (self.a - other.a).powi(2)
-            + (self.b - other.b).powi(2)
+        (self.lightness - other.lightness).squared()
+            + (self.a - other.a).squared()
+            + (self.b - other.b).squared()
     }
 }
 
@@ -228,9 +229,9 @@ impl From<LinearRgba> for Oklaba {
         let l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
         let m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
         let s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
-        let l_ = l.cbrt();
-        let m_ = m.cbrt();
-        let s_ = s.cbrt();
+        let l_ = ops::cbrt(l);
+        let m_ = ops::cbrt(m);
+        let s_ = ops::cbrt(s);
         let l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
         let a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
         let b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;

@@ -1,10 +1,8 @@
 use super::CachedTexture;
 use crate::render_resource::{TextureFormat, TextureView};
+use alloc::sync::Arc;
 use bevy_color::LinearRgba;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
     LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
@@ -82,6 +80,7 @@ impl ColorAttachment {
 }
 
 /// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
+#[derive(Clone)]
 pub struct DepthAttachment {
     pub view: TextureView,
     clear_value: Option<f32>,

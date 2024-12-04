@@ -6,6 +6,8 @@ use bevy_ecs::{
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
+use self::gpu_preprocessing::IndirectParametersBuffer;
+use crate::sync_world::MainEntity;
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
@@ -13,8 +15,6 @@ use crate::{
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
-
-use self::gpu_preprocessing::IndirectParametersBuffer;
 
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
@@ -88,7 +88,7 @@ pub trait GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: Entity,
+        query_item: (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
 
@@ -109,7 +109,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: Entity,
+        query_item: (Entity, MainEntity),
     ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -121,7 +121,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: Entity,
+        query_item: (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -133,7 +133,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
-        query_item: Entity,
+        query_item: (Entity, MainEntity),
     ) -> Option<NonMaxU32>;
 
     /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
@@ -145,7 +145,7 @@ pub trait GetFullBatchData: GetBatchData {
     fn get_batch_indirect_parameters_index(
         param: &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: Entity,
+        entity: (Entity, MainEntity),
         instance_index: u32,
     ) -> Option<NonMaxU32>;
 }
@@ -156,8 +156,8 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
-        phase.batchable_keys.sort_unstable();
-        phase.unbatchable_keys.sort_unstable();
+        phase.batchable_mesh_keys.sort_unstable();
+        phase.unbatchable_mesh_keys.sort_unstable();
     }
 }
 

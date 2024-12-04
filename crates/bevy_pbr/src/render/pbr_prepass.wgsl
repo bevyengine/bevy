@@ -32,9 +32,9 @@ fn fragment(
 
     var out: prepass_io::FragmentOutput;
 
-#ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_position_unclamped.z;
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.frag_depth = in.unclipped_depth;
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
@@ -53,6 +53,7 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
         let uv = (material.uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
@@ -82,7 +83,6 @@ fn fragment(
             double_sided,
             is_front,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP

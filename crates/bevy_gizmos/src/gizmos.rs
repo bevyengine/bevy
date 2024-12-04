@@ -1,6 +1,6 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -8,13 +8,12 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Quat, Rot2, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -187,13 +186,24 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
@@ -280,7 +290,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -304,7 +313,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -334,7 +342,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -357,7 +364,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -386,7 +392,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -417,7 +422,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
@@ -458,27 +462,32 @@ where
         strip_colors.push(LinearRgba::NAN);
     }
 
-    /// Draw a wireframe rectangle in 3D.
+    /// Draw a wireframe rectangle in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Isometry3d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: impl Into<Isometry3d>, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
+        let isometry = isometry.into();
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
@@ -489,7 +498,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -530,7 +538,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -553,7 +560,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -582,7 +588,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -609,7 +614,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
@@ -643,7 +647,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -666,7 +669,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -688,34 +690,37 @@ where
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    /// Draw a wireframe rectangle in 2D.
+    /// Draw a wireframe rectangle in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
     pub fn rect_2d(
         &mut self,
-        position: Vec2,
-        rotation: impl Into<Rot2>,
+        isometry: impl Into<Isometry2d>,
         size: Vec2,
         color: impl Into<Color>,
     ) {
         if !self.enabled {
             return;
         }
-        let rotation: Rot2 = rotation.into();
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
+        let isometry = isometry.into();
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 

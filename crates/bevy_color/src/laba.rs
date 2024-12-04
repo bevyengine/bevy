@@ -2,7 +2,8 @@ use crate::{
     impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba,
     Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in LAB color space, with alpha
@@ -10,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Laba {
@@ -224,7 +225,7 @@ impl From<Laba> for Xyza {
         let fx = a / 500.0 + fy;
         let fz = fy - b / 200.0;
         let xr = {
-            let fx3 = fx.powf(3.0);
+            let fx3 = ops::powf(fx, 3.0);
 
             if fx3 > Laba::CIE_EPSILON {
                 fx3
@@ -233,12 +234,12 @@ impl From<Laba> for Xyza {
             }
         };
         let yr = if l > Laba::CIE_EPSILON * Laba::CIE_KAPPA {
-            ((l + 16.0) / 116.0).powf(3.0)
+            ops::powf((l + 16.0) / 116.0, 3.0)
         } else {
             l / Laba::CIE_KAPPA
         };
         let zr = {
-            let fz3 = fz.powf(3.0);
+            let fz3 = ops::powf(fz, 3.0);
 
             if fz3 > Laba::CIE_EPSILON {
                 fz3
@@ -261,17 +262,17 @@ impl From<Xyza> for Laba {
         let yr = y / Xyza::D65_WHITE.y;
         let zr = z / Xyza::D65_WHITE.z;
         let fx = if xr > Laba::CIE_EPSILON {
-            xr.cbrt()
+            ops::cbrt(xr)
         } else {
             (Laba::CIE_KAPPA * xr + 16.0) / 116.0
         };
         let fy = if yr > Laba::CIE_EPSILON {
-            yr.cbrt()
+            ops::cbrt(yr)
         } else {
             (Laba::CIE_KAPPA * yr + 16.0) / 116.0
         };
         let fz = if yr > Laba::CIE_EPSILON {
-            zr.cbrt()
+            ops::cbrt(zr)
         } else {
             (Laba::CIE_KAPPA * zr + 16.0) / 116.0
         };
