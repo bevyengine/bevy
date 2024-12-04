@@ -488,7 +488,7 @@ where
     fn from_world(world: &mut World) -> Self {
         // Create a new bind group allocator.
         let render_device = world.resource::<RenderDevice>();
-        let bind_group_layout_entries = M::bind_group_layout_entries(render_device);
+        let bind_group_layout_entries = M::bind_group_layout_entries(render_device, false);
         let bind_group_layout =
             render_device.create_bind_group_layout(M::label(), &bind_group_layout_entries);
         let fallback_buffers =

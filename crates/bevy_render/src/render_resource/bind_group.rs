@@ -352,7 +352,7 @@ pub trait AsBindGroup {
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
-            Self::unprepared_bind_group(self, layout, render_device, param)?;
+            Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
             .iter()
@@ -372,29 +372,43 @@ pub trait AsBindGroup {
     }
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
+    ///
     /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
     /// an implementor may define `as_bind_group` directly. This may prevent certain features
     /// from working correctly.
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
-    /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
+    /// Creates the bind group layout matching all bind groups returned by
+    /// [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
     where
         Self: Sized,
     {
         render_device.create_bind_group_layout(
             Self::label(),
-            &Self::bind_group_layout_entries(render_device),
+            &Self::bind_group_layout_entries(render_device, false),
         )
     }
 
     /// Returns a vec of bind group layout entries
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
+    fn bind_group_layout_entries(
+        render_device: &RenderDevice,
+        force_no_bindless: bool,
+    ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }

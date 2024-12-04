@@ -1042,6 +1042,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             &pipeline.material_layout,
             render_device,
             material_param,
+            false,
         ) {
             Ok(unprepared) => {
                 let method = match material.opaque_render_method() {

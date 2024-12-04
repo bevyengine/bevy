@@ -144,6 +144,7 @@ impl AsBindGroup for BindlessMaterial {
         _layout: &BindGroupLayout,
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
+        _force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because
         panic!("bindless texture arrays can't be owned")
