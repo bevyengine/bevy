@@ -135,7 +135,7 @@ impl SystemSchedule {
 #[allow(non_camel_case_types)]
 pub struct apply_deferred;
 
-/// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
+/// Returns `true` if the [`System`] is an instance of [`apply_deferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
     // deref to use `System::type_id` instead of `Any::type_id`
     system.as_ref().type_id() == TypeId::of::<apply_deferred>()
