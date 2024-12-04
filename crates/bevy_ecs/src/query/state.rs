@@ -6,6 +6,7 @@ use crate::{
     prelude::FromWorld,
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
+        WorldQuery,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -160,6 +161,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
+    /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result of `world.id()`.
+    ///
+    /// This function may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    pub fn try_new(world: &World) -> Option<Self> {
+        let mut state = Self::try_new_uninitialized(world)?;
+        state.update_archetypes(world);
+        Some(state)
+    }
+
     /// Identical to `new`, but it populates the provided `access` with the matched results.
     pub(crate) fn new_with_access(
         world: &mut World,
@@ -186,7 +197,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
+        Self::from_states_uninitialized(world.id(), fetch_state, filter_state)
+    }
 
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn try_new_uninitialized(world: &World) -> Option<Self> {
+        let fetch_state = D::get_state(world.components())?;
+        let filter_state = F::get_state(world.components())?;
+        Some(Self::from_states_uninitialized(
+            world.id(),
+            fetch_state,
+            filter_state,
+        ))
+    }
+
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn from_states_uninitialized(
+        world_id: WorldId,
+        fetch_state: <D as WorldQuery>::State,
+        filter_state: <F as WorldQuery>::State,
+    ) -> Self {
         let mut component_access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut component_access);
 
@@ -205,7 +241,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let is_dense = D::IS_DENSE && F::IS_DENSE;
 
         Self {
-            world_id: world.id(),
+            world_id,
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
             is_dense,

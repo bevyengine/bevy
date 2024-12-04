@@ -576,7 +576,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 }
 
 pub struct PreparedUiMaterial<T: UiMaterial> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub key: T::Data,
 }
@@ -588,6 +588,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
@@ -655,7 +656,6 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: 1.,
         });
     }
 }

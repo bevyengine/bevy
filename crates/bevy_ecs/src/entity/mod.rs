@@ -35,6 +35,8 @@
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+
+mod clone_entities;
 mod entity_set;
 mod map_entities;
 mod visit_entities;
@@ -42,6 +44,8 @@ mod visit_entities;
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+pub use clone_entities::*;
 pub use entity_set::*;
 pub use map_entities::*;
 pub use visit_entities::*;
@@ -918,25 +922,6 @@ impl Entities {
         }
     }
 
-    /// # Safety
-    ///
-    /// This function is safe if and only if the world this Entities is on has no entities.
-    pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
-        let free_cursor = self.free_cursor.get_mut();
-        *free_cursor = 0;
-        self.meta.reserve(count);
-        // SAFETY: The EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        unsafe {
-            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
-        }
-        // SAFETY: We have reserved `count` elements above and we have initialized values from index 0 to `count`.
-        unsafe {
-            self.meta.set_len(count);
-        }
-
-        self.len = count as u32;
-    }
-
     /// The count of all entities in the [`World`] that have ever been allocated
     /// including the entities that are currently freed.
     ///
@@ -962,13 +947,7 @@ impl Entities {
     }
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
-// Safety:
-// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
-/// Metadata for an [`Entity`].
 #[derive(Copy, Clone, Debug)]
-#[repr(C)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
     pub generation: NonZero<u32>,
@@ -984,13 +963,8 @@ impl EntityMeta {
     };
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
-// SAFETY:
-// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
-/// A location of an entity in an archetype.
+/// Records where an entity's data is stored.
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(C)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
     ///

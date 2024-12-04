@@ -103,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -116,7 +115,6 @@ default = [
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -141,13 +139,22 @@ default = [
 ]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_picking"]
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -3647,6 +3654,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3658,6 +3666,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
@@ -3813,6 +3822,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]

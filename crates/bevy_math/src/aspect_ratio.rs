@@ -45,31 +45,31 @@ impl AspectRatio {
 
     /// Returns the aspect ratio as a f32 value.
     #[inline]
-    pub fn ratio(&self) -> f32 {
+    pub const fn ratio(&self) -> f32 {
         self.0
     }
 
     /// Returns the inverse of this aspect ratio (height/width).
     #[inline]
-    pub fn inverse(&self) -> Self {
+    pub const fn inverse(&self) -> Self {
         Self(1.0 / self.0)
     }
 
     /// Returns true if the aspect ratio represents a landscape orientation.
     #[inline]
-    pub fn is_landscape(&self) -> bool {
+    pub const fn is_landscape(&self) -> bool {
         self.0 > 1.0
     }
 
     /// Returns true if the aspect ratio represents a portrait orientation.
     #[inline]
-    pub fn is_portrait(&self) -> bool {
+    pub const fn is_portrait(&self) -> bool {
         self.0 < 1.0
     }
 
     /// Returns true if the aspect ratio is exactly square.
     #[inline]
-    pub fn is_square(&self) -> bool {
+    pub const fn is_square(&self) -> bool {
         self.0 == 1.0
     }
 }

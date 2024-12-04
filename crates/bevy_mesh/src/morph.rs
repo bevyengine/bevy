@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use core::iter;
 use derive_more::derive::{Display, Error};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
