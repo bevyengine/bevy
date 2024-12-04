@@ -39,7 +39,7 @@
 
 use core::fmt::Debug;
 
-use bevy_ecs::{prelude::*, query::QueryData, traversal::Traversal};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
