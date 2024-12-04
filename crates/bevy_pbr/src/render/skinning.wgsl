@@ -17,7 +17,11 @@
 //
 // If this is the first frame, or we're otherwise prevented from using data from
 // the previous frame, this is simply the same as `joint_matrices` above.
+#ifdef SKINS_USE_UNIFORM_BUFFERS
+@group(1) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
+#else   // SKINS_USE_UNIFORM_BUFFERS
 @group(1) @binding(6) var<storage> prev_joint_matrices: array<SkinnedMesh>;
+#endif  // SKINS_USE_UNIFORM_BUFFERS
 
 fn skin_model(
     indexes: vec4<u32>,
