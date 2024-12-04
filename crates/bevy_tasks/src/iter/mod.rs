@@ -1,5 +1,3 @@
-use alloc::vec::Vec;
-
 use crate::TaskPool;
 
 mod adapters;
@@ -195,7 +193,7 @@ where
     fn collect<C>(mut self, pool: &TaskPool) -> C
     where
         C: FromIterator<BatchIter::Item>,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -215,7 +213,7 @@ where
     where
         C: Default + Extend<BatchIter::Item> + Send,
         F: FnMut(&BatchIter::Item) -> bool + Send + Sync + Clone,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         let (mut a, mut b) = <(C, C)>::default();
         pool.scope(|s| {
@@ -332,7 +330,7 @@ where
     /// See [`Iterator::max()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max)
     fn max(mut self, pool: &TaskPool) -> Option<BatchIter::Item>
     where
-        BatchIter::Item: Ord + crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Ord + Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -349,7 +347,7 @@ where
     /// See [`Iterator::min()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min)
     fn min(mut self, pool: &TaskPool) -> Option<BatchIter::Item>
     where
-        BatchIter::Item: Ord + crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Ord + Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -368,7 +366,7 @@ where
     where
         R: Ord,
         F: FnMut(&BatchIter::Item) -> R + Send + Sync + Clone,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -388,7 +386,7 @@ where
     fn max_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
         F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -408,7 +406,7 @@ where
     where
         R: Ord,
         F: FnMut(&BatchIter::Item) -> R + Send + Sync + Clone,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -428,7 +426,7 @@ where
     fn min_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
         F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
-        BatchIter::Item: crate::MaybeSync + Send + 'static,
+        BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -481,7 +479,7 @@ where
     /// See [`Iterator::sum()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.sum)
     fn sum<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: core::iter::Sum<BatchIter::Item> + crate::MaybeSync + Send + 'static,
+        S: core::iter::Sum<BatchIter::Item> + Send + 'static,
         R: core::iter::Sum<S>,
     {
         pool.scope(|s| {
@@ -498,7 +496,7 @@ where
     /// See [`Iterator::product()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.product)
     fn product<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: core::iter::Product<BatchIter::Item> + crate::MaybeSync + Send + 'static,
+        S: core::iter::Product<BatchIter::Item> + Send + 'static,
         R: core::iter::Product<S>,
     {
         pool.scope(|s| {
