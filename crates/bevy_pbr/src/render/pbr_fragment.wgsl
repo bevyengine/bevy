@@ -78,7 +78,7 @@ fn pbr_input_from_standard_material(
 #else   // BINDLESS
     let flags = pbr_bindings::material.flags;
     let base_color = pbr_bindings::material.base_color;
-    let deferred_lighting_pass_id = pbr_bindings::material[slot].deferred_lighting_pass_id;
+    let deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
 #endif
 
     let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
