@@ -2,6 +2,9 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
+use alloc::borrow::Cow;
+use core::any::TypeId;
+
 pub use self::{
     multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
     simple::SimpleExecutor,
@@ -11,9 +14,13 @@ pub use self::{
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule::{BoxedCondition, NodeId},
-    system::BoxedSystem,
-    world::World,
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    prelude::{IntoSystemSet, SystemSet},
+    query::Access,
+    schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
+    system::{BoxedSystem, System, SystemIn},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
@@ -100,32 +107,123 @@ impl SystemSchedule {
     }
 }
 
-/// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
-/// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters
-/// (like [`Commands`](crate::prelude::Commands)) or other system buffers.
+/// A special [`System`] that instructs the executor to call
+/// [`System::apply_deferred`] on the systems that have run but not applied
+/// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
 ///
 /// ## Scheduling
 ///
 /// `apply_deferred` systems are scheduled *by default*
 /// - later in the same schedule run (for example, if a system with `Commands` param
 ///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
-/// - between systems with dependencies if the dependency
-///   [has deferred buffers](crate::system::System::has_deferred)
-///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses `Commands` param,
-///   changes to the world in `foo` will be visible in `bar`)
+/// - between systems with dependencies if the dependency [has deferred buffers]
+///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses
+///   `Commands` param, changes to the world in `foo` will be visible in `bar`)
 ///
 /// ## Notes
-/// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
-/// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
+/// - This system (currently) does nothing if it's called manually or wrapped
+///   inside a [`PipeSystem`].
+/// - Modifying a [`Schedule`] may change the order buffers are applied.
+///
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
+/// [`Deferred`]: crate::system::Deferred
+/// [`Commands`]: crate::prelude::Commands
+/// [has deferred buffers]: crate::system::System::has_deferred
+/// [`PipeSystem`]: crate::system::PipeSystem
+/// [`Schedule`]: super::Schedule
 #[doc(alias = "apply_system_buffers")]
-#[allow(unused_variables)]
-pub fn apply_deferred(world: &mut World) {}
+#[allow(unused_variables, non_camel_case_types)]
+pub struct apply_deferred;
 
 /// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use crate::system::IntoSystem;
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.system_type_id()
+    system.as_ref().type_id() == TypeId::of::<apply_deferred>()
+}
+
+impl System for apply_deferred {
+    type In = ();
+    type Out = ();
+
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("bevy_ecs::apply_deferred")
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        // This system accesses no components.
+        const { &Access::new() }
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        // This system accesses no archetype components.
+        const { &Access::new() }
+    }
+
+    fn is_send(&self) -> bool {
+        false
+    }
+
+    fn is_exclusive(&self) -> bool {
+        // This system is labeled exclusive because it is used by the system
+        // executor to find places where deferred commands should be applied.
+        true
+    }
+
+    fn has_deferred(&self) -> bool {
+        // This system itself doesn't have any commands to apply, but when it
+        // is pulled from the schedule to be ran, the executor will apply
+        // deferred commands from other systems.
+        false
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        _world: UnsafeWorldCell,
+    ) -> Self::Out {
+        // This system does nothing on its own. The executor will apply deferred
+        // commands from other systems instead of running this system.
+    }
+
+    fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
+        // This system does nothing on its own. The executor will apply deferred
+        // commands from other systems instead of running this system.
+    }
+
+    fn apply_deferred(&mut self, _world: &mut World) {}
+
+    fn queue_deferred(&mut self, _world: DeferredWorld) {}
+
+    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+        // This system is always valid to run because it doesn't do anything,
+        // and only used as a marker for the executor.
+        true
+    }
+
+    fn initialize(&mut self, _world: &mut World) {}
+
+    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
+
+    fn check_change_tick(&mut self, _change_tick: Tick) {}
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        vec![SystemTypeSet::<Self>::new().intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        // This system is never run, so it has no last run tick.
+        Tick::MAX
+    }
+
+    fn set_last_run(&mut self, _last_run: Tick) {}
+}
+
+impl IntoSystemSet<()> for apply_deferred {
+    type Set = SystemTypeSet<Self>;
+
+    fn into_system_set(self) -> Self::Set {
+        SystemTypeSet::<Self>::new()
+    }
 }
 
 /// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
