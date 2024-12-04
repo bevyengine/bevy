@@ -2552,6 +2552,20 @@ mod tests {
         assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
     }
 
+    #[test]
+    #[should_panic = "Recursive required components detected: bevy_ecs::tests::required_components_recursion_errors::A → bevy_ecs::tests::required_components_recursion_errors::B → bevy_ecs::tests::required_components_recursion_errors::A"]
+    fn required_components_recursion_errors() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct B;
+
+        World::new().register_component::<A>();
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]

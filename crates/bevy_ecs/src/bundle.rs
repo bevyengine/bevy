@@ -227,6 +227,7 @@ unsafe impl<C: Component> Bundle for C {
             storages,
             required_components,
             0,
+            &mut Vec::new(),
         );
     }
 
