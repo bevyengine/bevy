@@ -1075,7 +1075,7 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-const MUT_DEFERRED_WORLD_ERROR: &str = "DeferredWorld requires exclusive access
+const MUT_DEFERRED_WORLD_ERROR: &str = "DeferredWorld requires exclusive access \
     to the entire world, but a previous system parameter already registered \
     access to a part of it. Allowing this would break Rust's mutability rules";
 
@@ -1123,6 +1123,7 @@ unsafe impl SystemParam for &mut World {
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut access = Access::default();
         access.read_all();
+        access.write_all();
         if !system_meta
             .archetype_component_access
             .is_compatible(&access)
@@ -1134,6 +1135,7 @@ unsafe impl SystemParam for &mut World {
         let mut filtered_access = FilteredAccess::default();
 
         filtered_access.read_all();
+        filtered_access.write_all();
         if !system_meta
             .component_access_set
             .get_conflicts_single(&filtered_access)
