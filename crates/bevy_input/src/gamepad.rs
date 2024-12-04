@@ -7,6 +7,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::Vec2;

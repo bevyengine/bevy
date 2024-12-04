@@ -1,3 +1,4 @@
+use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
@@ -1505,6 +1506,7 @@ pub fn queue_shadows<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -1555,7 +1557,7 @@ pub fn queue_shadows<M: Material>(
                     .expect("Failed to get spot light visible entities"),
             };
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
+            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
@@ -1575,6 +1577,11 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
+                let Some(material_bind_group) =
+                    material_bind_group_allocator.get(material.binding.group)
+                else {
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -1606,7 +1613,9 @@ pub fn queue_shadows<M: Material>(
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
-                        bind_group_data: material.key.clone(),
+                        bind_group_data: material_bind_group
+                            .get_extra_data(material.binding.slot)
+                            .clone(),
                     },
                     &mesh.layout,
                 );
@@ -1618,10 +1627,6 @@ pub fn queue_shadows<M: Material>(
                         continue;
                     }
                 };
-
-                mesh_instance
-                    .material_bind_group_id
-                    .set(material.get_bind_group_id());
 
                 shadow_phase.add(
                     ShadowBinKey {

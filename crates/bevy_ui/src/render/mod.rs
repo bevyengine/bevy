@@ -6,8 +6,8 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
-    DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
+    experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
+    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -537,7 +537,7 @@ pub fn extract_default_ui_camera_view(
                 RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
-                Option<&UiBoxShadowSamples>,
+                Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -553,7 +553,7 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
                 .ignore_if_missing()
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
