@@ -72,6 +72,6 @@ fn setup(
         ));
     }
 
-    /// Indicate the system completed sucsessfully:
+    /// Indicate the system completed successfully:
     Ok(())
 }
