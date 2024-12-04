@@ -3,6 +3,7 @@ use crate::storage::SparseSetIndex;
 use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -888,18 +889,22 @@ impl AccessConflicts {
     pub(crate) fn format_conflict_list(&self, world: &World) -> String {
         match self {
             AccessConflicts::All => String::new(),
-            AccessConflicts::Individual(indices) => format!(
-                " {}",
-                indices
-                    .ones()
-                    .map(|index| world
-                        .components
-                        .get_info(ComponentId::get_sparse_set_index(index))
-                        .unwrap()
-                        .name())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            ),
+            AccessConflicts::Individual(indices) => indices
+                .ones()
+                .map(|index| {
+                    format!(
+                        "{}",
+                        ShortName(
+                            world
+                                .components
+                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .unwrap()
+                                .name()
+                        )
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
         }
     }
 

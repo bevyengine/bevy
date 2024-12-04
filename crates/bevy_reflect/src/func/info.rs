@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::{
     func::args::{ArgInfo, GetOwnership, Ownership},
