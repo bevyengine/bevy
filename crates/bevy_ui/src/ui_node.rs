@@ -1171,6 +1171,14 @@ impl OverflowClipMargin {
         }
     }
 
+    /// Clip any content that overflows outside the border box
+    pub const fn margin_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::MarginBox,
+            ..Self::DEFAULT
+        }
+    }
+
     /// Add a margin on each edge of the visual box in logical pixels.
     /// The width of the margin will be zero if a negative value is set.
     pub const fn with_margin(mut self, margin: f32) -> Self {
