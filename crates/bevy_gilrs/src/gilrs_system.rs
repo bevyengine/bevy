@@ -8,7 +8,7 @@ use bevy_ecs::prelude::Commands;
 use bevy_ecs::system::NonSendMut;
 use bevy_ecs::system::ResMut;
 use bevy_input::gamepad::{
-    GamepadConnection, GamepadConnectionEvent, GamepadInfo, RawGamepadAxisChangedEvent,
+    GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
@@ -26,13 +26,13 @@ pub fn gilrs_event_startup_system(
         gamepads.id_to_entity.insert(id, entity);
         gamepads.entity_to_id.insert(entity, id);
 
-        let info = GamepadInfo {
-            name: gamepad.name().into(),
-        };
-
         events.send(GamepadConnectionEvent {
             gamepad: entity,
-            connection: GamepadConnection::Connected(info),
+            connection: GamepadConnection::Connected {
+                name: gamepad.name().to_string(),
+                vendor_id: gamepad.vendor_id(),
+                product_id: gamepad.product_id(),
+            },
         });
     }
 }
@@ -60,18 +60,17 @@ pub fn gilrs_event_system(
                     entity
                 });
 
-                let info = GamepadInfo {
-                    name: pad.name().into(),
-                };
-
-                events.send(
-                    GamepadConnectionEvent::new(entity, GamepadConnection::Connected(info.clone()))
-                        .into(),
-                );
-                connection_events.send(GamepadConnectionEvent::new(
+                let event = GamepadConnectionEvent::new(
                     entity,
-                    GamepadConnection::Connected(info),
-                ));
+                    GamepadConnection::Connected {
+                        name: pad.name().to_string(),
+                        vendor_id: pad.vendor_id(),
+                        product_id: pad.product_id(),
+                    },
+                );
+
+                events.send(event.clone().into());
+                connection_events.send(event);
             }
             EventType::Disconnected => {
                 let gamepad = gamepads

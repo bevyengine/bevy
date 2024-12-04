@@ -5,9 +5,9 @@ use core::any::Any;
 
 use crate::{
     self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
-    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, Typed,
+    Generics, GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
+    TypePath, TypeRegistration, Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
@@ -71,8 +71,8 @@ where
         ListIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.into_iter()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.drain(..)
             .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             .collect()
     }
@@ -183,7 +183,12 @@ where
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T::Item>()))
+        CELL.get_or_insert::<Self, _>(|| {
+            TypeInfo::List(
+                ListInfo::new::<Self, T::Item>()
+                    .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")])),
+            )
+        })
     }
 }
 

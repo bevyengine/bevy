@@ -1,22 +1,23 @@
-//! A very simple compute shader that updates a gpu buffer.
-//! That buffer is then copied to the cpu and sent to the main world.
-//!
-//! This example is not meant to teach compute shaders.
-//! It is only meant to explain how to read a gpu buffer on the cpu and then use it in the main world.
-//!
-//! The code is based on this wgpu example:
-//! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
+//! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
+//! using both a storage buffer and texture.
 
 use bevy::{
     prelude::*,
     render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        gpu_readback::{Readback, ReadbackComplete},
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::storage_buffer, *},
-        renderer::{RenderContext, RenderDevice, RenderQueue},
+        render_resource::{
+            binding_types::{storage_buffer, texture_storage_2d},
+            *,
+        },
+        renderer::{RenderContext, RenderDevice},
+        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+        texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
 };
-use crossbeam_channel::{Receiver, Sender};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
@@ -24,36 +25,17 @@ const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
 
-// To communicate between the main world and the render world we need a channel.
-// Since the main world and render world run in parallel, there will always be a frame of latency
-// between the data sent from the render world and the data received in the main world
-//
-// frame n => render world sends data through the channel at the end of the frame
-// frame n + 1 => main world receives the data
-
-/// This will receive asynchronously any data sent from the render world
-#[derive(Resource, Deref)]
-struct MainWorldReceiver(Receiver<Vec<u32>>);
-
-/// This will send asynchronously any data to the main world
-#[derive(Resource, Deref)]
-struct RenderWorldSender(Sender<Vec<u32>>);
-
 fn main() {
     App::new()
+        .add_plugins((
+            DefaultPlugins,
+            GpuReadbackPlugin,
+            ExtractResourcePlugin::<ReadbackBuffer>::default(),
+            ExtractResourcePlugin::<ReadbackImage>::default(),
+        ))
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins((DefaultPlugins, GpuReadbackPlugin))
-        .add_systems(Update, receive)
+        .add_systems(Startup, setup)
         .run();
-}
-
-/// This system will poll the channel and try to get the data sent from the render world
-fn receive(receiver: Res<MainWorldReceiver>) {
-    // We don't want to block the main world on this,
-    // so we use try_recv which attempts to receive without blocking
-    if let Ok(data) = receiver.try_recv() {
-        println!("Received data from render world: {data:?}");
-    }
 }
 
 // We need a plugin to organize all the systems and render node required for this example
@@ -61,29 +43,15 @@ struct GpuReadbackPlugin;
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, _app: &mut App) {}
 
-    // The render device is only accessible inside finish().
-    // So we need to initialize render resources here.
     fn finish(&self, app: &mut App) {
-        let (s, r) = crossbeam_channel::unbounded();
-        app.insert_resource(MainWorldReceiver(r));
-
         let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .insert_resource(RenderWorldSender(s))
-            .init_resource::<ComputePipeline>()
-            .init_resource::<Buffers>()
-            .add_systems(
-                Render,
-                (
-                    prepare_bind_group
-                        .in_set(RenderSet::PrepareBindGroups)
-                        // We don't need to recreate the bind group every frame
-                        .run_if(not(resource_exists::<GpuBufferBindGroup>)),
-                    // We need to run it after the render graph is done
-                    // because this needs to happen after submit()
-                    map_and_read_buffer.after(RenderSet::Render),
-                ),
-            );
+        render_app.init_resource::<ComputePipeline>().add_systems(
+            Render,
+            prepare_bind_group
+                .in_set(RenderSet::PrepareBindGroups)
+                // We don't need to recreate the bind group every frame
+                .run_if(not(resource_exists::<GpuBufferBindGroup>)),
+        );
 
         // Add the compute node as a top level node to the render graph
         // This means it will only execute once per frame
@@ -94,51 +62,68 @@ impl Plugin for GpuReadbackPlugin {
     }
 }
 
-/// Holds the buffers that will be used to communicate between the cpu and gpu
-#[derive(Resource)]
-struct Buffers {
-    /// The buffer that will be used by the compute shader
-    ///
-    /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper around a `Buffer`
-    /// that will make sure the data is correctly aligned for the gpu and will simplify uploading the data to the gpu.
-    gpu_buffer: BufferVec<u32>,
-    /// The buffer that will be read on the cpu.
-    /// The `gpu_buffer` will be copied to this buffer every frame
-    cpu_buffer: Buffer,
-}
+#[derive(Resource, ExtractResource, Clone)]
+struct ReadbackBuffer(Handle<ShaderStorageBuffer>);
 
-impl FromWorld for Buffers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+#[derive(Resource, ExtractResource, Clone)]
+struct ReadbackImage(Handle<Image>);
 
-        // Create the buffer that will be accessed by the gpu
-        let mut gpu_buffer = BufferVec::new(BufferUsages::STORAGE | BufferUsages::COPY_SRC);
-        for _ in 0..BUFFER_LEN {
-            // Init the buffer with zeroes
-            gpu_buffer.push(0);
-        }
-        // Write the buffer so the data is accessible on the gpu
-        gpu_buffer.write_buffer(render_device, render_queue);
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+) {
+    // Create a storage buffer with some data
+    let buffer = vec![0u32; BUFFER_LEN];
+    let mut buffer = ShaderStorageBuffer::from(buffer);
+    // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
+    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
+    let buffer = buffers.add(buffer);
 
-        // For portability reasons, WebGPU draws a distinction between memory that is
-        // accessible by the CPU and memory that is accessible by the GPU. Only
-        // buffers accessible by the CPU can be mapped and accessed by the CPU and
-        // only buffers visible to the GPU can be used in shaders. In order to get
-        // data from the GPU, we need to use `CommandEncoder::copy_buffer_to_buffer` to
-        // copy the buffer modified by the GPU into a mappable, CPU-accessible buffer
-        let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
-            label: Some("readback_buffer"),
-            size: (BUFFER_LEN * size_of::<u32>()) as u64,
-            usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+    // Create a storage texture with some data
+    let size = Extent3d {
+        width: BUFFER_LEN as u32,
+        height: 1,
+        ..default()
+    };
+    let mut image = Image::new_fill(
+        size,
+        TextureDimension::D2,
+        &[0, 0, 0, 0],
+        TextureFormat::R32Uint,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
+    // compute shader
+    image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
+    let image = images.add(image);
 
-        Self {
-            gpu_buffer,
-            cpu_buffer,
-        }
-    }
+    // Spawn the readback components. For each frame, the data will be read back from the GPU
+    // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity
+    // to stop reading back the data.
+    commands.spawn(Readback::buffer(buffer.clone())).observe(
+        |trigger: Trigger<ReadbackComplete>| {
+            // This matches the type which was used to create the `ShaderStorageBuffer` above,
+            // and is a convenient way to interpret the data.
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Buffer {:?}", data);
+        },
+    );
+    // This is just a simple way to pass the buffer handle to the render app for our compute node
+    commands.insert_resource(ReadbackBuffer(buffer));
+
+    // Textures can also be read back from the GPU. Pay careful attention to the format of the
+    // texture, as it will affect how the data is interpreted.
+    commands.spawn(Readback::texture(image.clone())).observe(
+        |trigger: Trigger<ReadbackComplete>| {
+            // You probably want to interpret the data as a color rather than a `ShaderType`,
+            // but in this case we know the data is a single channel storage texture, so we can
+            // interpret it as a `Vec<u32>`
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Image {:?}", data);
+        },
+    );
+    commands.insert_resource(ReadbackImage(image));
 }
 
 #[derive(Resource)]
@@ -148,18 +133,20 @@ fn prepare_bind_group(
     mut commands: Commands,
     pipeline: Res<ComputePipeline>,
     render_device: Res<RenderDevice>,
-    buffers: Res<Buffers>,
+    buffer: Res<ReadbackBuffer>,
+    image: Res<ReadbackImage>,
+    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    images: Res<RenderAssets<GpuImage>>,
 ) {
+    let buffer = buffers.get(&buffer.0).unwrap();
+    let image = images.get(&image.0).unwrap();
     let bind_group = render_device.create_bind_group(
         None,
         &pipeline.layout,
-        &BindGroupEntries::single(
-            buffers
-                .gpu_buffer
-                .binding()
-                // We already did it when creating the buffer so this should never happen
-                .expect("Buffer should have already been uploaded to the gpu"),
-        ),
+        &BindGroupEntries::sequential((
+            buffer.buffer.as_entire_buffer_binding(),
+            image.texture_view.into_binding(),
+        )),
     );
     commands.insert_resource(GpuBufferBindGroup(bind_group));
 }
@@ -175,9 +162,12 @@ impl FromWorld for ComputePipeline {
         let render_device = world.resource::<RenderDevice>();
         let layout = render_device.create_bind_group_layout(
             None,
-            &BindGroupLayoutEntries::single(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
-                storage_buffer::<Vec<u32>>(false),
+                (
+                    storage_buffer::<Vec<u32>>(false),
+                    texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
+                ),
             ),
         );
         let shader = world.load_asset(SHADER_ASSET_PATH);
@@ -189,79 +179,10 @@ impl FromWorld for ComputePipeline {
             shader: shader.clone(),
             shader_defs: Vec::new(),
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         });
         ComputePipeline { layout, pipeline }
     }
-}
-
-fn map_and_read_buffer(
-    render_device: Res<RenderDevice>,
-    buffers: Res<Buffers>,
-    sender: Res<RenderWorldSender>,
-) {
-    // Finally time to get our data back from the gpu.
-    // First we get a buffer slice which represents a chunk of the buffer (which we
-    // can't access yet).
-    // We want the whole thing so use unbounded range.
-    let buffer_slice = buffers.cpu_buffer.slice(..);
-
-    // Now things get complicated. WebGPU, for safety reasons, only allows either the GPU
-    // or CPU to access a buffer's contents at a time. We need to "map" the buffer which means
-    // flipping ownership of the buffer over to the CPU and making access legal. We do this
-    // with `BufferSlice::map_async`.
-    //
-    // The problem is that map_async is not an async function so we can't await it. What
-    // we need to do instead is pass in a closure that will be executed when the slice is
-    // either mapped or the mapping has failed.
-    //
-    // The problem with this is that we don't have a reliable way to wait in the main
-    // code for the buffer to be mapped and even worse, calling get_mapped_range or
-    // get_mapped_range_mut prematurely will cause a panic, not return an error.
-    //
-    // Using channels solves this as awaiting the receiving of a message from
-    // the passed closure will force the outside code to wait. It also doesn't hurt
-    // if the closure finishes before the outside code catches up as the message is
-    // buffered and receiving will just pick that up.
-    //
-    // It may also be worth noting that although on native, the usage of asynchronous
-    // channels is wholly unnecessary, for the sake of portability to Wasm
-    // we'll use async channels that work on both native and Wasm.
-
-    let (s, r) = crossbeam_channel::unbounded::<()>();
-
-    // Maps the buffer so it can be read on the cpu
-    buffer_slice.map_async(MapMode::Read, move |r| match r {
-        // This will execute once the gpu is ready, so after the call to poll()
-        Ok(_) => s.send(()).expect("Failed to send map update"),
-        Err(err) => panic!("Failed to map buffer {err}"),
-    });
-
-    // In order for the mapping to be completed, one of three things must happen.
-    // One of those can be calling `Device::poll`. This isn't necessary on the web as devices
-    // are polled automatically but natively, we need to make sure this happens manually.
-    // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
-
-    // This blocks until the gpu is done executing everything
-    render_device.poll(Maintain::wait()).panic_on_timeout();
-
-    // This blocks until the buffer is mapped
-    r.recv().expect("Failed to receive the map_async message");
-
-    {
-        let buffer_view = buffer_slice.get_mapped_range();
-        let data = buffer_view
-            .chunks(size_of::<u32>())
-            .map(|chunk| u32::from_ne_bytes(chunk.try_into().expect("should be a u32")))
-            .collect::<Vec<u32>>();
-        sender
-            .send(data)
-            .expect("Failed to send data to main world");
-    }
-
-    // We need to make sure all `BufferView`'s are dropped before we do what we're about
-    // to do.
-    // Unmap so that we can copy to the staging buffer in the next iteration.
-    buffers.cpu_buffer.unmap();
 }
 
 /// Label to identify the node in the render graph
@@ -295,20 +216,6 @@ impl render_graph::Node for ComputeNode {
             pass.set_pipeline(init_pipeline);
             pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
         }
-
-        // Copy the gpu accessible buffer to the cpu accessible buffer
-        let buffers = world.resource::<Buffers>();
-        render_context.command_encoder().copy_buffer_to_buffer(
-            buffers
-                .gpu_buffer
-                .buffer()
-                .expect("Buffer should have already been uploaded to the gpu"),
-            0,
-            &buffers.cpu_buffer,
-            0,
-            (BUFFER_LEN * size_of::<u32>()) as u64,
-        );
-
         Ok(())
     }
 }

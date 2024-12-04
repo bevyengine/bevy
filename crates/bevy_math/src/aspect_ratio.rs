@@ -1,13 +1,13 @@
 //! Provides a simple aspect ratio struct to help with calculations.
 
 use crate::Vec2;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, Into};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// An `AspectRatio` is the ratio of width to height.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct AspectRatio(f32);
 
@@ -45,31 +45,31 @@ impl AspectRatio {
 
     /// Returns the aspect ratio as a f32 value.
     #[inline]
-    pub fn ratio(&self) -> f32 {
+    pub const fn ratio(&self) -> f32 {
         self.0
     }
 
     /// Returns the inverse of this aspect ratio (height/width).
     #[inline]
-    pub fn inverse(&self) -> Self {
+    pub const fn inverse(&self) -> Self {
         Self(1.0 / self.0)
     }
 
     /// Returns true if the aspect ratio represents a landscape orientation.
     #[inline]
-    pub fn is_landscape(&self) -> bool {
+    pub const fn is_landscape(&self) -> bool {
         self.0 > 1.0
     }
 
     /// Returns true if the aspect ratio represents a portrait orientation.
     #[inline]
-    pub fn is_portrait(&self) -> bool {
+    pub const fn is_portrait(&self) -> bool {
         self.0 < 1.0
     }
 
     /// Returns true if the aspect ratio is exactly square.
     #[inline]
-    pub fn is_square(&self) -> bool {
+    pub const fn is_square(&self) -> bool {
         self.0 == 1.0
     }
 }
@@ -83,23 +83,16 @@ impl TryFrom<Vec2> for AspectRatio {
     }
 }
 
-impl From<AspectRatio> for f32 {
-    #[inline]
-    fn from(aspect_ratio: AspectRatio) -> Self {
-        aspect_ratio.0
-    }
-}
-
 /// An Error type for when [`super::AspectRatio`] is provided invalid width or height values
-#[derive(Error, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Error, Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AspectRatioError {
     /// Error due to width or height having zero as a value.
-    #[error("AspectRatio error: width or height is zero")]
+    #[display("AspectRatio error: width or height is zero")]
     Zero,
     /// Error due towidth or height being infinite.
-    #[error("AspectRatio error: width or height is infinite")]
+    #[display("AspectRatio error: width or height is infinite")]
     Infinite,
     /// Error due to width or height being Not a Number (NaN).
-    #[error("AspectRatio error: width or height is NaN")]
+    #[display("AspectRatio error: width or height is NaN")]
     NaN,
 }

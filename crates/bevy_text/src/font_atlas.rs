@@ -1,9 +1,9 @@
 use bevy_asset::{Assets, Handle};
+use bevy_image::{Image, ImageSampler};
 use bevy_math::{IVec2, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, ImageSampler},
 };
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;

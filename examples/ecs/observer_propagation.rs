@@ -14,7 +14,7 @@ fn main() {
             attack_armor.run_if(on_timer(Duration::from_millis(200))),
         )
         // Add a global observer that will emit a line whenever an attack hits an entity.
-        .observe(attack_hits)
+        .add_observer(attack_hits)
         .run();
 }
 

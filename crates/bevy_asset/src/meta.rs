@@ -173,11 +173,11 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    async fn process<'a>(
-        &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
+    async fn process(
+        &self,
+        _context: &mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
-        _writer: &'a mut bevy_asset::io::Writer,
+        _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
@@ -196,11 +196,11 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    async fn load<'a>(
-        &'a self,
-        _reader: &'a mut dyn crate::io::Reader,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext<'_>,
+    async fn load(
+        &self,
+        _reader: &mut dyn crate::io::Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }

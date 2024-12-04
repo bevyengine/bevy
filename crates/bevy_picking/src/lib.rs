@@ -30,8 +30,8 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
+//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
@@ -73,8 +73,8 @@
 //!
 //! #### Input Agnostic
 //!
-//! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether its the included mouse
+//! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
+//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
 //! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
 //!
 //! ## Robustness
@@ -135,8 +135,8 @@
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
 //! multiple backends may be reporting that a pointer is hitting an entity, the focus system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
-//! order of the backend, and the [`Pickable`] state of the entity. In other words, if one entity is
-//! in front of another, usually only the topmost one will be hovered.
+//! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
+//! if one entity is in front of another, usually only the topmost one will be hovered.
 //!
 //! #### Events ([`events`])
 //!
@@ -144,7 +144,7 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the the earlier stages of the pipeline, you can easily
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
 //! extend the plugin with arbitrary backends and input methods, yet still use all the high level
 //! features.
 
@@ -156,9 +156,11 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
+#[cfg(feature = "bevy_mesh_picking_backend")]
+pub mod mesh_picking;
 pub mod pointer;
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -166,10 +168,16 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[doc(hidden)]
+    pub use crate::mesh_picking::{
+        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
+    };
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        InteractionPlugin, PickingBehavior, PickingPlugin,
     };
 }
 
@@ -178,7 +186,7 @@ pub mod prelude {
 /// the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
-pub struct Pickable {
+pub struct PickingBehavior {
     /// Should this entity block entities below it from being picked?
     ///
     /// This is useful if you want picking to continue hitting entities below this one. Normally,
@@ -198,7 +206,7 @@ pub struct Pickable {
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
-    /// Entities without the [`Pickable`] component will block by default.
+    /// Entities without the [`PickingBehavior`] component will block by default.
     pub should_block_lower: bool,
 
     /// If this is set to `false` and `should_block_lower` is set to true, this entity will block
@@ -213,11 +221,11 @@ pub struct Pickable {
     /// components mark it as hovered. This can be combined with the other field
     /// [`Self::should_block_lower`], which is orthogonal to this one.
     ///
-    /// Entities without the [`Pickable`] component are hoverable by default.
+    /// Entities without the [`PickingBehavior`] component are hoverable by default.
     pub is_hoverable: bool,
 }
 
-impl Pickable {
+impl PickingBehavior {
     /// This entity will not block entities beneath it, nor will it emit events.
     ///
     /// If a backend reports this entity as being hit, the picking plugin will completely ignore it.
@@ -227,48 +235,12 @@ impl Pickable {
     };
 }
 
-impl Default for Pickable {
+impl Default for PickingBehavior {
     fn default() -> Self {
         Self {
             should_block_lower: true,
             is_hoverable: true,
         }
-    }
-}
-
-/// Components needed to build a pointer. Multiple pointers can be active at once, with each pointer
-/// being an entity.
-///
-/// `Mouse` and `Touch` pointers are automatically spawned as needed. Use this bundle if you are
-/// spawning a custom `PointerId::Custom` pointer, either for testing, as a software controlled
-/// pointer, or if you are replacing the default touch and mouse inputs.
-#[derive(Bundle)]
-pub struct PointerBundle {
-    /// The pointer's unique [`PointerId`](pointer::PointerId).
-    pub id: pointer::PointerId,
-    /// Tracks the pointer's location.
-    pub location: pointer::PointerLocation,
-    /// Tracks the pointer's button press state.
-    pub click: pointer::PointerPress,
-    /// The interaction state of any hovered entities.
-    pub interaction: pointer::PointerInteraction,
-}
-
-impl PointerBundle {
-    /// Create a new pointer with the provided [`PointerId`](pointer::PointerId).
-    pub fn new(id: pointer::PointerId) -> Self {
-        PointerBundle {
-            id,
-            location: pointer::PointerLocation::default(),
-            click: pointer::PointerPress::default(),
-            interaction: pointer::PointerInteraction::default(),
-        }
-    }
-
-    /// Sets the location of the pointer bundle
-    pub fn with_location(mut self, location: pointer::Location) -> Self {
-        self.location.location = Some(location);
-        self
     }
 }
 
@@ -303,13 +275,12 @@ pub enum PickSet {
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
-impl Plugin for DefaultPickingPlugins {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            input::PointerInputPlugin::default(),
-            PickingPlugin::default(),
-            InteractionPlugin,
-        ));
+impl PluginGroup for DefaultPickingPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(input::PointerInputPlugin::default())
+            .add(PickingPlugin::default())
+            .add(InteractionPlugin)
     }
 }
 
@@ -390,7 +361,7 @@ impl Plugin for PickingPlugin {
                     .chain(),
             )
             .register_type::<Self>()
-            .register_type::<Pickable>()
+            .register_type::<PickingBehavior>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
@@ -410,6 +381,21 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
+            .add_event::<Pointer<Cancel>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<DragDrop>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Up>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

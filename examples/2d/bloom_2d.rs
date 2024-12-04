@@ -6,7 +6,6 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
@@ -24,73 +23,65 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Camera2d,
+        Camera {
+            hdr: true, // 1. HDR is required for bloom
             ..default()
         },
-        Bloom::default(), // 3. Enable bloom for the camera
+        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Bloom::default(),           // 3. Enable bloom for the camera
     ));
 
     // Sprite
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/bevy_bird_dark.png"),
-        sprite: Sprite {
-            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
-            custom_size: Some(Vec2::splat(160.0)),
-            ..default()
-        },
+    commands.spawn(Sprite {
+        image: asset_server.load("branding/bevy_bird_dark.png"),
+        color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+        custom_size: Some(Vec2::splat(160.0)),
         ..default()
     });
 
     // Circle mesh
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Circle::new(100.)).into(),
+    commands.spawn((
+        Mesh2d(meshes.add(Circle::new(100.))),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
-        transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
-        ..default()
-    });
+        MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
+        Transform::from_translation(Vec3::new(-200., 0., 0.)),
+    ));
 
     // Hexagon mesh
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(RegularPolygon::new(100., 6)).into(),
+    commands.spawn((
+        Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
-        transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
-        ..default()
-    });
+        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
+        Transform::from_translation(Vec3::new(200., 0., 0.)),
+    ));
 
     // UI
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.single_mut();
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let bloom = camera.into_inner();
 
     match bloom {
         (entity, Some(mut bloom)) => {
-            *text = "Bloom (Toggle: Space)\n".to_string();
+            text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -121,7 +112,7 @@ fn update_bloom_settings(
                 commands.entity(entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;
@@ -181,7 +172,7 @@ fn update_bloom_settings(
         }
 
         (entity, None) => {
-            *text = "Bloom: Off (Toggle: Space)".to_string();
+            text.0 = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(Bloom::default());

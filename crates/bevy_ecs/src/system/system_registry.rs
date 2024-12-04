@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::ReflectComponent;
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -7,8 +9,10 @@ use crate::{
     world::{Command, World},
 };
 use bevy_ecs_macros::{Component, Resource};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use core::marker::PhantomData;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
@@ -19,12 +23,14 @@ struct RegisteredSystem<I, O> {
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
-/// This struct is returned by [`World::remove_system`].
+/// This struct is returned by [`World::unregister_system`].
 pub struct RemovedSystem<I = (), O = ()> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -166,7 +172,7 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I, O>(
+    pub fn unregister_system<I, O>(
         &mut self,
         id: SystemId<I, O>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -175,7 +181,7 @@ impl World {
         O: 'static,
     {
         match self.get_entity_mut(id.entity) {
-            Some(mut entity) => {
+            Ok(mut entity) => {
                 let registered_system = entity
                     .take::<RegisteredSystem<I, O>>()
                     .ok_or(RegisteredSystemError::SelfRemove(id))?;
@@ -185,7 +191,7 @@ impl World {
                     system: registered_system.system,
                 })
             }
-            None => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
+            Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
         }
     }
 
@@ -321,7 +327,7 @@ impl World {
         // lookup
         let mut entity = self
             .get_entity_mut(id.entity)
-            .ok_or(RegisteredSystemError::SystemIdNotRegistered(id))?;
+            .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // take ownership of system trait object
         let RegisteredSystem {
@@ -344,7 +350,7 @@ impl World {
         };
 
         // return ownership of system trait object (if entity still exists)
-        if let Some(mut entity) = self.get_entity_mut(id.entity) {
+        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
@@ -392,7 +398,7 @@ impl World {
         }
 
         self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
-            if let Some(mut entity) = world.get_entity_mut(id.0.entity()) {
+            if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
@@ -406,7 +412,7 @@ impl World {
     /// Removes a cached system and its [`CachedSystemId`] resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn remove_system_cached<I, O, M, S>(
+    pub fn unregister_system_cached<I, O, M, S>(
         &mut self,
         _system: S,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -418,7 +424,7 @@ impl World {
         let id = self
             .remove_resource::<CachedSystemId<S::System>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.remove_system(id.0)
+        self.unregister_system(id.0)
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -532,9 +538,35 @@ where
     O: Send + 'static,
 {
     fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(system_bundle(self.system));
         }
+    }
+}
+
+/// The [`Command`] type for unregistering one-shot systems from [`Commands`](crate::system::Commands).
+pub struct UnregisterSystem<I: SystemInput + 'static, O: 'static> {
+    system_id: SystemId<I, O>,
+}
+
+impl<I, O> UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
+    pub fn new(system_id: SystemId<I, O>) -> Self {
+        Self { system_id }
+    }
+}
+
+impl<I, O> Command for UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    fn apply(self, world: &mut World) {
+        let _ = world.unregister_system(self.system_id);
     }
 }
 
@@ -581,28 +613,28 @@ where
 }
 
 /// An operation with stored systems failed.
-#[derive(Error)]
+#[derive(Error, Display)]
 pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
-    #[error("System {0:?} was not registered")]
+    #[display("System {_0:?} was not registered")]
     SystemIdNotRegistered(SystemId<I, O>),
     /// A cached system was removed by value, but no system with its type was found.
     ///
     /// Did you forget to register it?
-    #[error("Cached system was not found")]
+    #[display("Cached system was not found")]
     SystemNotCached,
     /// A system tried to run itself recursively.
-    #[error("System {0:?} tried to run itself recursively")]
+    #[display("System {_0:?} tried to run itself recursively")]
     Recursive(SystemId<I, O>),
     /// A system tried to remove itself.
-    #[error("System {0:?} tried to remove itself")]
+    #[display("System {_0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
     InvalidParams(SystemId<I, O>),
 }
 
@@ -828,7 +860,7 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_eq!(old, new);
 
-        let result = world.remove_system_cached(four);
+        let result = world.unregister_system_cached(four);
         assert!(result.is_ok());
         let new = world.register_system_cached(four);
         assert_ne!(old, new);

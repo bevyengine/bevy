@@ -1,8 +1,11 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
+};
 use bevy_ecs::{
-    component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    component::{Component, ComponentCloneHandler, StorageType},
+    entity::{Entity, VisitEntities, VisitEntitiesMut},
     traversal::Traversal,
     world::{FromWorld, World},
 };
@@ -21,13 +24,29 @@ use core::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, VisitEntities, VisitEntitiesMut)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
-    reflect(Component, MapEntities, PartialEq, Debug, FromWorld)
+    reflect(
+        Component,
+        MapEntities,
+        VisitEntities,
+        VisitEntitiesMut,
+        PartialEq,
+        Debug,
+        FromWorld
+    )
 )]
 pub struct Parent(pub(crate) Entity);
+
+impl Component for Parent {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::Ignore
+    }
+}
 
 impl Parent {
     /// Gets the [`Entity`] ID of the parent.
@@ -56,12 +75,6 @@ impl FromWorld for Parent {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::PLACEHOLDER)
-    }
-}
-
-impl MapEntities for Parent {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.0 = entity_mapper.map_entity(self.0);
     }
 }
 

@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{AudioSourceBundle, Decodable};
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
@@ -35,4 +37,8 @@ impl Decodable for Pitch {
 }
 
 /// Bundle for playing a bevy note sound
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `AudioPlayer<Pitch>` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
+)]
 pub type PitchBundle = AudioSourceBundle<Pitch>;

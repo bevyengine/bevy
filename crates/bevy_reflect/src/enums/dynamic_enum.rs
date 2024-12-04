@@ -7,9 +7,10 @@ use crate::{
 };
 
 use core::fmt::Formatter;
+use derive_more::derive::From;
 
 /// A dynamic representation of an enum variant.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, From)]
 pub enum DynamicVariant {
     #[default]
     Unit,
@@ -24,18 +25,6 @@ impl Clone for DynamicVariant {
             DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.clone_dynamic()),
             DynamicVariant::Struct(data) => DynamicVariant::Struct(data.clone_dynamic()),
         }
-    }
-}
-
-impl From<DynamicTuple> for DynamicVariant {
-    fn from(dyn_tuple: DynamicTuple) -> Self {
-        Self::Tuple(dyn_tuple)
-    }
-}
-
-impl From<DynamicStruct> for DynamicVariant {
-    fn from(dyn_struct: DynamicStruct) -> Self {
-        Self::Struct(dyn_struct)
     }
 }
 

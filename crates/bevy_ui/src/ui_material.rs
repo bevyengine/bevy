@@ -1,9 +1,19 @@
+use crate::Node;
+use bevy_asset::{Asset, AssetId, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    component::{require, Component},
+    reflect::ReflectComponent,
+};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::{
+    extract_component::ExtractComponent,
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
 use core::hash::Hash;
+use derive_more::derive::From;
 
-use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
-
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
@@ -23,8 +33,9 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
@@ -51,17 +62,16 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialNodeBundle {
-///         style: Style {
+///     commands.spawn((
+///         MaterialNode(materials.add(CustomMaterial {
+///             color: LinearRgba::RED,
+///             color_texture: asset_server.load("some_image.png"),
+///         })),
+///         Node {
 ///             width: Val::Percent(100.0),
 ///             ..Default::default()
 ///         },
-///         material: materials.add(CustomMaterial {
-///             color: LinearRgba::RED,
-///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
-///     });
+///     ));
 /// }
 /// ```
 /// In WGSL shaders, the material's binding would look like this:
@@ -143,5 +153,30 @@ where
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
         self.bind_group_data.hash(state);
+    }
+}
+
+#[derive(
+    Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
+)]
+#[reflect(Component, Default)]
+#[require(Node)]
+pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
+
+impl<M: UiMaterial> Default for MaterialNode<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: UiMaterial> From<MaterialNode<M>> for AssetId<M> {
+    fn from(material: MaterialNode<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: UiMaterial> From<&MaterialNode<M>> for AssetId<M> {
+    fn from(material: &MaterialNode<M>) -> Self {
+        material.id()
     }
 }

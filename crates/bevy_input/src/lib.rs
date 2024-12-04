@@ -51,11 +51,14 @@ use mouse::{
 };
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
+#[cfg(feature = "bevy_reflect")]
+use gamepad::Gamepad;
 use gamepad::{
-    gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
-    GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnection,
-    GamepadConnectionEvent, GamepadEvent, GamepadInfo, GamepadRumbleRequest, GamepadSettings,
-    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
+    gamepad_connection_system, gamepad_event_processing_system, GamepadAxis,
+    GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+    GamepadButtonStateChangedEvent, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
+    GamepadInput, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
+    RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -134,13 +137,16 @@ impl Plugin for InputPlugin {
                 .register_type::<RawGamepadEvent>()
                 .register_type::<RawGamepadAxisChangedEvent>()
                 .register_type::<RawGamepadButtonChangedEvent>()
+                .register_type::<Gamepad>()
                 .register_type::<GamepadConnectionEvent>()
                 .register_type::<GamepadButtonChangedEvent>()
                 .register_type::<GamepadAxisChangedEvent>()
                 .register_type::<GamepadButtonStateChangedEvent>()
-                .register_type::<GamepadInfo>()
                 .register_type::<GamepadConnection>()
                 .register_type::<GamepadSettings>()
+                .register_type::<GamepadAxis>()
+                .register_type::<GamepadButton>()
+                .register_type::<GamepadInput>()
                 .register_type::<AccumulatedMouseMotion>()
                 .register_type::<AccumulatedMouseScroll>();
         }

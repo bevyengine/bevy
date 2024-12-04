@@ -36,7 +36,6 @@ mod parallel_queue;
 mod time;
 
 pub use ahash::{AHasher, RandomState};
-pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use hashbrown;
 #[cfg(feature = "std")]
@@ -222,6 +221,8 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
         }
     }
 }
+
+impl<V: Copy, H> Copy for Hashed<V, H> {}
 
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
@@ -411,8 +412,8 @@ pub fn error<E: Debug>(result: Result<(), E>) {
 #[macro_export]
 macro_rules! detailed_trace {
     ($($tts:tt)*) => {
-        if cfg!(detailed_trace) {
-            bevy_utils::tracing::trace!($($tts)*);
+        if cfg!(feature = "detailed_trace") {
+            $crate::tracing::trace!($($tts)*);
         }
     }
 }

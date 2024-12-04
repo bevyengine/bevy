@@ -65,15 +65,17 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_asset::{AssetId, UntypedAssetId};
-use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_image::{BevyDefault, Image};
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -85,11 +87,12 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
-        Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor, Texture,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
+    sync_world::RenderEntity,
+    texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -213,7 +216,7 @@ pub struct Opaque3d {
     pub key: Opaque3dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -230,16 +233,16 @@ pub struct Opaque3dBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
+    /// The ID of a bind group specific to the material instance.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
+
     /// The asset that this phase item is associated with.
     ///
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-
-    /// The ID of a bind group specific to the material.
-    ///
-    /// In the case of PBR, this is the `MaterialBindGroupId`.
-    pub material_bind_group_id: Option<BindGroupId>,
 
     /// The lightmap, if present.
     pub lightmap_image: Option<AssetId<Image>>,
@@ -248,7 +251,12 @@ pub struct Opaque3dBinKey {
 impl PhaseItem for Opaque3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -281,7 +289,7 @@ impl BinnedPhaseItem for Opaque3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -303,7 +311,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -311,7 +319,11 @@ pub struct AlphaMask3d {
 impl PhaseItem for AlphaMask3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -346,7 +358,7 @@ impl BinnedPhaseItem for AlphaMask3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -369,7 +381,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 pub struct Transmissive3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -389,7 +401,12 @@ impl PhaseItem for Transmissive3d {
 
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -443,7 +460,7 @@ impl CachedRenderPipelinePhaseItem for Transmissive3d {
 pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -452,7 +469,11 @@ pub struct Transparent3d {
 impl PhaseItem for Transparent3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -504,12 +525,11 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 }
 
 pub fn extract_core_3d_camera_phases(
-    mut commands: Commands,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -518,8 +538,6 @@ pub fn extract_core_3d_camera_phases(
         if !camera.is_active {
             continue;
         }
-
-        commands.get_or_spawn(entity);
 
         opaque_3d_phases.insert_or_clear(entity);
         alpha_mask_3d_phases.insert_or_clear(entity);
@@ -545,7 +563,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
-                Entity,
+                RenderEntity,
                 &Camera,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
@@ -581,11 +599,11 @@ pub fn extract_camera_prepass_phase(
             opaque_3d_deferred_phases.remove(&entity);
             alpha_mask_3d_deferred_phases.remove(&entity);
         }
-
         live_entities.insert(entity);
 
         commands
-            .get_or_spawn(entity)
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.")
             .insert_if(DepthPrepass, || depth_prepass)
             .insert_if(NormalPrepass, || normal_prepass)
             .insert_if(MotionVectorPrepass, || motion_vector_prepass)

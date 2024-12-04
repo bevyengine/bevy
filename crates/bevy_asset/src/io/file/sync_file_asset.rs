@@ -1,9 +1,9 @@
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
+    PathStream, Reader, Writer,
 };
 
 use core::{pin::Pin, task::Poll};
@@ -29,14 +29,16 @@ impl AsyncRead for FileReader {
     }
 }
 
-impl AsyncSeek for FileReader {
-    fn poll_seek(
+impl AsyncSeekForward for FileReader {
+    fn poll_seek_forward(
         self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-        pos: std::io::SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
         let this = self.get_mut();
-        let seek = this.0.seek(pos);
+        let current = this.0.stream_position()?;
+        let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
+
         Poll::Ready(seek)
     }
 }
@@ -200,6 +202,12 @@ impl AssetWriter for FileAssetWriter {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         std::fs::remove_file(full_path)?;
+        Ok(())
+    }
+
+    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+        let full_path = self.root_path.join(path);
+        std::fs::create_dir_all(full_path)?;
         Ok(())
     }
 

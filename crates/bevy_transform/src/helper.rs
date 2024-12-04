@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::components::{GlobalTransform, Transform};
 
@@ -64,17 +64,20 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
 }
 
 /// Error returned by [`TransformHelper::compute_global_transform`].
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum ComputeGlobalTransformError {
     /// The entity or one of its ancestors is missing the [`Transform`] component.
-    #[error("The entity {0:?} or one of its ancestors is missing the `Transform` component")]
+    #[display("The entity {_0:?} or one of its ancestors is missing the `Transform` component")]
+    #[error(ignore)]
     MissingTransform(Entity),
     /// The entity does not exist.
-    #[error("The entity {0:?} does not exist")]
+    #[display("The entity {_0:?} does not exist")]
+    #[error(ignore)]
     NoSuchEntity(Entity),
     /// An ancestor is missing.
     /// This probably means that your hierarchy has been improperly maintained.
-    #[error("The ancestor {0:?} is missing")]
+    #[display("The ancestor {_0:?} is missing")]
+    #[error(ignore)]
     MalformedHierarchy(Entity),
 }
 

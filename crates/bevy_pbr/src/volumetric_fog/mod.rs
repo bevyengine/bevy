@@ -29,6 +29,8 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
+#![expect(deprecated)]
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_color::Color;
@@ -37,9 +39,12 @@ use bevy_core_pipeline::core_3d::{
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    bundle::Bundle, component::Component, reflect::ReflectComponent,
+    bundle::Bundle,
+    component::{require, Component},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
 };
+use bevy_image::Image;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
@@ -49,7 +54,7 @@ use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
-    texture::Image,
+    sync_component::SyncComponentPlugin,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -121,6 +126,10 @@ pub type VolumetricFogSettings = VolumetricFog;
 /// A convenient [`Bundle`] that contains all components necessary to generate a
 /// fog volume.
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `FogVolume` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct FogVolumeBundle {
     /// The actual fog volume.
     pub fog_volume: FogVolume,
@@ -139,6 +148,7 @@ pub struct FogVolumeBundle {
 
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
@@ -223,6 +233,8 @@ impl Plugin for VolumetricFogPlugin {
 
         app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
+
+        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

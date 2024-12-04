@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{AudioSource, Decodable};
 use bevy_asset::{Asset, Handle};
 use bevy_derive::Deref;
@@ -228,7 +230,50 @@ impl Default for SpatialScale {
 pub struct DefaultSpatialScale(pub SpatialScale);
 
 /// Bundle for playing a standard bevy audio asset
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
+)]
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
+
+/// A component for playing a sound.
+///
+/// Insert this component onto an entity to trigger an audio source to begin playing.
+///
+/// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
+/// the audio will not begin playing immediately. The audio will play when the asset is ready.
+///
+/// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
+/// added to the entity. You can use that component to control the audio settings during playback.
+///
+/// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
+/// `PlaybackSettings` component will *not* affect already-playing audio.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[require(PlaybackSettings)]
+pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
+where
+    Source: Asset + Decodable;
+
+impl<Source> Clone for AudioPlayer<Source>
+where
+    Source: Asset + Decodable,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl AudioPlayer<AudioSource> {
+    /// Creates a new [`AudioPlayer`] with the given [`Handle<AudioSource>`].
+    ///
+    /// For convenience reasons, this hard-codes the [`AudioSource`] type. If you want to
+    /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using normal
+    /// tuple struct syntax.
+    pub fn new(source: Handle<AudioSource>) -> Self {
+        Self(source)
+    }
+}
 
 /// Bundle for playing a sound.
 ///
@@ -240,12 +285,16 @@ pub type AudioBundle = AudioSourceBundle<AudioSource>;
 /// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
 /// added to the entity. You can use that component to control the audio settings during playback.
 #[derive(Bundle)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
+)]
 pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
     /// Asset containing the audio data to play.
-    pub source: Handle<Source>,
+    pub source: AudioPlayer<Source>,
     /// Initial settings that the audio starts playing with.
     /// If you would like to control the audio while it is playing,
     /// query for the [`AudioSink`][crate::AudioSink] component.
@@ -265,7 +314,7 @@ impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {
-            source: Default::default(),
+            source: AudioPlayer(Handle::default()),
             settings: Default::default(),
         }
     }

@@ -17,19 +17,17 @@ use bevy_reflect::prelude::*;
 /// with the camera's [`Frustum`].
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
-/// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
+/// - could be subject to frustum culling, for example with a [`Mesh3d`]
 ///     or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
-/// for example if the vertex positions of a [`Mesh`] inside a `Handle<Mesh>` are
-/// updated.
+/// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
 /// [`Camera`]: crate::camera::Camera
 /// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh`]: crate::mesh::Mesh
-/// [`Handle<Mesh>`]: crate::mesh::Mesh
+/// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {
@@ -96,6 +94,20 @@ impl Aabb {
     #[inline]
     pub fn max(&self) -> Vec3A {
         self.center + self.half_extents
+    }
+
+    /// Check if the AABB is at the front side of the bisecting plane.
+    /// Referenced from: [AABB Plane intersection](https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html)
+    #[inline]
+    pub fn is_in_half_space(&self, half_space: &HalfSpace, world_from_local: &Affine3A) -> bool {
+        // transform the half-extents into world space.
+        let half_extents_world = world_from_local.matrix3.abs() * self.half_extents.abs();
+        // collapse the half-extents onto the plane normal.
+        let p_normal = half_space.normal();
+        let r = half_extents_world.dot(p_normal.abs());
+        let aabb_center_world = world_from_local.transform_point3a(self.center);
+        let signed_distance = p_normal.dot(aabb_center_world) + half_space.d();
+        signed_distance > r
     }
 }
 
@@ -202,8 +214,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added from a bundle, either the `Camera2dBundle`
-/// or the `Camera3dBundle`.
+/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
@@ -301,6 +312,18 @@ impl Frustum {
         }
         true
     }
+
+    /// Check if the frustum contains the Axis-Aligned Bounding Box (AABB).
+    /// Referenced from: [Frustum Culling](https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling)
+    #[inline]
+    pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
+        for half_space in &self.half_spaces {
+            if !aabb.is_in_half_space(half_space, world_from_local) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
@@ -328,6 +351,13 @@ pub struct CascadesFrusta {
 
 #[cfg(test)]
 mod tests {
+    use core::f32::consts::PI;
+
+    use bevy_math::{ops, Quat};
+    use bevy_transform::components::GlobalTransform;
+
+    use crate::camera::{CameraProjection, PerspectiveProjection};
+
     use super::*;
 
     // A big, offset frustum
@@ -504,5 +534,93 @@ mod tests {
             .unwrap(),
             Aabb::from_min_max(Vec3::new(-1.0, -5.0, 0.0), Vec3::new(2.0, 0.0, 1.0))
         );
+    }
+
+    // A frustum with an offset for testing the [`Frustum::contains_aabb`] algorithm.
+    fn contains_aabb_test_frustum() -> Frustum {
+        let proj = PerspectiveProjection {
+            fov: 90.0_f32.to_radians(),
+            aspect_ratio: 1.0,
+            near: 1.0,
+            far: 100.0,
+        };
+        proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
+    }
+
+    fn contains_aabb_test_frustum_with_rotation() -> Frustum {
+        let half_extent_world = (((49.5 * 49.5) * 0.5) as f32).sqrt() + 0.5f32.sqrt();
+        let near = 50.5 - half_extent_world;
+        let far = near + 2.0 * half_extent_world;
+        let fov = 2.0 * ops::atan(half_extent_world / near);
+        let proj = PerspectiveProjection {
+            aspect_ratio: 1.0,
+            near,
+            far,
+            fov,
+        };
+        proj.compute_frustum(&GlobalTransform::IDENTITY)
+    }
+
+    #[test]
+    fn aabb_inside_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::new(0.99, 0.99, 49.49),
+        };
+        let model = Affine3A::from_translation(Vec3::new(2.0, 2.0, -50.5));
+        assert!(frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_intersect_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::new(0.99, 0.99, 49.6),
+        };
+        let model = Affine3A::from_translation(Vec3::new(2.0, 2.0, -50.5));
+        assert!(!frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_outside_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::new(0.99, 0.99, 0.99),
+        };
+        let model = Affine3A::from_translation(Vec3::new(0.0, 0.0, 49.6));
+        assert!(!frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_inside_frustum_rotation() {
+        let frustum = contains_aabb_test_frustum_with_rotation();
+        let aabb = Aabb {
+            center: Vec3A::new(0.0, 0.0, 0.0),
+            half_extents: Vec3A::new(0.99, 0.99, 49.49),
+        };
+
+        let model = Affine3A::from_rotation_translation(
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::new(0.0, 0.0, -50.5),
+        );
+        assert!(frustum.contains_aabb(&aabb, &model));
+    }
+
+    #[test]
+    fn aabb_intersect_frustum_rotation() {
+        let frustum = contains_aabb_test_frustum_with_rotation();
+        let aabb = Aabb {
+            center: Vec3A::new(0.0, 0.0, 0.0),
+            half_extents: Vec3A::new(0.99, 0.99, 49.6),
+        };
+
+        let model = Affine3A::from_rotation_translation(
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::new(0.0, 0.0, -50.5),
+        );
+        assert!(!frustum.contains_aabb(&aabb, &model));
     }
 }

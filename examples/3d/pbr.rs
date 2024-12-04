@@ -1,6 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
+use bevy::prelude::*;
+use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -24,108 +25,96 @@ fn setup(
             let x01 = (x + 5) as f32 / 10.0;
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
-            commands.spawn(PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
+            commands.spawn((
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
                     ..default()
-                }),
-                transform: Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
-                ..default()
-            });
+                })),
+                Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+            ));
         }
     }
     // unlit sphere
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh,
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
-        }),
-        transform: Transform::from_xyz(-5.0, -2.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-5.0, -2.5, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 1_500.,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // labels
-    commands.spawn(
-        TextBundle::from_section(
-            "Perceptual Roughness",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Perceptual Roughness"),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Metallic",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        ),
-        style: Style {
+    commands.spawn((
+        Text::new("Metallic"),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
             ..default()
         },
-        transform: Transform {
+        Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands.spawn((
-        TextBundle::from_section(
-            "Loading Environment Map...",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        Text::new("Loading Environment Map..."),
+        TextFont {
+            font_size: 30.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
             ..default()
-        }),
+        },
         EnvironmentMapLabel,
     ));
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::WindowSize(100.0),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+        Projection::from(OrthographicProjection {
+            scale: 0.01,
+            scaling_mode: ScalingMode::WindowSize,
+            ..OrthographicProjection::default_3d()
+        }),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -138,17 +127,17 @@ fn setup(
 fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    environment_maps: Query<&EnvironmentMapLight>,
-    label_query: Query<Entity, With<EnvironmentMapLabel>>,
+    environment_map: Single<&EnvironmentMapLight>,
+    label_entity: Single<Entity, With<EnvironmentMapLabel>>,
 ) {
-    if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
-        {
-            if let Ok(label_entity) = label_query.get_single() {
-                commands.entity(label_entity).despawn();
-            }
-        }
+    if asset_server
+        .load_state(&environment_map.diffuse_map)
+        .is_loaded()
+        && asset_server
+            .load_state(&environment_map.specular_map)
+            .is_loaded()
+    {
+        commands.entity(*label_entity).despawn();
     }
 }
 

@@ -1,4 +1,4 @@
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 #[cfg(feature = "functions")]
 use crate::func::Function;
@@ -130,8 +130,8 @@ macro_rules! impl_reflect_kind_conversions {
 /// Caused when a type was expected to be of a certain [kind], but was not.
 ///
 /// [kind]: ReflectKind
-#[derive(Debug, Error)]
-#[error("kind mismatch: expected {expected:?}, received {received:?}")]
+#[derive(Debug, Error, Display)]
+#[display("kind mismatch: expected {expected:?}, received {received:?}")]
 pub struct ReflectKindMismatchError {
     pub expected: ReflectKind,
     pub received: ReflectKind,

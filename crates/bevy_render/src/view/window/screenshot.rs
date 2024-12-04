@@ -1,7 +1,8 @@
 use super::ExtractedWindows;
 use crate::{
     camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
-    prelude::{Image, Shader},
+    gpu_readback,
+    prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -10,7 +11,7 @@ use crate::{
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
+    texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
@@ -22,6 +23,7 @@ use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::{
@@ -38,9 +40,7 @@ use std::{
         Mutex,
     },
 };
-use wgpu::{
-    CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
-};
+use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
@@ -376,7 +376,8 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: get_aligned_size(size.width, size.height, format.pixel_size() as u32) as u64,
+        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32)
+            as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -445,27 +446,6 @@ impl Plugin for ScreenshotPlugin {
     }
 }
 
-pub(crate) fn align_byte_size(value: u32) -> u32 {
-    value + (COPY_BYTES_PER_ROW_ALIGNMENT - (value % COPY_BYTES_PER_ROW_ALIGNMENT))
-}
-
-pub(crate) fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
-    height * align_byte_size(width * pixel_size)
-}
-
-pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
-    ImageDataLayout {
-        bytes_per_row: if height > 1 {
-            // 1 = 1 row
-            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
-        } else {
-            None
-        },
-        rows_per_image: None,
-        ..Default::default()
-    }
-}
-
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
     pub bind_group_layout: BindGroupLayout,
@@ -517,6 +497,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 })],
             }),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -619,7 +600,7 @@ fn render_screenshot(
             prepared_state.texture.as_image_copy(),
             wgpu::ImageCopyBuffer {
                 buffer: &prepared_state.buffer,
-                layout: layout_data(width, height, texture_format),
+                layout: gpu_readback::layout_data(width, height, texture_format),
             },
             Extent3d {
                 width,
@@ -687,7 +668,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                 // Our buffer has been padded because we needed to align to a multiple of 256.
                 // We remove this padding here
                 let initial_row_bytes = width as usize * pixel_size;
-                let buffered_row_bytes = align_byte_size(width * pixel_size as u32) as usize;
+                let buffered_row_bytes =
+                    gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
 
                 let mut take_offset = buffered_row_bytes;
                 let mut place_offset = initial_row_bytes;

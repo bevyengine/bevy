@@ -1,4 +1,4 @@
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use std::collections::HashSet;
@@ -9,7 +9,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    DeriveInput, ExprPath, Ident, LitStr, Path, Result,
+    DeriveInput, ExprClosure, ExprPath, Ident, LitStr, Path, Result,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -82,44 +82,62 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         for require in requires {
             let ident = &require.path;
             register_recursive_requires.push(quote! {
-                <#ident as Component>::register_required_components(components, storages, required_components);
+                <#ident as #bevy_ecs_path::component::Component>::register_required_components(
+                    requiree,
+                    components,
+                    storages,
+                    required_components,
+                    inheritance_depth + 1
+                );
             });
-            if let Some(func) = &require.func {
-                register_required.push(quote! {
-                    required_components.register(components, storages, || { let x: #ident = #func().into(); x });
-                });
-            } else {
-                register_required.push(quote! {
-                    required_components.register(components, storages, <#ident as Default>::default);
-                });
+            match &require.func {
+                Some(RequireFunc::Path(func)) => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            || { let x: #ident = #func().into(); x },
+                            inheritance_depth
+                        );
+                    });
+                }
+                Some(RequireFunc::Closure(func)) => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            || { let x: #ident = (#func)().into(); x },
+                            inheritance_depth
+                        );
+                    });
+                }
+                None => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            <#ident as Default>::default,
+                            inheritance_depth
+                        );
+                    });
+                }
             }
         }
     }
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let required_component_docs = attrs.requires.map(|r| {
-        let paths = r
-            .iter()
-            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let doc = format!("Required Components: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
-        quote! {
-            #[doc = #doc]
-        }
-    });
-
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
-        #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             fn register_required_components(
+                requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,
                 storages: &mut #bevy_ecs_path::storage::Storages,
-                required_components: &mut #bevy_ecs_path::component::RequiredComponents
+                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
+                inheritance_depth: u16,
             ) {
                 #(#register_required)*
                 #(#register_recursive_requires)*
@@ -132,8 +150,36 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #on_replace
                 #on_remove
             }
+
+            fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
+                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
+                (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
+                    .get_component_clone_handler()
+            }
         }
     })
+}
+
+pub fn document_required_components(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let paths = parse_macro_input!(attr with Punctuated::<Require, Comma>::parse_terminated)
+        .iter()
+        .map(|r| format!("[`{}`]", r.path.to_token_stream()))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Insert information about required components after any existing doc comments
+    let mut out = TokenStream::new();
+    let mut end_of_attributes_reached = false;
+    for tt in item {
+        if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
+            end_of_attributes_reached = true;
+            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's required components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
+            out.extend(doc);
+        }
+        out.extend(Some(tt));
+    }
+
+    out
 }
 
 pub const COMPONENT: &str = "component";
@@ -162,7 +208,12 @@ enum StorageTy {
 
 struct Require {
     path: Path,
-    func: Option<Path>,
+    func: Option<RequireFunc>,
+}
+
+enum RequireFunc {
+    Path(Path),
+    Closure(ExprClosure),
 }
 
 // values for `storage` attribute
@@ -238,8 +289,12 @@ impl Parse for Require {
         let func = if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            let func = content.parse::<Path>()?;
-            Some(func)
+            if let Ok(func) = content.parse::<ExprClosure>() {
+                Some(RequireFunc::Closure(func))
+            } else {
+                let func = content.parse::<Path>()?;
+                Some(RequireFunc::Path(func))
+            }
         } else {
             None
         };

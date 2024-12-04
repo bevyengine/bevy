@@ -365,12 +365,19 @@ impl<'w> DynamicSceneBuilder<'w> {
                     return None;
                 }
 
-                let resource = type_registry
-                    .get(type_id)?
+                let type_registration = type_registry.get(type_id)?;
+
+                let resource = type_registration
                     .data::<ReflectResource>()?
                     .reflect(self.original_world)?;
-                self.extracted_resources
-                    .insert(component_id, resource.clone_value());
+
+                let resource = type_registration
+                    .data::<ReflectFromReflect>()
+                    .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()))
+                    .map(PartialReflect::into_partial_reflect)
+                    .unwrap_or_else(|| resource.clone_value());
+
+                self.extracted_resources.insert(component_id, resource);
                 Some(())
             };
             extract_and_push();
@@ -687,5 +694,40 @@ mod tests {
 
         assert_eq!(scene.resources.len(), 1);
         assert!(scene.resources[0].represents::<ResourceB>());
+    }
+
+    #[test]
+    fn should_use_from_reflect() {
+        #[derive(Resource, Component, Reflect)]
+        #[reflect(Resource, Component)]
+        struct SomeType(i32);
+
+        let mut world = World::default();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<SomeType>();
+        }
+        world.insert_resource(atr);
+
+        world.insert_resource(SomeType(123));
+        let entity = world.spawn(SomeType(123)).id();
+
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_resources()
+            .extract_entities(vec![entity].into_iter())
+            .build();
+
+        let component = &scene.entities[0].components[0];
+        assert!(component
+            .try_as_reflect()
+            .expect("component should be concrete due to `FromReflect`")
+            .is::<SomeType>());
+
+        let resource = &scene.resources[0];
+        assert!(resource
+            .try_as_reflect()
+            .expect("resource should be concrete due to `FromReflect`")
+            .is::<SomeType>());
     }
 }

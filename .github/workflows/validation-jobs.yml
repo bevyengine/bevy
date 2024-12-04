@@ -31,7 +31,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-install-${{ hashFiles('**/Cargo.lock') }}
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
@@ -49,6 +49,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -60,17 +66,21 @@ jobs:
           key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Install Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+        run: rustup target add aarch64-linux-android
 
-      - name: Install Cargo APK
-        run: cargo install --force cargo-apk
+      - name: Install Cargo NDK
+        run: cargo install --force cargo-ndk
 
-      - name: Build APK
-        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
+      - name: Build .so file
+        run: cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
+
+      - name: Build app for Android
+        run: cd examples/mobile/android_example && chmod +x gradlew && ./gradlew build
 
   run-examples-linux-vulkan:
-    if: ${{ github.event_name == 'merge_group' }}
-    runs-on: ubuntu-latest
+    # also run when pushed to main to update reference screenshots
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -91,10 +101,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -126,18 +132,25 @@ jobs:
           name: example-run-linux
           path: example-run/
 
+  compare-linux-screenshots:
+    name: Compare Linux screenshots
+    needs: [run-examples-linux-vulkan]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-linux
+      os: linux
+    secrets: inherit
+
   run-examples-on-windows-dx12:
-    if: ${{ github.event_name == 'merge_group' }}
+    # also run when pushed to main to update reference screenshots
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build bevy
-        shell: bash
-        # this uses the same command as when running the example to ensure build is reused
-        run: |
-          WGPU_BACKEND=dx12 TRACE_CHROME=trace-alien_cake_addict.json CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing,trace,trace_chrome"
       - name: Run examples
         shell: bash
         run: |
@@ -172,7 +185,7 @@ jobs:
 
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -211,7 +224,7 @@ jobs:
 
       - name: First Wasm build
         run: |
-          cargo build --release --example ui --target wasm32-unknown-unknown
+          cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
       - name: Run examples
         shell: bash

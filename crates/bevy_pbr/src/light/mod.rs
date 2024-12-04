@@ -1,13 +1,16 @@
 use core::ops::DerefMut;
 
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    mesh::Mesh,
+    mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
         InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
@@ -51,7 +54,7 @@ pub mod light_consts {
     /// Predefined for lux values in several locations.
     ///
     /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
-    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
+    /// in the [International System of Units] (SI). It is equal to one lumen per square meter.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
     ///
@@ -440,11 +443,11 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-/// Add this component to make a [`Mesh`] not cast shadows.
+/// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`] not receive shadows.
+/// Add this component to make a [`Mesh3d`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -452,7 +455,7 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -697,7 +700,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -836,6 +839,7 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
@@ -866,16 +870,23 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut checked_lights: Local<EntityHashSet>,
 ) {
+    checked_lights.clear();
+
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
+            if !checked_lights.insert(light_entity) {
+                continue;
+            }
+
             // Point lights
             if let Ok((
                 point_light,

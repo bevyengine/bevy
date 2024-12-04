@@ -7,10 +7,13 @@ use crate::{
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
-    tracing::{error, info, warn},
+    tracing::{info, warn},
     TypeIdMap,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
+
+#[cfg(not(feature = "bevy_debug_stepping"))]
+use bevy_utils::tracing::error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;
@@ -87,8 +90,8 @@ enum Update {
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
-#[derive(Error, Debug)]
-#[error("not available until all configured schedules have been run; try again next frame")]
+#[derive(Error, Display, Debug)]
+#[display("not available until all configured schedules have been run; try again next frame")]
 pub struct NotReady;
 
 #[derive(Resource, Default)]

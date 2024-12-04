@@ -15,8 +15,15 @@ license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 rust-version = "1.76.0"
 
+[features]
+default = ["std"]
+
+std = ["glam/std"]
+libm = ["glam/libm", "dep:libm"]
+
 [dependencies]
-glam = "0.29"
+glam = { version = "0.29.0", default-features = false }
+libm = { version = "0.2", default-features = false, optional = true }
 
 [[example]]
 name = "generate"

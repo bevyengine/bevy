@@ -1,21 +1,13 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{
+        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
+        AnimationTargetId,
+    },
     prelude::*,
 };
-
-// A type that represents the font size of the first text section.
-//
-// We implement `AnimatableProperty` on this.
-#[derive(Reflect)]
-struct FontSizeProperty;
-
-// A type that represents the color of the first text section.
-//
-// We implement `AnimatableProperty` on this.
-#[derive(Reflect)]
-struct TextColorProperty;
+use std::any::TypeId;
 
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
@@ -39,29 +31,6 @@ fn main() {
         .run();
 }
 
-impl AnimatableProperty for FontSizeProperty {
-    type Component = Text;
-
-    type Property = f32;
-
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        Some(&mut component.sections.get_mut(0)?.style.font_size)
-    }
-}
-
-impl AnimatableProperty for TextColorProperty {
-    type Component = Text;
-
-    type Property = Srgba;
-
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.sections.get_mut(0)?.style.color {
-            Color::Srgba(ref mut color) => Some(color),
-            _ => None,
-        }
-    }
-}
-
 impl AnimationInfo {
     // Programmatically creates the UI animation.
     fn create(
@@ -76,24 +45,39 @@ impl AnimationInfo {
         let mut animation_clip = AnimationClip::default();
 
         // Create a curve that animates font size.
-        //
-        // `VariableCurve::linear` is just a convenience constructor; it's also
-        // possible to initialize the structure manually.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
-                [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
-                [24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0],
+            AnimatableCurve::new(
+                animated_field!(TextFont::font_size),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+                        .into_iter()
+                        .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+                )
+                .expect(
+                    "should be able to build translation curve because we pass in valid samples",
+                ),
             ),
         );
 
         // Create a curve that animates font color. Note that this should have
         // the same time duration as the previous curve.
+        //
+        // This time we use a "custom property", which in this case animates TextColor under the assumption
+        // that it is in the "srgba" format.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve::linear::<AnimatablePropertyKeyframes<TextColorProperty>>(
-                [0.0, 1.0, 2.0, 3.0],
-                [Srgba::RED, Srgba::GREEN, Srgba::BLUE, Srgba::RED],
+            AnimatableCurve::new(
+                TextColorProperty,
+                AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
+                    Srgba::RED,
+                    Srgba::GREEN,
+                    Srgba::BLUE,
+                    Srgba::RED,
+                ]))
+                .expect(
+                    "should be able to build translation curve because we pass in valid samples",
+                ),
             ),
         );
 
@@ -134,15 +118,15 @@ fn setup(
     animation_player.play(animation_node_index).repeat();
 
     // Add a camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
     commands
-        .spawn(NodeBundle {
+        .spawn((
             // Cover the whole screen, and center contents.
-            style: Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
@@ -152,25 +136,23 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
-        .insert(animation_player)
-        .insert(animation_graph)
+            animation_player,
+            AnimationGraphHandle(animation_graph),
+        ))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
             builder
-                .spawn(
-                    TextBundle::from_section(
-                        "Bevy",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 24.0,
-                            color: Color::Srgba(Srgba::RED),
-                        },
-                    )
-                    .with_text_justify(JustifyText::Center),
-                )
+                .spawn((
+                    Text::new("Bevy"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(Color::Srgba(Srgba::RED)),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {
                     id: animation_target_id,
@@ -178,4 +160,38 @@ fn setup(
                 })
                 .insert(animation_target_name);
         });
+}
+
+// A type that represents the color of the first text section.
+//
+// We implement `AnimatableProperty` on this to define custom property accessor logic
+#[derive(Clone)]
+struct TextColorProperty;
+
+impl AnimatableProperty for TextColorProperty {
+    type Property = Srgba;
+
+    fn evaluator_id(&self) -> EvaluatorId {
+        EvaluatorId::Type(TypeId::of::<Self>())
+    }
+
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+        let text_color = entity
+            .get_mut::<TextColor>()
+            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+                TextColor,
+            >(
+            )))?
+            .into_inner();
+        match text_color.0 {
+            Color::Srgba(ref mut color) => Ok(color),
+            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+                Srgba,
+            >(
+            ))),
+        }
+    }
 }

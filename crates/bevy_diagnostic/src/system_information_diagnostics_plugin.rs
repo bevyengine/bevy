@@ -59,11 +59,9 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
+    use alloc::sync::Arc;
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use std::{
-        sync::{Arc, Mutex},
-        time::Instant,
-    };
+    use std::{sync::Mutex, time::Instant};
 
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::system::Resource;
@@ -121,7 +119,7 @@ pub mod internal {
         let thread_pool = AsyncComputeTaskPool::get();
 
         // Only queue a new system refresh task when necessary
-        // Queueing earlier than that will not give new data
+        // Queuing earlier than that will not give new data
         if last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL
             // These tasks don't yield and will take up all of the task pool's
             // threads if we don't limit their amount.

@@ -62,8 +62,7 @@ use {
 ///
 /// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
 /// while the window loses focus, [`ButtonInput::just_released`] will be triggered. Similarly if the window
-/// regains focus, [`ButtonInput::just_pressed`] will be triggered. Currently this happens even if the
-/// focus switches from one Bevy window to another (for example because a new window was just spawned).
+/// regains focus, [`ButtonInput::just_pressed`] will be triggered.
 ///
 /// `ButtonInput<GamepadButton>` is independent of window focus.
 ///
@@ -211,7 +210,17 @@ where
 
     /// Returns `true` if any item in `inputs` has just been released.
     pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
-        inputs.into_iter().any(|it| self.just_released(it))
+        inputs.into_iter().any(|input| self.just_released(input))
+    }
+
+    /// Returns `true` if all items in `inputs` have just been released.
+    pub fn all_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|input| self.just_released(input))
+    }
+
+    /// Returns `true` if all items in `inputs` have been just pressed.
+    pub fn all_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+        inputs.into_iter().all(|input| self.just_pressed(input))
     }
 
     /// Clears the `just_released` state of the `input` and returns `true` if the `input` has just been released.

@@ -1,13 +1,10 @@
 use bevy_macro_utils::ensure_no_collision;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
-    punctuated::Punctuated,
-    token::Comma,
-    Attribute, Data, DataStruct, DeriveInput, Field, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
+    DataStruct, DeriveInput, Field, Index, Meta,
 };
 
 use crate::{
@@ -47,45 +44,29 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             continue;
         }
 
-        attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated(Meta::parse, Comma)?;
-            for meta in meta {
-                let ident = meta.path().get_ident().unwrap_or_else(|| {
-                    panic!(
-                        "Unrecognized attribute: `{}`",
-                        meta.path().to_token_stream()
-                    )
-                });
-                if ident == MUTABLE_ATTRIBUTE_NAME {
-                    if let Meta::Path(_) = meta {
-                        attributes.is_mutable = true;
-                    } else {
-                        panic!(
-                            "The `{MUTABLE_ATTRIBUTE_NAME}` attribute is expected to have no value or arguments",
-                        );
-                    }
-                }
-                else if ident == DERIVE_ATTRIBUTE_NAME {
-                    if let Meta::List(meta_list) = meta {
-                        meta_list.parse_nested_meta(|meta| {
-                            attributes.derive_args.push(Meta::Path(meta.path));
-                            Ok(())
-                        })?;
-                    } else {
-                        panic!(
-                            "Expected a structured list within the `{DERIVE_ATTRIBUTE_NAME}` attribute",
-                        );
-                    }
+        let result = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
+                attributes.is_mutable = true;
+                if meta.input.peek(token::Paren) {
+                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
                 } else {
-                    panic!(
-                        "Unrecognized attribute: `{}`",
-                        meta.path().to_token_stream()
-                    );
+                    Ok(())
                 }
+            } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
+                meta.parse_nested_meta(|meta| {
+                    attributes.derive_args.push(Meta::Path(meta.path));
+                    Ok(())
+                }).map_err(|_| {
+                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
+                })
+            } else {
+                Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))
             }
-            Ok(())
-        })
-        .unwrap_or_else(|_| panic!("Invalid `{QUERY_DATA_ATTRIBUTE_NAME}` attribute format"));
+        });
+
+        if let Err(err) = result {
+            return err.to_compile_error().into();
+        }
     }
 
     let path = bevy_ecs_path();

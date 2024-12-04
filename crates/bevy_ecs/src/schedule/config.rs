@@ -1,9 +1,9 @@
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::{
     schedule::{
         condition::{BoxedCondition, Condition},
-        graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
+        graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
@@ -315,7 +315,7 @@ where
     /// If you configure two [`System`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
     ///
     /// This means that the system `GameSystem::A` and the system or systems in `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`configure_sets`]
-    /// If that is the case, `.after`/`.before` will not provide the desired behaviour
+    /// If that is the case, `.after`/`.before` will not provide the desired behavior
     /// and the systems can run in parallel or in any order determined by the scheduler.
     /// Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know that `B` has already been scheduled for you,
     /// e.g. when it was provided by Bevy or a third-party dependency,

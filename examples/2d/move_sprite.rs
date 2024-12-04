@@ -17,13 +17,10 @@ enum Direction {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_xyz(100., 0., 0.),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
+        Transform::from_xyz(100., 0., 0.),
         Direction::Up,
     ));
 }
@@ -33,8 +30,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in &mut sprite_position {
         match *logo {
-            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
+            Direction::Up => transform.translation.y += 150. * time.delta_secs(),
+            Direction::Down => transform.translation.y -= 150. * time.delta_secs(),
         }
 
         if transform.translation.y > 200. {

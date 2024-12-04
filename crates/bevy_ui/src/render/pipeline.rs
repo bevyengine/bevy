@@ -1,11 +1,11 @@
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
 
@@ -72,6 +72,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // border size
                 VertexFormat::Float32x2,
+                // position relative to the center
+                VertexFormat::Float32x2,
             ],
         );
         let shader_defs = if key.anti_alias {
@@ -119,6 +121,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

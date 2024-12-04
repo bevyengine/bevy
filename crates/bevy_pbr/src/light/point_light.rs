@@ -1,3 +1,5 @@
+use bevy_render::view::Visibility;
+
 use super::*;
 
 /// A light that emits light in all directions from a central point.
@@ -19,6 +21,7 @@ use super::*;
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(CubemapFrusta, CubemapVisibleEntities, Transform, Visibility)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
@@ -58,6 +61,7 @@ pub struct PointLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
@@ -92,10 +96,11 @@ impl Default for PointLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: false,
         }
     }
 }

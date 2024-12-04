@@ -35,12 +35,16 @@
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+mod clone_entities;
 mod map_entities;
+mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+pub use clone_entities::*;
 pub use map_entities::*;
+pub use visit_entities::*;
 
 mod hash;
 pub use hash::*;
@@ -151,7 +155,7 @@ type IdCursor = isize;
     reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
-// optimised codegen for `to_bits`, `PartialEq` and `Ord`.
+// optimized codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
 pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
@@ -168,7 +172,7 @@ pub struct Entity {
 impl PartialEq for Entity {
     #[inline]
     fn eq(&self, other: &Entity) -> bool {
-        // By using `to_bits`, the codegen can be optimised out even
+        // By using `to_bits`, the codegen can be optimized out even
         // further potentially. Relies on the correct alignment/field
         // order of `Entity`.
         self.to_bits() == other.to_bits()
@@ -177,10 +181,10 @@ impl PartialEq for Entity {
 
 impl Eq for Entity {}
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Entity {
@@ -191,10 +195,10 @@ impl PartialOrd for Entity {
     }
 }
 
-// The derive macro codegen output is not optimal and can't be optimised as well
+// The derive macro codegen output is not optimal and can't be optimized as well
 // by the compiler. This impl resolves the issue of non-optimal codegen by relying
 // on comparing against the bit representation of `Entity` instead of comparing
-// the fields. The result is then LLVM is able to optimise the codegen for Entity
+// the fields. The result is then LLVM is able to optimize the codegen for Entity
 // far beyond what the derive macro can.
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Entity {
@@ -308,7 +312,7 @@ impl Entity {
 
         match id {
             Ok(entity) => entity,
-            Err(_) => panic!("Attempted to initialise invalid bits as an entity"),
+            Err(_) => panic!("Attempted to initialize invalid bits as an entity"),
         }
     }
 
@@ -395,6 +399,8 @@ impl<'de> Deserialize<'de> for Entity {
 ///
 /// This takes the format: `{index}v{generation}#{bits}`.
 ///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
+///
 /// # Usage
 ///
 /// Prefer to use this format for debugging and logging purposes. Because the output contains
@@ -414,22 +420,32 @@ impl<'de> Deserialize<'de> for Entity {
 /// ```
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}v{}#{}",
-            self.index(),
-            self.generation(),
-            self.to_bits()
-        )
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(
+                f,
+                "{}v{}#{}",
+                self.index(),
+                self.generation(),
+                self.to_bits()
+            )
+        }
     }
 }
 
 /// Outputs the short entity identifier, including the index and generation.
 ///
 /// This takes the format: `{index}v{generation}`.
+///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.index(), self.generation())
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(f, "{}v{}", self.index(), self.generation())
+        }
     }
 }
 
@@ -899,25 +915,6 @@ impl Entities {
         }
     }
 
-    /// # Safety
-    ///
-    /// This function is safe if and only if the world this Entities is on has no entities.
-    pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
-        let free_cursor = self.free_cursor.get_mut();
-        *free_cursor = 0;
-        self.meta.reserve(count);
-        // SAFETY: The EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        unsafe {
-            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
-        }
-        // SAFETY: We have reserved `count` elements above and we have initialized values from index 0 to `count`.
-        unsafe {
-            self.meta.set_len(count);
-        }
-
-        self.len = count as u32;
-    }
-
     /// The count of all entities in the [`World`] that have ever been allocated
     /// including the entities that are currently freed.
     ///
@@ -943,13 +940,7 @@ impl Entities {
     }
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
-// Safety:
-// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
-/// Metadata for an [`Entity`].
 #[derive(Copy, Clone, Debug)]
-#[repr(C)]
 struct EntityMeta {
     /// The current generation of the [`Entity`].
     pub generation: NonZero<u32>,
@@ -965,13 +956,8 @@ impl EntityMeta {
     };
 }
 
-// This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
-// with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
-// SAFETY:
-// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
-/// A location of an entity in an archetype.
+/// Records where an entity's data is stored.
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(C)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
     ///
@@ -1193,16 +1179,21 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(42);
         let string = format!("{:?}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
-        assert!(string.contains(format!("#{}", entity.to_bits()).as_str()));
+        assert_eq!(string, "42v1#4294967338");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{:?}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
     fn entity_display() {
         let entity = Entity::from_raw(42);
         let string = format!("{}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
+        assert_eq!(string, "42v1");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 }

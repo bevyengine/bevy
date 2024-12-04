@@ -3,15 +3,14 @@ use crate::{
     UntypedAssetId,
 };
 use alloc::sync::Arc;
-use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
 };
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
-use thiserror::Error;
 use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
@@ -122,8 +121,8 @@ impl core::fmt::Debug for StrongHandle {
 /// of the [`Handle`] are dropped.
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
-#[derive(Component, Reflect)]
-#[reflect(Default, Component, Debug, Hash, PartialEq)]
+#[derive(Reflect)]
+#[reflect(Default, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -503,11 +502,11 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
-#[derive(Error, Debug, PartialEq, Clone)]
+#[derive(Error, Display, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetConversionError {
     /// Caused when trying to convert an [`UntypedHandle`] into a [`Handle`] of the wrong type.
-    #[error(
+    #[display(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
     TypeIdMismatch { expected: TypeId, found: TypeId },

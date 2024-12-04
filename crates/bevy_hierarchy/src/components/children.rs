@@ -1,8 +1,11 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
+};
 use bevy_ecs::{
-    component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    component::{Component, ComponentCloneHandler, StorageType},
+    entity::{Entity, VisitEntitiesMut},
     prelude::FromWorld,
     world::World,
 };
@@ -22,16 +25,26 @@ use smallvec::SmallVec;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug)]
+#[derive(Debug, VisitEntitiesMut)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities, Debug, FromWorld))]
+#[cfg_attr(
+    feature = "reflect",
+    reflect(
+        Component,
+        MapEntities,
+        VisitEntities,
+        VisitEntitiesMut,
+        Debug,
+        FromWorld
+    )
+)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
-impl MapEntities for Children {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        for entity in &mut self.0 {
-            *entity = entity_mapper.map_entity(*entity);
-        }
+impl Component for Children {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::Ignore
     }
 }
 

@@ -20,7 +20,11 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [dev-dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }

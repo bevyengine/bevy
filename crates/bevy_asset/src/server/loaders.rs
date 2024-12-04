@@ -5,17 +5,14 @@ use crate::{
 use alloc::sync::Arc;
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{error, warn},
-    HashMap, TypeIdMap,
-};
+use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
 use core::any::TypeId;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -278,10 +275,9 @@ impl AssetLoaders {
     }
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone, From)]
 pub(crate) enum GetLoaderError {
-    #[error(transparent)]
-    CouldNotResolve(#[from] RecvError),
+    CouldNotResolve(RecvError),
 }
 
 #[derive(Clone)]
@@ -311,11 +307,11 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
     type Settings = T::Settings;
     type Error = T::Error;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn crate::io::Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut crate::LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn crate::io::Reader,
+        settings: &Self::Settings,
+        load_context: &mut crate::LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         let span = info_span!(
             "asset loading",
@@ -383,11 +379,11 @@ mod tests {
 
         type Error = String;
 
-        async fn load<'a>(
-            &'a self,
-            _: &'a mut dyn crate::io::Reader,
-            _: &'a Self::Settings,
-            _: &'a mut crate::LoadContext<'_>,
+        async fn load(
+            &self,
+            _: &mut dyn crate::io::Reader,
+            _: &Self::Settings,
+            _: &mut crate::LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             self.sender.send(()).unwrap();
 
