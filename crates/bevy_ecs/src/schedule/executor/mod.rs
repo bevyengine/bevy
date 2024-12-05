@@ -19,7 +19,7 @@ use crate::{
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{BoxedSystem, System, SystemIn},
+    system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -67,7 +67,7 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<BoxedSystem>,
+    pub(super) systems: Vec<ScheduleSystem>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
@@ -140,9 +140,8 @@ pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
-pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == TypeId::of::<ApplyDeferred>()
+pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
+    system.type_id() == TypeId::of::<ApplyDeferred>()
 }
 
 impl System for ApplyDeferred {
@@ -247,19 +246,18 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        system::{ReadOnlySystem, System},
+        result::Result,
+        system::{ReadOnlySystem, ScheduleSystem, System},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(
-        system: &mut dyn System<In = (), Out = ()>,
-        world: UnsafeWorldCell,
-    ) {
-        system.run_unsafe((), world);
+    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
+        let result = system.run_unsafe((), world);
         black_box(());
+        result
     }
 
     /// # Safety
@@ -273,9 +271,10 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
-        system.run((), world);
+    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
+        let result = system.run((), world);
         black_box(());
+        result
     }
 
     #[inline(never)]
