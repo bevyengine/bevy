@@ -184,9 +184,9 @@ impl<'w, 's> InsetGizmo<'w, 's> {
                 Vec2::new(right, bottom),
                 Vec2::new(right, top),
                 Vec2::new(left, top),
-            ];
-            self.draw
-                .linestrip_2d(strip.map(|v| self.relative(v)), color);
+            ]
+            .map(|v| self.relative(v));
+            self.draw.linestrip_2d(strip, color);
         }
     }
 }

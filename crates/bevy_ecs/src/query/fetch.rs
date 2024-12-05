@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -12,9 +12,9 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
+use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1608,7 +1608,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 

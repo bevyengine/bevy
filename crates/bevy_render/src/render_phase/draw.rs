@@ -6,10 +6,11 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
 use derive_more::derive::{Display, Error};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use variadics_please::all_tuples;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///

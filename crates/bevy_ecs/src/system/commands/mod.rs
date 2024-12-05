@@ -10,8 +10,8 @@ use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
-    component::{Component, ComponentId, ComponentInfo},
-    entity::{Entities, Entity},
+    component::{Component, ComponentId, ComponentInfo, Mutable},
+    entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
     schedule::ScheduleLabel,
@@ -29,7 +29,7 @@ pub use parallel_scope::*;
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the `apply_deferred` system runs (see [`apply_deferred`] documentation for more details).
+/// when the `ApplyDeferred` system runs (see [`ApplyDeferred`] documentation for more details).
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -43,7 +43,8 @@ pub use parallel_scope::*;
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
+/// Add `mut commands: Commands` as a function argument to your system to get a
+/// copy of this struct that will be applied the next time a copy of [`ApplyDeferred`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -75,7 +76,7 @@ pub use parallel_scope::*;
 /// # }
 /// ```
 ///
-/// [`apply_deferred`]: crate::schedule::apply_deferred
+/// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
@@ -269,6 +270,69 @@ impl<'w, 's> Commands<'w, 's> {
                 unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
             }
         }
+    }
+
+    /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`], returning [`EntityCommands`] of the cloned entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and retrieve its id.
+    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
+    ///
+    ///     // Create a clone of the first entity, but without ComponentB
+    ///     let entity_clone = commands.clone_entity_with(entity, |builder| {
+    ///         builder.deny::<ComponentB>();
+    ///     }).id();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_entity_with(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> EntityCommands<'_> {
+        let cloned_entity = self.spawn_empty().id();
+        self.queue(move |world: &mut World| {
+            let mut builder = EntityCloneBuilder::new(world);
+            f(&mut builder);
+            builder.clone_entity(entity, cloned_entity);
+        });
+        EntityCommands {
+            commands: self.reborrow(),
+            entity: cloned_entity,
+        }
+    }
+
+    /// Clones an entity and returns [`EntityCommands`] of the cloned entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and retrieve its id.
+    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
+    ///
+    ///     // Create a clone of the first entity
+    ///     let entity_clone = commands.clone_entity(entity).id();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_entity(&mut self, entity: Entity) -> EntityCommands<'_> {
+        self.clone_entity_with(entity, |_| {})
     }
 
     /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
@@ -1724,7 +1788,7 @@ pub struct EntityEntryCommands<'a, T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Component> EntityEntryCommands<'a, T> {
+impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
@@ -1735,7 +1799,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
             });
         self
     }
+}
 
+impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
@@ -2193,7 +2259,7 @@ fn observe<E: Event, B: Bundle, M>(
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::Component,
+        component::{require, Component},
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };

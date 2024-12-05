@@ -4,6 +4,7 @@ mod entity_observer;
 mod runner;
 mod trigger_event;
 
+pub use entity_observer::CloneEntityWithObserversExt;
 pub use runner::*;
 pub use trigger_event::*;
 
@@ -455,7 +456,7 @@ impl World {
             // Populate ObservedBy for each observed entity.
             for watched_entity in &(*observer_state).descriptor.entities {
                 let mut entity_mut = self.entity_mut(*watched_entity);
-                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default();
+                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
             (&*observer_state, &mut self.archetypes, &mut self.observers)

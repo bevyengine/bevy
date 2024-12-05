@@ -33,24 +33,18 @@ pub(crate) mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
-    pub min_size: f32,
-    pub max_size: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
-        min_size: 0.0,
-        max_size: 0.0,
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
         }
     }
 }
@@ -60,8 +54,6 @@ impl LayoutContext {
     pub const TEST_CONTEXT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::new(1000.0, 1000.0),
-        min_size: 0.0,
-        max_size: 1000.0,
     };
 }
 
@@ -469,7 +461,7 @@ mod tests {
         event::Events,
         prelude::{Commands, Component, In, Query, With},
         query::Without,
-        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
         system::RunSystemOnce,
         world::World,
     };
@@ -535,7 +527,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
                 propagate_transforms,
@@ -1179,7 +1171,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
             )
                 .chain(),

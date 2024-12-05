@@ -19,10 +19,10 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, Mutable},
     entity::Entity,
     event::EventReader,
-    prelude::With,
+    prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -875,7 +875,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
-pub fn camera_system<T: CameraProjection + Component>(
+pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,

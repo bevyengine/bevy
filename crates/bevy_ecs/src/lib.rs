@@ -42,19 +42,20 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::Component,
+        component::{require, Component},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
-            IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
+            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
@@ -82,11 +83,10 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},

@@ -1839,7 +1839,7 @@ wasm = false
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_deferred` system"
+description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1951,6 +1951,17 @@ doc-scrape-examples = true
 [package.metadata.example.hierarchy]
 name = "Hierarchy"
 description = "Creates a hierarchy of parents and children entities"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "immutable_components"
+path = "examples/ecs/immutable_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.immutable_components]
+name = "Immutable Components"
+description = "Demonstrates the creation and utility of immutable components"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3822,6 +3833,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]
