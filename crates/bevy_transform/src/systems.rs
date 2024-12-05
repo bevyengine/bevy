@@ -459,10 +459,21 @@ mod test {
         app.world_mut()
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
-        core::mem::swap(
-            &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
-            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
-        );
+
+        #[expect(unsafe_code)]
+        unsafe {
+            core::mem::swap(
+                &mut *app
+                    .world_mut()
+                    .entity_mut(child)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap(),
+                &mut *temp
+                    .entity_mut(grandchild)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap(),
+            );
+        }
 
         app.update();
     }
