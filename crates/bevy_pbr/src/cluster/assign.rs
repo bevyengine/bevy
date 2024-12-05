@@ -99,18 +99,19 @@ impl ClusterableObjectType {
     /// list.
     ///
     /// Generally, we sort first by type, then, for lights, by whether shadows
-    /// are enabled, and then whether volumetrics are enabled.
+    /// are enabled (enabled before disabled), and then whether volumetrics are
+    /// enabled (enabled before disabled).
     pub(crate) fn ordering(&self) -> (u8, bool, bool) {
         match *self {
             ClusterableObjectType::PointLight {
                 shadows_enabled,
                 volumetric,
-            } => (0, shadows_enabled, volumetric),
+            } => (0, !shadows_enabled, !volumetric),
             ClusterableObjectType::SpotLight {
                 shadows_enabled,
                 volumetric,
                 ..
-            } => (1, shadows_enabled, volumetric),
+            } => (1, !shadows_enabled, !volumetric),
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
         }
