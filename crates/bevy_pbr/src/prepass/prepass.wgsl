@@ -66,12 +66,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var vertex = vertex_no_morph;
 #endif
 
+    let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+
 #ifdef SKINNED
     var world_from_local = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+    var world_from_local = mesh_world_from_local;
 #endif // SKINNED
 
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
@@ -160,6 +162,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // See https://github.com/gfx-rs/naga/issues/2416
     out.instance_index = vertex_no_morph.instance_index;
 #endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, mesh_world_from_local[3]);
+#endif  // VISIBILITY_RANGE_DITHER
 
     return out;
 }
