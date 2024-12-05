@@ -1,25 +1,27 @@
 use bevy_asset::AssetId;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_utils::tracing::{debug, error, warn};
-use bevy_utils::HashMap;
+use bevy_utils::{
+    tracing::{debug, error, warn},
+    HashMap,
+};
+use derive_more::derive::{Display, Error};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
-use thiserror::Error;
 
-use crate::TextureAtlasLayout;
+use crate::{TextureAtlasLayout, TextureAtlasSources};
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum TextureAtlasBuilderError {
-    #[error("could not pack textures into an atlas within the given bounds")]
+    #[display("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
-    #[error("added a texture with the wrong format in an atlas")]
+    #[display("added a texture with the wrong format in an atlas")]
     WrongFormat,
 }
 
@@ -157,7 +159,9 @@ impl<'a> TextureAtlasBuilder<'a> {
         since = "0.14.0",
         note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
     )]
-    pub fn finish(&mut self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+    pub fn finish(
+        &mut self,
+    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
         self.build()
     }
 
@@ -175,6 +179,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
     /// # use bevy_render::prelude::*;
+    /// # use bevy_image::Image;
     ///
     /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
@@ -182,14 +187,11 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     // Customize it
     ///     // ...
     ///     // Build your texture and the atlas layout
-    ///     let (atlas_layout, texture) = builder.build().unwrap();
+    ///     let (atlas_layout, atlas_sources, texture) = builder.build().unwrap();
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
-    ///     commands.spawn((
-    ///         SpriteBundle { texture, ..Default::default() },
-    ///         TextureAtlas::from(layout),
-    ///     ));
+    ///     commands.spawn(Sprite::from_atlas_image(texture, TextureAtlas::from(layout)));
     /// }
     /// ```
     ///
@@ -197,7 +199,9 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
-    pub fn build(&mut self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+    pub fn build(
+        &mut self,
+    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
 
@@ -227,7 +231,7 @@ impl<'a> TextureAtlasBuilder<'a> {
 
             let last_attempt = current_height == max_height && current_width == max_width;
 
-            let mut target_bins = std::collections::BTreeMap::new();
+            let mut target_bins = alloc::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             rect_placements = match pack_rects(
                 &rects_to_place,
@@ -293,8 +297,8 @@ impl<'a> TextureAtlasBuilder<'a> {
             TextureAtlasLayout {
                 size: atlas_texture.size(),
                 textures: texture_rects,
-                texture_handles: Some(texture_ids),
             },
+            TextureAtlasSources { texture_ids },
             atlas_texture,
         ))
     }

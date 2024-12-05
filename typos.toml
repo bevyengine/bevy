@@ -1,9 +1,11 @@
 [files]
 extend-exclude = [
-  "*.pbxproj",    # metadata file
-  "CHANGELOG.md", # To keep consistency between the commit history/PRs.
-  "*.patch",      # Automatically generated files that should not be manually modified.
+  "*.pbxproj", # metadata file
+  "*.patch",   # Automatically generated files that should not be manually modified.
+  "*.bin",     # Binary files
+  ".git/",     # Version control files
 ]
+ignore-hidden = false
 
 # Corrections take the form of a key/value pair. The key is the incorrect word
 # and the value is the correct word. If the key and value are the same, the
@@ -26,6 +28,7 @@ LOD = "LOD" # Level of detail
 TOI = "TOI" # Time of impact
 
 [default]
+locale = "en-us"
 extend-ignore-identifiers-re = [
   "NDK",        # NDK - Native  Development Kit
   "inventario", # Inventory in Portuguese

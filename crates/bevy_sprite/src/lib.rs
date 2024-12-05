@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -8,27 +8,32 @@
 )]
 
 //! Provides 2D sprite rendering functionality.
+
+extern crate alloc;
+
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
+#[cfg(feature = "bevy_sprite_picking_backend")]
+mod picking_backend;
 mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+/// The sprite prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::bundle::SpriteSheetBundle;
-
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
-        sprite::{ImageScaleMode, Sprite},
-        texture_atlas::{TextureAtlas, TextureAtlasLayout},
+        sprite::{Sprite, SpriteImageMode},
+        texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
@@ -36,6 +41,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
+#[cfg(feature = "bevy_sprite_picking_backend")]
+pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
@@ -46,20 +53,32 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::Image;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    texture::Image,
     view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 /// Adds support for 2D sprite rendering.
-#[derive(Default)]
-pub struct SpritePlugin;
+pub struct SpritePlugin {
+    /// Whether to add the sprite picking backend to the app.
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    pub add_picking: bool,
+}
+
+impl Default for SpritePlugin {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "bevy_sprite_picking_backend")]
+            add_picking: true,
+        }
+    }
+}
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
@@ -77,12 +96,8 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
-
-/// A convenient alias for `With<Mesh2dHandle>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
 
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
@@ -105,11 +120,11 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
-            .register_type::<ImageScaleMode>()
+            .register_type::<SpriteImageMode>()
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .register_type::<SpriteSource>()
             .add_plugins((
                 Mesh2dRenderPlugin,
@@ -126,12 +141,17 @@ impl Plugin for SpritePlugin {
                     )
                         .in_set(SpriteSystem::ComputeSlices),
                     (
-                        check_visibility::<WithMesh2d>,
+                        check_visibility::<With<Mesh2d>>,
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
+
+        #[cfg(feature = "bevy_sprite_picking_backend")]
+        if self.add_picking {
+            app.add_plugins(SpritePickingPlugin);
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -169,7 +189,7 @@ impl Plugin for SpritePlugin {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2dHandle` component,
+/// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
@@ -179,11 +199,11 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
+        (Entity, &Sprite),
         (
-            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
+            Or<(Without<Aabb>, Changed<Sprite>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -195,13 +215,13 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite, texture_handle, atlas) in &sprites_to_recalculate_aabb {
+    for (entity, sprite) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
-            .or_else(|| match atlas {
+            .or_else(|| match &sprite.texture_atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(texture_handle).map(|image| image.size_f32()),
+                None => images.get(&sprite.image).map(Image::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)
@@ -255,10 +275,7 @@ mod test {
         app.add_systems(Update, calculate_bounds_2d);
 
         // Add entities
-        let entity = app
-            .world_mut()
-            .spawn((Sprite::default(), image_handle))
-            .id();
+        let entity = app.world_mut().spawn(Sprite::from_image(image_handle)).id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
@@ -298,13 +315,11 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn((
-                Sprite {
-                    custom_size: Some(Vec2::ZERO),
-                    ..default()
-                },
-                image_handle,
-            ))
+            .spawn(Sprite {
+                custom_size: Some(Vec2::ZERO),
+                image: image_handle,
+                ..default()
+            })
             .id();
 
         // Create initial AABB
@@ -363,14 +378,12 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn((
-                Sprite {
-                    rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                    anchor: Anchor::TopRight,
-                    ..default()
-                },
-                image_handle,
-            ))
+            .spawn(Sprite {
+                rect: Some(Rect::new(0., 0., 0.5, 1.)),
+                anchor: Anchor::TopRight,
+                image: image_handle,
+                ..default()
+            })
             .id();
 
         // Create AABB

@@ -1,7 +1,10 @@
 //! This example illustrates how to add custom log layers in bevy.
 
-use bevy::log::BoxedLayer;
-use bevy::{log::tracing_subscriber::Layer, prelude::*, utils::tracing::Subscriber};
+use bevy::{
+    log::{tracing_subscriber::Layer, BoxedLayer},
+    prelude::*,
+    utils::tracing::Subscriber,
+};
 
 struct CustomLayer;
 

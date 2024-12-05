@@ -1,7 +1,8 @@
 //! Per-object, per-pixel motion blur.
 //!
-//! Add the [`MotionBlurBundle`] to a camera to enable motion blur. See [`MotionBlur`] for more
-//! documentation.
+//! Add the [`MotionBlur`] component to a camera to enable motion blur.
+
+#![expect(deprecated)]
 
 use crate::{
     core_3d::graph::{Core3d, Node3d},
@@ -10,7 +11,10 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::With, reflect::ReflectComponent,
+    bundle::Bundle,
+    component::{require, Component},
+    query::With,
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -27,6 +31,10 @@ pub mod pipeline;
 
 /// Adds [`MotionBlur`] and the required depth and motion vector prepasses to a camera entity.
 #[derive(Bundle, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `MotionBlur` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct MotionBlurBundle {
     pub motion_blur: MotionBlur,
     pub depth_prepass: DepthPrepass,
@@ -51,22 +59,22 @@ pub struct MotionBlurBundle {
 /// # Usage
 ///
 /// Add the [`MotionBlur`] component to a camera to enable and configure motion blur for that
-/// camera. Motion blur also requires the depth and motion vector prepass, which can be added more
-/// easily to the camera with the [`MotionBlurBundle`].
+/// camera.
 ///
 /// ```
-/// # use bevy_core_pipeline::{core_3d::Camera3dBundle, motion_blur::MotionBlurBundle};
+/// # use bevy_core_pipeline::{core_3d::Camera3d, motion_blur::MotionBlur};
 /// # use bevy_ecs::prelude::*;
 /// # fn test(mut commands: Commands) {
 /// commands.spawn((
-///     Camera3dBundle::default(),
-///     MotionBlurBundle::default(),
+///     Camera3d::default(),
+///     MotionBlur::default(),
 /// ));
 /// # }
 /// ````
 #[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
 #[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
+#[require(DepthPrepass, MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///

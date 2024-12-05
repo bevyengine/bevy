@@ -2,17 +2,17 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
+use alloc::sync::Arc;
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, TypeIdMap};
-use std::{any::TypeId, sync::Arc};
-use thiserror::Error;
+use core::any::TypeId;
+use derive_more::derive::{Display, Error, From};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -31,9 +31,9 @@ impl AssetLoaders {
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
-        let type_name = std::any::type_name::<L>();
+        let type_name = core::any::type_name::<L>();
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
 
         #[cfg(feature = "trace")]
         let loader = InstrumentedAssetLoader(loader);
@@ -78,7 +78,7 @@ impl AssetLoaders {
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
-            let maybe_loader = std::mem::replace(
+            let maybe_loader = core::mem::replace(
                 self.loaders.get_mut(loader_index).unwrap(),
                 MaybeAssetLoader::Ready(loader.clone()),
             );
@@ -101,8 +101,8 @@ impl AssetLoaders {
     /// real loader is added.
     pub(crate) fn reserve<L: AssetLoader>(&mut self, extensions: &[&str]) {
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
-        let type_name = std::any::type_name::<L>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
+        let type_name = core::any::type_name::<L>();
 
         let loader_index = self.loaders.len();
 
@@ -212,7 +212,7 @@ impl AssetLoaders {
         }
 
         // Try extracting the extension from the path
-        if let Some(full_extension) = asset_path.and_then(|path| path.get_full_extension()) {
+        if let Some(full_extension) = asset_path.and_then(AssetPath::get_full_extension) {
             if let Some(&index) = try_extension(full_extension.as_str()) {
                 return self.get_by_index(index);
             }
@@ -266,7 +266,7 @@ impl AssetLoaders {
     pub(crate) fn get_by_path(&self, path: &AssetPath<'_>) -> Option<MaybeAssetLoader> {
         let extension = path.get_full_extension()?;
 
-        let result = std::iter::once(extension.as_str())
+        let result = core::iter::once(extension.as_str())
             .chain(AssetPath::iter_secondary_extensions(&extension))
             .filter_map(|extension| self.extension_to_loaders.get(extension)?.last().copied())
             .find_map(|index| self.get_by_index(index))?;
@@ -275,10 +275,9 @@ impl AssetLoaders {
     }
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone, From)]
 pub(crate) enum GetLoaderError {
-    #[error(transparent)]
-    CouldNotResolve(#[from] RecvError),
+    CouldNotResolve(RecvError),
 }
 
 #[derive(Clone)]
@@ -308,15 +307,15 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
     type Settings = T::Settings;
     type Error = T::Error;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut crate::io::Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut crate::LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn crate::io::Reader,
+        settings: &Self::Settings,
+        load_context: &mut crate::LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         let span = info_span!(
             "asset loading",
-            loader = std::any::type_name::<T>(),
+            loader = core::any::type_name::<T>(),
             asset = load_context.asset_path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
@@ -329,8 +328,8 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
     use std::{
-        marker::PhantomData,
         path::Path,
         sync::mpsc::{channel, Receiver, Sender},
     };
@@ -380,17 +379,17 @@ mod tests {
 
         type Error = String;
 
-        async fn load<'a>(
-            &'a self,
-            _: &'a mut crate::io::Reader<'_>,
-            _: &'a Self::Settings,
-            _: &'a mut crate::LoadContext<'_>,
+        async fn load(
+            &self,
+            _: &mut dyn crate::io::Reader,
+            _: &Self::Settings,
+            _: &mut crate::LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             self.sender.send(()).unwrap();
 
             Err(format!(
                 "Loaded {}:{}",
-                std::any::type_name::<Self::Asset>(),
+                core::any::type_name::<Self::Asset>(),
                 N
             ))
         }
@@ -424,7 +423,7 @@ mod tests {
 
         let loader = block_on(
             loaders
-                .get_by_name(std::any::type_name::<Loader<A, 1, 0>>())
+                .get_by_name(core::any::type_name::<Loader<A, 1, 0>>())
                 .unwrap()
                 .get(),
         )

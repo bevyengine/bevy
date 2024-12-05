@@ -1,8 +1,12 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
-    ScreenSpaceReflectionsUniform, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
+    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+};
+use crate::{
+    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -15,21 +19,16 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::binding_types::uniform_buffer,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
-};
-
-use crate::{
-    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -40,6 +39,7 @@ pub const DEFERRED_LIGHTING_SHADER_HANDLE: Handle<Shader> =
 pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 
 /// Component with a `depth_id` for specifying which corresponding materials should be rendered by this specific PBR deferred lighting pass.
+///
 /// Will be automatically added to entities with the [`DeferredPrepass`] component that don't already have a [`PbrDeferredLightingDepthId`].
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct PbrDeferredLightingDepthId {
@@ -149,6 +149,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewEnvironmentMapUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
@@ -165,6 +166,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_environment_map_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
@@ -220,6 +222,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_environment_map_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
@@ -256,11 +259,11 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                20,
+                TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                21,
+                TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
@@ -386,6 +389,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             }),
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -431,7 +435,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
             (
-                Has<ScreenSpaceAmbientOcclusionSettings>,
+                Has<ScreenSpaceAmbientOcclusion>,
                 Has<ScreenSpaceReflectionsUniform>,
             ),
             (

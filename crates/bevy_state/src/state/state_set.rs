@@ -3,7 +3,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
     system::{Commands, IntoSystem, Res, ResMut},
 };
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use self::sealed::StateSetSealed;
 
@@ -27,7 +27,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: StateSetSealed {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///
@@ -56,7 +56,7 @@ pub trait StateSet: sealed::StateSetSealed {
 ///
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
-/// `StateSet` implementation - and the behaviour of that unwrapping will depend on the arguments expected by the
+/// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
 /// the [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
@@ -229,10 +229,12 @@ impl<S: InnerStateSet> StateSet for S {
 }
 
 macro_rules! impl_state_set_sealed_tuples {
-    ($(($param: ident, $val: ident, $evt: ident)), *) => {
-        impl<$($param: InnerStateSet),*> StateSetSealed for  ($($param,)*) {}
+    ($(#[$meta:meta])* $(($param: ident, $val: ident, $evt: ident)), *) => {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSetSealed for ($($param,)*) {}
 
-        impl<$($param: InnerStateSet),*> StateSet for  ($($param,)*) {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSet for ($($param,)*) {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
@@ -338,4 +340,12 @@ macro_rules! impl_state_set_sealed_tuples {
     };
 }
 
-all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s, ereader);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_state_set_sealed_tuples,
+    1,
+    15,
+    S,
+    s,
+    ereader
+);

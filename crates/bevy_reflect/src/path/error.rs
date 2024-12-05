@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 use super::Access;
 use crate::{ReflectKind, VariantType};
@@ -74,7 +74,7 @@ impl<'a> AccessError<'a> {
         self.offset.as_ref()
     }
 }
-impl std::fmt::Display for AccessError<'_> {
+impl fmt::Display for AccessError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let AccessError {
             kind,
@@ -126,4 +126,4 @@ impl std::fmt::Display for AccessError<'_> {
         }
     }
 }
-impl std::error::Error for AccessError<'_> {}
+impl core::error::Error for AccessError<'_> {}

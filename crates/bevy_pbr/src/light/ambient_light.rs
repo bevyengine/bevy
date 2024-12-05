@@ -16,7 +16,7 @@ use super::*;
 /// }
 /// ```
 #[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.

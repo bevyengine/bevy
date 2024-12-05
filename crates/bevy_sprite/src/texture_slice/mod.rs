@@ -11,7 +11,7 @@ pub(crate) use computed_slices::{
 };
 
 /// Single texture slice, representing a texture rect to draw in a given area
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TextureSlice {
     /// texture area to draw
     pub texture_rect: Rect,

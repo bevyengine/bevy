@@ -1,13 +1,15 @@
-use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2dHandle};
+use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
-use bevy_color::{LinearRgba, Srgba};
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
 };
+
+use super::MeshMaterial2d;
 
 pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(6920362697190520314);
 
@@ -56,18 +58,19 @@ impl Plugin for Wireframe2dPlugin {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Wireframe2d;
 
 /// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe2d`] component,
 /// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to true.
 ///
 /// This overrides the [`Wireframe2dConfig::default_color`].
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Wireframe2dColor {
-    pub color: Srgba,
+    pub color: Color,
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -75,19 +78,19 @@ pub struct Wireframe2dColor {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct Wireframe2dConfig {
-    /// Whether to show wireframes for all meshes.
+    /// Whether to show wireframes for all 2D meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
     pub global: bool,
     /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
     /// but no [`Wireframe2dColor`].
-    pub default_color: Srgba,
+    pub default_color: Color,
 }
 
 #[derive(Resource)]
@@ -125,12 +128,12 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     mut colors_changed: Query<
-        (&mut Handle<Wireframe2dMaterial>, &Wireframe2dColor),
+        (&mut MeshMaterial2d<Wireframe2dMaterial>, &Wireframe2dColor),
         (With<Wireframe2d>, Changed<Wireframe2dColor>),
     >,
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
-        *handle = materials.add(Wireframe2dMaterial {
+        handle.0 = materials.add(Wireframe2dMaterial {
             color: wireframe_color.color.into(),
         });
     }
@@ -143,15 +146,24 @@ fn apply_wireframe_material(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     wireframes: Query<
         (Entity, Option<&Wireframe2dColor>),
-        (With<Wireframe2d>, Without<Handle<Wireframe2dMaterial>>),
+        (
+            With<Wireframe2d>,
+            Without<MeshMaterial2d<Wireframe2dMaterial>>,
+        ),
     >,
-    no_wireframes: Query<Entity, (With<NoWireframe2d>, With<Handle<Wireframe2dMaterial>>)>,
+    no_wireframes: Query<
+        Entity,
+        (
+            With<NoWireframe2d>,
+            With<MeshMaterial2d<Wireframe2dMaterial>>,
+        ),
+    >,
     mut removed_wireframes: RemovedComponents<Wireframe2d>,
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
-            commands.remove::<Handle<Wireframe2dMaterial>>();
+            commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
 
@@ -165,16 +177,12 @@ fn apply_wireframe_material(
             // If there's no color specified we can use the global material since it's already set to use the default_color
             global_material.handle.clone()
         };
-        wireframes_to_spawn.push((e, material));
+        wireframes_to_spawn.push((e, MeshMaterial2d(material)));
     }
     commands.insert_or_spawn_batch(wireframes_to_spawn);
 }
 
-type Wireframe2dFilter = (
-    With<Mesh2dHandle>,
-    Without<Wireframe2d>,
-    Without<NoWireframe2d>,
-);
+type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(
@@ -182,11 +190,14 @@ fn apply_global_wireframe_material(
     config: Res<Wireframe2dConfig>,
     meshes_without_material: Query<
         Entity,
-        (Wireframe2dFilter, Without<Handle<Wireframe2dMaterial>>),
+        (
+            Wireframe2dFilter,
+            Without<MeshMaterial2d<Wireframe2dMaterial>>,
+        ),
     >,
     meshes_with_global_material: Query<
         Entity,
-        (Wireframe2dFilter, With<Handle<Wireframe2dMaterial>>),
+        (Wireframe2dFilter, With<MeshMaterial2d<Wireframe2dMaterial>>),
     >,
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
@@ -195,12 +206,14 @@ fn apply_global_wireframe_material(
         for e in &meshes_without_material {
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, global_material.handle.clone()));
+            material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
-            commands.entity(e).remove::<Handle<Wireframe2dMaterial>>();
+            commands
+                .entity(e)
+                .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
 }

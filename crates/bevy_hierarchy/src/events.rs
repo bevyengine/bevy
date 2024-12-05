@@ -1,9 +1,12 @@
 use bevy_ecs::{event::Event, prelude::Entity};
+#[cfg(feature = "reflect")]
+use bevy_reflect::Reflect;
 
 /// A [`Trigger`] emitted whenever there is a change in the world's hierarchy.
 ///
 /// [`Trigger`]: bevy_ecs::observer::Trigger
-#[derive(Event, Clone, Debug, PartialEq)]
+#[derive(Event, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub enum OnParentChange {
     /// Emitted whenever the entity is added as a child to a parent.
     Added(Entity),

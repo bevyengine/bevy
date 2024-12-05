@@ -1,18 +1,17 @@
-use std::{
-    collections::BTreeSet,
-    fmt::{Debug, Write},
-};
+use alloc::collections::BTreeSet;
+use core::fmt::{Debug, Write};
+use core::hash::BuildHasherDefault;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, tracing::info};
 use bevy_utils::{
-    tracing::{error, warn},
-    HashMap, HashSet,
+    default,
+    tracing::{error, info, warn},
+    AHasher, HashMap, HashSet,
 };
+use derive_more::derive::{Display, Error};
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
-use petgraph::{algo::TarjanScc, prelude::*};
-use thiserror::Error;
 
 use crate::{
     self as bevy_ecs,
@@ -23,7 +22,9 @@ use crate::{
     world::World,
 };
 
+use crate::{query::AccessConflicts, storage::SparseSetIndex};
 pub use stepping::Stepping;
+use Direction::{Incoming, Outgoing};
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]
@@ -125,13 +126,13 @@ impl Schedules {
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.init_component::<T>());
+            .insert(world.register_component::<T>());
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.components.init_resource::<T>());
+            .insert(world.components.register_resource::<T>());
     }
 
     /// Iterate through the [`ComponentId`]'s that will be ignored.
@@ -244,7 +245,7 @@ pub enum Chain {
 /// fn system_one() { println!("System 1 works!") }
 /// fn system_two() { println!("System 2 works!") }
 /// fn system_three() { println!("System 3 works!") }
-///    
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
@@ -327,7 +328,7 @@ impl Schedule {
             );
         };
 
-        self.graph.ambiguous_with.add_edge(a_id, b_id, ());
+        self.graph.ambiguous_with.add_edge(a_id, b_id);
 
         self
     }
@@ -405,7 +406,7 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             let ignored_ambiguities = world
-                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .get_resource_or_init::<Schedules>()
                 .ignored_scheduling_ambiguities
                 .clone();
             self.graph.update_schedule(
@@ -513,7 +514,7 @@ impl Schedule {
 #[derive(Default)]
 pub struct Dag {
     /// A directed graph.
-    graph: DiGraphMap<NodeId, ()>,
+    graph: DiGraph<BuildHasherDefault<AHasher>>,
     /// A cached topological ordering of the graph.
     topsort: Vec<NodeId>,
 }
@@ -521,13 +522,13 @@ pub struct Dag {
 impl Dag {
     fn new() -> Self {
         Self {
-            graph: DiGraphMap::new(),
+            graph: DiGraph::new(),
             topsort: Vec::new(),
         }
     }
 
     /// The directed graph of the stored systems, connected by their ordering dependencies.
-    pub fn graph(&self) -> &DiGraphMap<NodeId, ()> {
+    pub fn graph(&self) -> &DiGraph {
         &self.graph
     }
 
@@ -606,7 +607,7 @@ pub struct ScheduleGraph {
     hierarchy: Dag,
     /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
-    ambiguous_with: UnGraphMap<NodeId, ()>,
+    ambiguous_with: UnGraph<BuildHasherDefault<AHasher>>,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     anonymous_sets: usize,
@@ -629,7 +630,7 @@ impl ScheduleGraph {
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
-            ambiguous_with: UnGraphMap::new(),
+            ambiguous_with: UnGraph::new(),
             ambiguous_with_all: HashSet::new(),
             conflicting_systems: Vec::new(),
             anonymous_sets: 0,
@@ -648,6 +649,11 @@ impl ScheduleGraph {
         self.systems
             .get(id.index())
             .and_then(|system| system.inner.as_deref())
+    }
+
+    /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
+    pub fn contains_set(&self, set: impl SystemSet) -> bool {
+        self.system_set_ids.contains_key(&set.intern())
     }
 
     /// Returns the system at the given [`NodeId`].
@@ -827,7 +833,7 @@ impl ScheduleGraph {
                             for current_node in current_nodes {
                                 self.dependency
                                     .graph
-                                    .add_edge(*previous_node, *current_node, ());
+                                    .add_edge(*previous_node, *current_node);
 
                                 if ignore_deferred {
                                     self.no_sync_edges.insert((*previous_node, *current_node));
@@ -998,7 +1004,7 @@ impl ScheduleGraph {
         self.dependency.graph.add_node(id);
 
         for set in sets.into_iter().map(|set| self.system_set_ids[&set]) {
-            self.hierarchy.graph.add_edge(set, id, ());
+            self.hierarchy.graph.add_edge(set, id);
 
             // ensure set also appears in dependency graph
             self.dependency.graph.add_node(set);
@@ -1020,7 +1026,7 @@ impl ScheduleGraph {
                     (set, id)
                 }
             };
-            self.dependency.graph.add_edge(lhs, rhs, ());
+            self.dependency.graph.add_edge(lhs, rhs);
 
             // ensure set also appears in hierarchy graph
             self.hierarchy.graph.add_node(set);
@@ -1033,7 +1039,7 @@ impl ScheduleGraph {
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {
-                    self.ambiguous_with.add_edge(id, set, ());
+                    self.ambiguous_with.add_edge(id, set);
                 }
             }
             Ambiguity::IgnoreAll => {
@@ -1138,11 +1144,11 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    // modify the graph to have sync nodes for any dependants after a system with deferred system params
+    // modify the graph to have sync nodes for any dependents after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
-        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
-    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
+        dependency_flattened: &mut DiGraph,
+    ) -> Result<DiGraph, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = self.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
@@ -1173,8 +1179,8 @@ impl ScheduleGraph {
 
                 if add_sync_on_edge {
                     let sync_point = self.get_sync_point(distances[&target.index()].unwrap());
-                    sync_point_graph.add_edge(*node, sync_point, ());
-                    sync_point_graph.add_edge(sync_point, target, ());
+                    sync_point_graph.add_edge(*node, sync_point);
+                    sync_point_graph.add_edge(sync_point, target);
 
                     // edge is now redundant
                     sync_point_graph.remove_edge(*node, target);
@@ -1222,7 +1228,7 @@ impl ScheduleGraph {
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
-        hierarchy_graph: &GraphMap<NodeId, (), Directed>,
+        hierarchy_graph: &DiGraph,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
             HashMap::with_capacity(self.system_sets.len());
@@ -1256,10 +1262,7 @@ impl ScheduleGraph {
         (set_systems, set_system_bitsets)
     }
 
-    fn get_dependency_flattened(
-        &mut self,
-        set_systems: &HashMap<NodeId, Vec<NodeId>>,
-    ) -> GraphMap<NodeId, (), Directed> {
+    fn get_dependency_flattened(&mut self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> DiGraph {
         // flatten: combine `in_set` with `before` and `after` information
         // have to do it like this to preserve transitivity
         let mut dependency_flattened = self.dependency.graph.clone();
@@ -1300,37 +1303,34 @@ impl ScheduleGraph {
 
             dependency_flattened.remove_node(set);
             for (a, b) in temp.drain(..) {
-                dependency_flattened.add_edge(a, b, ());
+                dependency_flattened.add_edge(a, b);
             }
         }
 
         dependency_flattened
     }
 
-    fn get_ambiguous_with_flattened(
-        &self,
-        set_systems: &HashMap<NodeId, Vec<NodeId>>,
-    ) -> GraphMap<NodeId, (), Undirected> {
-        let mut ambiguous_with_flattened = UnGraphMap::new();
-        for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
+    fn get_ambiguous_with_flattened(&self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> UnGraph {
+        let mut ambiguous_with_flattened = UnGraph::new();
+        for (lhs, rhs) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
                 (NodeId::System(_), NodeId::System(_)) => {
-                    ambiguous_with_flattened.add_edge(lhs, rhs, ());
+                    ambiguous_with_flattened.add_edge(lhs, rhs);
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
                     for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
-                        ambiguous_with_flattened.add_edge(lhs_, rhs, ());
+                        ambiguous_with_flattened.add_edge(lhs_, rhs);
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
                     for &rhs_ in set_systems.get(&rhs).unwrap_or(&Vec::new()) {
-                        ambiguous_with_flattened.add_edge(lhs, rhs_, ());
+                        ambiguous_with_flattened.add_edge(lhs, rhs_);
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
                     for &lhs_ in set_systems.get(&lhs).unwrap_or(&Vec::new()) {
                         for &rhs_ in set_systems.get(&rhs).unwrap_or(&vec![]) {
-                            ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
+                            ambiguous_with_flattened.add_edge(lhs_, rhs_);
                         }
                     }
                 }
@@ -1343,7 +1343,7 @@ impl ScheduleGraph {
     fn get_conflicting_systems(
         &self,
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
-        ambiguous_with_flattened: &GraphMap<NodeId, (), Undirected>,
+        ambiguous_with_flattened: &UnGraph,
         ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
         let mut conflicting_systems = Vec::new();
@@ -1363,14 +1363,22 @@ impl ScheduleGraph {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    let conflicts: Vec<_> = access_a
-                        .get_conflicts(access_b)
-                        .into_iter()
-                        .filter(|id| !ignored_ambiguities.contains(id))
-                        .collect();
-
-                    if !conflicts.is_empty() {
-                        conflicting_systems.push((a, b, conflicts));
+                    match access_a.get_conflicts(access_b) {
+                        AccessConflicts::Individual(conflicts) => {
+                            let conflicts: Vec<_> = conflicts
+                                .ones()
+                                .map(ComponentId::get_sparse_set_index)
+                                .filter(|id| !ignored_ambiguities.contains(id))
+                                .collect();
+                            if !conflicts.is_empty() {
+                                conflicting_systems.push((a, b, conflicts));
+                            }
+                        }
+                        AccessConflicts::All => {
+                            // there is no specific component conflicting, but the systems are overall incompatible
+                            // for example 2 systems with `Query<EntityMut>`
+                            conflicting_systems.push((a, b, Vec::new()));
+                        }
                     }
                 }
             }
@@ -1515,13 +1523,13 @@ impl ScheduleGraph {
         // move systems into new schedule
         for &id in &schedule.system_ids {
             let system = self.systems[id.index()].inner.take().unwrap();
-            let conditions = std::mem::take(&mut self.system_conditions[id.index()]);
+            let conditions = core::mem::take(&mut self.system_conditions[id.index()]);
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
         }
 
         for &id in &schedule.set_ids {
-            let conditions = std::mem::take(&mut self.system_set_conditions[id.index()]);
+            let conditions = core::mem::take(&mut self.system_set_conditions[id.index()]);
             schedule.set_conditions.push(conditions);
         }
 
@@ -1572,7 +1580,7 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let mut name = match id {
+        let name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
                 if report_sets {
@@ -1598,9 +1606,10 @@ impl ScheduleGraph {
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::get_short_name(&name);
+            ShortName(&name).to_string()
+        } else {
+            name
         }
-        name
     }
 
     fn anonymous_set_name(&self, id: &NodeId) -> String {
@@ -1610,7 +1619,7 @@ impl ScheduleGraph {
                 .graph
                 .edges_directed(*id, Outgoing)
                 // never get the sets of the members or this will infinite recurse when the report_sets setting is on.
-                .map(|(_, member_id, _)| self.get_node_name_inner(&member_id, false))
+                .map(|(_, member_id)| self.get_node_name_inner(&member_id, false))
                 .reduce(|a, b| format!("{a}, {b}"))
                 .unwrap_or_default()
         )
@@ -1678,23 +1687,22 @@ impl ScheduleGraph {
     /// If the graph contain cycles, then an error is returned.
     fn topsort_graph(
         &self,
-        graph: &DiGraphMap<NodeId, ()>,
+        graph: &DiGraph,
         report: ReportCycles,
     ) -> Result<Vec<NodeId>, ScheduleBuildError> {
         // Tarjan's SCC algorithm returns elements in *reverse* topological order.
-        let mut tarjan_scc = TarjanScc::new();
         let mut top_sorted_nodes = Vec::with_capacity(graph.node_count());
         let mut sccs_with_cycles = Vec::new();
 
-        tarjan_scc.run(graph, |scc| {
+        for scc in graph.iter_sccs() {
             // A strongly-connected component is a group of nodes who can all reach each other
             // through one or more paths. If an SCC contains more than one node, there must be
             // at least one cycle within them.
+            top_sorted_nodes.extend_from_slice(&scc);
             if scc.len() > 1 {
-                sccs_with_cycles.push(scc.to_vec());
+                sccs_with_cycles.push(scc);
             }
-            top_sorted_nodes.extend_from_slice(scc);
-        });
+        }
 
         if sccs_with_cycles.is_empty() {
             // reverse to get topological order
@@ -1732,7 +1740,7 @@ impl ScheduleGraph {
             )
             .unwrap();
             writeln!(message, "set `{first_name}`").unwrap();
-            for name in names.chain(std::iter::once(first_name)) {
+            for name in names.chain(core::iter::once(first_name)) {
                 writeln!(message, " ... which contains set `{name}`").unwrap();
             }
             writeln!(message).unwrap();
@@ -1756,7 +1764,7 @@ impl ScheduleGraph {
             )
             .unwrap();
             writeln!(message, "{first_kind} `{first_name}`").unwrap();
-            for (kind, name) in names.chain(std::iter::once((first_kind, first_name))) {
+            for (kind, name) in names.chain(core::iter::once((first_kind, first_name))) {
                 writeln!(message, " ... which must run before {kind} `{name}`").unwrap();
             }
             writeln!(message).unwrap();
@@ -1767,7 +1775,7 @@ impl ScheduleGraph {
 
     fn check_for_cross_dependencies(
         &self,
-        dep_results: &CheckGraphResults<NodeId>,
+        dep_results: &CheckGraphResults,
         hier_results_connected: &HashSet<(NodeId, NodeId)>,
     ) -> Result<(), ScheduleBuildError> {
         for &(a, b) in &dep_results.connected {
@@ -1870,7 +1878,7 @@ impl ScheduleGraph {
                 writeln!(message, "    conflict on: {conflicts:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
-                let world = std::any::type_name::<World>();
+                let world = core::any::type_name::<World>();
                 writeln!(message, "    conflict on: {world}").unwrap();
             }
         }
@@ -1883,7 +1891,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -1903,7 +1911,7 @@ impl ScheduleGraph {
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {
-        for (set_id, _, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
+        for (set_id, _) in self.hierarchy.graph.edges_directed(id, Incoming) {
             if f(set_id) {
                 self.traverse_sets_containing_node(set_id, f);
             }
@@ -1925,42 +1933,43 @@ impl ScheduleGraph {
 }
 
 /// Category of errors encountered during schedule construction.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
+#[error(ignore)]
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[error("System set `{0}` contains itself.")]
+    #[display("System set `{_0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
-    #[error("System set hierarchy contains cycle(s).\n{0}")]
+    #[display("System set hierarchy contains cycle(s).\n{_0}")]
     HierarchyCycle(String),
     /// The hierarchy of system sets contains redundant edges.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("System set hierarchy contains redundant edges.\n{0}")]
+    #[display("System set hierarchy contains redundant edges.\n{_0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
-    #[error("System set `{0}` depends on itself.")]
+    #[display("System set `{_0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
-    #[error("System dependencies contain cycle(s).\n{0}")]
+    #[display("System dependencies contain cycle(s).\n{_0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[display("`{_0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[display("`{_0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[display("Tried to order against `{_0}` in a schedule that has more than one `{_0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("Systems with conflicting access have indeterminate run order.\n{0}")]
+    #[display("Systems with conflicting access have indeterminate run order.\n{_0}")]
     Ambiguity(String),
     /// Tried to run a schedule before all of its systems have been initialized.
-    #[error("Systems in schedule have not been initialized.")]
+    #[display("Systems in schedule have not been initialized.")]
     Uninitialized,
 }
 
@@ -2031,8 +2040,8 @@ impl ScheduleBuildSettings {
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
 /// this schedule.
-#[derive(Error, Debug)]
-#[error("executable schedule has not been built")]
+#[derive(Error, Display, Debug)]
+#[display("executable schedule has not been built")]
 pub struct ScheduleNotInitialized;
 
 #[cfg(test)]

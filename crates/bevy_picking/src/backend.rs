@@ -6,10 +6,10 @@
 //! detail.
 //!
 //! Because `bevy_picking` is very loosely coupled with its backends, you can mix and match as
-//! many backends as you want. For example, You could use the `rapier` backend to raycast against
+//! many backends as you want. For example, you could use the `rapier` backend to raycast against
 //! physics objects, a picking shader backend to pick non-physics meshes, and the `bevy_ui` backend
-//! for your UI. The [`PointerHits`]s produced by these various backends will be combined, sorted,
-//! and used as a homogeneous input for the picking systems that consume these events.
+//! for your UI. The [`PointerHits`] instances produced by these various backends will be combined,
+//! sorted, and used as a homogeneous input for the picking systems that consume these events.
 //!
 //! ## Implementation
 //!
@@ -20,9 +20,9 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
+//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
-//!   may want to early exit if it intersects an entity that blocks lower entities from being
+//!   may want to exit early if it intersects an entity that blocks lower entities from being
 //!   picked.
 //!
 //! ### Raycasting Backends
@@ -35,22 +35,28 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 
-/// Common imports for implementing a picking backend.
+/// The picking backend prelude.
+///
+/// This includes the most common types in this module, re-exported for your convenience.
 pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        PickSet, PickingBehavior,
     };
 }
 
 /// An event produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
 ///
-/// Some backends may only support providing the topmost entity; this is a valid limitation of some
-/// backends. For example, a picking shader might only have data on the topmost rendered output from
-/// its buffer.
-#[derive(Event, Debug, Clone)]
+/// Some backends may only support providing the topmost entity; this is a valid limitation. For
+/// example, a picking shader might only have data on the topmost rendered output from its buffer.
+///
+/// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
+/// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
+/// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
+#[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,
@@ -78,7 +84,8 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -106,7 +113,8 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
@@ -227,6 +235,6 @@ pub mod ray {
             let viewport_logical = camera.to_logical(viewport.physical_position)?;
             viewport_pos -= viewport_logical;
         }
-        camera.viewport_to_world(camera_tfm, viewport_pos)
+        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
     }
 }

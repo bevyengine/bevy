@@ -6,7 +6,7 @@ use crate::{
     storage::{Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -52,6 +52,9 @@ pub unsafe trait WorldQuery {
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
+
+    /// This function manually implements subtyping for the query fetches.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of this fetch.
     ///
@@ -144,10 +147,11 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -162,6 +166,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
+                )*)
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($name,)*) = fetch;
+                ($(
+                    $name::shrink_fetch($name),
                 )*)
             }
 
@@ -229,4 +240,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);

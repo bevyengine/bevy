@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_ecs_macros::SystemSet;
 #[cfg(feature = "bevy_reflect")]
-use std::hash::Hash;
+use core::hash::Hash;
 
 use super::registry::ShouldUpdateEvents;
 
@@ -26,7 +26,7 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
     }
 }
 
-/// A system that calls [`Events::update`] on all registered [`Events`] in the world.
+/// A system that calls [`Events::update`](super::Events::update) on all registered [`Events`][super::Events] in the world.
 pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
     if world.contains_resource::<EventRegistry>() {
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {

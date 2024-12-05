@@ -2,7 +2,7 @@
 //!
 //! [`std::sync::Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 
-use std::ptr;
+use core::ptr;
 
 /// See [`Exclusive`](https://github.com/rust-lang/rust/issues/98407) for stdlib's upcoming implementation,
 /// which should replace this one entirely.

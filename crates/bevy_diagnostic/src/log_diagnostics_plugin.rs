@@ -2,8 +2,10 @@ use super::{Diagnostic, DiagnosticPath, DiagnosticsStore};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time, Timer, TimerMode};
-use bevy_utils::tracing::{debug, info};
-use bevy_utils::Duration;
+use bevy_utils::{
+    tracing::{debug, info},
+    Duration,
+};
 
 /// An App Plugin that logs diagnostics to the console.
 ///

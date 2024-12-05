@@ -6,21 +6,27 @@
 )]
 
 //! Accessibility for Bevy
+//!
+//! As of Bevy version 0.15 `accesskit` is no longer re-exported from this crate.
+//!
+//! If you need to use `accesskit`, you will need to add it as a separate dependency in your `Cargo.toml`.
+//!
+//! Make sure to use the same version of `accesskit` as Bevy.
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+extern crate alloc;
 
-pub use accesskit;
-use accesskit::NodeBuilder;
+use alloc::sync::Arc;
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, Event},
+    prelude::{Component, Entity, Event, ReflectResource},
     schedule::SystemSet,
     system::Resource,
 };
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]
@@ -83,16 +89,17 @@ impl ManageAccessibilityUpdates {
 /// If the entity doesn't have a parent, or if the immediate parent doesn't have
 /// an `AccessibilityNode`, its node will be an immediate child of the primary window.
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct AccessibilityNode(pub NodeBuilder);
+pub struct AccessibilityNode(pub Node);
 
-impl From<NodeBuilder> for AccessibilityNode {
-    fn from(node: NodeBuilder) -> Self {
+impl From<Node> for AccessibilityNode {
+    fn from(node: Node) -> Self {
         Self(node)
     }
 }
 
 /// Resource representing which entity has keyboard focus, if any.
-#[derive(Resource, Default, Deref, DerefMut)]
+#[derive(Resource, Default, Deref, DerefMut, Reflect)]
+#[reflect(Resource, Default)]
 pub struct Focus(pub Option<Entity>);
 
 /// Set enum for the systems relating to accessibility
@@ -103,10 +110,13 @@ pub enum AccessibilitySystem {
 }
 
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
+#[derive(Default)]
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        app.register_type::<Focus>();
+
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
             .init_resource::<Focus>()

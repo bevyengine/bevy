@@ -1,9 +1,9 @@
 use crate::system::{SystemBuffer, SystemMeta};
 
-use std::{
+use core::{
     fmt::Debug,
-    mem::MaybeUninit,
-    panic::{self, AssertUnwindSafe},
+    mem::{size_of, MaybeUninit},
+    panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
 };
 
@@ -26,7 +26,6 @@ struct CommandMeta {
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
-//
 // NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
@@ -59,7 +58,7 @@ pub(crate) struct RawCommandQueue {
 // It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
 // So instead, the manual impl just prints the length of vec.
 impl Debug for CommandQueue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandQueue")
             .field("len_bytes", &self.bytes.len())
             .finish_non_exhaustive()
@@ -169,7 +168,7 @@ impl RawCommandQueue {
 
         let meta = CommandMeta {
             consume_command_and_get_size: |command, world, cursor| {
-                *cursor += std::mem::size_of::<C>();
+                *cursor += size_of::<C>();
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
@@ -197,7 +196,7 @@ impl RawCommandQueue {
         let old_len = bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        bytes.reserve(std::mem::size_of::<Packed<C>>());
+        bytes.reserve(size_of::<Packed<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
@@ -217,7 +216,7 @@ impl RawCommandQueue {
         // SAFETY: The new length is guaranteed to fit in the vector's capacity,
         // due to the call to `.reserve()` above.
         unsafe {
-            bytes.set_len(old_len + std::mem::size_of::<Packed<C>>());
+            bytes.set_len(old_len + size_of::<Packed<C>>());
         }
     }
 
@@ -252,17 +251,17 @@ impl RawCommandQueue {
             };
 
             // Advance to the bytes just after `meta`, which represent a type-erased command.
-            local_cursor += std::mem::size_of::<CommandMeta>();
+            local_cursor += size_of::<CommandMeta>();
             // Construct an owned pointer to the command.
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
             // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
-                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(
+                OwningPtr::<Unaligned>::new(NonNull::new_unchecked(
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
-            let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
                 // since they were stored next to each other by `.push()`.
                 // For ZSTs, the type doesn't matter as long as the pointer is non-null.
@@ -295,7 +294,7 @@ impl RawCommandQueue {
                 if start == 0 {
                     bytes.append(panic_recovery);
                 }
-                panic::resume_unwind(payload);
+                std::panic::resume_unwind(payload);
             }
         }
 
@@ -312,7 +311,7 @@ impl RawCommandQueue {
 impl Drop for CommandQueue {
     fn drop(&mut self) {
         if !self.bytes.is_empty() {
-            warn!("CommandQueue has un-applied commands being dropped.");
+            warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
         }
         // SAFETY: A reference is always a valid pointer
         unsafe { self.get_raw().apply_or_drop_queued(None) };
@@ -338,12 +337,10 @@ mod test {
     use super::*;
     use crate as bevy_ecs;
     use crate::system::Resource;
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         panic::AssertUnwindSafe,
-        sync::{
-            atomic::{AtomicU32, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicU32, Ordering},
     };
 
     struct DropCheck(Arc<AtomicU32>);
@@ -479,20 +476,20 @@ mod test {
         fn add_index(index: usize) -> impl Command {
             move |world: &mut World| world.resource_mut::<Order>().0.push(index)
         }
-        world.commands().add(add_index(1));
-        world.commands().add(|world: &mut World| {
-            world.commands().add(add_index(2));
-            world.commands().add(PanicCommand("I panic!".to_owned()));
-            world.commands().add(add_index(3));
+        world.commands().queue(add_index(1));
+        world.commands().queue(|world: &mut World| {
+            world.commands().queue(add_index(2));
+            world.commands().queue(PanicCommand("I panic!".to_owned()));
+            world.commands().queue(add_index(3));
             world.flush_commands();
         });
-        world.commands().add(add_index(4));
+        world.commands().queue(add_index(4));
 
         let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
 
-        world.commands().add(add_index(5));
+        world.commands().queue(add_index(5));
         world.flush_commands();
         assert_eq!(&world.resource::<Order>().0, &[1, 2, 3, 4, 5]);
     }

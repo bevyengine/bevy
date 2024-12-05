@@ -1,8 +1,8 @@
 use crate::{
-    AudioSourceBundle, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode,
-    PlaybackSettings, SpatialAudioSink, SpatialListener,
+    AudioPlayer, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode, PlaybackSettings,
+    SpatialAudioSink, SpatialListener,
 };
-use bevy_asset::{Asset, Assets, Handle};
+use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
@@ -33,7 +33,7 @@ impl Default for AudioOutput {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
             // We leak `OutputStream` to prevent the audio from stopping.
-            std::mem::forget(stream);
+            core::mem::forget(stream);
             Self {
                 stream_handle: Some(stream_handle),
             }
@@ -89,8 +89,7 @@ impl<'w, 's> EarPositions<'w, 's> {
 
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
-/// "Queued" audio is any audio entity (with the components from
-/// [`AudioBundle`][crate::AudioBundle] that does not have an
+/// "Queued" audio is any audio entity (with an [`AudioPlayer`] component) that does not have an
 /// [`AudioSink`]/[`SpatialAudioSink`] component.
 ///
 /// This system detects such entities, checks if their source asset
@@ -102,7 +101,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     query_nonplaying: Query<
         (
             Entity,
-            &Handle<Source>,
+            &AudioPlayer<Source>,
             &PlaybackSettings,
             Option<&GlobalTransform>,
         ),
@@ -120,7 +119,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     };
 
     for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
-        let Some(audio_source) = audio_sources.get(source_handle) else {
+        let Some(audio_source) = audio_sources.get(&source_handle.0) else {
             continue;
         };
         // audio data is available (has loaded), begin playback and insert sink component
@@ -141,7 +140,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             let emitter_translation = if let Some(emitter_transform) = maybe_emitter_transform {
                 (emitter_transform.translation() * scale).into()
             } else {
-                warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
+                warn!("Spatial AudioPlayer with no GlobalTransform component. Using zero.");
                 Vec3::ZERO.into()
             };
 
@@ -237,19 +236,19 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     mut commands: Commands,
     query_nonspatial_despawn: Query<
         (Entity, &AudioSink),
-        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+        (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_despawn: Query<
         (Entity, &SpatialAudioSink),
-        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+        (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_nonspatial_remove: Query<
         (Entity, &AudioSink),
-        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+        (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_remove: Query<
         (Entity, &SpatialAudioSink),
-        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+        (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
@@ -264,16 +263,22 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     }
     for (entity, sink) in &query_nonspatial_remove {
         if sink.sink.empty() {
-            commands
-                .entity(entity)
-                .remove::<(AudioSourceBundle<T>, AudioSink, PlaybackRemoveMarker)>();
+            commands.entity(entity).remove::<(
+                AudioPlayer<T>,
+                AudioSink,
+                PlaybackSettings,
+                PlaybackRemoveMarker,
+            )>();
         }
     }
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.empty() {
-            commands
-                .entity(entity)
-                .remove::<(AudioSourceBundle<T>, SpatialAudioSink, PlaybackRemoveMarker)>();
+            commands.entity(entity).remove::<(
+                AudioPlayer<T>,
+                SpatialAudioSink,
+                PlaybackSettings,
+                PlaybackRemoveMarker,
+            )>();
         }
     }
 }

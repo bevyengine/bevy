@@ -1,7 +1,6 @@
 //! Create an application without winit (runs single time, no event loop).
 
-use bevy::prelude::*;
-use bevy::winit::WinitPlugin;
+use bevy::{prelude::*, winit::WinitPlugin};
 
 fn main() {
     App::new()
@@ -11,5 +10,5 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands.spawn(Camera3dBundle::default());
+    commands.spawn(Camera3d::default());
 }

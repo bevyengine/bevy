@@ -1,6 +1,5 @@
 use crate::Reflect;
-use bevy_utils::hashbrown::hash_map::Iter;
-use bevy_utils::HashMap;
+use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
 #[derive(Debug, Clone)]
@@ -90,7 +89,7 @@ impl SerializationData {
     pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect>> {
         self.skipped_fields
             .get(&index)
-            .map(|field| field.generate_default())
+            .map(SkippedField::generate_default)
     }
 
     /// Returns the number of skipped fields.

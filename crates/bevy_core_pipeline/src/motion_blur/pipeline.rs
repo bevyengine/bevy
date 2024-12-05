@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::FromWorld,
 };
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
@@ -19,7 +20,6 @@ use bevy_render::{
         TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewTarget},
 };
 
@@ -141,6 +141,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -153,10 +154,9 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView), With<MotionBlur>>,
+    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
 ) {
-    for (entity, view) in &views {
+    for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,

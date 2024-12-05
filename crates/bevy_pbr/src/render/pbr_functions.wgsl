@@ -172,6 +172,14 @@ fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -
     var T: vec3<f32> = world_tangent.xyz;
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    // https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#a-note-on-mikktspace-usage
+    let inverse_length_n = 1.0 / length(N);
+    T *= inverse_length_n;
+    B *= inverse_length_n;
+    N *= inverse_length_n;
+#endif
+
     return mat3x3(T, B, N);
 }
 
@@ -405,10 +413,13 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
     let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
-    let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
+    var clusterable_object_index_ranges =
+        clustering::unpack_clusterable_object_index_ranges(cluster_index);
 
     // Point lights (direct)
-    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
+    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_spot_light_index_offset;
+            i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -442,13 +453,21 @@ fn apply_pbr_lighting(
     }
 
     // Spot lights (direct)
-    for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
+    for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+                && (view_bindings::clusterable_objects.data[light_id].flags &
+                    mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_spot_shadow(
+                light_id,
+                in.world_position,
+                in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
         }
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input);
@@ -467,7 +486,12 @@ fn apply_pbr_lighting(
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+            transmitted_shadow = shadows::fetch_spot_shadow(
+                light_id,
+                diffuse_transmissive_lobe_world_position,
+                -in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
         }
 
         let transmitted_light_contrib =
@@ -545,19 +569,23 @@ fn apply_pbr_lighting(
     // example, both lightmaps and irradiance volumes are present.
 
     var indirect_light = vec3(0.0f);
+    var found_diffuse_indirect = false;
 
 #ifdef LIGHTMAP
-    if (all(indirect_light == vec3(0.0f))) {
-        indirect_light += in.lightmap_light * diffuse_color;
-    }
+    indirect_light += in.lightmap_light * diffuse_color;
+    found_diffuse_indirect = true;
 #endif
 
-#ifdef IRRADIANCE_VOLUME {
+#ifdef IRRADIANCE_VOLUME
     // Irradiance volume light (indirect)
-    if (all(indirect_light == vec3(0.0f))) {
+    if (!found_diffuse_indirect) {
         let irradiance_volume_light = irradiance_volume::irradiance_volume_light(
-            in.world_position.xyz, in.N);
+            in.world_position.xyz,
+            in.N,
+            &clusterable_object_index_ranges,
+        );
         indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+        found_diffuse_indirect = true;
     }
 #endif
 
@@ -574,7 +602,8 @@ fn apply_pbr_lighting(
 
     let environment_light = environment_map::environment_map_light(
         environment_map_lighting_input,
-        any(indirect_light != vec3(0.0f))
+        &clusterable_object_index_ranges,
+        found_diffuse_indirect,
     );
 
     // If screen space reflections are going to be used for this material, don't
@@ -589,7 +618,8 @@ fn apply_pbr_lighting(
     if (!use_ssr) {
         let environment_light = environment_map::environment_map_light(
             &lighting_input,
-            any(indirect_light != vec3(0.0f))
+            &clusterable_object_index_ranges,
+            found_diffuse_indirect
         );
 
         indirect_light += environment_light.diffuse * diffuse_occlusion +
@@ -647,8 +677,11 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    let transmitted_environment_light =
-        environment_map::environment_map_light(&transmissive_environment_light_input, false);
+    let transmitted_environment_light = environment_map::environment_map_light(
+        &transmissive_environment_light_input,
+        &clusterable_object_index_ranges,
+        false,
+    );
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
@@ -702,7 +735,7 @@ fn apply_pbr_lighting(
         output_color,
         view_z,
         in.is_orthographic,
-        offset_and_counts,
+        clusterable_object_index_ranges,
         cluster_index,
     );
 

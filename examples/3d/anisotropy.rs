@@ -64,37 +64,32 @@ fn main() {
 
 /// Creates the initial scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(CAMERA_INITIAL_POSITION)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     spawn_directional_light(&mut commands);
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
-        transform: Transform::from_xyz(0.0, 0.07, -0.13),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
+        Transform::from_xyz(0.0, 0.07, -0.13),
+    ));
 
-    spawn_text(&mut commands, &asset_server, &app_status);
+    spawn_text(&mut commands, &app_status);
 }
 
 /// Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_help_text(asset_server),
-            ..default()
-        }
-        .with_style(Style {
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
+    commands.spawn((
+        app_status.create_help_text(),
+        Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -104,8 +99,11 @@ fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     new_meshes: Query<
-        (Entity, &Handle<StandardMaterial>),
-        (Added<Handle<StandardMaterial>>, Without<MaterialVariants>),
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (
+            Added<MeshMaterial3d<StandardMaterial>>,
+            Without<MaterialVariants>,
+        ),
     >,
 ) {
     for (entity, anisotropic_material_handle) in new_meshes.iter() {
@@ -114,7 +112,7 @@ fn create_material_variants(
         };
 
         commands.entity(entity).insert(MaterialVariants {
-            anisotropic: anisotropic_material_handle.clone(),
+            anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
                 anisotropy_texture: None,
                 anisotropy_strength: 0.0,
@@ -130,9 +128,9 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(f32::cos(now), 1.0, f32::sin(now)) * vec3(3.0, 4.0, 3.0);
+        transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
@@ -163,7 +161,7 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut Handle<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -213,7 +211,7 @@ fn handle_input(
 
         // Go through each mesh and alter its material.
         for (mut material_handle, material_variants) in meshes.iter_mut() {
-            *material_handle = if app_status.anisotropy_enabled {
+            material_handle.0 = if app_status.anisotropy_enabled {
                 material_variants.anisotropic.clone()
             } else {
                 material_variants.isotropic.clone()
@@ -223,13 +221,9 @@ fn handle_input(
 }
 
 /// A system that updates the help text based on the current app status.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_help_text(&asset_server);
+        *text = app_status.create_help_text();
     }
 }
 
@@ -244,41 +238,37 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2500.0,
+            ..default()
         });
 }
 
 /// Spawns a rotating directional light.
 fn spawn_directional_light(commands: &mut Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: WHITE.into(),
-            illuminance: 3000.0,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        color: WHITE.into(),
+        illuminance: 3000.0,
         ..default()
     });
 }
 
 /// Spawns a rotating point light.
 fn spawn_point_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 200000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 200000.0,
         ..default()
     });
 }
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_help_text(&self) -> Text {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -294,14 +284,10 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        Text::from_section(
-            format!("{}\n{}", material_variant_help_text, light_help_text),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
-        )
+        Text(format!(
+            "{}\n{}",
+            material_variant_help_text, light_help_text
+        ))
     }
 }
 

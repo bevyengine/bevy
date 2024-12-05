@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::contrast_adaptive_sharpening::ViewCASPipeline;
+use crate::contrast_adaptive_sharpening::ViewCasPipeline;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
@@ -13,21 +13,21 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::{CASPipeline, CASUniform};
+use super::{CasPipeline, CasUniform};
 
-pub struct CASNode {
+pub struct CasNode {
     query: QueryState<
         (
             &'static ViewTarget,
-            &'static ViewCASPipeline,
-            &'static DynamicUniformIndex<CASUniform>,
+            &'static ViewCasPipeline,
+            &'static DynamicUniformIndex<CasUniform>,
         ),
         With<ExtractedView>,
     >,
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
 }
 
-impl FromWorld for CASNode {
+impl FromWorld for CasNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -36,7 +36,7 @@ impl FromWorld for CASNode {
     }
 }
 
-impl Node for CASNode {
+impl Node for CasNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -49,8 +49,8 @@ impl Node for CASNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let sharpening_pipeline = world.resource::<CASPipeline>();
-        let uniforms = world.resource::<ComponentUniforms<CASUniform>>();
+        let sharpening_pipeline = world.resource::<CasPipeline>();
+        let uniforms = world.resource::<ComponentUniforms<CasUniform>>();
 
         let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity)
         else {

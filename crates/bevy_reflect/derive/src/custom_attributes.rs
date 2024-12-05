@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::parse::ParseStream;
-use syn::{Expr, Path, Token};
+use syn::{parse::ParseStream, Expr, Path, Token};
 
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
