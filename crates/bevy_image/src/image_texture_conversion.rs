@@ -2,7 +2,7 @@ use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use derive_more::derive::{Display, Error};
 use image::{DynamicImage, ImageBuffer};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].

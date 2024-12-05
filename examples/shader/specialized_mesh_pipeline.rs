@@ -341,7 +341,7 @@ fn queue_custom_mesh_pipeline(
                     // but you can use anything you like. Note that the asset ID need
                     // not be the ID of a [`Mesh`].
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_id: None,
+                    material_bind_group_index: None,
                     lightmap_image: None,
                 },
                 (render_entity, visible_entity),

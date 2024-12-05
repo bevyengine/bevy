@@ -133,7 +133,7 @@ impl AsBindGroup for BindlessMaterial {
         );
 
         Ok(PreparedBindGroup {
-            bindings: vec![],
+            bindings: BindingResources(vec![]),
             bind_group,
             data: (),
         })
