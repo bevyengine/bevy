@@ -1839,7 +1839,7 @@ wasm = false
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_deferred` system"
+description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 

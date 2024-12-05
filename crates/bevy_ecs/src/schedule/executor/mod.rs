@@ -107,13 +107,18 @@ impl SystemSchedule {
     }
 }
 
+/// See [`ApplyDeferred`].
+#[deprecated = "Use `ApplyDeferred` instead"]
+#[expect(non_upper_case_globals)]
+pub const apply_deferred: ApplyDeferred = ApplyDeferred;
+
 /// A special [`System`] that instructs the executor to call
 /// [`System::apply_deferred`] on the systems that have run but not applied
 /// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
 ///
 /// ## Scheduling
 ///
-/// `apply_deferred` systems are scheduled *by default*
+/// `ApplyDeferred` systems are scheduled *by default*
 /// - later in the same schedule run (for example, if a system with `Commands` param
 ///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
 /// - between systems with dependencies if the dependency [has deferred buffers]
@@ -133,15 +138,15 @@ impl SystemSchedule {
 /// [`Schedule`]: super::Schedule
 #[doc(alias = "apply_system_buffers")]
 #[allow(non_camel_case_types)]
-pub struct apply_deferred;
+pub struct ApplyDeferred;
 
-/// Returns `true` if the [`System`] is an instance of [`apply_deferred`].
+/// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
 pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
     // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == TypeId::of::<apply_deferred>()
+    system.as_ref().type_id() == TypeId::of::<ApplyDeferred>()
 }
 
-impl System for apply_deferred {
+impl System for ApplyDeferred {
     type In = ();
     type Out = ();
 
@@ -219,7 +224,7 @@ impl System for apply_deferred {
     fn set_last_run(&mut self, _last_run: Tick) {}
 }
 
-impl IntoSystemSet<()> for apply_deferred {
+impl IntoSystemSet<()> for ApplyDeferred {
     type Set = SystemTypeSet<Self>;
 
     fn into_system_set(self) -> Self::Set {

@@ -323,7 +323,7 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
             Schedule,
         },
         system::{
@@ -493,7 +493,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
+        schedule.add_systems((incr_e_on_flip, ApplyDeferred, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
