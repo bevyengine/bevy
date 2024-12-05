@@ -9,6 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
+use alloc::vec::Vec;
 use core::fmt;
 use derive_more::derive::{Display, From};
 
