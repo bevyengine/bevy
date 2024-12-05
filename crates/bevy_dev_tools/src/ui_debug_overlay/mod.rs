@@ -15,7 +15,7 @@ use bevy_render::{
     view::{RenderLayers, VisibilitySystems},
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
-use bevy_ui::{ComputedNode, DefaultUiCamera, Display, Node, TargetCamera, UiScale};
+use bevy_ui::{ComputedNode, DefaultUiCamera, Display, Node, TargetCamera};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};
 
