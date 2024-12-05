@@ -156,7 +156,6 @@ struct OutlineParam<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     nodes: Query<'w, 's, NodesQuery>,
     view_visibility: Query<'w, 's, &'static ViewVisibility>,
-    ui_scale: Res<'w, UiScale>,
 }
 
 type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
