@@ -1,4 +1,5 @@
 use crate::Reflect;
+use alloc::boxed::Box;
 use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
@@ -26,7 +27,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use std::any::TypeId;
+    /// # use core::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
@@ -66,7 +67,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use std::any::TypeId;
+    /// # use core::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
