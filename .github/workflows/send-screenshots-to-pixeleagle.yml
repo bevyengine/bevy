@@ -17,6 +17,8 @@ on:
         type: string
 
 env:
+  # Unfortunately, we can't check secrets in `if:` conditionals. However, Github's own documentation
+  # suggests a workaround: Putting the secret in an environment variable, and checking that instead.
   PIXELEAGLE_TOKEN_EXISTS: ${{ secrets.PIXELEAGLE_TOKEN != '' }}
 
 jobs:
