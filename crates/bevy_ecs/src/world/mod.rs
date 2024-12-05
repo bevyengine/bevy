@@ -35,8 +35,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, RequiredComponents, RequiredComponentsError,
-        Tick,
+        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -1471,7 +1471,10 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -3718,6 +3721,7 @@ impl World {
             self.as_unsafe_world_cell()
                 .get_entity(entity)?
                 .get_mut_by_id(component_id)
+                .ok()
         }
     }
 }
@@ -4191,6 +4195,7 @@ mod tests {
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
+                true,
             )
         };
 

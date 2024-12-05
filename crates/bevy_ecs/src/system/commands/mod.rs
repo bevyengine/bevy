@@ -10,7 +10,7 @@ use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
@@ -29,7 +29,7 @@ pub use parallel_scope::*;
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the `apply_deferred` system runs (see [`apply_deferred`] documentation for more details).
+/// when the `ApplyDeferred` system runs (see [`ApplyDeferred`] documentation for more details).
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -43,7 +43,8 @@ pub use parallel_scope::*;
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
+/// Add `mut commands: Commands` as a function argument to your system to get a
+/// copy of this struct that will be applied the next time a copy of [`ApplyDeferred`] runs.
 /// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
@@ -75,7 +76,7 @@ pub use parallel_scope::*;
 /// # }
 /// ```
 ///
-/// [`apply_deferred`]: crate::schedule::apply_deferred
+/// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
@@ -1787,7 +1788,7 @@ pub struct EntityEntryCommands<'a, T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Component> EntityEntryCommands<'a, T> {
+impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
@@ -1798,7 +1799,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
             });
         self
     }
+}
 
+impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
