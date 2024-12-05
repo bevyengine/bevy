@@ -301,7 +301,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 component.apply(reflected_component);
             },
             apply_or_insert: |entity, reflected_component, registry| {
-                // SAFETY: guard ensures `apply` is not calld on an immutable component
+                // SAFETY: guard ensures `apply` is not called on an immutable component
                 match unsafe { entity.get_mut_assume_mutable::<C>() } {
                     Some(mut component) if C::Mutability::MUTABLE => {
                         component.apply(reflected_component.as_partial_reflect());
