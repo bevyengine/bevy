@@ -679,6 +679,25 @@ pub struct RenderMeshMaterialIds {
     pub(crate) material_to_binding: HashMap<UntypedAssetId, MaterialBindingId>,
 }
 
+impl RenderMeshMaterialIds {
+    /// Returns the mesh material ID for the entity with the given mesh, or a
+    /// dummy mesh material ID if the mesh has no material ID.
+    ///
+    /// Meshes almost always have materials, but in very specific circumstances
+    /// involving custom pipelines they won't. (See the
+    /// `specialized_mesh_pipelines` example.)
+    fn mesh_material_binding_id(&self, entity: MainEntity) -> MaterialBindingId {
+        self.mesh_to_material
+            .get(&entity)
+            .and_then(|mesh_material_asset_id| {
+                self.material_to_binding
+                    .get(mesh_material_asset_id)
+                    .cloned()
+            })
+            .unwrap_or_default()
+    }
+}
+
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
     fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
@@ -1100,18 +1119,8 @@ pub fn extract_meshes_for_cpu_building(
                 return;
             }
 
-            let Some(mesh_material_asset_id) = mesh_material_ids
-                .mesh_to_material
-                .get(&MainEntity::from(entity))
-            else {
-                return;
-            };
-            let Some(mesh_material_binding_id) = mesh_material_ids
-                .material_to_binding
-                .get(mesh_material_asset_id)
-            else {
-                return;
-            };
+            let mesh_material_binding_id =
+                mesh_material_ids.mesh_material_binding_id(MainEntity::from(entity));
 
             let mut lod_index = None;
             if visibility_range {
@@ -1128,7 +1137,7 @@ pub fn extract_meshes_for_cpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
-                *mesh_material_binding_id,
+                mesh_material_binding_id,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1257,18 +1266,8 @@ pub fn extract_meshes_for_gpu_building(
                 return;
             }
 
-            let Some(mesh_material_asset_id) = mesh_material_ids
-                .mesh_to_material
-                .get(&MainEntity::from(entity))
-            else {
-                return;
-            };
-            let Some(mesh_material_binding_id) = mesh_material_ids
-                .material_to_binding
-                .get(mesh_material_asset_id)
-            else {
-                return;
-            };
+            let mesh_material_binding_id =
+                mesh_material_ids.mesh_material_binding_id(MainEntity::from(entity));
 
             let mut lod_index = None;
             if visibility_range {
@@ -1285,7 +1284,7 @@ pub fn extract_meshes_for_gpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
-                *mesh_material_binding_id,
+                mesh_material_binding_id,
                 not_shadow_caster,
                 no_automatic_batching,
             );
