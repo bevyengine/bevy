@@ -16,14 +16,13 @@
 //! This crate does *not* provide any integration with UI widgets, or provide functions for
 //! tab navigation or gamepad-based focus navigation, as those are typically application-specific.
 
-use bevy_a11y::Focus;
-use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader},
     query::With,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, Resource},
     world::{Command, DeferredWorld, World},
 };
 use bevy_hierarchy::Parent;
@@ -109,8 +108,7 @@ impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(InputFocus(None))
             .insert_resource(InputFocusVisible(false))
-            .add_systems(Update, dispatch_keyboard_input)
-            .add_systems(PostUpdate, sync_a11y_focus);
+            .add_systems(Update, dispatch_keyboard_input);
     }
 }
 
@@ -135,13 +133,6 @@ fn dispatch_keyboard_input(
                 commands.trigger_targets(FocusKeyboardInput(ev.clone()), window);
             }
         }
-    }
-}
-
-/// System which synchronizes the a11y focus state with the input focus state.
-fn sync_a11y_focus(focus: Res<InputFocus>, mut a11y_focus: ResMut<Focus>) {
-    if a11y_focus.0 != focus.0 {
-        a11y_focus.0 = focus.0;
     }
 }
 
