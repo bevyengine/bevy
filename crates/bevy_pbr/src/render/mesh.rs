@@ -351,7 +351,9 @@ pub struct MeshInputUniform {
     pub first_vertex_index: u32,
     /// Index of the material inside the bind group data.
     pub material_bind_group_slot: u32,
+    /// Padding.
     pub pad_a: u32,
+    /// Padding.
     pub pad_b: u32,
 }
 
@@ -652,12 +654,13 @@ pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
 /// The result of an entity removal.
 ///
-/// Whenever entity data is removed from the [`MeshInputUniform`] buffer, the
-/// last entity is swapped in to fill it. If culling is enabled, the mesh
-/// culling data corresponding to an entity must have the same indices as the
-/// mesh input uniforms for that entity. Thus we need to pass this information
-/// to [`MeshCullingDataBuffer::remove`] so that it can update its buffer to
-/// match the [`MeshInputUniform`] buffer.
+/// We want the mesh input uniform array to have no gaps in it in order to
+/// simplify the GPU logic. Therefore, whenever entity data is removed from the
+/// [`MeshInputUniform`] buffer, the last entity is swapped in to fill it. If
+/// culling is enabled, the mesh culling data corresponding to an entity must
+/// have the same indices as the mesh input uniforms for that entity. Thus we
+/// need to pass this information to [`MeshCullingDataBuffer::remove`] so that
+/// it can update its buffer to match the [`MeshInputUniform`] buffer.
 struct RemovedMeshInputUniformIndices {
     /// The index of the mesh input that was removed.
     removed_index: usize,
