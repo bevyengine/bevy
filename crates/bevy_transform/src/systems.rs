@@ -460,6 +460,7 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
 
+        // SAFETY: The Parent component has no invariants.
         #[expect(unsafe_code)]
         unsafe {
             core::mem::swap(

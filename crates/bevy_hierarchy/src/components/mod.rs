@@ -15,10 +15,12 @@ pub(crate) trait GetHierarchyComponentsMut {
 #[expect(unsafe_code)]
 impl GetHierarchyComponentsMut for EntityWorldMut<'_> {
     fn get_parent_mut(&mut self) -> Option<Mut<Parent>> {
+        // SAFETY: The Parent component has no invariants.
         unsafe { self.get_mut_assume_mutable() }
     }
 
     fn get_children_mut(&mut self) -> Option<Mut<Children>> {
+        // SAFETY: The Children component has no invariants.
         unsafe { self.get_mut_assume_mutable() }
     }
 }
