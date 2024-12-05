@@ -1,6 +1,5 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -10,8 +9,8 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
-        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, RenderLayers, RenderVisibleEntities,
+        ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -23,7 +22,6 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::{require, With},
-    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
     world::DeferredWorld,
@@ -33,7 +31,7 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -1032,11 +1030,9 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<GpuCulling>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
@@ -1052,7 +1048,6 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
-        gpu_culling,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -1063,7 +1058,6 @@ pub fn extract_cameras(
                 TemporalJitter,
                 RenderLayers,
                 Projection,
-                GpuCulling,
                 ViewUniformOffset,
             )>();
             continue;
@@ -1155,15 +1149,6 @@ pub fn extract_cameras(
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
-            }
-            if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
             }
         };
     }

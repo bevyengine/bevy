@@ -4,7 +4,7 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    query::{Has, With},
+    query::With,
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource, StaticSystemParam},
     world::{FromWorld, World},
@@ -24,7 +24,7 @@ use crate::{
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
-    view::{ExtractedView, GpuCulling, ViewTarget},
+    view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
@@ -171,8 +171,6 @@ where
 pub struct PreprocessWorkItemBuffer {
     /// The buffer of work items.
     pub buffer: BufferVec<PreprocessWorkItem>,
-    /// True if we're using GPU culling.
-    pub gpu_culling: bool,
 }
 
 /// One invocation of the preprocessing shader: i.e. one mesh instance in a
@@ -451,7 +449,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mut views: Query<Entity, With<ExtractedView>>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -464,7 +463,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for view in &mut views {
         let Some(phase) = sorted_render_phases.get_mut(&view) else {
             continue;
         };
@@ -475,7 +474,6 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
                 });
 
         // Walk through the list of phase items, building up batches as we go.
@@ -526,15 +524,16 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 }
 
                 // Start a new batch.
-                let indirect_parameters_index = if gpu_culling {
-                    GFBD::get_batch_indirect_parameters_index(
+                let indirect_parameters_index = match *gpu_preprocessing_support {
+                    GpuPreprocessingSupport::Culling => GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
                         entity,
                         output_index,
-                    )
-                } else {
-                    None
+                    ),
+                    GpuPreprocessingSupport::None | GpuPreprocessingSupport::PreprocessingOnly => {
+                        None
+                    }
                 };
                 batch = Some(SortedRenderBatch {
                     phase_item_start_index: current_index as u32,
@@ -569,7 +568,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mut views: Query<Entity, With<ExtractedView>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -583,7 +583,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for view in &mut views {
         let Some(phase) = binned_render_phases.get_mut(&view) else {
             continue;
         };
@@ -595,7 +595,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
                 });
 
         // Prepare batchables.
@@ -610,8 +609,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                match batch {
-                    Some(ref mut batch) => {
+                match (&mut batch, *gpu_preprocessing_support) {
+                    (&mut Some(ref mut batch), _) => {
                         batch.instance_range.end = output_index + 1;
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
@@ -622,7 +621,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         });
                     }
 
-                    None if gpu_culling => {
+                    (&mut None, GpuPreprocessingSupport::Culling) => {
                         let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                             &system_param_item,
                             &mut indirect_parameters_buffer,
@@ -642,7 +641,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         });
                     }
 
-                    None => {
+                    (&mut None, GpuPreprocessingSupport::None)
+                    | (&mut None, GpuPreprocessingSupport::PreprocessingOnly) => {
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
                             output_index,
@@ -672,37 +672,40 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                if gpu_culling {
-                    let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
-                        &system_param_item,
-                        &mut indirect_parameters_buffer,
-                        (entity, main_entity),
-                        output_index,
-                    )
-                    .unwrap_or_default();
-                    work_item_buffer.buffer.push(PreprocessWorkItem {
-                        input_index: input_index.into(),
-                        output_index: indirect_parameters_index.into(),
-                    });
-                    unbatchables
-                        .buffer_indices
-                        .add(UnbatchableBinnedEntityIndices {
-                            instance_index: indirect_parameters_index.into(),
-                            extra_index: PhaseItemExtraIndex::indirect_parameters_index(
-                                indirect_parameters_index.into(),
-                            ),
+                match *gpu_preprocessing_support {
+                    GpuPreprocessingSupport::Culling => {
+                        let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
+                            &system_param_item,
+                            &mut indirect_parameters_buffer,
+                            (entity, main_entity),
+                            output_index,
+                        )
+                        .unwrap_or_default();
+                        work_item_buffer.buffer.push(PreprocessWorkItem {
+                            input_index: input_index.into(),
+                            output_index: indirect_parameters_index.into(),
                         });
-                } else {
-                    work_item_buffer.buffer.push(PreprocessWorkItem {
-                        input_index: input_index.into(),
-                        output_index,
-                    });
-                    unbatchables
-                        .buffer_indices
-                        .add(UnbatchableBinnedEntityIndices {
-                            instance_index: output_index,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                        unbatchables
+                            .buffer_indices
+                            .add(UnbatchableBinnedEntityIndices {
+                                instance_index: indirect_parameters_index.into(),
+                                extra_index: PhaseItemExtraIndex::indirect_parameters_index(
+                                    indirect_parameters_index.into(),
+                                ),
+                            });
+                    }
+                    GpuPreprocessingSupport::None | GpuPreprocessingSupport::PreprocessingOnly => {
+                        work_item_buffer.buffer.push(PreprocessWorkItem {
+                            input_index: input_index.into(),
+                            output_index,
                         });
+                        unbatchables
+                            .buffer_indices
+                            .add(UnbatchableBinnedEntityIndices {
+                                instance_index: output_index,
+                                extra_index: PhaseItemExtraIndex::NONE,
+                            });
+                    }
                 }
             }
         }

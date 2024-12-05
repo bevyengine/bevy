@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -58,10 +58,6 @@ struct Args {
     /// whether to disable automatic batching. Skips batching resulting in heavy stress on render pass draw command encoding.
     #[argh(switch)]
     no_automatic_batching: bool,
-
-    /// whether to enable GPU culling.
-    #[argh(switch)]
-    gpu_culling: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -176,9 +172,6 @@ fn setup(
 
             // camera
             let mut camera = commands.spawn(Camera3d::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
-            }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
             }
