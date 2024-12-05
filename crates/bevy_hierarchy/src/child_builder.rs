@@ -55,7 +55,7 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
 ///
 /// Does nothing if `child` was already a child of `parent`.
 ///
-/// Sends [`HierarchyEvent`]'s.
+/// Triggers [`OnParentChange`].
 fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
     let previous = update_parent(world, child, parent);
     if let Some(previous_parent) = previous {
@@ -85,7 +85,7 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
 ///
 /// Does nothing for a child if it was already a child of `parent`.
 ///
-/// Sends [`HierarchyEvent`]'s.
+/// Triggers [`OnParentChange`].
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     for &child in children {
         if let Some(previous) = update_parent(world, child, parent) {

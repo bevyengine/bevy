@@ -46,7 +46,7 @@
 //!
 //! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
-//! [events]: HierarchyEvent
+//! [events]: OnParentChange
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
