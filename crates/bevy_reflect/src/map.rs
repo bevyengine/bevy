@@ -9,6 +9,7 @@ use crate::{
     PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
     TypePath,
 };
+use alloc::{boxed::Box, format, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -42,7 +43,7 @@ use crate::{
 /// ```
 ///
 /// [`HashMap`]: std::collections::HashMap
-/// [`BTreeMap`]: std::collections::BTreeMap
+/// [`BTreeMap`]: alloc::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
 pub trait Map: PartialReflect {

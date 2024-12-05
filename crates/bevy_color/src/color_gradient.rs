@@ -1,4 +1,5 @@
 use crate::Mix;
+use alloc::vec::Vec;
 use bevy_math::curve::{
     cores::{EvenCore, EvenCoreError},
     Curve, Interval,
