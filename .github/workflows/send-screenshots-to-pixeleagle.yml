@@ -24,7 +24,7 @@ jobs:
     name: Send screenshots to Pixel Eagle
     runs-on: ubuntu-24.04
     steps:
-      - name: Notify user on non-existant token
+      - name: Notify user on non-existent token
         if: ${{ env.PIXELEAGLE_TOKEN_EXISTS == 'false' }}
         run: |
           echo "The PIXELEAGLE_TOKEN secret does not exist, so uploading screenshots to Pixel Eagle was skipped." >> $GITHUB_STEP_SUMMARY
