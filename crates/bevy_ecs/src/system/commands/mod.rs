@@ -10,7 +10,7 @@ use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
@@ -1787,7 +1787,7 @@ pub struct EntityEntryCommands<'a, T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Component> EntityEntryCommands<'a, T> {
+impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
@@ -1798,7 +1798,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
             });
         self
     }
+}
 
+impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).

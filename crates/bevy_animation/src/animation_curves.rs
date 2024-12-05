@@ -89,7 +89,7 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::component::Component;
+use bevy_ecs::component::{Component, Mutable};
 use bevy_math::curve::{
     cores::{UnevenCore, UnevenCoreError},
     iterable::IterableCurve,
@@ -221,7 +221,7 @@ pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
 
 impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
 where
-    C: Component,
+    C: Component<Mutability = Mutable>,
     A: Animatable + Clone + Sync + Debug,
     F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
 {

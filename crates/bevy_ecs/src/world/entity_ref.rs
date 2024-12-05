@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
     observer::{Observer, Observers},
@@ -516,16 +516,28 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.0.get_mut() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_mut_assume_mutable() }
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.0.get_mut() }
     }
@@ -1017,16 +1029,30 @@ impl<'w> EntityWorldMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.as_unsafe_entity_cell().get_mut() }
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: trait bound `Mutability = Mutable` ensures `T` is mutable
+        unsafe { self.get_mut_assume_mutable() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY:
+        // - &mut self implies exclusive access for duration of returned value
+        // - caller ensures T is mutable
+        unsafe { self.as_unsafe_entity_cell().get_mut_assume_mutable() }
     }
 
     /// Consumes `self` and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
@@ -1928,7 +1954,7 @@ pub enum Entry<'w, 'a, T: Component> {
     Vacant(VacantEntry<'w, 'a, T>),
 }
 
-impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
+impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     /// Provides in-place mutable access to an occupied entry.
     ///
     /// # Examples
@@ -1954,7 +1980,9 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
             Entry::Vacant(entry) => Entry::Vacant(entry),
         }
     }
+}
 
+impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// Replaces the component of the entry, and returns an [`OccupiedEntry`].
     ///
     /// # Examples
@@ -1980,7 +2008,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
                 entry.insert(component);
                 entry
             }
-            Entry::Vacant(entry) => entry.insert_entry(component),
+            Entry::Vacant(entry) => entry.insert(component),
         }
     }
 
@@ -2002,13 +2030,13 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
-    /// entity.entry().or_insert(Comp(15)).0 *= 2;
+    /// entity.entry().or_insert(Comp(15)).into_mut().0 *= 2;
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
     /// ```
     #[inline]
-    pub fn or_insert(self, default: T) -> Mut<'a, T> {
+    pub fn or_insert(self, default: T) -> OccupiedEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Occupied(entry) => entry,
             Entry::Vacant(entry) => entry.insert(default),
         }
     }
@@ -2030,9 +2058,9 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
     /// ```
     #[inline]
-    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
+    pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> OccupiedEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Occupied(entry) => entry,
             Entry::Vacant(entry) => entry.insert(default()),
         }
     }
@@ -2056,9 +2084,9 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 0);
     /// ```
     #[inline]
-    pub fn or_default(self) -> Mut<'a, T> {
+    pub fn or_default(self) -> OccupiedEntry<'w, 'a, T> {
         match self {
-            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Occupied(entry) => entry,
             Entry::Vacant(entry) => entry.insert(Default::default()),
         }
     }
@@ -2095,6 +2123,55 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
         self.entity_world.get::<T>().unwrap()
     }
 
+    /// Replaces the component of the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
+    ///     o.insert(Comp(10));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// ```
+    #[inline]
+    pub fn insert(&mut self, component: T) {
+        self.entity_world.insert(component);
+    }
+
+    /// Removes the component from the entry and returns it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::Entry};
+    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+    /// struct Comp(u32);
+    ///
+    /// # let mut world = World::new();
+    /// let mut entity = world.spawn(Comp(5));
+    ///
+    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
+    ///     assert_eq!(o.take(), Comp(5));
+    /// }
+    ///
+    /// assert_eq!(world.query::<&Comp>().iter(&world).len(), 0);
+    /// ```
+    #[inline]
+    pub fn take(self) -> T {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.take().unwrap()
+    }
+}
+
+impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// Gets a mutable reference to the component in the entry.
     ///
     /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
@@ -2156,53 +2233,6 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
         // This shouldn't panic because if we have an OccupiedEntry the component must exist.
         self.entity_world.get_mut().unwrap()
     }
-
-    /// Replaces the component of the entry.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
-    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
-    /// struct Comp(u32);
-    ///
-    /// # let mut world = World::new();
-    /// let mut entity = world.spawn(Comp(5));
-    ///
-    /// if let Entry::Occupied(mut o) = entity.entry::<Comp>() {
-    ///     o.insert(Comp(10));
-    /// }
-    ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
-    /// ```
-    #[inline]
-    pub fn insert(&mut self, component: T) {
-        self.entity_world.insert(component);
-    }
-
-    /// Removes the component from the entry and returns it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
-    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
-    /// struct Comp(u32);
-    ///
-    /// # let mut world = World::new();
-    /// let mut entity = world.spawn(Comp(5));
-    ///
-    /// if let Entry::Occupied(o) = entity.entry::<Comp>() {
-    ///     assert_eq!(o.take(), Comp(5));
-    /// }
-    ///
-    /// assert_eq!(world.query::<&Comp>().iter(&world).len(), 0);
-    /// ```
-    #[inline]
-    pub fn take(self) -> T {
-        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.take().unwrap()
-    }
 }
 
 /// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`Entry`] enum.
@@ -2212,7 +2242,7 @@ pub struct VacantEntry<'w, 'a, T: Component> {
 }
 
 impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
-    /// Inserts the component into the `VacantEntry` and returns a mutable reference to it.
+    /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
     ///
     /// # Examples
     ///
@@ -2231,32 +2261,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
     /// ```
     #[inline]
-    pub fn insert(self, component: T) -> Mut<'a, T> {
-        self.entity_world.insert(component);
-        // This shouldn't panic because we just added this component
-        self.entity_world.get_mut::<T>().unwrap()
-    }
-
-    /// Inserts the component into the `VacantEntry` and returns an `OccupiedEntry`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*, world::Entry};
-    /// #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
-    /// struct Comp(u32);
-    ///
-    /// # let mut world = World::new();
-    /// let mut entity = world.spawn_empty();
-    ///
-    /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
-    ///     v.insert_entry(Comp(10));
-    /// }
-    ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
-    /// ```
-    #[inline]
-    pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {
+    pub fn insert(self, component: T) -> OccupiedEntry<'w, 'a, T> {
         self.entity_world.insert(component);
         OccupiedEntry {
             entity_world: self.entity_world,
@@ -2679,7 +2684,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -2692,12 +2697,29 @@ impl<'w> FilteredEntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - We have write access
+        // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
+        unsafe { self.into_mut_assume_mutable() }
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut() })
+            // SAFETY:
+            // - We have write access
+            // - Caller ensures `T` is a mutable component
+            .then(|| unsafe { self.entity.get_mut_assume_mutable() })
             .flatten()
     }
 
@@ -2745,7 +2767,7 @@ impl<'w> FilteredEntityMut<'w> {
         self.access
             .has_component_write(component_id)
             // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
 }
@@ -2986,7 +3008,7 @@ where
     #[inline]
     pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
     where
-        C: Component,
+        C: Component<Mutability = Mutable>,
     {
         let components = self.entity.world().components();
         let id = components.component_id::<C>()?;
@@ -3308,7 +3330,8 @@ unsafe impl DynamicComponentFetch for ComponentId {
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
-        unsafe { cell.get_mut_by_id(self) }.ok_or(EntityComponentError::MissingComponent(self))
+        unsafe { cell.get_mut_by_id(self) }
+            .map_err(|_| EntityComponentError::MissingComponent(self))
     }
 }
 
@@ -3377,7 +3400,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
             *ptr = MaybeUninit::new(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
 
@@ -3427,7 +3450,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
             ptrs.push(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
@@ -3466,7 +3489,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
                 id,
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
