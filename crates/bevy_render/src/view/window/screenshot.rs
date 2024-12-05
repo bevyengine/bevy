@@ -410,7 +410,7 @@ impl Plugin for ScreenshotPlugin {
             First,
             clear_screenshots
                 .after(event_update_system)
-                .before(apply_deferred),
+                .before(ApplyDeferred),
         )
         .add_systems(Update, trigger_screenshots)
         .register_type::<Screenshot>()
