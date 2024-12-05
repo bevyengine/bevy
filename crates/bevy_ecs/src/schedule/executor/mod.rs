@@ -137,7 +137,6 @@ pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`Schedule`]: super::Schedule
 #[doc(alias = "apply_system_buffers")]
-#[allow(non_camel_case_types)]
 pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
