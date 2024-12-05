@@ -1,5 +1,7 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
+// TODO: remove once Edition 2024 is released
+#![allow(dependency_on_unit_never_type_fallback)]
 #![doc = include_str!("../README.md")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
@@ -30,6 +32,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
+pub mod result;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -53,6 +56,7 @@ pub mod prelude {
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,

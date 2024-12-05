@@ -1,13 +1,14 @@
 use variadics_please::all_tuples;
 
 use crate::{
+    result::Result,
     schedule::{
         condition::{BoxedCondition, Condition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, IntoSystem, System},
+    system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -47,7 +48,7 @@ pub struct NodeConfig<T> {
 }
 
 /// Stores configuration for a single system.
-pub type SystemConfig = NodeConfig<BoxedSystem>;
+pub type SystemConfig = NodeConfig<ScheduleSystem>;
 
 /// A collections of generic [`NodeConfig`]s.
 pub enum NodeConfigs<T> {
@@ -65,10 +66,10 @@ pub enum NodeConfigs<T> {
 }
 
 /// A collection of [`SystemConfig`].
-pub type SystemConfigs = NodeConfigs<BoxedSystem>;
+pub type SystemConfigs = NodeConfigs<ScheduleSystem>;
 
 impl SystemConfigs {
-    fn new_system(system: BoxedSystem) -> Self {
+    fn new_system(system: ScheduleSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
         Self::NodeConfig(SystemConfig {
@@ -517,18 +518,41 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
+#[doc(hidden)]
+pub struct Infallible;
+
+impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
+        let boxed_system = Box::new(IntoSystem::into_system(self));
+        SystemConfigs::new_system(ScheduleSystem::Infallible(boxed_system))
     }
 }
 
 impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(self)
+        SystemConfigs::new_system(ScheduleSystem::Infallible(self))
+    }
+}
+
+#[doc(hidden)]
+pub struct Fallible;
+
+impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F
+where
+    F: IntoSystem<(), Result, Marker>,
+{
+    fn into_configs(self) -> SystemConfigs {
+        let boxed_system = Box::new(IntoSystem::into_system(self));
+        SystemConfigs::new_system(ScheduleSystem::Fallible(boxed_system))
+    }
+}
+
+impl IntoSystemConfigs<()> for BoxedSystem<(), Result> {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(ScheduleSystem::Fallible(self))
     }
 }
 

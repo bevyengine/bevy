@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut, Resource, System},
 };
 use bevy_utils::{
     tracing::{info, warn},
