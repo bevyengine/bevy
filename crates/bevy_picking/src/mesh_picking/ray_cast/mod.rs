@@ -274,9 +274,10 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
-                let backfaces = match has_backfaces {
-                    true => Backfaces::Include,
-                    false => Backfaces::Cull,
+                // Backfaces of 2d meshes are never culled, unlike 3d mehses.
+                let backfaces = match (has_backfaces, mesh2d.is_some()) {
+                    (false, false) => Backfaces::Cull,
+                    _ => Backfaces::Include,
                 };
 
                 // Perform the actual ray cast.
