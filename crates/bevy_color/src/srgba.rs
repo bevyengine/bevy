@@ -2,6 +2,8 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
+#[cfg(feature = "alloc")]
+use alloc::{format, string::String};
 use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
@@ -167,6 +169,7 @@ impl Srgba {
     }
 
     /// Convert this color to CSS-style hexadecimal notation.
+    #[cfg(feature = "alloc")]
     pub fn to_hex(&self) -> String {
         let [r, g, b, a] = self.to_u8_array();
         match a {
@@ -366,11 +369,11 @@ impl ColorToComponents for Srgba {
 impl ColorToPacked for Srgba {
     fn to_u8_array(self) -> [u8; 4] {
         [self.red, self.green, self.blue, self.alpha]
-            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+            .map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn to_u8_array_no_alpha(self) -> [u8; 3] {
-        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        [self.red, self.green, self.blue].map(|v| ops::round(v.clamp(0.0, 1.0) * 255.0) as u8)
     }
 
     fn from_u8_array(color: [u8; 4]) -> Self {
