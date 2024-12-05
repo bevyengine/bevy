@@ -714,7 +714,7 @@ where
 
     #[inline]
     fn is_exclusive(&self) -> bool {
-        false
+        F::Param::is_exclusive()
     }
 
     #[inline]
