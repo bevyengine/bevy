@@ -94,7 +94,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
     /// #
     /// #[derive(Component, PartialEq, Eq, Debug)]
     /// #[component(immutable)]
