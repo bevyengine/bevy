@@ -369,6 +369,9 @@ impl LightmapSlab {
     ///
     /// This is used when constructing bind groups in non-bindless mode.
     pub(crate) fn bindings_for_first_lightmap(&self) -> (&TextureView, &Sampler) {
-        (&self.gpu_images[0].texture_view, &self.gpu_images[0].sampler)
+        (
+            &self.gpu_images[0].texture_view,
+            &self.gpu_images[0].sampler,
+        )
     }
 }
