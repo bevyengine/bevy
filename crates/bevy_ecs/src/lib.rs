@@ -2056,7 +2056,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_component_and_his_runtime_required_components() {
+    fn remove_component_and_its_runtime_required_components() {
         #[derive(Component)]
         struct X;
 
@@ -2101,7 +2101,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_component_and_his_required_components() {
+    fn remove_component_and_its_required_components() {
         #[derive(Component)]
         #[require(Y)]
         struct X;
@@ -2553,7 +2553,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Recursive required components detected: bevy_ecs::tests::required_components_recursion_errors::A → bevy_ecs::tests::required_components_recursion_errors::B → bevy_ecs::tests::required_components_recursion_errors::A"]
+    #[should_panic = "Recursive required components detected: bevy_ecs::tests::required_components_recursion_errors::A → bevy_ecs::tests::required_components_recursion_errors::B → bevy_ecs::tests::required_components_recursion_errors::A\nhelp: If this is intentional, consider merging the components."]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
         #[require(B)]

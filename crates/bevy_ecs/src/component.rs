@@ -28,6 +28,7 @@ use core::{
     mem::needs_drop,
 };
 use derive_more::derive::{Display, Error};
+use disqualified::ShortName;
 
 pub use bevy_ecs_macros::require;
 
@@ -410,15 +411,28 @@ pub fn enforce_no_required_components_recursion(
     components: &Components,
     recursion_check_stack: &[ComponentId],
 ) {
-    if let Some((requiree, check)) = recursion_check_stack.split_last() {
-        if check.contains(requiree) {
+    if let Some((&requiree, check)) = recursion_check_stack.split_last() {
+        if let Some(direct_recursion) = check
+            .iter()
+            .rev()
+            .enumerate()
+            .find_map(|(index, &id)| (id == requiree).then_some(index == 0))
+        {
             panic!(
-                "Recursive required components detected: {}",
+                "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
                     .map(|id| components.get_name(*id).unwrap())
                     .collect::<Vec<_>>()
-                    .join(" → ")
+                    .join(" → "),
+                if direct_recursion {
+                    format!(
+                        "Remove require({})",
+                        ShortName(components.get_name(requiree).unwrap())
+                    )
+                } else {
+                    "If this is intentional, consider merging the components.".into()
+                }
             );
         }
     }
