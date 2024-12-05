@@ -156,3 +156,25 @@ pub fn common_partial_reflect_methods(
         #debug_fn
     }
 }
+
+#[cfg(feature = "auto_register")]
+pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
+    if meta.attrs().no_auto_register() {
+        return None;
+    }
+
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let type_path = meta.type_path();
+
+    if type_path.impl_is_generic() {
+        return None;
+    };
+
+    Some(quote! {
+        #bevy_reflect_path::__macro_exports::auto_register::auto_register_function!{
+            #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations::add(
+                <#type_path as #bevy_reflect_path::__macro_exports::auto_register::RegisterForReflection>::__register
+            )
+        }
+    })
+}

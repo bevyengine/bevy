@@ -17,6 +17,8 @@ default = []
 documentation = []
 # Enables macro logic related to function reflection
 functions = []
+# Enables automatic reflect registration
+auto_register = []
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.15.0-dev" }
