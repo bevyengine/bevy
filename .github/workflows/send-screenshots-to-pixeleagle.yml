@@ -25,6 +25,10 @@ jobs:
   send-to-pixel-eagle:
     name: Send screenshots to Pixel Eagle
     runs-on: ubuntu-24.04
+    # Pixel Eagle is irrelevant for most forks, even of those that allow workflows to run. Thus, we
+    # disable this job for any forks. Any forks where Pixel Eagle is relevant can comment out the
+    # `if:` conditional below.
+    if: ${{ github.repository == 'bevyengine/bevy' }}
     steps:
       - name: Notify user on non-existent token
         if: ${{ ! fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
