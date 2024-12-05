@@ -1,5 +1,8 @@
 use variadics_please::all_tuples;
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 use crate::{
     func::{
         args::FromArg, macros::count_tokens, ArgList, FunctionError, FunctionResult, IntoReturn,

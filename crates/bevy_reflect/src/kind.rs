@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use derive_more::derive::{Display, Error};
 
 #[cfg(feature = "functions")]
