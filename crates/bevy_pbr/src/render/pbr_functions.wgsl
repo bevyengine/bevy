@@ -602,12 +602,8 @@ fn apply_pbr_lighting(
 
     let environment_light = environment_map::environment_map_light(
         environment_map_lighting_input,
-<<<<<<< HEAD
         &clusterable_object_index_ranges,
-        any(indirect_light != vec3(0.0f))
-=======
-        found_diffuse_indirect
->>>>>>> origin/main
+        found_diffuse_indirect,
     );
 
     // If screen space reflections are going to be used for this material, don't
@@ -622,12 +618,8 @@ fn apply_pbr_lighting(
     if (!use_ssr) {
         let environment_light = environment_map::environment_map_light(
             &lighting_input,
-<<<<<<< HEAD
             &clusterable_object_index_ranges,
-            any(indirect_light != vec3(0.0f))
-=======
             found_diffuse_indirect
->>>>>>> origin/main
         );
 
         indirect_light += environment_light.diffuse * diffuse_occlusion +

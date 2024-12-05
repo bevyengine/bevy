@@ -80,13 +80,7 @@ fn query_light_probe(
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;
-
-            // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
-            // We can't use `break` here because of the ICE.
-            // So instead we rely on the fact that we set `result.texture_index`
-            // above and check its value in the `for` loop header before
-            // looping.
-            // break;
+            break;
         }
     }
 
