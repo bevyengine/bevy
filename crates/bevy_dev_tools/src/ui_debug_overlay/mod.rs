@@ -198,7 +198,6 @@ fn outline_roots(
         );
     }
     let window_scale = window.get_single().map_or(1., Window::scale_factor);
-    let scale_factor = outline.ui_scale.0;
 
     // We let the line be defined by the window scale alone
     let line_width = outline
@@ -238,9 +237,9 @@ fn outline_roots(
             }
         }
 
-        let rect = LayoutRect::new(trans, node, scale_factor);
+        let rect = LayoutRect::new(trans, node, window_scale.recip());
         outline_node(entity, rect, &mut draw);
-        outline_nodes(&outline, &mut draw, entity, scale_factor);
+        outline_nodes(&outline, &mut draw, entity, window_scale.recip());
     }
 }
 
