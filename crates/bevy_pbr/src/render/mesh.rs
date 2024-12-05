@@ -1325,7 +1325,12 @@ pub fn extract_meshes_for_gpu_building(
         .chain(removed_global_transforms_query.read())
         .chain(removed_meshes_query.read())
     {
-        queue.remove(entity.into(), any_gpu_culling);
+        // Only queue a mesh for removal if we didn't pick it up above.
+        // It's possible that a necessary component was removed and re-added in
+        // the same frame.
+        if !changed_meshes_query.contains(entity) {
+            queue.remove(entity.into(), any_gpu_culling);
+        }
     }
 }
 
