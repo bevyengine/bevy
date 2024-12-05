@@ -6,7 +6,7 @@
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut, isotropic, 
             get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI, TAU,
-            max_atmosphere_distance
+            max_atmosphere_distance, rayleigh, henyey_greenstein
         },
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
@@ -19,17 +19,18 @@ const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600
 
 @group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
+
 fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
 }
 
 //Lambert equal-area projection. 
-fn map_to_sphere(uv: vec2<f32>) -> vec3<f32> {
+fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
     let phi = TAU * uv.y;
     let sin_lambda = 2 * uv.x - 1;
-    let cos_lambda = cos(asin(sin_lambda));
+    let cos_lambda = sqrt(1 - sin_lambda * sin_lambda);
 
-    return vec3(cos_lambda * cos(phi), sin_lambda, cos_lambda * sin(phi));
+    return vec3(cos_lambda * cos(phi), cos_lambda * sin(phi), sin_lambda);
 }
 
 @compute 
@@ -48,19 +49,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var f_ms = vec3(0.0);
 
     for (var i: u32 = 0u; i < settings.multiscattering_lut_dirs; i++) {
-        let ray_dir = map_to_sphere(s2_sequence(i));
-        let mu = ray_dir.y; // cos(zenith_angle) = dot(vec3::up, dir);
+        let ray_dir = uv_to_sphere(s2_sequence(i));
 
         let ms_sample = sample_multiscattering_dir(r_mu.x, r_mu.y, ray_dir, light_dir);
         l_2 += ms_sample.l_2;
         f_ms += ms_sample.f_ms;
     }
 
-    // xFRAC_4_PI since we're integrating over a sphere
-    l_2 *= FRAC_4_PI;
-    //l_2 /= f32(settings.multiscattering_lut_dirs);
-    f_ms *= FRAC_4_PI;
-    //f_ms /= f32(settings.multiscattering_lut_dirs);
+    l_2 /= f32(settings.multiscattering_lut_dirs);
+    f_ms /= f32(settings.multiscattering_lut_dirs);
 
     let F_ms = 1 / (1 - f_ms);
     let phi_ms = l_2 * F_ms;
@@ -79,6 +76,10 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
     let dt = t_max / f32(settings.multiscattering_lut_samples);
     var optical_depth = vec3<f32>(0.0);
 
+    let neg_LdotV = dot(light_dir, ray_dir);
+    let rayleigh_phase = rayleigh(neg_LdotV);
+    let mie_phase = henyey_greenstein(neg_LdotV);
+
     var l_2 = vec3(0.0);
     var f_ms = vec3(0.0);
 
@@ -87,22 +88,34 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
         let local_r = get_local_r(r, mu, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
 
+
         let local_atmosphere = sample_atmosphere(local_r);
         optical_depth += local_atmosphere.extinction * dt;
         let transmittance_to_sample = exp(-optical_depth);
 
         let mu_light = dot(light_dir, local_up);
-        let scattering = local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering;
-        let isotropic_phase = FRAC_4_PI;
+        let scattering_no_phase = local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering;
+        f_ms += transmittance_to_sample * scattering_no_phase * dt;
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
-        let energy_transfer = transmittance_to_sample * scattering;
+        let rayleigh_scattering = (local_atmosphere.rayleigh_scattering * rayleigh_phase);
+        let mie_scattering = (local_atmosphere.mie_scattering * mie_phase);
 
-        l_2 += energy_transfer * isotropic_phase * shadow_factor * dt;
-        f_ms += energy_transfer * isotropic_phase * dt; // should NOT include isotropic_phase except removing it breaks everything
+        l_2 += transmittance_to_sample * shadow_factor * FRAC_4_PI * (rayleigh_scattering + mie_scattering) * dt;
     }
+
+    //include reflected luminance from planet ground 
+    if ray_intersects_ground(r, mu) {
+        let transmittance_to_ground = exp(-optical_depth);
+        let local_up = get_local_up(r, t_max, ray_dir);
+        let mu_light = dot(light_dir, local_up);
+        let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+        let ground_luminance = transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0) * atmosphere.ground_albedo;
+        l_2 += ground_luminance;
+    }
+
 
     return MultiscatteringSample(l_2, f_ms);
 }
