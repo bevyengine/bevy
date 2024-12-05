@@ -27,18 +27,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Notify user on non-existent token
-        if: ${{ env.PIXELEAGLE_TOKEN_EXISTS == 'false' }}
+        if: ${{ ! fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         run: |
           echo "The PIXELEAGLE_TOKEN secret does not exist, so uploading screenshots to Pixel Eagle was skipped." >> $GITHUB_STEP_SUMMARY
       
       - name: Download artifact
-        if: ${{ env.PIXELEAGLE_TOKEN_EXISTS == 'true' }}
+        if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ inputs.artifact }}
       
       - name: Send to Pixel Eagle
-        if: ${{ env.PIXELEAGLE_TOKEN_EXISTS == 'true' }}
+        if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         env:
           project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
         run: |
