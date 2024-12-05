@@ -164,6 +164,10 @@ impl System for ApplyDeferred {
     }
 
     fn is_send(&self) -> bool {
+        // Although this system itself does nothing on its own, the system
+        // executor uses it to apply deferred commands. Commands must be allowed
+        // to access non-send resources, so this system must be non-send for
+        // scheduling purposes.
         false
     }
 
