@@ -1,4 +1,5 @@
 use crate::{FromType, PartialReflect, Reflect};
+use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///

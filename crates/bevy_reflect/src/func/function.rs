@@ -5,6 +5,9 @@ use crate::{
 use alloc::borrow::Cow;
 use core::fmt::Debug;
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// A trait used to power [function-like] operations via [reflection].
 ///
 /// This trait allows types to be called like regular functions
@@ -36,7 +39,7 @@ pub trait Function: PartialReflect + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
