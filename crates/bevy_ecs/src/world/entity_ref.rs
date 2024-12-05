@@ -4910,14 +4910,14 @@ mod tests {
             "OrdB hook on_insert",
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
-            "OrdA hook on_replace", // start of despawn
-            "OrdB hook on_replace",
-            "OrdA observer on_replace",
+            "OrdA observer on_replace", // start of despawn
             "OrdB observer on_replace",
-            "OrdA hook on_remove",
-            "OrdB hook on_remove",
+            "OrdA hook on_replace",
+            "OrdB hook on_replace",
             "OrdA observer on_remove",
             "OrdB observer on_remove",
+            "OrdA hook on_remove",
+            "OrdB hook on_remove",
         ];
         world.flush();
         assert_eq!(world.resource_mut::<TestVec>().0.as_slice(), &expected[..]);
