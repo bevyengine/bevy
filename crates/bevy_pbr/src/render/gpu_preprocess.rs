@@ -404,8 +404,8 @@ pub fn prepare_preprocess_bind_groups(
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
-        current_input_buffer_vec.buffer(),
-        previous_input_buffer_vec.buffer(),
+        current_input_buffer_vec.buffer.buffer(),
+        previous_input_buffer_vec.buffer.buffer(),
         data_buffer_vec.buffer(),
     ) else {
         return;
@@ -483,5 +483,4 @@ pub fn write_mesh_culling_data_buffer(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
 ) {
     mesh_culling_data_buffer.write_buffer(&render_device, &render_queue);
-    mesh_culling_data_buffer.clear();
 }
