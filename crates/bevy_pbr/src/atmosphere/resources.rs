@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
+    camera::Camera,
     extract_component::ComponentUniforms,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
@@ -27,6 +28,10 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayout,
     pub sky_view_lut: BindGroupLayout,
     pub aerial_view_lut: BindGroupLayout,
+}
+
+#[derive(Resource)]
+pub(crate) struct RenderSkyBindGroupLayouts {
     pub render_sky: BindGroupLayout,
     pub render_sky_msaa: BindGroupLayout,
 }
@@ -116,6 +121,18 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
+        Self {
+            transmittance_lut,
+            multiscattering_lut,
+            sky_view_lut,
+            aerial_view_lut,
+        }
+    }
+}
+
+impl FromWorld for RenderSkyBindGroupLayouts {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
         let render_sky = render_device.create_bind_group_layout(
             "render_sky_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
@@ -183,10 +200,6 @@ impl FromWorld for AtmosphereBindGroupLayouts {
         );
 
         Self {
-            transmittance_lut,
-            multiscattering_lut,
-            sky_view_lut,
-            aerial_view_lut,
             render_sky,
             render_sky_msaa,
         }
@@ -242,18 +255,14 @@ impl FromWorld for AtmosphereSamplers {
 }
 
 #[derive(Resource)]
-pub(crate) struct AtmospherePipelines {
+pub(crate) struct AtmosphereLutPipelines {
     pub transmittance_lut: CachedRenderPipelineId,
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
-    pub render_sky: CachedRenderPipelineId,
-    pub render_sky_msaa2: CachedRenderPipelineId,
-    pub render_sky_msaa4: CachedRenderPipelineId,
-    pub render_sky_msaa8: CachedRenderPipelineId,
 }
 
-impl FromWorld for AtmospherePipelines {
+impl FromWorld for AtmosphereLutPipelines {
     fn from_world(world: &mut World) -> Self {
         let pipeline_cache = world.resource::<PipelineCache>();
         let layouts = world.resource::<AtmosphereBindGroupLayouts>();
@@ -310,30 +319,57 @@ impl FromWorld for AtmospherePipelines {
             zero_initialize_workgroup_memory: false,
         });
 
-        let render_sky_descriptor = |msaa_samples: u32| RenderPipelineDescriptor {
-            label: Some(format!("render_sky_pipeline_msaa{}", msaa_samples).into()),
-            layout: vec![if msaa_samples == 1 {
-                layouts.render_sky.clone()
+        Self {
+            transmittance_lut,
+            multiscattering_lut,
+            sky_view_lut,
+            aerial_view_lut,
+        }
+    }
+}
+
+#[derive(Component)]
+pub(crate) struct RenderSkyPipelineId(pub CachedRenderPipelineId);
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq)]
+pub(crate) struct RenderSkyPipelineKey {
+    pub msaa_samples: u32,
+    pub hdr: bool,
+}
+
+impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
+    type Key = RenderSkyPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = Vec::new();
+
+        if key.msaa_samples > 1 {
+            shader_defs.push("MULTISAMPLED".into());
+        }
+        if key.hdr {
+            shader_defs.push("TONEMAP_IN_SHADER".into());
+        }
+
+        RenderPipelineDescriptor {
+            label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
+            layout: vec![if key.msaa_samples == 1 {
+                self.render_sky.clone()
             } else {
-                layouts.render_sky_msaa.clone()
+                self.render_sky_msaa.clone()
             }],
             push_constant_ranges: vec![],
             vertex: fullscreen_shader_vertex_state(),
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState {
-                count: msaa_samples,
+                count: key.msaa_samples,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
             zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
                 shader: shaders::RENDER_SKY.clone(),
-                shader_defs: if msaa_samples == 1 {
-                    vec![]
-                } else {
-                    vec!["MULTISAMPLED".into()]
-                },
+                shader_defs,
                 entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rgba16Float,
@@ -352,23 +388,27 @@ impl FromWorld for AtmospherePipelines {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-        };
-
-        let render_sky = pipeline_cache.queue_render_pipeline(render_sky_descriptor(1));
-        let render_sky_msaa2 = pipeline_cache.queue_render_pipeline(render_sky_descriptor(2));
-        let render_sky_msaa4 = pipeline_cache.queue_render_pipeline(render_sky_descriptor(4));
-        let render_sky_msaa8 = pipeline_cache.queue_render_pipeline(render_sky_descriptor(8));
-
-        Self {
-            transmittance_lut,
-            multiscattering_lut,
-            sky_view_lut,
-            aerial_view_lut,
-            render_sky,
-            render_sky_msaa2,
-            render_sky_msaa4,
-            render_sky_msaa8,
         }
+    }
+}
+
+pub(super) fn queue_render_sky_pipelines(
+    views: Query<(Entity, &Camera, &Msaa), With<Atmosphere>>,
+    pipeline_cache: Res<PipelineCache>,
+    layouts: Res<RenderSkyBindGroupLayouts>,
+    mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
+    mut commands: Commands,
+) {
+    for (entity, camera, msaa) in &views {
+        let id = specializer.specialize(
+            &pipeline_cache,
+            &layouts,
+            RenderSkyPipelineKey {
+                msaa_samples: msaa.samples(),
+                hdr: camera.hdr,
+            },
+        );
+        commands.entity(entity).insert(RenderSkyPipelineId(id));
     }
 }
 
@@ -571,6 +611,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     >,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
+    render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
     samplers: Res<AtmosphereSamplers>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
@@ -661,9 +702,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
             if *msaa == Msaa::Off {
-                &layouts.render_sky
+                &render_sky_layouts.render_sky
             } else {
-                &layouts.render_sky_msaa
+                &render_sky_layouts.render_sky_msaa
             },
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),

@@ -43,7 +43,10 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{extract_component::UniformComponentPlugin, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::UniformComponentPlugin,
+    render_resource::{ShaderType, SpecializedRenderPipelines},
+};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -54,13 +57,16 @@ use bevy_render::{
 use bevy_utils::tracing::warn;
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
-use resources::{prepare_atmosphere_transforms, AtmosphereTransforms};
+use resources::{
+    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
+    RenderSkyBindGroupLayouts,
+};
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmospherePipelines, AtmosphereSamplers,
+        AtmosphereLutPipelines, AtmosphereSamplers,
     },
 };
 
@@ -165,12 +171,15 @@ impl Plugin for AtmospherePlugin {
 
         render_app
             .init_resource::<AtmosphereBindGroupLayouts>()
+            .init_resource::<RenderSkyBindGroupLayouts>()
             .init_resource::<AtmosphereSamplers>()
-            .init_resource::<AtmospherePipelines>()
+            .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
+            .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 Render,
                 (
+                    queue_render_sky_pipelines.in_set(RenderSet::Queue),
                     prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),

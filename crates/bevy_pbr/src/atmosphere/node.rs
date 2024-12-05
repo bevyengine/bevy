@@ -14,7 +14,8 @@ use crate::ViewLightsUniformOffset;
 
 use super::{
     resources::{
-        AtmosphereBindGroups, AtmospherePipelines, AtmosphereTextures, AtmosphereTransformsOffset,
+        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures,
+        AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
     Atmosphere, AtmosphereSettings,
 };
@@ -56,7 +57,7 @@ impl ViewNode for AtmosphereLutsNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let pipelines = world.resource::<AtmospherePipelines>();
+        let pipelines = world.resource::<AtmosphereLutPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let (
             Some(transmittance_lut_pipeline),
@@ -197,12 +198,12 @@ impl ViewNode for RenderSkyNode {
     type ViewQuery = (
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
-        Read<Msaa>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<RenderSkyPipelineId>,
     );
 
     fn run<'w>(
@@ -212,24 +213,19 @@ impl ViewNode for RenderSkyNode {
         (
             atmosphere_bind_groups,
             view_target,
-            msaa,
             atmosphere_uniforms_offset,
             settings_uniforms_offset,
             atmosphere_transforms_offset,
             view_uniforms_offset,
             lights_uniforms_offset,
+            render_sky_pipeline_id,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let atmosphere_pipelines = world.resource::<AtmospherePipelines>();
-        let render_sky_pipeline = match msaa {
-            Msaa::Off => atmosphere_pipelines.render_sky,
-            Msaa::Sample2 => atmosphere_pipelines.render_sky_msaa2,
-            Msaa::Sample4 => atmosphere_pipelines.render_sky_msaa4,
-            Msaa::Sample8 => atmosphere_pipelines.render_sky_msaa8,
-        };
-        let Some(render_sky_pipeline) = pipeline_cache.get_render_pipeline(render_sky_pipeline)
+        let atmosphere_pipelines = world.resource::<AtmosphereLutPipelines>();
+        let Some(render_sky_pipeline) =
+            pipeline_cache.get_render_pipeline(render_sky_pipeline_id.0)
         else {
             return Ok(());
         }; //TODO: warning
