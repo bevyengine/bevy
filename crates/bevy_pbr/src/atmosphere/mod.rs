@@ -17,7 +17,7 @@
 //! Up Tables) that encode most of the data are small, and take advantage of the
 //! fact that the atmosphere is symmetric. Performance is also proportional to
 //! the number of directional lights in the scene. In order to tune
-//! performance more closely, the [`AtmosphereSettings`] camera component
+//! performance more finely, the [`AtmosphereSettings`] camera component
 //! manages the size of each LUT and the sample count for each ray.
 //!
 //! Given how similar it is to [`crate::volumetric_fog`], it might be expected
@@ -37,14 +37,14 @@ use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
-    query::{QueryItem, With},
+    query::{Added, Changed, QueryItem, With},
     schedule::IntoSystemConfigs,
-    system::lifetimeless::Read,
+    system::{lifetimeless::Read, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::UniformComponentPlugin,
+    extract_component::{DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{ShaderType, SpecializedRenderPipelines},
 };
 use bevy_render::{
@@ -93,6 +93,7 @@ mod shaders {
         Handle::weak_from_u128(0x1951EB87C8A6129F0B541B1E4B3D4962);
 }
 
+#[doc(hidden)]
 pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
@@ -179,6 +180,7 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
+                    configure_camera_depth_usages.in_set(RenderSet::ManageViews),
                     queue_render_sky_pipelines.in_set(RenderSet::Queue),
                     prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
@@ -236,7 +238,6 @@ impl Plugin for AtmospherePlugin {
 /// might otherwise cause problems. [`AtmosphereSettings`] has a field to set
 /// the conversion factor from scene units to km, which by default assumes that
 /// the scene units are meters.
-//TODO: padding/alignment?
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[require(AtmosphereSettings)]
 pub struct Atmosphere {
@@ -254,11 +255,13 @@ pub struct Atmosphere {
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
     ///
-    /// TODO: units
+    /// units: N/A
     pub ground_albedo: Vec3,
 
     /// The rate of falloff of rayleigh particulate with respect to altitude:
-    /// optical density = exp(-rayleigh_density_exp_scale * altitude)
+    /// optical density = exp(-rayleigh_density_exp_scale * altitude).
+    ///
+    /// THIS VALUE MUST BE POSITIVE
     ///
     /// units: N/A
     pub rayleigh_density_exp_scale: f32,
@@ -271,6 +274,8 @@ pub struct Atmosphere {
 
     /// The rate of falloff of mie particulate with respect to altitude:
     /// optical density = exp(-mie_density_exp_scale * altitude)
+    ///
+    /// THIS VALUE MUST BE POSITIVE
     ///
     /// units: N/A
     pub mie_density_exp_scale: f32,
@@ -430,5 +435,13 @@ impl ExtractComponent for AtmosphereSettings {
 
     fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
+    }
+}
+
+fn configure_camera_depth_usages(
+    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<Atmosphere>)>,
+) {
+    for mut camera in &mut cameras {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }

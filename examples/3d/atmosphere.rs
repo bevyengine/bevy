@@ -10,12 +10,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::core_3d::Camera3dDepthTextureUsage,
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
 use bevy_internal::core_pipeline::tonemapping::Tonemapping;
-use bevy_render::render_resource::TextureUsages;
 use light_consts::lux;
 
 fn main() {
@@ -32,17 +30,11 @@ fn main() {
 
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
-        Camera3d {
-            depth_texture_usages: Camera3dDepthTextureUsage::from(
-                TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            ),
-            ..Default::default()
-        },
+        Camera3d::default(),
         Camera {
             hdr: true,
             ..default()
         },
-        Msaa::Off,
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
