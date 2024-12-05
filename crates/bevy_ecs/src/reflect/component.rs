@@ -160,9 +160,7 @@ impl ReflectComponent {
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
     ///
-    /// # Panics
-    ///
-    /// Panics if [`Component`] is immutable.
+    /// Always inserts if [`Component`] is immutable.
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
