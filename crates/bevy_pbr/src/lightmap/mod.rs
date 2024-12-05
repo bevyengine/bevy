@@ -48,8 +48,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{Mesh, RenderMesh},
     render_asset::RenderAssets,
-    render_resource::Shader,
-    texture::GpuImage,
+    render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
@@ -148,7 +148,7 @@ pub struct RenderLightmaps {
 #[derive(Default)]
 pub struct LightmapSlab {
     /// The GPU images in this slab.
-    pub(crate) gpu_images: Vec<GpuImage>,
+    gpu_images: Vec<GpuImage>,
 }
 
 /// The index of the slab (binding array) in which a lightmap is located.
@@ -336,5 +336,39 @@ impl LightmapSlab {
         let slot_index = LightmapSlotIndex(NonMaxU32::new(self.gpu_images.len() as u32).unwrap());
         self.gpu_images.push(gpu_image);
         slot_index
+    }
+
+    /// Returns the texture views and samplers for the lightmaps in this slab,
+    /// ready to be placed into a bind group.
+    ///
+    /// This is used when constructing bind groups in bindless mode. Before
+    /// returning, this function pads out the arrays with fallback images in
+    /// order to fulfill requirements of platforms that require full binding
+    /// arrays (e.g. DX12).
+    pub(crate) fn build_binding_arrays(
+        &mut self,
+        fallback_images: &FallbackImage,
+    ) -> (Vec<&WgpuTextureView>, Vec<&WgpuSampler>) {
+        while self.gpu_images.len() < LIGHTMAPS_PER_SLAB {
+            self.gpu_images.push(fallback_images.d2.clone());
+        }
+        (
+            self.gpu_images
+                .iter()
+                .map(|gpu_image| &*gpu_image.texture_view)
+                .collect(),
+            self.gpu_images
+                .iter()
+                .map(|gpu_image| &*gpu_image.sampler)
+                .collect(),
+        )
+    }
+
+    /// Returns the texture view and sampler corresponding to the first
+    /// lightmap, which must exist.
+    ///
+    /// This is used when constructing bind groups in non-bindless mode.
+    pub(crate) fn bindings_for_first_lightmap(&self) -> (&TextureView, &Sampler) {
+        (&self.gpu_images[0].texture_view, &self.gpu_images[0].sampler)
     }
 }

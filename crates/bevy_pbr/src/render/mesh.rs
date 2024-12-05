@@ -34,7 +34,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::DefaultImageSampler,
+    texture::{DefaultImageSampler, FallbackImage},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
@@ -2161,7 +2161,8 @@ pub fn prepare_mesh_bind_group(
     >,
     skins_uniform: Res<SkinUniforms>,
     weights_uniform: Res<MorphUniforms>,
-    render_lightmaps: Res<RenderLightmaps>,
+    mut render_lightmaps: ResMut<RenderLightmaps>,
+    fallback_images: Res<FallbackImage>,
 ) {
     groups.reset();
 
@@ -2244,14 +2245,16 @@ pub fn prepare_mesh_bind_group(
     }
 
     // Create lightmap bindgroups. There will be one bindgroup for each slab.
-    for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter().enumerate() {
+    let bindless_supported = render_lightmaps.bindless_supported;
+    for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
         groups.lightmaps.insert(
             LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
             layouts.lightmapped(
                 &render_device,
+                &fallback_images,
                 &model,
                 lightmap_slab,
-                render_lightmaps.bindless_supported,
+                bindless_supported,
             ),
         );
     }

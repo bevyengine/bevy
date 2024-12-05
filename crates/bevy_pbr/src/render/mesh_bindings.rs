@@ -1,7 +1,10 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
+use bevy_render::{
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice,
+    texture::FallbackImage,
+};
 
 use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, LightmapSlab};
 
@@ -340,21 +343,13 @@ impl MeshLayouts {
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
+        fallback_images: &FallbackImage,
         model: &BindingResource,
-        lightmap_slab: &LightmapSlab,
+        lightmap_slab: &mut LightmapSlab,
         bindless_lightmaps: bool,
     ) -> BindGroup {
         if bindless_lightmaps {
-            let texture_views: Vec<_> = lightmap_slab
-                .gpu_images
-                .iter()
-                .map(|gpu_image| &*gpu_image.texture_view)
-                .collect();
-            let samplers: Vec<_> = lightmap_slab
-                .gpu_images
-                .iter()
-                .map(|gpu_image| &*gpu_image.sampler)
-                .collect();
+            let (texture_views, samplers) = lightmap_slab.build_binding_arrays(fallback_images);
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
                 &self.lightmapped,
@@ -365,13 +360,14 @@ impl MeshLayouts {
                 ],
             )
         } else {
+            let (texture_view, sampler) = lightmap_slab.bindings_for_first_lightmap();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
                 &self.lightmapped,
                 &[
                     entry::model(0, model.clone()),
-                    entry::lightmaps_texture_view(4, &lightmap_slab.gpu_images[0].texture_view),
-                    entry::lightmaps_sampler(5, &lightmap_slab.gpu_images[0].sampler),
+                    entry::lightmaps_texture_view(4, texture_view),
+                    entry::lightmaps_sampler(5, sampler),
                 ],
             )
         }
