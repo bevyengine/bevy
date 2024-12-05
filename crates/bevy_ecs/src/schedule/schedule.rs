@@ -214,9 +214,9 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 #[derive(PartialEq)]
 pub enum Chain {
     /// Run nodes in order. If there are deferred parameters in preceding systems a
-    /// [`apply_deferred`] will be added on the edge.
+    /// [`ApplyDeferred`] will be added on the edge.
     Yes,
-    /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
+    /// Run nodes in order. This will not add [`ApplyDeferred`] between nodes.
     YesIgnoreDeferred,
     /// Nodes are allowed to run in any order.
     No,
@@ -368,7 +368,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`]. By default this
+    /// [`ApplyDeferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -1191,13 +1191,13 @@ impl ScheduleGraph {
         Ok(sync_point_graph)
     }
 
-    /// add an [`apply_deferred`] system with no config
+    /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self) -> NodeId {
         let id = NodeId::System(self.systems.len());
 
         self.systems
             .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
-                IntoSystem::into_system(apply_deferred),
+                IntoSystem::into_system(ApplyDeferred),
             ))));
         self.system_conditions.push(Vec::new());
 
@@ -1998,7 +1998,7 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
-    /// Auto insert [`apply_deferred`] systems into the schedule,
+    /// Auto insert [`ApplyDeferred`] systems into the schedule,
     /// when there are [`Deferred`](crate::prelude::Deferred)
     /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
     /// such deferred buffer.

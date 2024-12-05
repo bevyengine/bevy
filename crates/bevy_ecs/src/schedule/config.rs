@@ -294,7 +294,7 @@ where
     /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
@@ -306,7 +306,7 @@ where
     /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
@@ -430,7 +430,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// If the preceding node on a edge has deferred parameters, a [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {
@@ -441,7 +441,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemConfigs {
         self.into_configs().chain_ignore_deferred()
     }
@@ -634,7 +634,7 @@ where
     /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
@@ -643,7 +643,7 @@ where
     /// Runs before all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
@@ -696,7 +696,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemSetConfigs {
         self.into_configs().chain_ignore_deferred()
     }
