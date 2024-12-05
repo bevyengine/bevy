@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
-    component::{Component, ComponentCloneHandler, StorageType},
+    component::{Component, ComponentCloneHandler, Mutable, StorageType},
     entity::{Entity, VisitEntitiesMut},
     prelude::FromWorld,
     world::World,
@@ -42,6 +42,7 @@ pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl Component for Children {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    type Mutability = Mutable;
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::Ignore

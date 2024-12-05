@@ -38,7 +38,7 @@ pub trait Event: Component {
     /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate
-    type Traversal: Traversal;
+    type Traversal: Traversal<Self>;
 
     /// When true, this event will always attempt to propagate when [triggered], without requiring a call
     /// to [`Trigger::propagate`].

@@ -41,6 +41,7 @@ impl Plugin for LineGizmo3dPlugin {
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
+            .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
@@ -156,7 +157,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineGizmo Pipeline".into()),
+            label: Some("LineGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
         }
@@ -255,7 +256,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineJointGizmo Pipeline".into()),
+            label: Some("LineJointGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
             zero_initialize_workgroup_memory: false,
         }
@@ -266,7 +267,13 @@ type DrawLineGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    DrawLineGizmo<false>,
+);
+type DrawLineGizmo3dStrip = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetLineGizmoBindGroup<1>,
+    DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo3d = (
     SetItemPipeline,
@@ -298,6 +305,10 @@ fn queue_line_gizmos_3d(
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
+    let draw_function_strip = draw_functions
+        .read()
+        .get_id::<DrawLineGizmo3dStrip>()
+        .unwrap();
 
     for (
         view_entity,
@@ -341,25 +352,47 @@ fn queue_line_gizmos_3d(
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    view_key,
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                    line_style: config.line_style,
-                },
-            );
+            if line_gizmo.list_vertex_count > 0 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: false,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
+                transparent_phase.add(Transparent3d {
+                    entity: (entity, *main_entity),
+                    draw_function,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                });
+            }
 
-            transparent_phase.add(Transparent3d {
-                entity: (entity, *main_entity),
-                draw_function,
-                pipeline,
-                distance: 0.,
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::None,
-            });
+            if line_gizmo.strip_vertex_count >= 2 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: true,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
+                transparent_phase.add(Transparent3d {
+                    entity: (entity, *main_entity),
+                    draw_function: draw_function_strip,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                });
+            }
         }
     }
 }
@@ -433,7 +466,7 @@ fn queue_line_joint_gizmos_3d(
                 continue;
             };
 
-            if !line_gizmo.strip || line_gizmo.joints == GizmoLineJoint::None {
+            if line_gizmo.strip_vertex_count < 3 || config.line_joints == GizmoLineJoint::None {
                 continue;
             }
 
@@ -443,7 +476,7 @@ fn queue_line_joint_gizmos_3d(
                 LineJointGizmoPipelineKey {
                     view_key,
                     perspective: config.line_perspective,
-                    joints: line_gizmo.joints,
+                    joints: config.line_joints,
                 },
             );
 

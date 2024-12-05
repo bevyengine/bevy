@@ -1,3 +1,4 @@
+use self::assign::ClusterableObjectType;
 use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
@@ -828,15 +829,11 @@ pub fn prepare_lights(
         clusterable_object_order(
             ClusterableObjectOrderData {
                 entity: entity_1,
-                shadows_enabled: &light_1.shadows_enabled,
-                is_volumetric_light: &light_1.volumetric,
-                is_spot_light: &light_1.spot_light_angles.is_some(),
+                object_type: &ClusterableObjectType::from_point_or_spot_light(light_1),
             },
             ClusterableObjectOrderData {
                 entity: entity_2,
-                shadows_enabled: &light_2.shadows_enabled,
-                is_volumetric_light: &light_2.volumetric,
-                is_spot_light: &light_2.spot_light_angles.is_some(),
+                object_type: &ClusterableObjectType::from_point_or_spot_light(light_2),
             },
         )
     });
