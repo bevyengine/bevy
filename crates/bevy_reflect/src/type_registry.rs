@@ -1,5 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::sync::Arc;
+use alloc::{boxed::Box, string::String};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use core::{
@@ -9,7 +10,12 @@ use core::{
 };
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
+
+#[cfg(feature = "std")]
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+#[cfg(not(feature = "std"))]
+use spin::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// A registry of [reflected] types.
 ///
@@ -40,12 +46,12 @@ pub struct TypeRegistryArc {
 
 impl Debug for TypeRegistryArc {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.internal
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .type_path_to_id
-            .keys()
-            .fmt(f)
+        let read_lock = self.internal.read();
+
+        #[cfg(feature = "std")]
+        let read_lock = read_lock.unwrap_or_else(PoisonError::into_inner);
+
+        read_lock.type_path_to_id.keys().fmt(f)
     }
 }
 
@@ -131,7 +137,7 @@ impl TypeRegistry {
     /// # Example
     ///
     /// ```
-    /// # use std::any::TypeId;
+    /// # use core::any::TypeId;
     /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
     /// #[derive(Reflect, Default)]
     /// #[reflect(Default)]
@@ -428,14 +434,22 @@ impl TypeRegistry {
 impl TypeRegistryArc {
     /// Takes a read lock on the underlying [`TypeRegistry`].
     pub fn read(&self) -> RwLockReadGuard<'_, TypeRegistry> {
-        self.internal.read().unwrap_or_else(PoisonError::into_inner)
+        let read_lock = self.internal.read();
+
+        #[cfg(feature = "std")]
+        let read_lock = read_lock.unwrap_or_else(PoisonError::into_inner);
+
+        read_lock
     }
 
     /// Takes a write lock on the underlying [`TypeRegistry`].
     pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
-        self.internal
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
+        let write_lock = self.internal.write();
+
+        #[cfg(feature = "std")]
+        let write_lock = write_lock.unwrap_or_else(PoisonError::into_inner);
+
+        write_lock
     }
 }
 
@@ -746,7 +760,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
-/// use std::ptr::NonNull;
+/// use core::ptr::NonNull;
 ///
 /// #[derive(Reflect)]
 /// struct Reflected(String);
@@ -757,7 +771,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let mut value = Reflected("Hello world!".to_string());
 /// let value = Ptr::from(&value);
 ///
-/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_data = type_registry.get(core::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect(value) };

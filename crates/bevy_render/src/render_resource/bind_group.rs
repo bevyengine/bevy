@@ -373,8 +373,9 @@ pub trait AsBindGroup {
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
     /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
-    /// an implementor may define `as_bind_group` directly. This may prevent certain features
-    /// from working correctly.
+    /// an implementor may return `AsBindGroupError::CreateBindGroupDirectly`
+    /// from this function and instead define `as_bind_group` directly. This may
+    /// prevent certain features, such as bindless mode, from working correctly.
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
@@ -405,6 +406,8 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[display("The bind group could not be generated")]
     RetryNextUpdate,
+    #[display("Create the bind group via `as_bind_group()` instead")]
+    CreateBindGroupDirectly,
     #[display("At binding index {_0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }

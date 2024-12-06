@@ -68,6 +68,7 @@ impl Default for OrderIndependentTransparencySettings {
 // we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
 impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|world, entity, _| {

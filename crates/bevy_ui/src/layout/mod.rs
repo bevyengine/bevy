@@ -461,7 +461,7 @@ mod tests {
         event::Events,
         prelude::{Commands, Component, In, Query, With},
         query::Without,
-        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
         system::RunSystemOnce,
         world::World,
     };
@@ -527,7 +527,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
                 propagate_transforms,
@@ -1171,7 +1171,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
             )
                 .chain(),
