@@ -369,6 +369,7 @@ fn handle_pcss_toggle(
 fn directional_light() -> DirectionalLight {
     DirectionalLight {
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
+        angular_size: PI * 0.1,
         ..default()
     }
 }
