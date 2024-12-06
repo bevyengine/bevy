@@ -102,12 +102,12 @@ pub enum GpuPreprocessingMode {
 
     /// GPU preprocessing is in use, but GPU culling isn't.
     ///
-    /// This is used by default.
+    /// This is used when GPU compute is available, but indirect drawing isn't.
     PreprocessingOnly,
 
     /// Both GPU preprocessing and GPU culling are in use.
     ///
-    /// This is used when the [`GpuCulling`] component is present on the camera.
+    /// This is used when both GPU compute and indirect drawing are available.
     Culling,
 }
 
