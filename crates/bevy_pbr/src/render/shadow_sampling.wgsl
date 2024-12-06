@@ -222,11 +222,11 @@ fn search_for_blockers_in_shadow_map(
     light_local: vec2<f32>,
     depth: f32,
     array_index: i32,
-    texel_size: f32,
-    search_size: f32,
+    light_tan_half_angular_size: f32,
 ) -> f32 {
     let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
-    let uv_offset_scale = search_size / (texel_size * shadow_map_size);
+    //TODO: this is likely not correct.
+    let uv_offset_scale = light_tan_half_angular_size * depth / shadow_map_size;
 
     let offset0 = D3D_SAMPLE_POINT_POSITIONS[0] * uv_offset_scale;
     let offset1 = D3D_SAMPLE_POINT_POSITIONS[1] * uv_offset_scale;
@@ -286,14 +286,17 @@ fn sample_shadow_map_pcss(
     depth: f32,
     array_index: i32,
     texel_size: f32,
-    light_size: f32,
+    light_tan_half_angular_size: f32,
 ) -> f32 {
     // Determine the average Z value of the closest blocker.
     let z_blocker = search_for_blockers_in_shadow_map(
-        light_local, depth, array_index, texel_size, light_size);
+        light_local, depth, array_index, light_tan_half_angular_size);
 
+    //TODO: check correctness. Maybe missing a factor of 2 next to tan_half_angular_size? 
+    //Depends on if it's blur radius or diameter
+    //
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
-    let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
+    let blur_size = max(texel_size * light_tan_half_angular_size * (z_blocker - depth), 0.5);
 
     // FIXME: We can't use Castano '13 here because that has a hard-wired fixed
     // size. So we instead use Jimenez '14 unconditionally. In the non-temporal
