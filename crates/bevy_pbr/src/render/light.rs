@@ -921,11 +921,7 @@ pub fn prepare_lights(
             spot_light_tan_angle,
             pad_a: 0.0,
             pad_b: 0.0,
-            soft_shadow_size: if light.shadows == LightShadows::Soft {
-                light.radius
-            } else {
-                0.0
-            },
+            soft_shadow_size: light.shadows.if_soft(light.radius),
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }

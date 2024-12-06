@@ -483,7 +483,19 @@ pub enum LightShadows {
 
 impl LightShadows {
     pub fn enabled(&self) -> bool {
-        matches!(self, LightShadows::Hard | LightShadows::Soft)
+        *self != LightShadows::None
+    }
+
+    #[inline]
+    pub(crate) fn if_soft(&self, num: f32) -> f32 {
+        #[cfg(not(feature = "experimental_pbr_pcss"))]
+        return 0.0;
+
+        #[cfg(feature = "experimental_pbr_pcss")]
+        return match self {
+            LightShadows::Soft => num,
+            _ => 0.0,
+        };
     }
 }
 
