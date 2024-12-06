@@ -140,9 +140,9 @@ impl AssetReader for HttpSourceAssetReader {
 /// `ureq` currently does not support caching, so this is a simple workaround.
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
 mod http_asset_cache {
+    use core::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
     use std::fs::{self, File};
-    use std::hash::{Hash, Hasher};
     use std::io::{self, Read, Write};
     use std::path::PathBuf;
 
