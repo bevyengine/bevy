@@ -872,7 +872,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
             }
             // If everything is working correctly then the event loop only exits after it's sent an exit code.
             runner_state.app_exit.unwrap_or_else(|| {
-                error!("Failed to receive a app exit code! This is a bug");
+                error!("Failed to receive an app exit code! This is a bug");
                 AppExit::error()
             })
         }
