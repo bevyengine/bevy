@@ -111,31 +111,38 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    let response = ureq::get(str_path).call().map_err(|err| {
-        AssetReaderError::Io(
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("unexpected error while loading {}: {}", path.display(), err,),
-            )
-            .into(),
-        )
-    })?;
-
-    match response.status() {
-        200 => {
+    match ureq::get(str_path).call() {
+        Ok(response) => {
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
             Ok(Box::new(VecReader::new(buffer)))
         }
-        404 => Err(AssetReaderError::NotFound(path)),
-        code => Err(AssetReaderError::Io(
+        // ureq considers all >=400 status codes as errors
+        Err(ureq::Error::Status(code, _response)) => {
+            if code == 404 {
+                Err(AssetReaderError::NotFound(path))
+            } else {
+                Err(AssetReaderError::Io(
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!(
+                            "unexpected status code {} while loading {}",
+                            code,
+                            path.display()
+                        ),
+                    )
+                    .into(),
+                ))
+            }
+        }
+        Err(ureq::Error::Transport(err)) => Err(AssetReaderError::Io(
             io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "unexpected status code {} while loading {}",
-                    code,
-                    path.display()
+                    "unexpected error while loading asset {}: {}",
+                    path.display(),
+                    err
                 ),
             )
             .into(),
