@@ -10,11 +10,11 @@ use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
 use core::any::{Any, TypeId};
-use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -295,20 +295,19 @@ impl<A: Asset> AssetContainer for A {
 ///
 /// [`NestedLoader::load`]: crate::NestedLoader::load
 /// [immediately]: crate::Immediate
-#[derive(Error, Display, Debug)]
-#[display("Failed to load dependency {dependency:?} {error}")]
+#[derive(Error, Debug)]
+#[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {
     pub dependency: AssetPath<'static>,
     pub error: AssetLoadError,
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
-#[derive(Error, Display, Debug, Clone, PartialEq, Eq, From)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
-    #[display("Failed to deserialize asset meta: {_0:?}")]
-    DeserializeSettings(SpannedError),
-    #[display("Failed to deserialize minimal asset meta: {_0:?}")]
-    #[from(ignore)]
+    #[error("Failed to deserialize asset meta: {0:?}")]
+    DeserializeSettings(#[from] SpannedError),
+    #[error("Failed to deserialize minimal asset meta: {0:?}")]
     DeserializeMinimal(SpannedError),
 }
 
@@ -573,18 +572,22 @@ impl<'a> LoadContext<'a> {
 }
 
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum ReadAssetBytesError {
-    DeserializeMetaError(DeserializeMetaError),
-    AssetReaderError(AssetReaderError),
-    MissingAssetSourceError(MissingAssetSourceError),
-    MissingProcessedAssetReaderError(MissingProcessedAssetReaderError),
+    #[error(transparent)]
+    DeserializeMetaError(#[from] DeserializeMetaError),
+    #[error(transparent)]
+    AssetReaderError(#[from] AssetReaderError),
+    #[error(transparent)]
+    MissingAssetSourceError(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[display("Encountered an io error while loading asset at `{}`: {source}", path.display())]
+    #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
     Io {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[display("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
+    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }

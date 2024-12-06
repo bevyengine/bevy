@@ -7,7 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -335,14 +335,18 @@ fn queue_custom_mesh_pipeline(
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
                 Opaque3dBinKey {
-                    draw_function: draw_function_id,
-                    pipeline: pipeline_id,
+                    batch_set_key: Opaque3dBatchSetKey {
+                        draw_function: draw_function_id,
+                        pipeline: pipeline_id,
+                        material_bind_group_index: None,
+                        vertex_slab: default(),
+                        index_slab: None,
+                        lightmap_image: None,
+                    },
                     // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
                     // but you can use anything you like. Note that the asset ID need
                     // not be the ID of a [`Mesh`].
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_index: None,
-                    lightmap_image: None,
                 },
                 (render_entity, visible_entity),
                 // This example supports batching, but if your pipeline doesn't
