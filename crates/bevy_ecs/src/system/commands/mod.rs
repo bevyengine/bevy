@@ -272,69 +272,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`], returning [`EntityCommands`] of the cloned entity.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component, Clone)]
-    /// struct ComponentA(u32);
-    /// #[derive(Component, Clone)]
-    /// struct ComponentB(u32);
-    ///
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity and retrieve its id.
-    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
-    ///
-    ///     // Create a clone of the first entity, but without ComponentB
-    ///     let entity_clone = commands.clone_entity_with(entity, |builder| {
-    ///         builder.deny::<ComponentB>();
-    ///     }).id();
-    /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_entity_with(
-        &mut self,
-        entity: Entity,
-        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
-    ) -> EntityCommands<'_> {
-        let cloned_entity = self.spawn_empty().id();
-        self.queue(move |world: &mut World| {
-            let mut builder = EntityCloneBuilder::new(world);
-            f(&mut builder);
-            builder.clone_entity(entity, cloned_entity);
-        });
-        EntityCommands {
-            commands: self.reborrow(),
-            entity: cloned_entity,
-        }
-    }
-
-    /// Clones an entity and returns [`EntityCommands`] of the cloned entity.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component, Clone)]
-    /// struct ComponentA(u32);
-    /// #[derive(Component, Clone)]
-    /// struct ComponentB(u32);
-    ///
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity and retrieve its id.
-    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20))).id();
-    ///
-    ///     // Create a clone of the first entity
-    ///     let entity_clone = commands.clone_entity(entity).id();
-    /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_entity(&mut self, entity: Entity) -> EntityCommands<'_> {
-        self.clone_entity_with(entity, |_| {})
-    }
-
     /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::spawn_empty`] for more details.
@@ -1780,6 +1717,73 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         self.queue(observe(system))
     }
+
+    /// Clones an entity and returns the [`EntityCommands`] of the clone.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the original entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and keep its EntityCommands.
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Create a clone of the first entity
+    ///     let entity_clone = entity.clone();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone(&mut self) -> EntityCommands<'_> {
+        self.clone_with(|_| {})
+    }
+
+    /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`],
+    /// returning the [`EntityCommands`] of the clone.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the original entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity and keep its EntityCommands.
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Create a clone of the first entity, but without ComponentB
+    ///     let entity_clone = entity.clone_with(|builder| {
+    ///         builder.deny::<ComponentB>();
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    pub fn clone_with(
+        &mut self,
+        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> EntityCommands<'_> {
+        let entity_clone = self.commands().spawn_empty().id();
+        self.queue(clone_entity_with(entity_clone, f));
+        EntityCommands {
+            commands: self.commands_mut().reborrow(),
+            entity: entity_clone,
+        }
+    }
 }
 
 /// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
@@ -2251,6 +2255,17 @@ fn observe<E: Event, B: Bundle, M>(
         if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.observe(observer);
         }
+    }
+}
+
+fn clone_entity_with(
+    entity_clone: Entity,
+    f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        let mut builder = EntityCloneBuilder::new(world);
+        f(&mut builder);
+        builder.clone_entity(entity, entity_clone);
     }
 }
 
