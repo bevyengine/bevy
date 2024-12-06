@@ -20,8 +20,8 @@ use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
-            self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
-            InstanceInputUniformBuffer,
+            self, GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParameters,
+            IndirectParametersBuffer, InstanceInputUniformBuffer,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
@@ -29,8 +29,8 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::{ExtractAssetsSet, RenderAssets},
     render_phase::{
-        BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,
-        SortedRenderPhasePlugin, TrackedRenderPass,
+        BinnedRenderPhasePlugin, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+        RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -192,8 +192,8 @@ impl Plugin for MeshRenderPlugin {
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
-            let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
-                && *gpu_preprocessing_support != GpuPreprocessingSupport::None;
+            let use_gpu_instance_buffer_builder =
+                self.use_gpu_instance_buffer_builder && gpu_preprocessing_support.is_available();
 
             let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
             render_app.insert_resource(render_mesh_instances);
@@ -1226,7 +1226,10 @@ pub fn extract_meshes_for_gpu_building(
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
 ) {
-    let gpu_culling = matches!(*gpu_preprocessing_support, GpuPreprocessingSupport::Culling);
+    let gpu_culling = matches!(
+        gpu_preprocessing_support.max_supported_mode,
+        GpuPreprocessingMode::Culling
+    );
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(gpu_culling);
     }
@@ -2606,8 +2609,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
         let mut offset_count = 0;
-        if let Some(dynamic_offset) = item.extra_index().as_dynamic_offset() {
-            dynamic_offsets[offset_count] = dynamic_offset.get();
+        if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
+            dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_index {
@@ -2704,25 +2707,32 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         };
 
         // Calculate the indirect offset, and look up the buffer.
-        let indirect_parameters = match item.extra_index().as_indirect_parameters_index() {
-            None => None,
-            Some(index) => match indirect_parameters_buffer.buffer() {
-                None => {
-                    warn!("Not rendering mesh because indirect parameters buffer wasn't present");
-                    return RenderCommandResult::Skip;
+        let indirect_parameters = match item.extra_index() {
+            PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => None,
+            PhaseItemExtraIndex::IndirectParametersIndex(indices) => {
+                match indirect_parameters_buffer.buffer() {
+                    None => {
+                        warn!(
+                            "Not rendering mesh because indirect parameters buffer wasn't present"
+                        );
+                        return RenderCommandResult::Skip;
+                    }
+                    Some(buffer) => Some((
+                        indices.start as u64 * size_of::<IndirectParameters>() as u64,
+                        indices.end - indices.start,
+                        buffer,
+                    )),
                 }
-                Some(buffer) => Some((
-                    index as u64 * size_of::<IndirectParameters>() as u64,
-                    buffer,
-                )),
-            },
+            }
         };
 
         pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
         let batch_range = item.batch_range();
 
-        // Draw either directly or indirectly, as appropriate.
+        // Draw either directly or indirectly, as appropriate. If we're in
+        // indirect mode, we can additionally multi-draw. (We can't multi-draw
+        // in direct mode because `wgpu` doesn't expose that functionality.)
         match &gpu_mesh.buffer_info {
             RenderMeshBufferInfo::Indexed {
                 index_format,
@@ -2744,19 +2754,33 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                             batch_range.clone(),
                         );
                     }
-                    Some((indirect_parameters_offset, indirect_parameters_buffer)) => pass
-                        .draw_indexed_indirect(
+                    Some((
+                        indirect_parameters_offset,
+                        indirect_parameters_count,
+                        indirect_parameters_buffer,
+                    )) => {
+                        pass.multi_draw_indexed_indirect(
                             indirect_parameters_buffer,
                             indirect_parameters_offset,
-                        ),
+                            indirect_parameters_count,
+                        );
+                    }
                 }
             }
             RenderMeshBufferInfo::NonIndexed => match indirect_parameters {
                 None => {
                     pass.draw(vertex_buffer_slice.range, batch_range.clone());
                 }
-                Some((indirect_parameters_offset, indirect_parameters_buffer)) => {
-                    pass.draw_indirect(indirect_parameters_buffer, indirect_parameters_offset);
+                Some((
+                    indirect_parameters_offset,
+                    indirect_parameters_count,
+                    indirect_parameters_buffer,
+                )) => {
+                    pass.multi_draw_indirect(
+                        indirect_parameters_buffer,
+                        indirect_parameters_offset,
+                        indirect_parameters_count,
+                    );
                 }
             },
         }

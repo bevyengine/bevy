@@ -5,8 +5,7 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::TemporaryRenderEntity,
-    sync_world::{RenderEntity, SyncToRenderWorld},
+    sync_world::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, RenderLayers, RenderVisibleEntities,

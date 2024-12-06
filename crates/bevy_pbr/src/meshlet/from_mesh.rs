@@ -10,7 +10,6 @@ use bevy_render::{
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::iter;
-use derive_more::derive::{Display, Error};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
@@ -19,6 +18,7 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
+use thiserror::Error;
 
 // Aim to have 8 meshlets per group
 const TARGET_MESHLETS_PER_GROUP: usize = 8;
@@ -615,12 +615,12 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum MeshToMeshletMeshConversionError {
-    #[display("Mesh primitive topology is not TriangleList")]
+    #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[display("Mesh attributes are not {{POSITION, NORMAL, UV_0}}")]
+    #[error("Mesh attributes are not {{POSITION, NORMAL, UV_0}}")]
     WrongMeshVertexAttributes,
-    #[display("Mesh has no indices")]
+    #[error("Mesh has no indices")]
     MeshMissingIndices,
 }

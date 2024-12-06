@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     batching::gpu_preprocessing::{
-        BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
+        BatchedInstanceBuffers, GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParameters,
         IndirectParametersBuffer, PreprocessWorkItem,
     },
     graph::CameraDriverLabel,
@@ -132,9 +132,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         // This plugin does nothing if GPU instance buffer building isn't in
         // use.
         let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
-        if !self.use_gpu_instance_buffer_builder
-            || *gpu_preprocessing_support == GpuPreprocessingSupport::None
-        {
+        if !self.use_gpu_instance_buffer_builder || !gpu_preprocessing_support.is_available() {
             return;
         }
 
@@ -209,9 +207,9 @@ impl Node for GpuPreprocessNode {
 
             // Select the right pipeline, depending on whether GPU culling is in
             // use.
-            let maybe_pipeline_id = match *gpu_preprocessing_support {
-                GpuPreprocessingSupport::Culling => preprocess_pipelines.gpu_culling.pipeline_id,
-                GpuPreprocessingSupport::None | GpuPreprocessingSupport::PreprocessingOnly => {
+            let maybe_pipeline_id = match gpu_preprocessing_support.max_supported_mode {
+                GpuPreprocessingMode::Culling => preprocess_pipelines.gpu_culling.pipeline_id,
+                GpuPreprocessingMode::None | GpuPreprocessingMode::PreprocessingOnly => {
                     preprocess_pipelines.direct.pipeline_id
                 }
             };
@@ -232,7 +230,10 @@ impl Node for GpuPreprocessNode {
             compute_pass.set_pipeline(preprocess_pipeline);
 
             let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-            if matches!(*gpu_preprocessing_support, GpuPreprocessingSupport::Culling) {
+            if matches!(
+                gpu_preprocessing_support.max_supported_mode,
+                GpuPreprocessingMode::Culling
+            ) {
                 dynamic_offsets.push(view_uniform_offset.offset);
             }
             compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
@@ -421,8 +422,8 @@ pub fn prepare_preprocess_bind_groups(
         )
         .ok();
 
-        let bind_group = match *gpu_preprocessing_support {
-            GpuPreprocessingSupport::Culling => {
+        let bind_group = match gpu_preprocessing_support.max_supported_mode {
+            GpuPreprocessingMode::Culling => {
                 let (
                     Some(indirect_parameters_buffer),
                     Some(mesh_culling_data_buffer),
@@ -455,7 +456,7 @@ pub fn prepare_preprocess_bind_groups(
                 ))
             }
 
-            GpuPreprocessingSupport::None | GpuPreprocessingSupport::PreprocessingOnly => {
+            GpuPreprocessingMode::None | GpuPreprocessingMode::PreprocessingOnly => {
                 PreprocessBindGroup(render_device.create_bind_group(
                     "preprocess_direct_bind_group",
                     &pipelines.direct.bind_group_layout,
