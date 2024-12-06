@@ -71,11 +71,18 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
+    if let Some(data) = http_asset_cache::try_load_from_cache(str_path)? {
+        return Ok(Box::new(VecReader::new(data)));
+    }
+
     match ureq::get(str_path).call() {
         Ok(response) => {
             let mut reader = response.into_reader();
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
+
+            http_asset_cache::save_to_cache(str_path, &buffer)?;
+
             Ok(Box::new(VecReader::new(buffer)))
         }
         // ureq considers all >=400 status codes as errors
@@ -136,6 +143,50 @@ impl AssetReader for HttpSourceAssetReader {
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         Err(AssetReaderError::NotFound(self.make_uri(path)))
+    }
+}
+
+/// A naive implementation of an HTTP asset cache that never invalidates.
+/// `ureq` currently does not support caching, so this is a simple workaround.
+/// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
+mod http_asset_cache {
+    use std::fs::{self, File};
+    use std::io::{self, Read, Write};
+    use std::path::PathBuf;
+
+    const CACHE_DIR: &str = ".http-asset-cache";
+
+    fn url_to_filename(url: &str) -> String {
+        // Basic URL to filename conversion
+        // This is a naive implementation and might need more robust handling
+        url.replace([':', '/', '?', '=', '&'], "_")
+    }
+
+    pub fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
+        let filename = url_to_filename(url);
+        let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
+
+        // Check if file exists in cache
+        if cache_path.exists() {
+            let mut file = File::open(&cache_path)?;
+            let mut buffer = Vec::new();
+            file.read_to_end(&mut buffer)?;
+            return Ok(Some(buffer));
+        } else {
+            return Ok(None);
+        }
+    }
+
+    pub fn save_to_cache(url: &str, data: &[u8]) -> Result<(), io::Error> {
+        let filename = url_to_filename(url);
+        let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
+
+        fs::create_dir_all(CACHE_DIR).ok();
+
+        let mut cache_file = File::create(&cache_path)?;
+        cache_file.write_all(data)?;
+
+        Ok(())
     }
 }
 
