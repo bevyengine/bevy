@@ -44,13 +44,12 @@ pub struct ExtractedPointLight {
     pub range: f32,
     pub radius: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
+    pub shadows: LightShadows,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
-    pub soft_shadows_enabled: bool,
 }
 
 #[derive(Component, Debug)]
@@ -58,15 +57,15 @@ pub struct ExtractedDirectionalLight {
     pub color: LinearRgba,
     pub illuminance: f32,
     pub transform: GlobalTransform,
-    pub shadows_enabled: bool,
     pub volumetric: bool,
+    pub angular_size: f32,
+    pub shadows: LightShadows,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub cascade_shadow_config: CascadeShadowConfig,
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
     pub render_layers: RenderLayers,
-    pub soft_shadow_size: Option<f32>,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -94,7 +93,7 @@ pub struct GpuDirectionalLight {
     color: Vec4,
     dir_to_light: Vec3,
     flags: u32,
-    soft_shadow_size: f32,
+    angular_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     num_cascades: u32,
@@ -203,6 +202,7 @@ pub fn extract_lights(
         Query<(
             RenderEntity,
             &PointLight,
+            &LightShadows,
             &CubemapVisibleEntities,
             &GlobalTransform,
             &ViewVisibility,
@@ -214,6 +214,7 @@ pub fn extract_lights(
         Query<(
             RenderEntity,
             &SpotLight,
+            &LightShadows,
             &VisibleMeshEntities,
             &GlobalTransform,
             &ViewVisibility,
@@ -226,6 +227,7 @@ pub fn extract_lights(
             (
                 RenderEntity,
                 &DirectionalLight,
+                &LightShadows,
                 &CascadesVisibleEntities,
                 &Cascades,
                 &CascadeShadowConfig,
@@ -264,6 +266,7 @@ pub fn extract_lights(
         let Ok((
             render_entity,
             point_light,
+            point_light_shadows,
             cubemap_visible_entities,
             transform,
             view_visibility,
@@ -294,7 +297,7 @@ pub fn extract_lights(
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
-            shadows_enabled: point_light.shadows_enabled,
+            shadows: *point_light_shadows,
             shadow_depth_bias: point_light.shadow_depth_bias,
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
@@ -303,10 +306,6 @@ pub fn extract_lights(
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            soft_shadows_enabled: point_light.soft_shadows_enabled,
-            #[cfg(not(feature = "experimental_pbr_pcss"))]
-            soft_shadows_enabled: false,
         };
         point_lights_values.push((
             render_entity,
@@ -325,6 +324,7 @@ pub fn extract_lights(
         if let Ok((
             render_entity,
             spot_light,
+            spot_light_shadows,
             visible_entities,
             transform,
             view_visibility,
@@ -356,7 +356,7 @@ pub fn extract_lights(
                         range: spot_light.range,
                         radius: spot_light.radius,
                         transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
+                        shadows: *spot_light_shadows,
                         shadow_depth_bias: spot_light.shadow_depth_bias,
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
@@ -365,10 +365,6 @@ pub fn extract_lights(
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                         volumetric: volumetric_light.is_some(),
-                        #[cfg(feature = "experimental_pbr_pcss")]
-                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
-                        #[cfg(not(feature = "experimental_pbr_pcss"))]
-                        soft_shadows_enabled: false,
                     },
                     render_visible_entities,
                     *frustum,
@@ -382,6 +378,7 @@ pub fn extract_lights(
     for (
         entity,
         directional_light,
+        directional_light_shadows,
         visible_entities,
         cascades,
         cascade_config,
@@ -440,11 +437,8 @@ pub fn extract_lights(
                     illuminance: directional_light.illuminance,
                     transform: *transform,
                     volumetric: volumetric_light.is_some(),
-                    #[cfg(feature = "experimental_pbr_pcss")]
-                    soft_shadow_size: directional_light.soft_shadow_size,
-                    #[cfg(not(feature = "experimental_pbr_pcss"))]
-                    soft_shadow_size: None,
-                    shadows_enabled: directional_light.shadows_enabled,
+                    angular_size: directional_light.angular_size,
+                    shadows: *directional_light_shadows,
                     shadow_depth_bias: directional_light.shadow_depth_bias,
                     // The factor of SQRT_2 is for the worst-case diagonal offset
                     shadow_normal_bias: directional_light.shadow_normal_bias
@@ -777,7 +771,7 @@ pub fn prepare_lights(
 
     let point_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .filter(|light| light.1.shadows.enabled() && light.1.spot_light_angles.is_none())
         .count()
         .min(max_texture_cubes);
 
@@ -791,7 +785,7 @@ pub fn prepare_lights(
     let directional_shadow_enabled_count = directional_lights
         .iter()
         .take(MAX_DIRECTIONAL_LIGHTS)
-        .filter(|(_, light)| light.shadows_enabled)
+        .filter(|(_, light)| light.shadows.enabled())
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
@@ -809,7 +803,7 @@ pub fn prepare_lights(
 
     let spot_light_shadow_maps_count = point_lights
         .iter()
-        .filter(|(_, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
+        .filter(|(_, light, _)| light.shadows.enabled() && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
@@ -841,8 +835,8 @@ pub fn prepare_lights(
     //   lights are chosen if the light count limit is exceeded.
     directional_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         directional_light_order(
-            (entity_1, &light_1.volumetric, &light_1.shadows_enabled),
-            (entity_2, &light_2.volumetric, &light_2.shadows_enabled),
+            (entity_1, &light_1.volumetric, &light_1.shadows.enabled()),
+            (entity_2, &light_2.volumetric, &light_2.shadows.enabled()),
         )
     });
 
@@ -857,7 +851,7 @@ pub fn prepare_lights(
         let mut flags = PointLightFlags::NONE;
 
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled
+        if light.shadows.enabled()
             && (index < point_light_shadow_maps_count
                 || (light.spot_light_angles.is_some()
                     && index - point_light_count < spot_light_shadow_maps_count))
@@ -870,7 +864,7 @@ pub fn prepare_lights(
             1.0,
             light.shadow_map_near_z,
         );
-        if light.shadows_enabled
+        if light.shadows.enabled()
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
                 || (light.spot_light_angles.is_some()
@@ -927,7 +921,7 @@ pub fn prepare_lights(
             spot_light_tan_angle,
             pad_a: 0.0,
             pad_b: 0.0,
-            soft_shadow_size: if light.soft_shadows_enabled {
+            soft_shadow_size: if light.shadows == LightShadows::Soft {
                 light.radius
             } else {
                 0.0
@@ -947,13 +941,13 @@ pub fn prepare_lights(
 
         // Lights are sorted, volumetric and shadow enabled lights are first
         if light.volumetric
-            && light.shadows_enabled
+            && light.shadows.enabled()
             && (index < directional_volumetric_enabled_count)
         {
             flags |= DirectionalLightFlags::VOLUMETRIC;
         }
         // Shadow enabled lights are second
-        if light.shadows_enabled && (index < directional_shadow_enabled_count) {
+        if light.shadows.enabled() && (index < directional_shadow_enabled_count) {
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
         }
 
@@ -973,7 +967,7 @@ pub fn prepare_lights(
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back().into(),
             flags: flags.bits(),
-            soft_shadow_size: light.soft_shadow_size.unwrap_or_default(),
+            angular_size: light.angular_size,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
@@ -1137,7 +1131,7 @@ pub fn prepare_lights(
                 continue;
             };
 
-            if !light.shadows_enabled {
+            if !light.shadows.enabled() {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
@@ -1246,7 +1240,7 @@ pub fn prepare_lights(
                 continue;
             };
 
-            if !light.shadows_enabled {
+            if !light.shadows.enabled() {
                 if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }

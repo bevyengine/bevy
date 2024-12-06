@@ -21,9 +21,9 @@ use bevy_utils::{prelude::default, tracing::warn};
 
 use crate::{
     prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight,
-    GlobalVisibleClusterableObjects, LightProbe, PointLight, SpotLight, ViewClusterBindings,
-    VisibleClusterableObjects, VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
+    GlobalVisibleClusterableObjects, LightProbe, LightShadows, PointLight, SpotLight,
+    ViewClusterBindings, VisibleClusterableObjects, VolumetricLight,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
 
 use super::ClusterableObjectOrderData;
@@ -124,11 +124,11 @@ impl ClusterableObjectType {
         match point_light.spot_light_angles {
             Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
                 outer_angle,
-                shadows_enabled: point_light.shadows_enabled,
+                shadows_enabled: point_light.shadows.enabled(),
                 volumetric: point_light.volumetric,
             },
             None => ClusterableObjectType::PointLight {
-                shadows_enabled: point_light.shadows_enabled,
+                shadows_enabled: point_light.shadows.enabled(),
                 volumetric: point_light.volumetric,
             },
         }
@@ -154,6 +154,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &PointLight,
+        &LightShadows,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
@@ -162,6 +163,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &SpotLight,
+        &LightShadows,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
@@ -187,13 +189,21 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, point_light, maybe_layers, volumetric, _visibility)| {
+                |(
+                    entity,
+                    transform,
+                    point_light,
+                    point_light_shadows,
+                    maybe_layers,
+                    volumetric,
+                    _visibility,
+                )| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: GlobalTransform::from_translation(transform.translation()),
                         range: point_light.range,
                         object_type: ClusterableObjectType::PointLight {
-                            shadows_enabled: point_light.shadows_enabled,
+                            shadows_enabled: point_light_shadows.enabled(),
                             volumetric: volumetric.is_some(),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -206,14 +216,22 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, spot_light, maybe_layers, volumetric, _visibility)| {
+                |(
+                    entity,
+                    transform,
+                    spot_light,
+                    spot_light_shadows,
+                    maybe_layers,
+                    volumetric,
+                    _visibility,
+                )| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: *transform,
                         range: spot_light.range,
                         object_type: ClusterableObjectType::SpotLight {
                             outer_angle: spot_light.outer_angle,
-                            shadows_enabled: spot_light.shadows_enabled,
+                            shadows_enabled: spot_light_shadows.enabled(),
                             volumetric: volumetric.is_some(),
                         },
                         render_layers: maybe_layers.unwrap_or_default().clone(),

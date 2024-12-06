@@ -74,13 +74,6 @@ pub struct DirectionalLight {
     /// area.
     pub illuminance: f32,
 
-    /// Whether this light casts shadows.
-    ///
-    /// Note that shadows are rather expensive and become more so with every
-    /// light that casts them. In general, it's best to aggressively limit the
-    /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
-
     /// The angular size of this light in radians.
     ///
     /// The angular size of an object is how large it appears in one's field
@@ -120,7 +113,6 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
             angular_size: Self::SUN_ANGULAR_SIZE,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,

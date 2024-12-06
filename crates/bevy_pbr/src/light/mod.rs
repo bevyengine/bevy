@@ -296,9 +296,11 @@ pub struct Cascade {
     pub(crate) texel_size: f32,
 }
 
-pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
-    for (directional_light, mut cascades) in lights.iter_mut() {
-        if !directional_light.shadows_enabled {
+pub fn clear_directional_light_cascades(
+    mut lights: Query<(&LightShadows, &mut Cascades), With<DirectionalLight>>,
+) {
+    for (directional_light_shadows, mut cascades) in lights.iter_mut() {
+        if !directional_light_shadows.enabled() {
             continue;
         }
         cascades.cascades.clear();
@@ -308,12 +310,15 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
 pub fn build_directional_light_cascades<P: CameraProjection + Component>(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
-    mut lights: Query<(
-        &GlobalTransform,
-        &DirectionalLight,
-        &CascadeShadowConfig,
-        &mut Cascades,
-    )>,
+    mut lights: Query<
+        (
+            &GlobalTransform,
+            &LightShadows,
+            &CascadeShadowConfig,
+            &mut Cascades,
+        ),
+        With<DirectionalLight>,
+    >,
 ) {
     let views = views
         .iter()
@@ -326,8 +331,8 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
         })
         .collect::<Vec<_>>();
 
-    for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
-        if !directional_light.shadows_enabled {
+    for (transform, directional_light_shadows, cascades_config, mut cascades) in &mut lights {
+        if !directional_light_shadows.enabled() {
             continue;
         }
 
@@ -446,7 +451,8 @@ fn calculate_cascade(
 
 /// Add this component to a light ([`DirectionalLight`], [`PointLight`], or
 /// [`SpotLight`]) to control what style of shadows it casts.
-#[derive(Copy, Clone, Default, Component)]
+#[derive(Copy, Clone, Default, Component, PartialEq, Eq, Hash, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub enum LightShadows {
     /// Disables all shadows for this light.
     #[default]
@@ -485,6 +491,7 @@ impl LightShadows {
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
+
 /// Add this component to make a [`Mesh3d`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
@@ -493,6 +500,7 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
+
 /// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
@@ -579,21 +587,22 @@ pub fn update_directional_light_frusta(
     mut views: Query<
         (
             &Cascades,
-            &DirectionalLight,
+            &LightShadows,
             &ViewVisibility,
             &mut CascadesFrusta,
         ),
         (
+            With<DirectionalLight>,
             // Prevents this query from conflicting with camera queries.
             Without<Camera>,
         ),
     >,
 ) {
-    for (cascades, directional_light, visibility, mut frusta) in &mut views {
+    for (cascades, directional_light_shadows, visibility, mut frusta) in &mut views {
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.get() {
+        if !directional_light_shadows.enabled() || !visibility.get() {
             continue;
         }
 
@@ -617,7 +626,13 @@ pub fn update_directional_light_frusta(
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<
-        (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
+        (
+            Entity,
+            &GlobalTransform,
+            &PointLight,
+            &LightShadows,
+            &mut CubemapFrusta,
+        ),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
@@ -626,13 +641,13 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
+    for (entity, transform, point_light, light_shadows, mut cubemap_frusta) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !light_shadows.enabled() || !global_lights.entities.contains(&entity) {
             continue;
         }
 
@@ -665,17 +680,23 @@ pub fn update_point_light_frusta(
 pub fn update_spot_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<
-        (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
+        (
+            Entity,
+            &GlobalTransform,
+            &SpotLight,
+            &LightShadows,
+            &mut Frustum,
+        ),
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
 ) {
-    for (entity, transform, spot_light, mut frustum) in &mut views {
+    for (entity, transform, spot_light, spot_light_shadows, mut frustum) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !spot_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !spot_light_shadows.enabled() || !global_lights.entities.contains(&entity) {
             continue;
         }
 
@@ -717,13 +738,13 @@ pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
         (
-            &DirectionalLight,
+            &LightShadows,
             &CascadesFrusta,
             &mut CascadesVisibleEntities,
             Option<&RenderLayers>,
             &ViewVisibility,
         ),
-        Without<SpotLight>,
+        With<DirectionalLight>,
     >,
     visible_entity_query: Query<
         (
@@ -747,8 +768,13 @@ pub fn check_dir_light_mesh_visibility(
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
-        &mut directional_lights
+    for (
+        directional_light_shadows,
+        frusta,
+        mut visible_entities,
+        maybe_view_mask,
+        light_view_visibility,
+    ) in &mut directional_lights
     {
         let mut views_to_remove = Vec::new();
         for (view, cascade_view_entities) in &mut visible_entities.entities {
@@ -772,7 +798,7 @@ pub fn check_dir_light_mesh_visibility(
         }
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !light_view_visibility.get() {
+        if !directional_light_shadows.enabled() || !light_view_visibility.get() {
             continue;
         }
 
@@ -882,6 +908,7 @@ pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
         &PointLight,
+        &LightShadows,
         &GlobalTransform,
         &CubemapFrusta,
         &mut CubemapVisibleEntities,
@@ -889,6 +916,7 @@ pub fn check_point_light_mesh_visibility(
     )>,
     mut spot_lights: Query<(
         &SpotLight,
+        &LightShadows,
         &GlobalTransform,
         &Frustum,
         &mut VisibleMeshEntities,
@@ -928,6 +956,7 @@ pub fn check_point_light_mesh_visibility(
             // Point lights
             if let Ok((
                 point_light,
+                point_light_shadows,
                 transform,
                 cubemap_frusta,
                 mut cubemap_visible_entities,
@@ -939,7 +968,7 @@ pub fn check_point_light_mesh_visibility(
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !point_light_shadows.enabled() {
                     continue;
                 }
 
@@ -1021,13 +1050,19 @@ pub fn check_point_light_mesh_visibility(
             }
 
             // Spot lights
-            if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
-                spot_lights.get_mut(light_entity)
+            if let Ok((
+                point_light,
+                spot_light_shadows,
+                transform,
+                frustum,
+                mut visible_entities,
+                maybe_view_mask,
+            )) = spot_lights.get_mut(light_entity)
             {
                 visible_entities.clear();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !spot_light_shadows.enabled() {
                     continue;
                 }
 
