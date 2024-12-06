@@ -1630,7 +1630,7 @@ path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extra_asset_source]
-name = "Extra asset source"
+name = "Extra Asset Source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
@@ -1641,8 +1641,8 @@ name = "http_source"
 path = "examples/asset/http_source.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.http_asset]
-name = "HTTP Asset"
+[package.metadata.example.http_source]
+name = "HTTP Asset Source"
 description = "Load an asset from a http source"
 category = "Assets"
 wasm = true
