@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use core::ops::Deref;
-use derive_more::derive::{AsRef, Into};
+use derive_more::derive::{AsRef, Display, Into};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
