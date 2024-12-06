@@ -294,10 +294,10 @@ fn handle_light_type_change(
                 .remove::<SpotLight>();
             match light_type {
                 LightType::Point => {
-                    light_commands.insert(create_point_light());
+                    light_commands.insert(point_light());
                 }
                 LightType::Spot => {
-                    light_commands.insert(create_spot_light());
+                    light_commands.insert(spot_light());
                 }
                 LightType::Directional => {
                     light_commands.insert(directional_light());
@@ -374,7 +374,7 @@ fn directional_light() -> DirectionalLight {
 }
 
 /// Creates the [`PointLight`] component with the appropriate settings.
-fn create_point_light() -> PointLight {
+fn point_light() -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
@@ -386,7 +386,7 @@ fn create_point_light() -> PointLight {
 }
 
 /// Creates the [`SpotLight`] component with the appropriate settings.
-fn create_spot_light() -> SpotLight {
+fn spot_light() -> SpotLight {
     SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
