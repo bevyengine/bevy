@@ -23,6 +23,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::MainEntity,
     view::{ExtractedView, GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -103,7 +104,7 @@ where
     /// The uniform data inputs for the current frame.
     ///
     /// These are uploaded during the extraction phase.
-    pub current_input_buffer: RawBufferVec<BDI>,
+    pub current_input_buffer: InstanceInputUniformBuffer<BDI>,
 
     /// The uniform data inputs for the previous frame.
     ///
@@ -112,7 +113,58 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: RawBufferVec<BDI>,
+    pub previous_input_buffer: InstanceInputUniformBuffer<BDI>,
+}
+
+/// Holds the GPU buffer of instance input data, which is the data about each
+/// mesh instance that the CPU provides.
+///
+/// `BDI` is the *buffer data input* type, which the GPU mesh preprocessing
+/// shader is expected to expand to the full *buffer data* type.
+pub struct InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    /// The buffer containing the data that will be uploaded to the GPU.
+    pub buffer: RawBufferVec<BDI>,
+
+    /// The main-world entity that each item in
+    /// [`InstanceInputUniformBuffer::buffer`] corresponds to.
+    ///
+    /// This array must have the same length as
+    /// [`InstanceInputUniformBuffer::buffer`]. This bookkeeping is needed when
+    /// moving the data for an entity in the buffer (which happens when an
+    /// entity is removed), so that we can update other data structures with the
+    /// new buffer index of that entity.
+    pub main_entities: Vec<MainEntity>,
+}
+
+impl<BDI> InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    /// Creates a new, empty buffer.
+    pub fn new() -> InstanceInputUniformBuffer<BDI> {
+        InstanceInputUniformBuffer {
+            buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            main_entities: vec![],
+        }
+    }
+
+    /// Clears the buffer and entity list out.
+    pub fn clear(&mut self) {
+        self.buffer.clear();
+        self.main_entities.clear();
+    }
+}
+
+impl<BDI> Default for InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
@@ -275,8 +327,8 @@ where
         BatchedInstanceBuffers {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
             work_item_buffers: EntityHashMap::default(),
-            current_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
-            previous_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            current_input_buffer: InstanceInputUniformBuffer::new(),
+            previous_input_buffer: InstanceInputUniformBuffer::new(),
         }
     }
 
@@ -292,8 +344,6 @@ where
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
         self.data_buffer.clear();
-        self.current_input_buffer.clear();
-        self.previous_input_buffer.clear();
         for work_item_buffer in self.work_item_buffers.values_mut() {
             work_item_buffer.buffer.clear();
         }
@@ -671,13 +721,16 @@ pub fn write_batched_instance_buffers<GFBD>(
         ref mut data_buffer,
         work_item_buffers: ref mut index_buffers,
         ref mut current_input_buffer,
-        previous_input_buffer: _,
+        ref mut previous_input_buffer,
     } = gpu_array_buffer.into_inner();
 
     data_buffer.write_buffer(&render_device);
-    current_input_buffer.write_buffer(&render_device, &render_queue);
-    // There's no need to write `previous_input_buffer`, as we wrote
-    // that on the previous frame, and it hasn't changed.
+    current_input_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
+    previous_input_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
 
     for index_buffer in index_buffers.values_mut() {
         index_buffer

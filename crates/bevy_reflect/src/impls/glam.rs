@@ -4,6 +4,9 @@ use assert_type_match::assert_type_match;
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use glam::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::format;
+
 /// Reflects the given foreign type as an enum and asserts that the variants/fields match up.
 macro_rules! reflect_enum {
     ($(#[$meta:meta])* enum $ident:ident { $($ty:tt)* } ) => {

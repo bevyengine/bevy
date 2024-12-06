@@ -5,7 +5,10 @@ use crate::{
     },
     PartialReflect, Reflect, TypePath,
 };
-use alloc::collections::VecDeque;
+use alloc::{boxed::Box, collections::VecDeque};
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
 
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
