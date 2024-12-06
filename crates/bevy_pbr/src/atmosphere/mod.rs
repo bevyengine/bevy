@@ -331,6 +331,15 @@ impl Atmosphere {
         ozone_layer_width: 30.0,
         ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
     };
+
+    pub fn with_density_multiplier(&self, mult: f32) -> Self {
+        let mut new_atmo = self.clone();
+        new_atmo.rayleigh_scattering *= mult;
+        new_atmo.mie_scattering *= mult;
+        new_atmo.mie_absorption *= mult;
+        new_atmo.ozone_absorption *= mult;
+        new_atmo
+    }
 }
 
 impl Default for Atmosphere {
