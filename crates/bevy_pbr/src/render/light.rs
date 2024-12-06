@@ -93,7 +93,7 @@ pub struct GpuDirectionalLight {
     color: Vec4,
     dir_to_light: Vec3,
     flags: u32,
-    angular_size: f32,
+    sin_angular_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     num_cascades: u32,
@@ -963,7 +963,7 @@ pub fn prepare_lights(
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back().into(),
             flags: flags.bits(),
-            angular_size: light.angular_size,
+            sin_angular_size: light.shadows.if_soft(ops::sin(light.angular_size)),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
