@@ -78,9 +78,9 @@ use core::num::NonZero;
 /// This will always return at least 1.
 #[cfg(feature = "std")]
 pub fn available_parallelism() -> usize {
-    return std::thread::available_parallelism()
+    std::thread::available_parallelism()
         .map(NonZero::<usize>::get)
-        .unwrap_or(1);
+        .unwrap_or(1)
 }
 
 /// Gets the logical CPU core count available to the current process.
