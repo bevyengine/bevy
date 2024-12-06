@@ -104,7 +104,7 @@ pub trait GetBatchData {
 pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the
     /// [`crate::render_resource::BufferVec`] during extraction.
-    type BufferInputData: Pod + Sync + Send;
+    type BufferInputData: Pod + Default + Sync + Send;
 
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`].

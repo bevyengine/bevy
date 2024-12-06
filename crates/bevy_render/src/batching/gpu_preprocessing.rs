@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::tracing::error;
+use bevy_utils::{default, tracing::error};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
@@ -24,7 +24,6 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::MainEntity,
     view::{ExtractedView, GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -125,7 +124,7 @@ pub enum GpuPreprocessingMode {
 pub struct BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// A storage area for the buffer data that the GPU compute shader is
     /// expected to write to.
@@ -161,44 +160,83 @@ where
 /// shader is expected to expand to the full *buffer data* type.
 pub struct InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// The buffer containing the data that will be uploaded to the GPU.
-    pub buffer: RawBufferVec<BDI>,
+    buffer: RawBufferVec<BDI>,
 
-    /// The main-world entity that each item in
-    /// [`InstanceInputUniformBuffer::buffer`] corresponds to.
+    /// Indices of slots that are free within the buffer.
     ///
-    /// This array must have the same length as
-    /// [`InstanceInputUniformBuffer::buffer`]. This bookkeeping is needed when
-    /// moving the data for an entity in the buffer (which happens when an
-    /// entity is removed), so that we can update other data structures with the
-    /// new buffer index of that entity.
-    pub main_entities: Vec<MainEntity>,
+    /// When adding data, we preferentially overwrite these slots first before
+    /// growing the buffer itself.
+    free_uniform_indices: Vec<u32>,
 }
 
 impl<BDI> InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// Creates a new, empty buffer.
     pub fn new() -> InstanceInputUniformBuffer<BDI> {
         InstanceInputUniformBuffer {
             buffer: RawBufferVec::new(BufferUsages::STORAGE),
-            main_entities: vec![],
+            free_uniform_indices: vec![],
         }
     }
 
     /// Clears the buffer and entity list out.
     pub fn clear(&mut self) {
         self.buffer.clear();
-        self.main_entities.clear();
+        self.free_uniform_indices.clear();
+    }
+
+    /// Returns the [`RawBufferVec`] corresponding to this input uniform buffer.
+    #[inline]
+    pub fn buffer(&self) -> &RawBufferVec<BDI> {
+        &self.buffer
+    }
+
+    /// Adds a new piece of buffered data to the uniform buffer and returns its
+    /// index.
+    pub fn add(&mut self, element: BDI) -> u32 {
+        match self.free_uniform_indices.pop() {
+            Some(uniform_index) => {
+                self.buffer.values_mut()[uniform_index as usize] = element;
+                uniform_index
+            }
+            None => self.buffer.push(element) as u32,
+        }
+    }
+
+    /// Removes a piece of buffered data from the uniform buffer.
+    ///
+    /// This simply marks the data as free.
+    pub fn remove(&mut self, uniform_index: u32) {
+        self.free_uniform_indices.push(uniform_index);
+    }
+
+    /// Returns the piece of buffered data at the given index.
+    pub fn get(&self, uniform_index: u32) -> BDI {
+        self.buffer.values()[uniform_index as usize]
+    }
+
+    /// Stores a piece of buffered data at the given index.
+    pub fn set(&mut self, uniform_index: u32, element: BDI) {
+        self.buffer.values_mut()[uniform_index as usize] = element;
+    }
+
+    // Ensures that the buffers are nonempty, which the GPU requires before an
+    // upload can take place.
+    pub fn ensure_nonempty(&mut self) {
+        if self.buffer.is_empty() {
+            self.buffer.push(default());
+        }
     }
 }
 
 impl<BDI> Default for InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     fn default() -> Self {
         Self::new()
@@ -360,7 +398,7 @@ impl FromWorld for GpuPreprocessingSupport {
 impl<BD, BDI> BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// Creates new buffers.
     pub fn new() -> Self {
@@ -393,7 +431,7 @@ where
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     fn default() -> Self {
         Self::new()
