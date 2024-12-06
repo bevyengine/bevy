@@ -234,7 +234,8 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https.make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon")),
+            HttpSourceAssetReader::Https
+                .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon")),
             None
         );
     }
