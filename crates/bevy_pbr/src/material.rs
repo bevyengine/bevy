@@ -1038,6 +1038,17 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             return Err(PrepareAssetError::RetryNextUpdate(material));
         };
 
+        let method = match material.opaque_render_method() {
+            OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
+            OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
+            OpaqueRendererMethod::Auto => default_opaque_render_method.0,
+        };
+        let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
+        mesh_pipeline_key_bits.set(
+            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
+            material.reads_view_transmission_texture(),
+        );
+
         match material.unprepared_bind_group(
             &pipeline.material_layout,
             render_device,
@@ -1045,18 +1056,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                let method = match material.opaque_render_method() {
-                    OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
-                    OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
-                    OpaqueRendererMethod::Auto => default_opaque_render_method.0,
-                };
-                let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
-                mesh_pipeline_key_bits.set(
-                    MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
-                    material.reads_view_transmission_texture(),
-                );
-
-                bind_group_allocator.init(*material_binding_id, unprepared);
+                bind_group_allocator.init(render_device, *material_binding_id, unprepared);
 
                 Ok(PreparedMaterial {
                     binding: *material_binding_id,
@@ -1071,9 +1071,51 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     phantom: PhantomData,
                 })
             }
+
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+
+            Err(AsBindGroupError::CreateBindGroupDirectly) => {
+                // This material has opted out of automatic bind group creation
+                // and is requesting a fully-custom bind group. Invoke
+                // `as_bind_group` as requested, and store the resulting bind
+                // group in the slot.
+                match material.as_bind_group(
+                    &pipeline.material_layout,
+                    render_device,
+                    material_param,
+                ) {
+                    Ok(prepared_bind_group) => {
+                        // Store the resulting bind group directly in the slot.
+                        bind_group_allocator.init_custom(
+                            *material_binding_id,
+                            prepared_bind_group.bind_group,
+                            prepared_bind_group.data,
+                        );
+
+                        Ok(PreparedMaterial {
+                            binding: *material_binding_id,
+                            properties: MaterialProperties {
+                                alpha_mode: material.alpha_mode(),
+                                depth_bias: material.depth_bias(),
+                                reads_view_transmission_texture: mesh_pipeline_key_bits
+                                    .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
+                                render_method: method,
+                                mesh_pipeline_key_bits,
+                            },
+                            phantom: PhantomData,
+                        })
+                    }
+
+                    Err(AsBindGroupError::RetryNextUpdate) => {
+                        Err(PrepareAssetError::RetryNextUpdate(material))
+                    }
+
+                    Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
+                }
+            }
+
             Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }

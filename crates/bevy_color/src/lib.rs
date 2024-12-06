@@ -4,6 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! Representations of colors in various color spaces.
 //!
@@ -89,8 +90,12 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod color;
 pub mod color_difference;
+#[cfg(feature = "alloc")]
 mod color_gradient;
 mod color_ops;
 mod color_range;
@@ -121,6 +126,7 @@ pub mod prelude {
 }
 
 pub use color::*;
+#[cfg(feature = "alloc")]
 pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
