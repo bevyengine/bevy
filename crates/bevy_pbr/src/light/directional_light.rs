@@ -74,7 +74,8 @@ pub struct DirectionalLight {
     /// area.
     pub illuminance: f32,
 
-    /// The angular size of this light in radians.
+    /// The angular size of this light in radians. This must be a value in the 
+    /// range [0, π).
     ///
     /// The angular size of an object is how large it appears in one's field
     /// of view. For example, if viewed from the surface of the Earth, if one
@@ -87,7 +88,7 @@ pub struct DirectionalLight {
     /// for more information on soft shadows.
     ///
     /// Note that this is not the same thing as the *solid angle* (or "angular
-    /// area", roughly) that this light takes up in the sky. That is a separate
+    /// area", roughly) that this light covers in the sky. That is a separate
     /// measurement, with units of *steradians* rather than radians.
     pub angular_size: f32,
 
