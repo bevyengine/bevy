@@ -15,7 +15,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
@@ -3019,19 +3019,15 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
 /// ([`EntityRef`]/[`EntityMut`]).
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum TryFromFilteredError {
     /// Error indicating that the filtered entity does not have read access to
     /// all components.
-    #[display(
-        "Conversion failed, filtered entity ref does not have read access to all components"
-    )]
+    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
     MissingReadAllAccess,
     /// Error indicating that the filtered entity does not have write access to
     /// all components.
-    #[display(
-        "Conversion failed, filtered entity ref does not have write access to all components"
-    )]
+    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
     MissingWriteAllAccess,
 }
 

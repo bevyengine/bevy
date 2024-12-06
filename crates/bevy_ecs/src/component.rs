@@ -27,7 +27,7 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
 
@@ -1836,18 +1836,14 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 /// An error returned when the registration of a required component fails.
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[display("Component {0:?} already directly requires component {_1:?}")]
-    #[error(ignore)]
+    #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[display(
-        "An archetype with the component {_0:?} that requires other components already exists"
-    )]
-    #[error(ignore)]
+    #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
 }
 
