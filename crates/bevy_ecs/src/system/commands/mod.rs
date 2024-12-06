@@ -1736,7 +1736,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity and keep its EntityCommands.
-    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity
     ///     let entity_clone = entity.clone();
@@ -1765,7 +1765,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new entity and keep its EntityCommands.
-    ///     let entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity, but without ComponentB
     ///     let entity_clone = entity.clone_with(|builder| {
