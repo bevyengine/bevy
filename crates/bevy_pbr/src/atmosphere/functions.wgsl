@@ -95,10 +95,17 @@ fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec4<f32> {
 
 // PHASE FUNCTIONS
 
+// -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
+// instead of towards it (which would be the *view direction*, V)
+
+// evaluates the henyey-greenstein phase function, which describes the likelyhood
+// of a rayleigh scattering event scattering light from the light direction towards the view
 fn rayleigh(neg_LdotV: f32) -> f32 {
     return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
 }
 
+// evaluates the henyey-greenstein phase function, which describes the likelyhood
+// of a mie scattering event scattering light from the light direction towards the view
 fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = atmosphere.mie_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
@@ -149,7 +156,6 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 
     return sample;
 }
-
 
 /// evaluates equation 3 in the paper, called L_scat, which gives the total single-order scattering towards the view at a single point
 fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
