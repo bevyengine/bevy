@@ -34,7 +34,7 @@ use derive_more::derive::{AsRef, Display, Into};
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug, Into, AsRef)]
+#[derive(Debug, Into, Display, AsRef)]
 #[as_ref(str)]
 pub struct SystemName<'s>(&'s str);
 
