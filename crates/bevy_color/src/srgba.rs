@@ -7,7 +7,7 @@ use alloc::{format, string::String};
 use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
 #[doc = include_str!("../docs/conversion.md")]
@@ -424,17 +424,16 @@ impl From<Srgba> for Xyza {
 }
 
 /// Error returned if a hex string could not be parsed as a color.
-#[derive(Debug, Error, Display, PartialEq, Eq, From)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
     /// Parsing error.
-    #[display("Invalid hex string")]
-    Parse(core::num::ParseIntError),
+    #[error("Invalid hex string")]
+    Parse(#[from] core::num::ParseIntError),
     /// Invalid length.
-    #[display("Unexpected length of hex string")]
+    #[error("Unexpected length of hex string")]
     Length,
     /// Invalid character.
-    #[display("Invalid hex char")]
-    #[error(ignore)]
+    #[error("Invalid hex char")]
     Char(char),
 }
 

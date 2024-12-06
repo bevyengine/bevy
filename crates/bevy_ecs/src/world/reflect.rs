@@ -2,7 +2,7 @@
 
 use core::any::TypeId;
 
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
@@ -198,7 +198,7 @@ impl World {
 }
 
 /// The error type returned by [`World::get_reflect`] and [`World::get_reflect_mut`].
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum GetComponentReflectError {
     /// There is no [`ComponentId`] corresponding to the given [`TypeId`].
     ///
@@ -208,14 +208,11 @@ pub enum GetComponentReflectError {
     /// See the documentation for [`bevy_reflect`] for more information.
     ///
     /// [`App::register_type`]: ../../../bevy_app/struct.App.html#method.register_type
-    #[display(
-        "No `ComponentId` corresponding to {_0:?} found (did you call App::register_type()?)"
-    )]
-    #[error(ignore)]
+    #[error("No `ComponentId` corresponding to {0:?} found (did you call App::register_type()?)")]
     NoCorrespondingComponentId(TypeId),
 
     /// The given [`Entity`] does not have a [`Component`] corresponding to the given [`TypeId`].
-    #[display("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
+    #[error("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
     EntityDoesNotHaveComponent {
         /// The given [`Entity`].
         entity: Entity,
@@ -229,7 +226,7 @@ pub enum GetComponentReflectError {
     },
 
     /// The [`World`] was missing the [`AppTypeRegistry`] resource.
-    #[display("The `World` was missing the `AppTypeRegistry` resource")]
+    #[error("The `World` was missing the `AppTypeRegistry` resource")]
     MissingAppTypeRegistry,
 
     /// The [`World`]'s [`TypeRegistry`] did not contain [`TypeData`] for [`ReflectFromPtr`] for the given [`TypeId`].
@@ -243,8 +240,7 @@ pub enum GetComponentReflectError {
     /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
     /// [`ReflectFromPtr`]: bevy_reflect::ReflectFromPtr
     /// [`App::register_type`]: ../../../bevy_app/struct.App.html#method.register_type
-    #[display("The `World`'s `TypeRegistry` did not contain `TypeData` for `ReflectFromPtr` for the given {_0:?} (did you call `App::register_type()`?)")]
-    #[error(ignore)]
+    #[error("The `World`'s `TypeRegistry` did not contain `TypeData` for `ReflectFromPtr` for the given {0:?} (did you call `App::register_type()`?)")]
     MissingReflectFromPtrTypeData(TypeId),
 }
 

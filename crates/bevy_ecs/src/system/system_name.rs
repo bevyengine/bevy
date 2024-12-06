@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use core::ops::Deref;
-use derive_more::derive::{AsRef, Display, Into};
+use derive_more::derive::{AsRef, Into};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -34,7 +34,7 @@ use derive_more::derive::{AsRef, Display, Into};
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug, Into, Display, AsRef)]
+#[derive(Debug, Into, AsRef)]
 #[as_ref(str)]
 pub struct SystemName<'s>(&'s str);
 
