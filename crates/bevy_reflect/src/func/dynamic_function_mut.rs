@@ -1,5 +1,8 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box};
 use core::fmt::{Debug, Formatter};
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
 
 use crate::func::{
     args::ArgList, info::FunctionInfo, DynamicFunction, FunctionError, FunctionResult,
@@ -90,7 +93,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
@@ -195,7 +198,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// The [name] of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///

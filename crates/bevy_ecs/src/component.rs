@@ -27,7 +27,7 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
 
@@ -75,12 +75,18 @@ pub use bevy_ecs_macros::require;
 ///
 /// # Component and data access
 ///
+/// Components can be marked as immutable by adding the `#[component(immutable)]`
+/// attribute when using the derive macro.
+/// See the documentation for [`ComponentMutability`] for more details around this
+/// feature.
+///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
 /// See the documentation for [`Query`] to learn how to access component data from a system.
 ///
 /// [`entity`]: crate::entity#usage
 /// [`Query`]: crate::system::Query
+/// [`ComponentMutability`]: crate::component::ComponentMutability
 ///
 /// # Choosing a storage type
 ///
@@ -380,6 +386,14 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    /// A marker type to assist Bevy with determining if this component is
+    /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
+    /// while immutable components will instead have [`Component<Mutability = Immutable>`].
+    ///
+    /// * For a component to be mutable, this type must be [`Mutable`].
+    /// * For a component to be immutable, this type must be [`Immutable`].
+    type Mutability: ComponentMutability;
+
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 
@@ -399,6 +413,61 @@ pub trait Component: Send + Sync + 'static {
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::default()
     }
+}
+
+mod private {
+    pub trait Seal {}
+}
+
+/// The mutability option for a [`Component`]. This can either be:
+/// * [`Mutable`]
+/// * [`Immutable`]
+///
+/// This is controlled through either [`Component::Mutability`] or `#[component(immutable)]`
+/// when using the derive macro.
+///
+/// Immutable components are guaranteed to never have an exclusive reference,
+/// `&mut ...`, created while inserted onto an entity.
+/// In all other ways, they are identical to mutable components.
+/// This restriction allows hooks to observe all changes made to an immutable
+/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// `OnMutate` hook.
+/// This is not practical for mutable components, as the runtime cost of invoking
+/// a hook for every exclusive reference created would be far too high.
+///
+/// # Examples
+///
+/// ```rust
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct ImmutableFoo;
+/// ```
+pub trait ComponentMutability: private::Seal + 'static {
+    /// Boolean to indicate if this mutability setting implies a mutable or immutable
+    /// component.
+    const MUTABLE: bool;
+}
+
+/// Parameter indicating a [`Component`] is immutable.
+///
+/// See [`ComponentMutability`] for details.
+pub struct Immutable;
+
+impl private::Seal for Immutable {}
+impl ComponentMutability for Immutable {
+    const MUTABLE: bool = false;
+}
+
+/// Parameter indicating a [`Component`] is mutable.
+///
+/// See [`ComponentMutability`] for details.
+pub struct Mutable;
+
+impl private::Seal for Mutable {}
+impl ComponentMutability for Mutable {
+    const MUTABLE: bool = true;
 }
 
 /// The storage used for a specific component type.
@@ -626,6 +695,12 @@ impl ComponentInfo {
         &self.descriptor.name
     }
 
+    /// Returns `true` if the current component is mutable.
+    #[inline]
+    pub fn mutable(&self) -> bool {
+        self.descriptor.mutable
+    }
+
     /// Returns the [`TypeId`] of the underlying component type.
     /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
@@ -778,6 +853,7 @@ pub struct ComponentDescriptor {
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    mutable: bool,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -789,6 +865,7 @@ impl Debug for ComponentDescriptor {
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
+            .field("mutable", &self.mutable)
             .finish()
     }
 }
@@ -813,6 +890,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: T::Mutability::MUTABLE,
         }
     }
 
@@ -826,6 +904,7 @@ impl ComponentDescriptor {
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+        mutable: bool,
     ) -> Self {
         Self {
             name: name.into(),
@@ -834,6 +913,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
+            mutable,
         }
     }
 
@@ -850,6 +930,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: true,
         }
     }
 
@@ -861,6 +942,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: true,
         }
     }
 
@@ -881,6 +963,12 @@ impl ComponentDescriptor {
     #[inline]
     pub fn name(&self) -> &str {
         self.name.as_ref()
+    }
+
+    /// Returns whether this component is mutable.
+    #[inline]
+    pub fn mutable(&self) -> bool {
+        self.mutable
     }
 }
 
@@ -1748,18 +1836,14 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 /// An error returned when the registration of a required component fails.
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[display("Component {0:?} already directly requires component {_1:?}")]
-    #[error(ignore)]
+    #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[display(
-        "An archetype with the component {_0:?} that requires other components already exists"
-    )]
-    #[error(ignore)]
+    #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
 }
 

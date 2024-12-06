@@ -9,16 +9,17 @@ use bevy_utils::{
     tracing::{error, info, warn},
     AHasher, HashMap, HashSet,
 };
-use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
+use thiserror::Error;
 
 use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
+    result::Result,
     schedule::*,
-    system::{BoxedSystem, IntoSystem, Resource, System},
+    system::{IntoSystem, Resource, ScheduleSystem, System},
     world::World,
 };
 
@@ -213,9 +214,9 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
 #[derive(PartialEq)]
 pub enum Chain {
     /// Run nodes in order. If there are deferred parameters in preceding systems a
-    /// [`apply_deferred`] will be added on the edge.
+    /// [`ApplyDeferred`] will be added on the edge.
     Yes,
-    /// Run nodes in order. This will not add [`apply_deferred`] between nodes.
+    /// Run nodes in order. This will not add [`ApplyDeferred`] between nodes.
     YesIgnoreDeferred,
     /// Nodes are allowed to run in any order.
     No,
@@ -367,7 +368,7 @@ impl Schedule {
 
     /// Set whether the schedule applies deferred system buffers on final time or not. This is a catch-all
     /// in case a system uses commands but was not explicitly ordered before an instance of
-    /// [`apply_deferred`]. By default this
+    /// [`ApplyDeferred`]. By default this
     /// setting is true, but may be disabled if needed.
     pub fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) -> &mut Self {
         self.executor.set_apply_final_deferred(apply_final_deferred);
@@ -485,7 +486,8 @@ impl Schedule {
     /// schedule has never been initialized or run.
     pub fn systems(
         &self,
-    ) -> Result<impl Iterator<Item = (NodeId, &BoxedSystem)> + Sized, ScheduleNotInitialized> {
+    ) -> Result<impl Iterator<Item = (NodeId, &ScheduleSystem)> + Sized, ScheduleNotInitialized>
+    {
         if !self.executor_initialized {
             return Err(ScheduleNotInitialized);
         }
@@ -563,23 +565,23 @@ impl SystemSetNode {
     }
 }
 
-/// A [`BoxedSystem`] with metadata, stored in a [`ScheduleGraph`].
+/// A [`ScheduleSystem`] stored in a [`ScheduleGraph`].
 struct SystemNode {
-    inner: Option<BoxedSystem>,
+    inner: Option<ScheduleSystem>,
 }
 
 impl SystemNode {
-    pub fn new(system: BoxedSystem) -> Self {
+    pub fn new(system: ScheduleSystem) -> Self {
         Self {
             inner: Some(system),
         }
     }
 
-    pub fn get(&self) -> Option<&BoxedSystem> {
+    pub fn get(&self) -> Option<&ScheduleSystem> {
         self.inner.as_ref()
     }
 
-    pub fn get_mut(&mut self) -> Option<&mut BoxedSystem> {
+    pub fn get_mut(&mut self) -> Option<&mut ScheduleSystem> {
         self.inner.as_mut()
     }
 }
@@ -642,13 +644,13 @@ impl ScheduleGraph {
     }
 
     /// Returns the system at the given [`NodeId`], if it exists.
-    pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
+    pub fn get_system_at(&self, id: NodeId) -> Option<&ScheduleSystem> {
         if !id.is_system() {
             return None;
         }
         self.systems
             .get(id.index())
-            .and_then(|system| system.inner.as_deref())
+            .and_then(|system| system.inner.as_ref())
     }
 
     /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
@@ -660,7 +662,7 @@ impl ScheduleGraph {
     ///
     /// Panics if it doesn't exist.
     #[track_caller]
-    pub fn system_at(&self, id: NodeId) -> &dyn System<In = (), Out = ()> {
+    pub fn system_at(&self, id: NodeId) -> &ScheduleSystem {
         self.get_system_at(id)
             .ok_or_else(|| format!("system with id {id:?} does not exist in this Schedule"))
             .unwrap()
@@ -685,15 +687,13 @@ impl ScheduleGraph {
     }
 
     /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
-    pub fn systems(
-        &self,
-    ) -> impl Iterator<Item = (NodeId, &dyn System<In = (), Out = ()>, &[BoxedCondition])> {
+    pub fn systems(&self) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[BoxedCondition])> {
         self.systems
             .iter()
             .zip(self.system_conditions.iter())
             .enumerate()
             .filter_map(|(i, (system_node, condition))| {
-                let system = system_node.inner.as_deref()?;
+                let system = system_node.inner.as_ref()?;
                 Some((NodeId::System(i), system, condition.as_slice()))
             })
     }
@@ -1191,13 +1191,13 @@ impl ScheduleGraph {
         Ok(sync_point_graph)
     }
 
-    /// add an [`apply_deferred`] system with no config
+    /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self) -> NodeId {
         let id = NodeId::System(self.systems.len());
 
         self.systems
-            .push(SystemNode::new(Box::new(IntoSystem::into_system(
-                apply_deferred,
+            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
+                IntoSystem::into_system(ApplyDeferred),
             ))));
         self.system_conditions.push(Vec::new());
 
@@ -1554,7 +1554,7 @@ trait ProcessNodeConfig: Sized {
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
 }
 
-impl ProcessNodeConfig for BoxedSystem {
+impl ProcessNodeConfig for ScheduleSystem {
     fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId {
         schedule_graph.add_system_inner(config).unwrap()
     }
@@ -1933,43 +1933,42 @@ impl ScheduleGraph {
 }
 
 /// Category of errors encountered during schedule construction.
-#[derive(Error, Display, Debug)]
-#[error(ignore)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[display("System set `{_0}` contains itself.")]
+    #[error("System set `{0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
-    #[display("System set hierarchy contains cycle(s).\n{_0}")]
+    #[error("System set hierarchy contains cycle(s).\n{0}")]
     HierarchyCycle(String),
     /// The hierarchy of system sets contains redundant edges.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[display("System set hierarchy contains redundant edges.\n{_0}")]
+    #[error("System set hierarchy contains redundant edges.\n{0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
-    #[display("System set `{_0}` depends on itself.")]
+    #[error("System set `{0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
-    #[display("System dependencies contain cycle(s).\n{_0}")]
+    #[error("System dependencies contain cycle(s).\n{0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[display("`{_0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[display("`{_0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[display("Tried to order against `{_0}` in a schedule that has more than one `{_0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[display("Systems with conflicting access have indeterminate run order.\n{_0}")]
+    #[error("Systems with conflicting access have indeterminate run order.\n{0}")]
     Ambiguity(String),
     /// Tried to run a schedule before all of its systems have been initialized.
-    #[display("Systems in schedule have not been initialized.")]
+    #[error("Systems in schedule have not been initialized.")]
     Uninitialized,
 }
 
@@ -1998,7 +1997,7 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
-    /// Auto insert [`apply_deferred`] systems into the schedule,
+    /// Auto insert [`ApplyDeferred`] systems into the schedule,
     /// when there are [`Deferred`](crate::prelude::Deferred)
     /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
     /// such deferred buffer.
@@ -2040,8 +2039,8 @@ impl ScheduleBuildSettings {
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
 /// this schedule.
-#[derive(Error, Display, Debug)]
-#[display("executable schedule has not been built")]
+#[derive(Error, Debug)]
+#[error("executable schedule has not been built")]
 pub struct ScheduleNotInitialized;
 
 #[cfg(test)]

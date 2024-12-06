@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
-    component::{Component, ComponentCloneHandler, StorageType},
+    component::{Component, ComponentCloneHandler, Mutable, StorageType},
     entity::{Entity, VisitEntities, VisitEntitiesMut},
     traversal::Traversal,
     world::{FromWorld, World},
@@ -42,6 +42,7 @@ pub struct Parent(pub(crate) Entity);
 
 impl Component for Parent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    type Mutability = Mutable;
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::Ignore
@@ -92,8 +93,8 @@ impl Deref for Parent {
 /// `Parent::traverse` will never form loops in properly-constructed hierarchies.
 ///
 /// [event propagation]: bevy_ecs::observer::Trigger::propagate
-impl Traversal for &Parent {
-    fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+impl<D> Traversal<D> for &Parent {
+    fn traverse(item: Self::Item<'_>, _data: &D) -> Option<Entity> {
         Some(item.0)
     }
 }
