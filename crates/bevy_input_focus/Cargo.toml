@@ -10,7 +10,6 @@ keywords = ["bevy", "color"]
 rust-version = "1.76.0"
 
 [dependencies]
-bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", default-features = false }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
 bevy_input = { path = "../bevy_input", version = "0.15.0-dev", default-features = false }
