@@ -37,6 +37,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
+use render::debug_overlay::UiDebugOptions;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
@@ -229,6 +230,8 @@ impl Plugin for UiPlugin {
         if !self.enable_rendering {
             return;
         }
+
+        app.init_resource::<UiDebugOptions>();
 
         build_ui_render(app);
     }

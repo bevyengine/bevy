@@ -1,5 +1,5 @@
 pub mod box_shadow;
-pub mod debug;
+pub mod debug_overlay;
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
@@ -42,6 +42,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use debug_overlay::extract_debug_overlay;
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -99,6 +100,7 @@ pub enum RenderUiSystem {
     ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
+    ExtractDebugOverlay,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -126,6 +128,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
+                RenderUiSystem::ExtractDebugOverlay,
             )
                 .chain(),
         )
@@ -137,6 +140,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                extract_debug_overlay.in_set(RenderUiSystem::ExtractDebugOverlay),
             ),
         )
         .add_systems(
