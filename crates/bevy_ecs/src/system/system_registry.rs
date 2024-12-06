@@ -117,7 +117,21 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
 ///
 /// This resource is inserted by [`World::register_system_cached`].
 #[derive(Resource)]
-pub struct CachedSystemId<S: System>(pub SystemId<S::In, S::Out>);
+pub struct CachedSystemId<S> {
+    /// The cached `SystemId` as an `Entity`.
+    pub id: Entity,
+    _marker: std::marker::PhantomData<fn() -> S>,
+}
+
+impl<I, O, M, S: IntoSystem<I, O, M>> CachedSystemId<S> {
+    /// Creates a new `CachedSystemId` struct given a `SystemId`.
+    pub fn new<I, O>(id: SystemId<I, O>) -> Self {
+        Self {
+            id: id.entity(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
 
 /// Creates a [`Bundle`] for a one-shot system entity.
 fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
@@ -391,21 +405,21 @@ impl World {
             );
         }
 
-        if !self.contains_resource::<CachedSystemId<S::System>>() {
+        if !self.contains_resource::<CachedSystemId<S>>() {
             let id = self.register_system(system);
-            self.insert_resource(CachedSystemId::<S::System>(id));
+            self.insert_resource(CachedSystemId::<S>::new(id));
             return id;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
+        self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
             if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
             } else {
-                id.0 = world.register_system(system);
+                id.0 = world.register_system(system).entity();
             }
-            id.0
+            SystemId::from_entity(id.0)
         })
     }
 
@@ -422,9 +436,9 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self
-            .remove_resource::<CachedSystemId<S::System>>()
+            .remove_resource::<CachedSystemId<S>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.unregister_system(id.0)
+        self.unregister_system(SystemId::<I, O>::from_entity(id.0))
     }
 
     /// Runs a cached system, registering it if necessary.
