@@ -183,6 +183,7 @@ fn spawn_light(commands: &mut Commands) {
     commands
         .spawn((
             directional_light(),
+            LightShadows::Soft,
             Transform::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
@@ -286,12 +287,17 @@ fn handle_light_type_change(
         };
         app_status.light_type = light_type;
 
+        let shadow_style = if app_status.soft_shadows {
+            LightShadows::Soft
+        } else {
+            LightShadows::Hard
+        };
+
         for light in lights.iter_mut() {
             let mut light_commands = commands.entity(light);
             light_commands
-                .remove::<DirectionalLight>()
-                .remove::<PointLight>()
-                .remove::<SpotLight>();
+                .remove::<(DirectionalLight, PointLight, SpotLight)>()
+                .insert(shadow_style);
             match light_type {
                 LightType::Point => {
                     light_commands.insert(point_light());
