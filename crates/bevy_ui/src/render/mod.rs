@@ -1,4 +1,5 @@
 pub mod box_shadow;
+pub mod debug;
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
