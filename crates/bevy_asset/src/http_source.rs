@@ -11,23 +11,25 @@ use std::path::{Path, PathBuf};
 pub fn http_source_plugin(app: &mut App) {
     app.register_asset_source(
         "http",
-        AssetSource::build().with_reader(|| Box::new(WebAssetReader::Http)),
+        AssetSource::build().with_reader(|| Box::new(HttpSourceAssetReader::Http)),
     );
     app.register_asset_source(
         "https",
-        AssetSource::build().with_reader(|| Box::new(WebAssetReader::Https)),
+        AssetSource::build().with_reader(|| Box::new(HttpSourceAssetReader::Https)),
     );
 }
 
-/// Treats paths as urls to load assets from.
-pub enum WebAssetReader {
+/// Asset reader that treats paths as urls to load assets from.
+/// This should not be confused with the [`HttpWasmAssetReader`] which is loads
+/// *local* assets for wasm bevy apps.
+pub enum HttpSourceAssetReader {
     /// Unencrypted connections.
     Http,
     /// Use TLS for setting up connections.
     Https,
 }
 
-impl WebAssetReader {
+impl HttpSourceAssetReader {
     fn make_uri(&self, path: &Path) -> PathBuf {
         PathBuf::from(match self {
             Self::Http => "http://",
@@ -150,7 +152,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     }
 }
 
-impl AssetReader for WebAssetReader {
+impl AssetReader for HttpSourceAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
@@ -186,7 +188,7 @@ mod tests {
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            WebAssetReader::Http
+            HttpSourceAssetReader::Http
                 .make_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -197,7 +199,7 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            WebAssetReader::Https
+            HttpSourceAssetReader::Https
                 .make_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -208,7 +210,7 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            WebAssetReader::Http
+            HttpSourceAssetReader::Http
                 .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
                 .expect("cannot create meta uri")
                 .to_str()
@@ -220,7 +222,7 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https
+            HttpSourceAssetReader::Https
                 .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
                 .expect("cannot create meta uri")
                 .to_str()
@@ -232,7 +234,7 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https.make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon")),
+            HttpSourceAssetReader::Https.make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon")),
             None
         );
     }
