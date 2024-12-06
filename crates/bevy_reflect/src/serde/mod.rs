@@ -15,6 +15,10 @@ mod tests {
     };
     use serde::de::DeserializeSeed;
 
+    fn custom_default() -> i32 {
+        -1
+    }
+
     #[test]
     fn test_serialization_struct() {
         #[derive(Debug, Reflect, PartialEq)]
@@ -29,10 +33,6 @@ mod tests {
             #[reflect(default = "custom_default")]
             d: i32,
             e: i32,
-        }
-
-        fn custom_default() -> i32 {
-            -1
         }
 
         let mut registry = TypeRegistry::default();
@@ -97,10 +97,6 @@ mod tests {
             i32,
             i32,
         );
-
-        fn custom_default() -> i32 {
-            -1
-        }
 
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
