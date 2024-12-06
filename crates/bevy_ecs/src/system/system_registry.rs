@@ -119,16 +119,16 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
 #[derive(Resource)]
 pub struct CachedSystemId<S> {
     /// The cached `SystemId` as an `Entity`.
-    pub id: Entity,
-    _marker: std::marker::PhantomData<fn() -> S>,
+    pub entity: Entity,
+    _marker: PhantomData<fn() -> S>,
 }
 
-impl<I, O, M, S: IntoSystem<I, O, M>> CachedSystemId<S> {
+impl<S> CachedSystemId<S> {
     /// Creates a new `CachedSystemId` struct given a `SystemId`.
-    pub fn new<I, O>(id: SystemId<I, O>) -> Self {
+    pub fn new<I: SystemInput, O>(id: SystemId<I, O>) -> Self {
         Self {
-            id: id.entity(),
-            _marker: std::marker::PhantomData,
+            entity: id.entity(),
+            _marker: PhantomData,
         }
     }
 }
@@ -412,14 +412,14 @@ impl World {
         }
 
         self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
-            if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
+            if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
             } else {
-                id.0 = world.register_system(system).entity();
+                id.entity = world.register_system(system).entity();
             }
-            SystemId::from_entity(id.0)
+            SystemId::from_entity(id.entity)
         })
     }
 
@@ -438,7 +438,7 @@ impl World {
         let id = self
             .remove_resource::<CachedSystemId<S>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.unregister_system(SystemId::<I, O>::from_entity(id.0))
+        self.unregister_system(SystemId::<I, O>::from_entity(id.entity))
     }
 
     /// Runs a cached system, registering it if necessary.
