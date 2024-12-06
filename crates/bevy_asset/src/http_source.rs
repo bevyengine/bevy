@@ -55,7 +55,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     HttpWasmAssetReader::new("")
         .fetch_bytes(path)
         .await
-        .map(|r| Box::new(r))
+        .map(|r| Box::new(r) as Box<dyn Reader>)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
