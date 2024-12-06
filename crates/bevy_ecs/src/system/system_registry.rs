@@ -5,7 +5,7 @@ use crate::{
     bundle::Bundle,
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, System},
+    system::{input::SystemInput, BoxedSystem, IntoSystem},
     world::{Command, World},
 };
 use bevy_ecs_macros::{Component, Resource};
