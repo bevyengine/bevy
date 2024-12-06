@@ -32,7 +32,7 @@ fn compute_optical_depth_to_top_atmosphere_boundary(r: f32, mu: f32, sample_coun
     // SebH uses this for multiple scattering. It might not be needed here, but I've kept it to get results that are as close as possible to the original
         
     //TODO: check specific integration approach.
-        let t_i = (t_max * f32(i) + 0.3f) / f32(sample_count); //TODO: should be 0.5f?
+        let t_i = t_max * (f32(i) + 0.3f) / f32(sample_count); //TODO: should be 0.5f?
         let dt = t_i - prev_t;
         prev_t = t_i;
 
