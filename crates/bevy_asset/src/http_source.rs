@@ -52,7 +52,10 @@ impl HttpSourceAssetReader {
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::wasm::HttpWasmAssetReader;
 
-    HttpWasmAssetReader::new("").fetch_bytes(path).await
+    HttpWasmAssetReader::new("")
+        .fetch_bytes(path)
+        .await
+        .map(|r| Box::new(r))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
