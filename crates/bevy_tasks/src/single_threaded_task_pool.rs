@@ -179,7 +179,7 @@ impl TaskPool {
                 #[cfg(not(feature = "std"))]
                 {
                     let mut lock = result.lock();
-                    return lock.take().unwrap();
+                    lock.take().unwrap()
                 }
             })
             .collect()

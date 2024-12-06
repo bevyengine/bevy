@@ -76,13 +76,18 @@ use core::num::NonZero;
 /// it will return a default value of 1 if it internally errors out.
 ///
 /// This will always return at least 1.
+#[cfg(feature = "std")]
 pub fn available_parallelism() -> usize {
-    #[cfg(feature = "std")]
     return std::thread::available_parallelism()
         .map(NonZero::<usize>::get)
         .unwrap_or(1);
+}
 
+/// Gets the logical CPU core count available to the current process.
+///
+/// This will always return at least 1.
+#[cfg(not(feature = "std"))]
+pub fn available_parallelism() -> usize {
     // Without access to std, assume a single thread is available
-    #[cfg(not(feature = "std"))]
-    return 1;
+    1
 }
