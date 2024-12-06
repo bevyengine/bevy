@@ -21,7 +21,7 @@ use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -1033,14 +1033,17 @@ impl<'w> UnsafeEntityCell<'w> {
 }
 
 /// Error that may be returned when calling [`UnsafeEntityCell::get_mut_by_id`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum GetEntityMutByIdError {
     /// The [`ComponentInfo`](crate::component::ComponentInfo) could not be found.
+    #[error("the `ComponentInfo` could not be found")]
     InfoNotFound,
     /// The [`Component`] is immutable. Creating a mutable reference violates its
     /// invariants.
+    #[error("the `Component` is immutable")]
     ComponentIsImmutable,
     /// This [`Entity`] does not have the desired [`Component`].
+    #[error("the `Component` could not be found")]
     ComponentNotFound,
 }
 

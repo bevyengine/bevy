@@ -9,9 +9,9 @@ use bevy_utils::{
     tracing::{error, info, warn},
     AHasher, HashMap, HashSet,
 };
-use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
+use thiserror::Error;
 
 use crate::{
     self as bevy_ecs,
@@ -1933,43 +1933,42 @@ impl ScheduleGraph {
 }
 
 /// Category of errors encountered during schedule construction.
-#[derive(Error, Display, Debug)]
-#[error(ignore)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[display("System set `{_0}` contains itself.")]
+    #[error("System set `{0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
-    #[display("System set hierarchy contains cycle(s).\n{_0}")]
+    #[error("System set hierarchy contains cycle(s).\n{0}")]
     HierarchyCycle(String),
     /// The hierarchy of system sets contains redundant edges.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[display("System set hierarchy contains redundant edges.\n{_0}")]
+    #[error("System set hierarchy contains redundant edges.\n{0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
-    #[display("System set `{_0}` depends on itself.")]
+    #[error("System set `{0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
-    #[display("System dependencies contain cycle(s).\n{_0}")]
+    #[error("System dependencies contain cycle(s).\n{0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[display("`{_0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[display("`{_0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[display("Tried to order against `{_0}` in a schedule that has more than one `{_0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[display("Systems with conflicting access have indeterminate run order.\n{_0}")]
+    #[error("Systems with conflicting access have indeterminate run order.\n{0}")]
     Ambiguity(String),
     /// Tried to run a schedule before all of its systems have been initialized.
-    #[display("Systems in schedule have not been initialized.")]
+    #[error("Systems in schedule have not been initialized.")]
     Uninitialized,
 }
 
@@ -2040,8 +2039,8 @@ impl ScheduleBuildSettings {
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
 /// this schedule.
-#[derive(Error, Display, Debug)]
-#[display("executable schedule has not been built")]
+#[derive(Error, Debug)]
+#[error("executable schedule has not been built")]
 pub struct ScheduleNotInitialized;
 
 #[cfg(test)]

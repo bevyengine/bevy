@@ -443,7 +443,8 @@ mod tests {
                 })
                 .id();
             let e_clone = commands
-                .clone_entity_with(e, |builder| {
+                .entity(e)
+                .clone_with(|builder| {
                     builder.recursive(true);
                 })
                 .id();
@@ -481,7 +482,8 @@ mod tests {
         let parent = commands.spawn_empty().add_child(child).id();
 
         let child_clone = commands
-            .clone_entity_with(child, |builder| {
+            .entity(child)
+            .clone_with(|builder| {
                 builder.as_child(true);
             })
             .id();
