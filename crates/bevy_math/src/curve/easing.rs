@@ -459,3 +459,67 @@ impl EaseFunction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {
+        use EaseFunction::*;
+        &[
+            [QuadraticIn, QuadraticOut, QuadraticInOut],
+            [CubicIn, CubicOut, CubicInOut],
+            [QuarticIn, QuarticOut, QuarticInOut],
+            [QuinticIn, QuinticOut, QuinticInOut],
+            [SineIn, SineOut, SineInOut],
+            [CircularIn, CircularOut, CircularInOut],
+            [ExponentialIn, ExponentialOut, ExponentialInOut],
+        ]
+    };
+
+    // For easing function we don't care if eval(0) is super-tiny like 2e-28,
+    // so add the same amount of error on both ends of the unit interval.
+    const TOLERANCE: f32 = 1.0e-6;
+    const _: () = const {
+        assert!(1.0 - TOLERANCE != 1.0);
+    };
+
+    #[test]
+    fn ease_functions_zero_to_one() {
+        for ef in MONOTONIC_IN_OUT_INOUT.iter().flatten() {
+            let start = ef.eval(0.0);
+            assert!(
+                (0.0..=TOLERANCE).contains(&start),
+                "EaseFunction.{ef:?}(0) was {start:?}",
+            );
+
+            let finish = ef.eval(1.0);
+            assert!(
+                (1.0 - TOLERANCE..=1.0).contains(&finish),
+                "EaseFunction.{ef:?}(1) was {start:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn ease_function_midpoints() {
+        for [ef_in, ef_out, ef_inout] in MONOTONIC_IN_OUT_INOUT {
+            let mid = ef_in.eval(0.5);
+            assert!(
+                mid < 0.5 - TOLERANCE,
+                "EaseFunction.{ef_in:?}(½) was {mid:?}",
+            );
+
+            let mid = ef_out.eval(0.5);
+            assert!(
+                mid > 0.5 + TOLERANCE,
+                "EaseFunction.{ef_out:?}(½) was {mid:?}",
+            );
+
+            let mid = ef_inout.eval(0.5);
+            assert!(
+                (0.5 - TOLERANCE..=0.5 + TOLERANCE).contains(&mid),
+                "EaseFunction.{ef_inout:?}(½) was {mid:?}",
+            );
+        }
+    }
+}
