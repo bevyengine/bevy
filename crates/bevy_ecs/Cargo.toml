@@ -35,6 +35,7 @@ serde = { version = "1", optional = true, default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
   "from",
+  "display",
   "into",
   "as_ref",
 ] }
