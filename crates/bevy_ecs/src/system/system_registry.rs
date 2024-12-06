@@ -170,7 +170,7 @@ impl World {
     /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
-    /// [`System`] trait object and put in a [`Box`].
+    /// [`System`](crate::system::System) trait object and put in a [`Box`].
     pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
     where
         I: SystemInput + 'static,
