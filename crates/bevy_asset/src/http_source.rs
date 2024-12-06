@@ -166,14 +166,13 @@ mod http_asset_cache {
         let filename = url_to_filename(url);
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
-        // Check if file exists in cache
         if cache_path.exists() {
             let mut file = File::open(&cache_path)?;
             let mut buffer = Vec::new();
             file.read_to_end(&mut buffer)?;
-            return Ok(Some(buffer));
+            Ok(Some(buffer))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
