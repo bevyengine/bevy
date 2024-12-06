@@ -50,52 +50,9 @@ impl HttpSourceAssetReader {
 
 #[cfg(target_arch = "wasm32")]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
-    use crate::io::VecReader;
-    use js_sys::Uint8Array;
-    use wasm_bindgen::JsCast;
-    use wasm_bindgen_futures::JsFuture;
-    use web_sys::Response;
-
-    fn js_value_to_err<'a>(
-        context: &'a str,
-    ) -> impl FnOnce(wasm_bindgen::JsValue) -> std::io::Error + 'a {
-        move |value| {
-            let message = match js_sys::JSON::stringify(&value) {
-                Ok(js_str) => format!("Failed to {context}: {js_str}"),
-                Err(_) => {
-                    format!(
-                        "Failed to {context} and also failed to stringify the JSValue of the error"
-                    )
-                }
-            };
-
-            std::io::Error::new(std::io::ErrorKind::Other, message)
-        }
-    }
-
-    let window = web_sys::window().unwrap();
-    let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
-        .await
-        .map_err(js_value_to_err("fetch path"))?;
-    let resp = resp_value
-        .dyn_into::<Response>()
-        .map_err(js_value_to_err("convert fetch to Response"))?;
-    match resp.status() {
-        200 => {
-            let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
-            let bytes = Uint8Array::new(&data).to_vec();
-            let reader = Box::new(VecReader::new(bytes));
-            Ok(reader)
-        }
-        404 => Err(AssetReaderError::NotFound(path)),
-        status => Err(AssetReaderError::Io(
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Encountered unexpected HTTP status {status}"),
-            )
-            .into(),
-        )),
-    }
+    use crate::io::wasm::HttpWasmAssetReader;
+    
+    HttpWasmAssetReader::new("").fetch_bytes(path).await
 }
 
 #[cfg(not(target_arch = "wasm32"))]
