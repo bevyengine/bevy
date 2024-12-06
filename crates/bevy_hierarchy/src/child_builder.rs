@@ -385,8 +385,8 @@ pub trait BuildChildren {
 
     /// Adds a single child.
     ///
-    /// If the children were previously children of another parent, that parent's [`Children`] component
-    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// If the child was previously the child of another parent, that parent's [`Children`] component
+    /// will have the child removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
     ///
     /// # Panics
