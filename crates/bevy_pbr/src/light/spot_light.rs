@@ -9,7 +9,7 @@ use super::*;
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Frustum, VisibleMeshEntities, Transform, Visibility)]
+#[require(Frustum, VisibleMeshEntities, LightShadows, Transform, Visibility)]
 pub struct SpotLight {
     /// The color of the light.
     ///
@@ -34,31 +34,6 @@ pub struct SpotLight {
     /// not produce the intended result -- for example, light radius does not
     /// affect shadow softness or diffuse lighting.
     pub radius: f32,
-
-    /// Whether this light casts shadows.
-    ///
-    /// Note that shadows are rather expensive and become more so with every
-    /// light that casts them. In general, it's best to aggressively limit the
-    /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
-
-    /// Whether soft shadows are enabled.
-    ///
-    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
-    /// cause shadows to become blurrier (i.e. their penumbra increases in
-    /// radius) as they extend away from objects. The blurriness of the shadow
-    /// depends on the [`SpotLight::radius`] of the light; larger lights result in larger
-    /// penumbras and therefore blurrier shadows.
-    ///
-    /// Currently, soft shadows are rather noisy if not using the temporal mode.
-    /// If you enable soft shadows, consider choosing
-    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
-    /// (TAA) to smooth the noise out over time.
-    ///
-    /// Note that soft shadows are significantly more expensive to render than
-    /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub soft_shadows_enabled: bool,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
@@ -115,14 +90,11 @@ impl Default for SpotLight {
             intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
             outer_angle: core::f32::consts::FRAC_PI_4,
-            #[cfg(feature = "experimental_pbr_pcss")]
-            soft_shadows_enabled: false,
         }
     }
 }

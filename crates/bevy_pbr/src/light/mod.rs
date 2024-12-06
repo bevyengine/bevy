@@ -443,6 +443,44 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
+
+/// Add this component to a light ([`DirectionalLight`], [`PointLight`], or
+/// [`SpotLight`]) to control what style of shadows it casts.
+#[derive(Copy, Clone, Default, Component)]
+pub enum LightShadows {
+    /// Disables all shadows for this light.
+    #[default]
+    None,
+
+    /// Enables hard shadows for this light, which will not blur as they extend
+    /// away from objeccts.
+    Hard,
+
+    /// Enables soft shadows for this light.
+    ///
+    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
+    /// cause shadows to become blurrier (i.e. their penumbra increases in
+    /// radius) as they extend away from objects. The blurriness of the shadow
+    /// depends on the size of the light; larger lights result in larger
+    /// penumbras and therefore blurrier shadows.
+    ///
+    /// Currently, soft shadows are rather noisy if not using the temporal mode.
+    /// If you enable soft shadows, consider choosing
+    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
+    /// (TAA) to smooth the noise out over time.
+    ///
+    /// Note that soft shadows are significantly more expensive to render than
+    /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
+    Soft,
+}
+
+impl LightShadows {
+    pub fn enabled(&self) -> bool {
+        matches!(self, LightShadows::Hard | LightShadows::Soft)
+    }
+}
+
 /// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
