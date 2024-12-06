@@ -20,8 +20,6 @@ pub fn http_source_plugin(app: &mut App) {
 }
 
 /// Asset reader that treats paths as urls to load assets from.
-/// This should not be confused with the [`HttpWasmAssetReader`] which is loads
-/// *local* assets for wasm bevy apps.
 pub enum HttpSourceAssetReader {
     /// Unencrypted connections.
     Http,
