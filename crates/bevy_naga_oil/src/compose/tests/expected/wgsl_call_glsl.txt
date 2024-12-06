@@ -1,0 +1,16 @@
+struct CustomMaterialX_naga_oil_mod_XM5WHG3C7NVXWI5LMMUX {
+    Color: vec4<f32>,
+}
+
+@group(1) @binding(0) 
+var<uniform> global: CustomMaterialX_naga_oil_mod_XM5WHG3C7NVXWI5LMMUX;
+
+fn glsl_funcX_naga_oil_mod_XM5WHG3C7NVXWI5LMMUX() -> f32 {
+    return 3f;
+}
+
+fn fraggo() -> f32 {
+    let _e0: f32 = glsl_funcX_naga_oil_mod_XM5WHG3C7NVXWI5LMMUX();
+    return _e0;
+}
+

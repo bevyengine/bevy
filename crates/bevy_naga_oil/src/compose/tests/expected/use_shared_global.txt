@@ -1,0 +1,15 @@
+var<private> aX_naga_oil_mod_XNVXWIX: f32 = 0f;
+
+fn add() {
+    let _e2: f32 = aX_naga_oil_mod_XNVXWIX;
+    aX_naga_oil_mod_XNVXWIX = (_e2 + 1f);
+    return;
+}
+
+fn main() -> f32 {
+    add();
+    add();
+    let _e1: f32 = aX_naga_oil_mod_XNVXWIX;
+    return _e1;
+}
+

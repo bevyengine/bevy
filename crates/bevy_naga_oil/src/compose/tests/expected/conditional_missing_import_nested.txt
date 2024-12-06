@@ -1,0 +1,8 @@
+error: required import 'b' not found
+  ┌─ tests/conditional_import_fail/top_nested.wgsl:1:1
+  │
+1 │ #import middle
+  │ ^
+  │
+  = missing import 'b'
+
