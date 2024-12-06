@@ -1,6 +1,6 @@
 //! Renders two 3d passes to the same window from different perspectives.
 
-use bevy::prelude::*;
+use bevy::{pbr::LightShadows, prelude::*};
 
 fn main() {
     App::new()
@@ -30,10 +30,8 @@ fn setup(
 
     // Light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

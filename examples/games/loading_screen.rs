@@ -1,5 +1,5 @@
 //! Shows how to create a loading screen that waits for assets to load and render.
-use bevy::{ecs::system::SystemId, prelude::*};
+use bevy::{ecs::system::SystemId, pbr::LightShadows, prelude::*};
 use pipelines_ready::*;
 
 // The way we'll go about doing this in this example is to
@@ -152,10 +152,8 @@ fn load_level_1(
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        DirectionalLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
@@ -183,10 +181,8 @@ fn load_level_2(
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        DirectionalLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));

@@ -1,6 +1,6 @@
 //! A simple scene to demonstrate picking events for UI and mesh entities.
 
-use bevy::prelude::*;
+use bevy::{pbr::LightShadows, prelude::*};
 
 fn main() {
     App::new()
@@ -48,10 +48,8 @@ fn setup_scene(
 
     // Light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

@@ -5,7 +5,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{
     animation::{AnimationTargetId, RepeatAnimation},
     color::palettes::css::WHITE,
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, LightShadows},
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -99,19 +99,18 @@ fn setup(
     ));
 
     // Light
-    commands.spawn((
+    let bundle = (
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        DirectionalLight::default(),
+        LightShadows::Hard,
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 200.0,
             maximum_distance: 400.0,
             ..default()
         }
         .build(),
-    ));
+    );
+    commands.spawn(bundle);
 
     // Fox
     commands.spawn(SceneRoot(

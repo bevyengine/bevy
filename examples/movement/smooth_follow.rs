@@ -2,6 +2,7 @@
 
 use bevy::{
     math::{prelude::*, vec3, NormedVectorSpace},
+    pbr::LightShadows,
     prelude::*,
 };
 use rand::SeedableRng;
@@ -70,9 +71,9 @@ fn setup(
     commands.spawn((
         PointLight {
             intensity: 15_000_000.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

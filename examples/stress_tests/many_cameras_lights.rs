@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     math::ops::{cos, sin},
+    pbr::LightShadows,
     prelude::*,
     render::camera::Viewport,
 };
@@ -48,9 +49,9 @@ fn setup(
             PointLight {
                 color: Color::hsv(angle.to_degrees(), 1.0, 1.0),
                 intensity: 2_000_000.0 / NUM_LIGHTS as f32,
-                shadows_enabled: true,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(sin(angle) * 4.0, 2.0, cos(angle) * 4.0),
         ));
     }

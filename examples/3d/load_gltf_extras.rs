@@ -2,6 +2,7 @@
 
 use bevy::{
     gltf::{GltfExtras, GltfMaterialExtras, GltfMeshExtras, GltfSceneExtras},
+    pbr::LightShadows,
     prelude::*,
 };
 
@@ -22,10 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands.spawn(DirectionalLight {
-        shadows_enabled: true,
-        ..default()
-    });
+    commands.spawn((DirectionalLight::default(), LightShadows::Hard));
 
     // a barebones scene containing one of each gltf_extra type
     commands.spawn(SceneRoot(asset_server.load(

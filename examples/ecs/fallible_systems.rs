@@ -1,6 +1,7 @@
 //! Showcases how fallible systems can be make use of rust's powerful result handling syntax.
 
 use bevy::math::sampling::UniformMeshSampler;
+use bevy::pbr::LightShadows;
 use bevy::prelude::*;
 
 use rand::distributions::Distribution;
@@ -29,10 +30,8 @@ fn setup(
 
     // Spawn a light:
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

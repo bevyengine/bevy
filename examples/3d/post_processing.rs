@@ -5,7 +5,9 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,
+    core_pipeline::post_process::ChromaticAberration,
+    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    prelude::*,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
@@ -107,9 +109,9 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15000.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,

@@ -8,7 +8,7 @@ mod camera_controller;
 use bevy::{
     pbr::{
         experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap, LightShadows,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
@@ -64,9 +64,9 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 15.0,

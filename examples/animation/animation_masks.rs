@@ -3,6 +3,7 @@
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
+    pbr::LightShadows,
     prelude::*,
     utils::hashbrown::HashSet,
 };
@@ -131,9 +132,9 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
 

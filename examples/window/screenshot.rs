@@ -1,6 +1,7 @@
 //! An example showing how to save screenshots to disk
 
 use bevy::{
+    pbr::LightShadows,
     prelude::*,
     render::view::screenshot::{save_to_disk, Capturing, Screenshot},
     window::SystemCursorIcon,
@@ -66,10 +67,8 @@ fn setup(
     ));
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera

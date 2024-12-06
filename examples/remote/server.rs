@@ -1,6 +1,7 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
 use bevy::math::ops::cos;
+use bevy::pbr::LightShadows;
 use bevy::{
     input::common_conditions::input_just_pressed,
     prelude::*,
@@ -42,10 +43,8 @@ fn setup(
 
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

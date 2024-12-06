@@ -21,7 +21,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::{color::palettes::tailwind::*, picking::pointer::PointerInteraction, prelude::*};
+use bevy::{
+    color::palettes::tailwind::*, pbr::LightShadows, picking::pointer::PointerInteraction,
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -129,12 +132,12 @@ fn setup_scene(
     // Light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 

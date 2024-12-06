@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, LightShadows},
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
 };
@@ -122,9 +122,9 @@ fn setup(
             PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
-                shadows_enabled: true,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(1.0, 2.0, 0.0),
         ))
         .with_children(|builder| {
@@ -144,11 +144,11 @@ fn setup(
             SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
-                shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         ))
         .with_child((
@@ -167,9 +167,9 @@ fn setup(
             PointLight {
                 intensity: 100_000.0,
                 color: BLUE.into(),
-                shadows_enabled: true,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(0.0, 4.0, 0.0),
         ))
         .with_children(|builder| {
@@ -187,9 +187,9 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),

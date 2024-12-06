@@ -27,7 +27,7 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
+    pbr::{LightShadows, NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
@@ -294,9 +294,9 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Flicker,
     ));
 

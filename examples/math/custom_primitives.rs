@@ -12,6 +12,7 @@ use bevy::{
         },
         Isometry2d,
     },
+    pbr::LightShadows,
     prelude::*,
     render::{
         camera::ScalingMode,
@@ -147,12 +148,12 @@ fn setup(
     // Point light for 3D
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(8.0, 12.0, 1.0),
     ));
 

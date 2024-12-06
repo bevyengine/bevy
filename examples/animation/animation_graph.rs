@@ -8,6 +8,7 @@ use bevy::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
+    pbr::LightShadows,
     prelude::*,
     ui::RelativeCursorPosition,
 };
@@ -225,9 +226,9 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
 

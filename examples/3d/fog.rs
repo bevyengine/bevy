@@ -16,7 +16,7 @@
 
 use bevy::{
     math::ops,
-    pbr::{NotShadowCaster, NotShadowReceiver},
+    pbr::{LightShadows, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -107,10 +107,8 @@ fn setup_pyramid_scene(
 
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(0.0, 1.0, 0.0),
     ));
 }

@@ -11,7 +11,7 @@ use bevy::{
         smaa::{Smaa, SmaaPreset},
     },
     image::{ImageSampler, ImageSamplerDescriptor},
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, LightShadows},
     prelude::*,
     render::{
         camera::TemporalJitter,
@@ -285,9 +285,9 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,

@@ -3,7 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
+    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    prelude::*,
+    render::camera::Viewport,
+    window::WindowResized,
 };
 
 fn main() {
@@ -34,10 +37,8 @@ fn setup(
     // Light
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        DirectionalLight::default(),
+        LightShadows::Hard,
         CascadeShadowConfigBuilder {
             num_cascades: if cfg!(all(
                 feature = "webgl2",

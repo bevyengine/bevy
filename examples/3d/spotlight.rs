@@ -5,7 +5,7 @@ use std::f32::consts::*;
 use bevy::{
     color::palettes::basic::{MAROON, RED},
     math::ops,
-    pbr::NotShadowCaster,
+    pbr::{LightShadows, NotShadowCaster},
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -93,11 +93,11 @@ fn setup(
                     SpotLight {
                         intensity: 40_000.0, // lumens
                         color: Color::WHITE,
-                        shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,
                         ..default()
                     },
+                    LightShadows::Hard,
                     Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                 ))

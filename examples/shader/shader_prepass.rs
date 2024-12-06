@@ -4,7 +4,7 @@
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{NotShadowCaster, PbrPlugin},
+    pbr::{LightShadows, NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
@@ -116,10 +116,8 @@ fn setup(
 
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

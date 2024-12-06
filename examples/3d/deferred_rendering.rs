@@ -11,7 +11,7 @@ use bevy::{
     math::ops,
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+        LightShadows, NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
 };
@@ -66,9 +66,9 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
@@ -129,10 +129,10 @@ fn setup(
         PointLight {
             intensity: 800.0,
             radius: 0.125,
-            shadows_enabled: true,
             color: sphere_color,
             ..default()
         },
+        LightShadows::Hard,
         sphere_pos,
     ));
 

@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
+use bevy::{image::ImageLoaderSettings, math::ops, pbr::LightShadows, prelude::*};
 
 fn main() {
     App::new()
@@ -221,10 +221,8 @@ fn setup(
     // light
     commands
         .spawn((
-            PointLight {
-                shadows_enabled: true,
-                ..default()
-            },
+            PointLight::default(),
+            LightShadows::Hard,
             Transform::from_xyz(2.0, 1.0, -1.1),
         ))
         .with_children(|commands| {

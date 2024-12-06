@@ -1,7 +1,7 @@
 //! Loads and renders a glTF file as a scene.
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap, LightShadows},
     prelude::*,
 };
 use std::f32::consts::*;
@@ -28,10 +28,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     commands.spawn((
-        DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        DirectionalLight::default(),
+        LightShadows::Hard,
         // This is a relatively small scene, so use tighter shadow
         // cascade bounds than the default for better quality.
         // We also adjusted the shadow map to be larger since we're

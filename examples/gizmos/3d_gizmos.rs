@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, pbr::LightShadows, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -67,10 +67,8 @@ fn setup(
     ));
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

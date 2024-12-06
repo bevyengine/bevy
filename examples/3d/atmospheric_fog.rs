@@ -8,7 +8,7 @@
 //! | `S`                | Toggle Directional Light Fog Influence |
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
+    pbr::{CascadeShadowConfigBuilder, LightShadows, NotShadowCaster},
     prelude::*,
 };
 
@@ -58,9 +58,9 @@ fn setup_terrain_scene(
     commands.spawn((
         DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
         cascade_shadow_config,
     ));

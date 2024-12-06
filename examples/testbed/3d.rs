@@ -62,6 +62,7 @@ mod light {
 
     use bevy::{
         color::palettes::css::{DEEP_PINK, LIME, RED},
+        pbr::LightShadows,
         prelude::*,
     };
 
@@ -96,9 +97,9 @@ mod light {
             PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
-                shadows_enabled: true,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(1.0, 2.0, 0.0),
             StateScoped(CURRENT_SCENE),
         ));
@@ -107,11 +108,11 @@ mod light {
             SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
-                shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
                 ..default()
             },
+            LightShadows::Hard,
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             StateScoped(CURRENT_SCENE),
         ));
@@ -119,9 +120,9 @@ mod light {
         commands.spawn((
             DirectionalLight {
                 illuminance: light_consts::lux::OVERCAST_DAY,
-                shadows_enabled: true,
                 ..default()
             },
+            LightShadows::Hard,
             Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_rotation_x(-PI / 4.),
@@ -192,7 +193,7 @@ mod bloom {
 }
 
 mod gltf {
-    use bevy::prelude::*;
+    use bevy::{pbr::LightShadows, prelude::*};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Gltf;
 
@@ -210,10 +211,8 @@ mod gltf {
         ));
 
         commands.spawn((
-            DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+            DirectionalLight::default(),
+            LightShadows::Hard,
             StateScoped(CURRENT_SCENE),
         ));
         commands.spawn((
@@ -228,7 +227,7 @@ mod gltf {
 mod animation {
     use std::{f32::consts::PI, time::Duration};
 
-    use bevy::{prelude::*, scene::SceneInstanceReady};
+    use bevy::{pbr::LightShadows, prelude::*, scene::SceneInstanceReady};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Animation;
     const FOX_PATH: &str = "models/animated/Fox.glb";
@@ -262,10 +261,8 @@ mod animation {
 
         commands.spawn((
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-            DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+            DirectionalLight::default(),
+            LightShadows::Hard,
             StateScoped(CURRENT_SCENE),
         ));
 

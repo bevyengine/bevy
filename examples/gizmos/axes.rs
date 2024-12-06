@@ -1,6 +1,6 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
-use bevy::{prelude::*, render::primitives::Aabb};
+use bevy::{pbr::LightShadows, prelude::*, render::primitives::Aabb};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
@@ -48,10 +48,8 @@ fn setup(
 
     // Lights...
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(2., 6., 0.),
     ));
 

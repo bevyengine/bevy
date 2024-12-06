@@ -6,7 +6,7 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
+    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder, LightShadows},
     prelude::*,
     render::view::VisibilityRange,
 };
@@ -131,9 +131,9 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: FULL_DAYLIGHT,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 30.0,

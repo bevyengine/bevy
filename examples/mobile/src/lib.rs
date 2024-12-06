@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
+    pbr::LightShadows,
     prelude::*,
     window::{AppLifecycle, WindowMode},
     winit::WinitSettings,
@@ -97,17 +98,18 @@ fn setup_scene(
         Transform::from_xyz(1.5, 1.5, 1.5),
     ));
     // light
-    commands.spawn((
-        PointLight {
-            intensity: 1_000_000.0,
-            // Shadows makes some Android devices segfault, this is under investigation
-            // https://github.com/bevyengine/bevy/issues/8214
-            #[cfg(not(target_os = "android"))]
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
+    commands
+        .spawn((
+            PointLight {
+                intensity: 1_000_000.0,
+                ..default()
+            },
+            Transform::from_xyz(4.0, 8.0, 4.0),
+        ))
+        // Shadows makes some Android devices segfault, this is under investigation
+        // https://github.com/bevyengine/bevy/issues/8214
+        .insert_if(LightShadows::Hard, || cfg!(not(target_os = "android")));
+
     // camera
     commands.spawn((
         Camera3d::default(),

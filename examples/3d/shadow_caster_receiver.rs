@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, LightShadows, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -76,18 +76,18 @@ fn setup(
             intensity: 0.0,
             range: spawn_plane_depth,
             color: Color::WHITE,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(5.0, 5.0, 0.0),
     ));
 
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,

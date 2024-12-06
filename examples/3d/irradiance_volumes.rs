@@ -18,7 +18,8 @@ use bevy::{
     core_pipeline::Skybox,
     math::{uvec3, vec3},
     pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, LightShadows, MaterialExtension,
+        NotShadowCaster,
     },
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
@@ -257,9 +258,9 @@ fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
-            shadows_enabled: true,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
     ));
 }

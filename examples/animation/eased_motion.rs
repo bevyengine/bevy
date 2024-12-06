@@ -6,6 +6,7 @@ use bevy::{
     animation::{animated_field, AnimationTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
+    pbr::LightShadows,
     prelude::*,
 };
 
@@ -55,11 +56,11 @@ fn setup(
     // Some light to see something
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(8., 16., 8.),
     ));
 

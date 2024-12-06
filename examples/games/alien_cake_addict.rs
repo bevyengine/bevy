@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{pbr::LightShadows, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -124,10 +124,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         StateScoped(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
-            shadows_enabled: true,
             range: 30.0,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 10.0, 4.0),
     ));
 

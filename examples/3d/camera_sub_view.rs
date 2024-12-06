@@ -7,6 +7,7 @@
 //!   camera
 //! - Rapidly change the sub view offset to get a screen shake effect
 use bevy::{
+    pbr::LightShadows,
     prelude::*,
     render::camera::{ScalingMode, SubCameraView, Viewport},
 };
@@ -45,10 +46,8 @@ fn setup(
 
     // Light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        LightShadows::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

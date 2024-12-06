@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     color::palettes::basic::SILVER,
+    pbr::LightShadows,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -112,12 +113,12 @@ fn setup(
 
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
+        LightShadows::Hard,
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 
