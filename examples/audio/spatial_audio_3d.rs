@@ -29,8 +29,8 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
-        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
-        PlaybackSettings::LOOP.with_spatial(true),
+        AudioPlayer::with_loop(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::default().with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
