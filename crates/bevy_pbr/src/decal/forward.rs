@@ -19,7 +19,7 @@ use bevy_render::{
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> = Handle::weak_from_u128(09376620402995522466);
 const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(19376620402995522466);
 
-/// TODO: Docs.
+/// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
@@ -51,19 +51,43 @@ impl Plugin for ForwardDecalPlugin {
     }
 }
 
-/// TODO: Docs.
+/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the underlying
+/// geometry towards the edges.
+///
+/// Because forward decals are meshes, you can use arbitrary materials to control their appearance.
+///
+/// # Usage Notes
+///
+/// * Spawn this component on an entity with a [`crate::MeshMaterial3d`] component holding a [`ForwardDecalMaterial`].
+/// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::DepthPrepass`] component.
+/// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
+///   texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
 #[require(Mesh3d(|| Mesh3d(FORWARD_DECAL_MESH_HANDLE)))]
 pub struct ForwardDecal;
 
-/// TODO: Docs.
+/// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
+///
+/// Make sure to register the material [`MaterialPlugin`] for this material in your app setup.
+///
+/// [`StandardMaterial`] comes with out of the box support for forward decals.
 #[expect(type_alias_bounds)]
 pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
 
-/// TODO: Docs.
+/// Material extension for a [`ForwardDecal`].
+///
+/// In addition to wrapping your material type with this extension, your shader must use
+/// the `bevy_pbr::decal::forward::get_forward_decal_info` function.
+///
+/// The `FORWARD_DECAL` shader define will be made available to your shader so that you can gate
+/// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
 pub struct ForwardDecalMaterialExt {
-    /// TODO: Docs.
+    /// Controls how far away a surface must be before the decal will stop blending with it, and instead render as opaque.
+    ///
+    /// Decreasing this value will cause the decal to blend only to surfaces closer to it.
+    ///
+    /// Units are in meters.
     #[uniform(200)]
     pub depth_fade_factor: f32,
 }
@@ -79,11 +103,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor
-            .depth_stencil
-            .as_mut()
-            .expect("TODO")
-            .depth_compare = CompareFunction::Always;
+        descriptor.depth_stencil.as_mut().unwrap().depth_compare = CompareFunction::Always;
 
         descriptor.vertex.shader_defs.push("FORWARD_DECAL".into());
 
