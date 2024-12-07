@@ -3,12 +3,14 @@
 //! Running this example:
 //!
 //! ```
-//! cargo run --profile stress-test --example many_components <num_entities> <num_components> <num_systems>
+//! cargo run --profile stress-test --example many_components [<num_entities>] [<num_components>] [<num_systems>]
 //! ```
 //!
 //! `num_entities`: The number of entities in the world (must be nonnegative)
 //! `num_components`: the number of components in the world (must be at least 10)
 //! `num_systems`: the number of systems in the world (must be nonnegative)
+//!
+//! If no valid number is provided, for each argument there's a reasonable default.
 
 use bevy::{
     diagnostic::{
@@ -83,7 +85,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 #[allow(unsafe_code)]
                 // SAFETY:
                 // we don't implement a drop function
-                // u32 is Sync and Send
+                // u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{}", i).to_string(),
