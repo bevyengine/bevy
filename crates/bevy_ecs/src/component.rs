@@ -422,7 +422,7 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| components.get_name(*id).unwrap())
+                    .map(|id| ShortName(components.get_name(*id).unwrap()))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
