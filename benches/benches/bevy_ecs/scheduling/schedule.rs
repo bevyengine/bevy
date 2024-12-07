@@ -1,19 +1,6 @@
 use bevy_app::{App, Update};
-
-use bevy_ecs::{
-    component::{ComponentDescriptor, ComponentId, StorageType},
-    prelude::*,
-    system::QueryParamBuilder,
-    world::FilteredEntityMut,
-};
-use bevy_ptr::OwningPtr;
+use bevy_ecs::prelude::*;
 use criterion::Criterion;
-use rand::prelude::SeedableRng;
-use rand::prelude::SliceRandom;
-use rand::Rng;
-use rand_chacha::ChaCha8Rng;
-use std::alloc::Layout;
-use std::num::Wrapping;
 
 pub fn schedule(c: &mut Criterion) {
     #[derive(Component)]
