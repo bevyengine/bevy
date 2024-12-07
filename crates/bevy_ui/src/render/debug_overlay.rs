@@ -29,6 +29,12 @@ pub struct UiDebugOptions {
     pub line_width: f32,
 }
 
+impl UiDebugOptions {
+    pub fn toggle(&mut self) {
+        self.enabled = !self.enabled;
+    }
+}
+
 impl Default for UiDebugOptions {
     fn default() -> Self {
         Self {
