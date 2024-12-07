@@ -1,9 +1,12 @@
-use super::{CubicCurve, CubicSegment, RationalCurve, RationalSegment};
+use super::{CubicSegment, RationalSegment};
 use crate::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
     derivatives::{SampleDerivative, SampleTwoDerivatives},
     Curve, Interval,
 };
+
+#[cfg(feature = "alloc")]
+use super::{CubicCurve, RationalCurve};
 
 // -- CubicSegment
 
@@ -42,6 +45,7 @@ impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicSegment<P> {
 
 // -- CubicCurve
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -56,6 +60,7 @@ impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> SampleDerivative<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
@@ -66,6 +71,7 @@ impl<P: VectorSpace> SampleDerivative<P> for CubicCurve<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> SampleTwoDerivatives<P> for CubicCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
@@ -114,6 +120,7 @@ impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalSegment<P> {
 
 // -- RationalCurve
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -128,6 +135,7 @@ impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> SampleDerivative<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_derivative_unchecked(&self, t: f32) -> WithDerivative<P> {
@@ -138,6 +146,7 @@ impl<P: VectorSpace> SampleDerivative<P> for RationalCurve<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> SampleTwoDerivatives<P> for RationalCurve<P> {
     #[inline]
     fn sample_with_two_derivatives_unchecked(&self, t: f32) -> WithTwoDerivatives<P> {
