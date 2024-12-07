@@ -10,7 +10,7 @@ use bevy_utils::{
     tracing::{info, warn},
     TypeIdMap,
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 #[cfg(not(feature = "bevy_debug_stepping"))]
 use bevy_utils::tracing::error;
@@ -90,8 +90,8 @@ enum Update {
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
-#[derive(Error, Display, Debug)]
-#[display("not available until all configured schedules have been run; try again next frame")]
+#[derive(Error, Debug)]
+#[error("not available until all configured schedules have been run; try again next frame")]
 pub struct NotReady;
 
 #[derive(Resource, Default)]

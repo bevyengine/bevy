@@ -7,7 +7,7 @@ use crate::{
     Vec2, VectorSpace,
 };
 
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 #[cfg(feature = "alloc")]
 use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
@@ -102,8 +102,8 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 
 /// An error returned during cubic curve generation for cubic Bezier curves indicating that a
 /// segment of control points was not present.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Unable to generate cubic curve: at least one set of control points is required")]
+#[derive(Clone, Debug, Error)]
+#[error("Unable to generate cubic curve: at least one set of control points is required")]
 pub struct CubicBezierError;
 
 /// A spline interpolated continuously between the nearest two control points, with the position and
@@ -527,10 +527,10 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
 }
 
 /// Error during construction of [`CubicNurbs`]
-#[derive(Clone, Debug, Error, Display)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
-    #[display("Wrong number of knots: expected {expected}, provided {provided}")]
+    #[error("Wrong number of knots: expected {expected}, provided {provided}")]
     KnotsNumberMismatch {
         /// Expected number of knots
         expected: usize,
@@ -539,13 +539,13 @@ pub enum CubicNurbsError {
     },
     /// The provided knots had a descending knot pair. Subsequent knots must
     /// either increase or stay the same.
-    #[display("Invalid knots: contains descending knot pair")]
+    #[error("Invalid knots: contains descending knot pair")]
     DescendingKnots,
     /// The provided knots were all equal. Knots must contain at least one increasing pair.
-    #[display("Invalid knots: all knots are equal")]
+    #[error("Invalid knots: all knots are equal")]
     ConstantKnots,
     /// Provided a different number of weights and control points.
-    #[display("Incorrect number of weights: expected {expected}, provided {provided}")]
+    #[error("Incorrect number of weights: expected {expected}, provided {provided}")]
     WeightsNumberMismatch {
         /// Expected number of weights
         expected: usize,
@@ -553,7 +553,7 @@ pub enum CubicNurbsError {
         provided: usize,
     },
     /// The number of control points provided is less than 4.
-    #[display("Not enough control points, at least 4 are required, {provided} were provided")]
+    #[error("Not enough control points, at least 4 are required, {provided} were provided")]
     NotEnoughControlPoints {
         /// The number of control points provided
         provided: usize,
@@ -909,8 +909,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
 }
 
 /// An error indicating that a spline construction didn't have enough control points to generate a curve.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
+#[derive(Clone, Debug, Error)]
+#[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
 pub struct InsufficientDataError {
     expected: usize,
     given: usize,

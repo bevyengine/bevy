@@ -274,7 +274,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
-                // Backfaces of 2d meshes are never culled, unlike 3d mehses.
+                // Backfaces of 2d meshes are never culled, unlike 3d meshes.
                 let backfaces = match (has_backfaces, mesh2d.is_some()) {
                     (false, false) => Backfaces::Cull,
                     _ => Backfaces::Include,

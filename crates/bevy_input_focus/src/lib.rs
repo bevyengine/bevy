@@ -107,6 +107,7 @@ pub struct InputDispatchPlugin;
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(InputFocus(None))
+            .insert_resource(InputFocusVisible(false))
             .add_systems(Update, dispatch_keyboard_input);
     }
 }

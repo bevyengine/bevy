@@ -15,7 +15,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
@@ -1863,14 +1863,14 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
-            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
-            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
             }
+            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
         }
 
         for component_id in archetype.components() {
@@ -2118,7 +2118,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     entity: Entity,
     bundle_info: &BundleInfo,
 ) {
-    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
@@ -2126,10 +2125,11 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
             bundle_info.iter_explicit_components(),
         );
     }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
     }
+    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
 }
 
 const QUERY_MISMATCH_ERROR: &str = "Query does not match the current entity";
@@ -3019,19 +3019,15 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
 /// ([`EntityRef`]/[`EntityMut`]).
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum TryFromFilteredError {
     /// Error indicating that the filtered entity does not have read access to
     /// all components.
-    #[display(
-        "Conversion failed, filtered entity ref does not have read access to all components"
-    )]
+    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
     MissingReadAllAccess,
     /// Error indicating that the filtered entity does not have write access to
     /// all components.
-    #[display(
-        "Conversion failed, filtered entity ref does not have write access to all components"
-    )]
+    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
     MissingWriteAllAccess,
 }
 
@@ -4910,14 +4906,14 @@ mod tests {
             "OrdB hook on_insert",
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
-            "OrdA hook on_replace", // start of despawn
-            "OrdB hook on_replace",
-            "OrdA observer on_replace",
+            "OrdA observer on_replace", // start of despawn
             "OrdB observer on_replace",
-            "OrdA hook on_remove",
-            "OrdB hook on_remove",
+            "OrdA hook on_replace",
+            "OrdB hook on_replace",
             "OrdA observer on_remove",
             "OrdB observer on_remove",
+            "OrdA hook on_remove",
+            "OrdB hook on_remove",
         ];
         world.flush();
         assert_eq!(world.resource_mut::<TestVec>().0.as_slice(), &expected[..]);
