@@ -90,17 +90,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             if code == 404 {
                 Err(AssetReaderError::NotFound(path))
             } else {
-                Err(AssetReaderError::Io(
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "unexpected status code {} while loading {}",
-                            code,
-                            path.display()
-                        ),
-                    )
-                    .into(),
-                ))
+                Err(AssetReaderError::HttpError(code))
             }
         }
         Err(ureq::Error::Transport(err)) => Err(AssetReaderError::Io(
