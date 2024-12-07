@@ -2553,15 +2553,19 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Recursive required components detected: bevy_ecs::tests::required_components_recursion_errors::A → bevy_ecs::tests::required_components_recursion_errors::B → bevy_ecs::tests::required_components_recursion_errors::A\nhelp: If this is intentional, consider merging the components."]
+    #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
     fn required_components_recursion_errors() {
         #[derive(Component, Default)]
         #[require(B)]
         struct A;
 
         #[derive(Component, Default)]
-        #[require(A)]
+        #[require(C)]
         struct B;
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct C;
 
         World::new().register_component::<A>();
     }
