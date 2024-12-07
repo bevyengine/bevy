@@ -2883,7 +2883,7 @@ impl World {
     }
 
     /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
-    /// then re-adds the resource before returning. Returns `None` if thre resource does not exist in this [`World`].
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
     ///
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
