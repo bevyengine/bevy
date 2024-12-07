@@ -487,15 +487,12 @@ impl LightShadows {
     }
 
     #[inline]
+    #[allow(unreachable_patterns)]
     pub(crate) fn if_soft(&self, num: f32) -> f32 {
-        #[cfg(not(feature = "experimental_pbr_pcss"))]
-        return 0.0;
-
-        #[cfg(feature = "experimental_pbr_pcss")]
-        return match self {
-            LightShadows::Soft => num,
-            _ => 0.0,
-        };
+        match self {
+            LightShadows::None | LightShadows::Hard => 0.0, 
+            _ => num,
+        }
     }
 }
 
