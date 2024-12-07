@@ -74,7 +74,7 @@ pub struct DirectionalLight {
     /// area.
     pub illuminance: f32,
 
-    /// The angular size of this light in radians. This must be a value in the 
+    /// The angular size of this light in radians. This must be a value in the
     /// range [0, π).
     ///
     /// The angular size of an object is how large it appears in one's field
