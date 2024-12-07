@@ -32,6 +32,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
+            type Mutability = #bevy_ecs_path::component::Mutable;
         }
     })
 }
@@ -131,11 +132,17 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let mutable_type = attrs
+        .immutable
+        .then_some(quote! { #bevy_ecs_path::component::Immutable })
+        .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            type Mutability = #mutable_type;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,
@@ -200,6 +207,8 @@ pub const ON_INSERT: &str = "on_insert";
 pub const ON_REPLACE: &str = "on_replace";
 pub const ON_REMOVE: &str = "on_remove";
 
+pub const IMMUTABLE: &str = "immutable";
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
@@ -207,6 +216,7 @@ struct Attrs {
     on_insert: Option<ExprPath>,
     on_replace: Option<ExprPath>,
     on_remove: Option<ExprPath>,
+    immutable: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -237,6 +247,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_replace: None,
         on_remove: None,
         requires: None,
+        immutable: false,
     };
 
     let mut require_paths = HashSet::new();
@@ -265,6 +276,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
                     attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else if nested.path.is_ident(IMMUTABLE) {
+                    attrs.immutable = true;
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))

@@ -1,5 +1,5 @@
 use bevy_transform::components::Transform;
-pub use wgpu::PrimitiveTopology;
+pub use wgpu_types::PrimitiveTopology;
 
 use super::{
     face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
@@ -15,7 +15,7 @@ use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::warn;
 use bytemuck::cast_slice;
-use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
+use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -1211,11 +1211,11 @@ impl core::ops::Mul<Mesh> for Transform {
 mod tests {
     use super::Mesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
     use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
-    use wgpu::PrimitiveTopology;
 
     #[test]
     #[should_panic]

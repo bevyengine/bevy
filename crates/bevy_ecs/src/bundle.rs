@@ -903,7 +903,6 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
@@ -911,6 +910,7 @@ impl<'w> BundleInserter<'w> {
                         add_bundle.iter_existing(),
                     );
                 }
+                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
             }
         }
 

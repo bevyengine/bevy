@@ -28,6 +28,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use disqualified::ShortName;
 
 use super::Populated;
 use variadics_please::all_tuples;
@@ -209,14 +210,14 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     #[inline]
     #[allow(unused_variables)]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
@@ -354,7 +355,7 @@ fn assert_component_access_compatibility(
         return;
     }
     let accesses = conflicts.format_conflict_list(world);
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -1148,12 +1149,12 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
-/// [`apply_deferred`](crate::schedule::apply_deferred).
+/// [`ApplyDeferred`](crate::schedule::ApplyDeferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -1196,7 +1197,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
+///     /// Sounds the alarm the next time buffers are applied via ApplyDeferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -1204,7 +1205,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called the next time buffers are applied via apply_deferred.
+///     // called the next time buffers are applied via ApplyDeferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -2336,12 +2337,12 @@ trait DynParamState: Sync + Send {
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
     /// Refer to [`SystemParam::validate_param`].

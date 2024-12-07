@@ -1,13 +1,12 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::TemporaryRenderEntity,
-    sync_world::{RenderEntity, SyncToRenderWorld},
+    sync_world::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
@@ -19,7 +18,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, Mutable},
     entity::Entity,
     event::EventReader,
     prelude::{require, With},
@@ -875,7 +874,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
-pub fn camera_system<T: CameraProjection + Component>(
+pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
@@ -1156,8 +1155,9 @@ pub fn extract_cameras(
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
             }
+
             if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                if gpu_preprocessing_support.max_supported_mode == GpuPreprocessingMode::Culling {
                     commands.insert(GpuCulling);
                 } else {
                     warn_once!(
