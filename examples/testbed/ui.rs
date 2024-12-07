@@ -16,7 +16,10 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_scroll_position, toggle_debug_overlay));
+        .add_systems(Update, update_scroll_position);
+
+    #[cfg(feature = "bevy_ui_debug_overlay")]
+    app.add_systems(Update, toggle_debug_overlay);
 
     app.run();
 }
@@ -73,9 +76,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
+                            #[cfg(feature = "bevy_ui_debug_overlay")]
                             // Debug overlay text
                             parent.spawn((
                                 Text::new("Press Space to toggle debug outlines."),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
+                                Label,
+                            ));
+
+                            #[cfg(not(feature = "bevy_ui_debug_overlay"))]
+                            parent.spawn((
+                                Text::new("Try enabling feature \"bevy_ui_debug_overlay\"."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     ..default()
@@ -330,6 +344,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+#[cfg(feature = "bevy_ui_debug_overlay")]
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
