@@ -6,9 +6,9 @@
 //! cargo run --profile stress-test --example many_components <num_entities> <num_components> <num_systems>
 //! ```
 //!
-//! num_entities: The number of entities in the world (must be nonnegative)
-//! num_components: the number of components in the world (must be at least 10)
-//! num_systems: the number of systems in the world (must be nonnegative)
+//! `num_entities`: The number of entities in the world (must be nonnegative)
+//! `num_components`: the number of components in the world (must be at least 10)
+//! `num_systems`: the number of systems in the world (must be nonnegative)
 
 use bevy::{
     diagnostic::{DiagnosticPath, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -71,7 +71,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
 fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let mut app = App::default();
-    let mut world = app.world_mut();
+    let world = app.world_mut();
 
     // register a bunch of components
     let component_ids: Vec<ComponentId> = (1..=num_components)
@@ -111,7 +111,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 }
             }
         }),)
-            .build_state(&mut world)
+            .build_state(world)
             .build_any_system(base_system);
         schedule.add_systems((move || access_components.clone()).pipe(system));
     }
@@ -139,13 +139,14 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
     app.add_plugins(DefaultPlugins)
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
             "fps",
         )]));
     app.run();
 }
 
+#[allow(missing_docs)]
 pub fn main() {
     let default_num_entities = 10000;
     let default_num_components = 2000;
