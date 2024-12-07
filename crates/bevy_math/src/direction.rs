@@ -936,7 +936,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
@@ -1007,7 +1007,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
@@ -1078,7 +1078,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }

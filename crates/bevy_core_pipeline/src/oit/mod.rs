@@ -31,7 +31,7 @@ use crate::core_3d::{
     Camera3d,
 };
 
-/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen.
+/// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
 /// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
@@ -186,7 +186,7 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
 }
 
 /// Holds the buffers that contain the data of all OIT layers.
-/// We use one big buffer for the entire app. Each camaera will reuse it so it will
+/// We use one big buffer for the entire app. Each camera will reuse it so it will
 /// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
