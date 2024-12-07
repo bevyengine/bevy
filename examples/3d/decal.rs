@@ -48,7 +48,7 @@ fn setup(
         Name::new("Camera"),
         Camera3d::default(),
         CameraController::default(),
-        DepthPrepass, // Need to enable the depth prepass
+        DepthPrepass, // Must enable the depth prepass to render forward decals
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
