@@ -32,8 +32,8 @@ pub struct UiDebugOptions {
 impl Default for UiDebugOptions {
     fn default() -> Self {
         Self {
-            enabled: true,
-            line_width: 3.,
+            enabled: false,
+            line_width: 1.,
         }
     }
 }
@@ -68,10 +68,12 @@ pub fn extract_debug_overlay(
             continue;
         };
 
+        // Extract a border box to display an outline for every UI Node in the layout
         extracted_uinodes.uinodes.insert(
             commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiNode {
-                stack_index: uinode.stack_index + 2_147_483_647,
+                // Add a large number to the UI node's stack index so that the overlay is always drawn on top
+                stack_index: uinode.stack_index + u32::MAX / 2,
                 color: Hsla::sequential_dispersed(entity.index()).into(),
                 rect: Rect {
                     min: Vec2::ZERO,
