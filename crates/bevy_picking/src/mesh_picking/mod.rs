@@ -19,7 +19,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
@@ -89,7 +89,7 @@ pub fn update_hits(
 
         let cam_layers = cam_layers.to_owned().unwrap_or_default();
 
-        let settings = RayCastSettings {
+        let settings = MeshRayCastSettings {
             visibility: backend_settings.ray_cast_visibility,
             filter: &|entity| {
                 let marker_requirement =
