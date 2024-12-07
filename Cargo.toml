@@ -2729,6 +2729,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_components"
+path = "examples/stress_tests/many_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_components]
+name = "Many Components (and Entities and Systems)"
+description = "Test large ECS systems"
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
