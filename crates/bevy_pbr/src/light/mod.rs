@@ -490,7 +490,7 @@ impl LightShadows {
     #[allow(unreachable_patterns)]
     pub(crate) fn if_soft(&self, num: f32) -> f32 {
         match self {
-            LightShadows::None | LightShadows::Hard => 0.0, 
+            LightShadows::None | LightShadows::Hard => 0.0,
             _ => num,
         }
     }

@@ -84,7 +84,7 @@ pub struct DirectionalLight {
     /// of that circle, or 8.73e-3 radians.
     ///
     /// This value controls the radius of soft shadow penumbras, as well as
-    /// some volumetric lighting effects. See [`LightShadows`] for more 
+    /// some volumetric lighting effects. See [`LightShadows`] for more
     /// information on soft shadows.
     ///
     /// Note that this is not the same thing as the *solid angle* (or "angular
