@@ -92,6 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Try enabling feature \"bevy_ui_debug_overlay\"."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 16.0,
                                     ..default()
                                 },
                                 Label,
