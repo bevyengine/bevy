@@ -2897,13 +2897,11 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
             .and_then(ResourceData::remove)?;
-        // .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
