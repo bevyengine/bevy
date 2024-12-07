@@ -9,6 +9,9 @@ use bevy::{
     prelude::*,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
+use std::f32::consts::PI;
+
+// TODO: Showcase a custom material
 
 fn main() {
     App::new()
@@ -24,32 +27,50 @@ fn setup(
     mut decal_standard_materials: ResMut<Assets<ForwardDecalMaterial<StandardMaterial>>>,
     asset_server: Res<AssetServer>,
 ) {
-    commands
-        .spawn((
-            Name::new("Sphere"),
-            Mesh3d(meshes.add(Sphere::new(1.0))),
-            MeshMaterial3d(standard_materials.add(Color::srgb_u8(124, 144, 255))),
-            Transform::from_xyz(0.0, 0.5, 0.0),
-        ))
-        .with_child((
-            Name::new("Decal"),
-            ForwardDecal,
-            MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
-                base: StandardMaterial {
-                    base_color_texture: Some(asset_server.load("branding/bevy_logo_dark.png")),
-                    ..default()
-                },
-                extension: ForwardDecalMaterialExt {
-                    depth_fade_factor: 8.0,
-                },
-            })),
-            Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)).with_scale(Vec3::splat(0.5)),
-        ));
+    commands.spawn((
+        Name::new("Decal"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 8.0,
+            },
+        })),
+        Transform::from_translation(Vec3::new(0.15, 0.45, 0.0))
+            .with_scale(Vec3::splat(2.0))
+            .with_rotation(Quat::from_rotation_z(PI / 4.0)),
+    ));
+
+    commands.spawn((
+        Name::new("Camera"),
+        Camera3d::default(),
+        CameraController::default(),
+        DepthPrepass, // Need to enable the depth prepass
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 2000.0,
+            ..default()
+        },
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    let white_material = standard_materials.add(Color::WHITE);
+
+    commands.spawn((
+        Name::new("Wall"),
+        Mesh3d(meshes.add(Cuboid::new(1.0, 4.0, 3.0))),
+        MeshMaterial3d(white_material.clone()),
+        Transform::from_xyz(1.0, 0.0, 0.0),
+    ));
 
     commands.spawn((
         Name::new("Floor"),
         Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(standard_materials.add(Color::WHITE)),
+        MeshMaterial3d(white_material),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
@@ -60,13 +81,5 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
-
-    commands.spawn((
-        Name::new("Camera"),
-        Camera3d::default(),
-        CameraController::default(),
-        DepthPrepass,
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
