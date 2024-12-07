@@ -95,7 +95,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -143,7 +143,7 @@ fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -195,7 +195,7 @@ fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                     }
                 },
@@ -237,7 +237,7 @@ fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -341,7 +341,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component<Mutability = M
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }

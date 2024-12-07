@@ -136,7 +136,7 @@ fn par_iter_simple(c: &mut Criterion) {
             b.iter(move || bench.run());
         });
     }
-    group.bench_function(format!("hybrid"), |b| {
+    group.bench_function("hybrid".to_string(), |b| {
         let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });

@@ -2,6 +2,7 @@
     dead_code,
     reason = "Many fields are unused/unread as they are just for benchmarking purposes."
 )]
+#![expect(clippy::type_complexity)]
 
 use criterion::criterion_main;
 

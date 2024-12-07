@@ -17,7 +17,7 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 fn random_ident(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    let between = Uniform::try_from(b'a'..=b'z').unwrap();
+    let between = Uniform::from(b'a'..=b'z');
     let ident_size = rng.gen_range(1..128);
     let ident: Vec<u8> = rng.sample_iter(between).take(ident_size).collect();
     let ident = str::from_utf8(&ident).unwrap();
@@ -79,9 +79,9 @@ fn parse_reflect_path(criterion: &mut Criterion) {
             BenchmarkId::new("parse_reflect_path", size),
             &size,
             |bencher, &size| {
-                let mut mk_paths = mk_paths(size);
+                let mk_paths = mk_paths(size);
                 bencher.iter_batched(
-                    || mk_paths(),
+                    mk_paths,
                     |path| assert!(ParsedPath::parse(black_box(&path)).is_ok()),
                     BatchSize::SmallInput,
                 );
