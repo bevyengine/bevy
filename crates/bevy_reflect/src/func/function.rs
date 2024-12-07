@@ -1,5 +1,5 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfoType, FunctionResult},
+    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
     PartialReflect,
 };
 use alloc::borrow::Cow;
@@ -50,18 +50,16 @@ pub trait Function: PartialReflect + Debug {
 
     /// Returns the number of arguments the function expects.
     ///
-    /// For [overloaded] functions that can have a variable number of arguments,
+    /// For overloaded functions that can have a variable number of arguments,
     /// this will return the minimum and maximum number of arguments.
     ///
     /// Otherwise, the range will have the same start and end.
-    ///
-    /// [overloaded]: FunctionInfoType::Overloaded
     fn arg_count(&self) -> RangeInclusive<usize> {
         self.info().arg_count()
     }
 
-    /// The [`FunctionInfoType`] for this function.
-    fn info(&self) -> FunctionInfoType;
+    /// The [`FunctionInfo`] for this function.
+    fn info(&self) -> &FunctionInfo;
 
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;

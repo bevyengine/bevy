@@ -8,8 +8,8 @@
 
 use bevy::reflect::{
     func::{
-        ArgList, DynamicFunction, DynamicFunctionMut, FunctionInfo, FunctionResult, IntoFunction,
-        IntoFunctionMut, Return,
+        ArgList, DynamicFunction, DynamicFunctionMut, FunctionResult, IntoFunction,
+        IntoFunctionMut, Return, SignatureInfo,
     },
     PartialReflect, Reflect,
 };
@@ -193,7 +193,7 @@ fn main() {
         // This makes it easier to debug and is also required for function registration.
         // We can either give it a custom name or use the function's type name as
         // derived from `std::any::type_name_of_val`.
-        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
+        SignatureInfo::named(std::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
             // It's a good idea to also ensure that the name is unique,
             // such as by using its type name or by prefixing it with your crate name.

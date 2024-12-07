@@ -40,18 +40,17 @@ pub enum FunctionError {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
-/// A [`FunctionInfo`] was expected but none was found.
-///
-/// [`FunctionInfo`]: crate::func::FunctionInfo
+/// An error that occurs when attempting to add a function overload.
 #[derive(Debug, Error, PartialEq)]
-#[error("expected a `FunctionInfo` but found none")]
-pub struct MissingFunctionInfoError;
-
-/// An error that occurs when attempting to add a function overload with a duplicate signature.
-#[derive(Debug, Error, PartialEq)]
-#[error("could not add function overload: duplicate found for signature `{signature:?}`")]
-pub struct FunctionOverloadError {
-    pub signature: ArgumentSignature,
+pub enum FunctionOverloadError {
+    /// A [`SignatureInfo`] was expected, but none was found.
+    ///
+    /// [`SignatureInfo`]: crate::func::info::SignatureInfo
+    #[error("expected at least one `SignatureInfo` but found none")]
+    MissingSignature,
+    /// An error that occurs when attempting to add a function overload with a duplicate signature.
+    #[error("could not add function overload: duplicate found for signature `{0:?}`")]
+    DuplicateSignature(ArgumentSignature),
 }
 
 /// An error that occurs when registering a function into a [`FunctionRegistry`].

@@ -2,9 +2,9 @@ use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
-        args::ArgList, dynamic_function_internal::DynamicFunctionInternal, info::FunctionInfoType,
-        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionOverloadError,
-        FunctionResult, IntoFunction, IntoFunctionMut,
+        args::ArgList, dynamic_function_internal::DynamicFunctionInternal, info::FunctionInfo,
+        DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
+        IntoFunctionMut,
     },
     serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -83,14 +83,14 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// # Panics
     ///
-    /// Panics if no [`FunctionInfo`] is provided or if the conversion to [`FunctionInfoType`] fails.
+    /// Panics if no [`SignatureInfo`] is provided or if the conversion to [`FunctionInfo`] fails.
     ///
     /// [calling]: crate::func::dynamic_function::DynamicFunction::call
-    /// [`FunctionInfo`]: crate::func::FunctionInfo
+    /// [`SignatureInfo`]: crate::func::SignatureInfo
     /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
-        info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
+        info: impl TryInto<FunctionInfo, Error: Debug>,
     ) -> Self {
         Self {
             internal: DynamicFunctionInternal::new(Arc::new(func), info.try_into().unwrap()),
@@ -106,7 +106,7 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.internal.set_name(Some(name.into()));
+        self.internal = self.internal.with_name(name);
         self
     }
 
@@ -205,7 +205,7 @@ impl<'env> DynamicFunction<'env> {
     /// func = func.with_overload(sub);
     /// ```
     ///
-    /// [argument signature]: ArgumentSignature
+    /// [argument signature]: crate::func::signature::ArgumentSignature
     /// [name]: Self::name
     /// [`try_with_overload`]: Self::try_with_overload
     pub fn with_overload<'a, F: IntoFunction<'a, Marker>, Marker>(
@@ -215,15 +215,9 @@ impl<'env> DynamicFunction<'env> {
     where
         'env: 'a,
     {
-        let function = function.into_function();
-        let internal = self
-            .internal
-            .merge(function.internal)
-            .unwrap_or_else(|(_, err)| {
-                panic!("{}", err);
-            });
-
-        DynamicFunction { internal }
+        self.try_with_overload(function).unwrap_or_else(|(_, err)| {
+            panic!("{}", err);
+        })
     }
 
     /// Attempt to add an overload to this function.
@@ -235,19 +229,14 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [`with_overload`]: Self::with_overload
     pub fn try_with_overload<F: IntoFunction<'env, Marker>, Marker>(
-        self,
+        mut self,
         function: F,
     ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         let function = function.into_function();
 
         match self.internal.merge(function.internal) {
-            Ok(internal) => Ok(Self { internal }),
-            Err((internal, err)) => Err((
-                Box::new(Self {
-                    internal: *internal,
-                }),
-                err,
-            )),
+            Ok(_) => Ok(self),
+            Err(err) => Err((Box::new(self), err)),
         }
     }
 
@@ -281,7 +270,7 @@ impl<'env> DynamicFunction<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> FunctionInfoType {
+    pub fn info(&self) -> &FunctionInfo {
         self.internal.info()
     }
 
@@ -350,7 +339,7 @@ impl Function for DynamicFunction<'static> {
         self.internal.name()
     }
 
-    fn info(&self) -> FunctionInfoType {
+    fn info(&self) -> &FunctionInfo {
         self.internal.info()
     }
 
@@ -484,10 +473,11 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FunctionError, FunctionInfo, IntoReturn};
+    use crate::func::signature::ArgumentSignature;
+    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
     use bevy_utils::HashSet;
-    use std::ops::Add;
+    use core::ops::Add;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -607,7 +597,7 @@ mod tests {
             },
             // The `FunctionInfo` doesn't really matter for this test
             // so we can just give it dummy information.
-            FunctionInfo::anonymous()
+            SignatureInfo::anonymous()
                 .with_arg::<i32>("curr")
                 .with_arg::<()>("this"),
         );
@@ -635,18 +625,18 @@ mod tests {
                 }
             },
             vec![
-                FunctionInfo::named("add::<i32>")
+                SignatureInfo::named("add::<i32>")
                     .with_arg::<i32>("a")
                     .with_arg::<i32>("b")
                     .with_return::<i32>(),
-                FunctionInfo::named("add::<f32>")
+                SignatureInfo::named("add::<f32>")
                     .with_arg::<f32>("a")
                     .with_arg::<f32>("b")
                     .with_return::<f32>(),
             ],
         );
 
-        assert!(func.name().is_none());
+        assert_eq!(func.name().unwrap(), "add::<i32>");
         let func = func.with_name("add");
         assert_eq!(func.name().unwrap(), "add");
 
@@ -660,9 +650,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: MissingFunctionInfoError"
-    )]
+    #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: MissingSignature")]
     fn should_panic_on_missing_function_info() {
         let _ = DynamicFunction::new(|_| Ok(().into_return()), Vec::new());
     }
@@ -726,11 +714,11 @@ mod tests {
                 }
             },
             vec![
-                FunctionInfo::named("add::<i32>")
+                SignatureInfo::named("add::<i32>")
                     .with_arg::<i32>("a")
                     .with_arg::<i32>("b")
                     .with_return::<i32>(),
-                FunctionInfo::named("add::<f32>")
+                SignatureInfo::named("add::<f32>")
                     .with_arg::<f32>("a")
                     .with_arg::<f32>("b")
                     .with_return::<f32>(),

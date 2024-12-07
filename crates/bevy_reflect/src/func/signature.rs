@@ -1,16 +1,18 @@
 //! Function signature types.
 //!
-//! Function signatures differ from [`FunctionInfo`] in that they are only concerned
-//! about the types and order of the arguments and return type of a function.
+//! Function signatures differ from [`FunctionInfo`] and [`SignatureInfo`] in that they
+//! are only concerned about the types and order of the arguments and return type of a function.
 //!
 //! The names of arguments do not matter,
 //! nor does any other information about the function such as its name or other attributes.
 //!
 //! This makes signatures useful for comparing or hashing functions strictly based on their
 //! arguments and return type.
+//!
+//! [`FunctionInfo`]: crate::func::info::FunctionInfo
 
 use crate::func::args::ArgInfo;
-use crate::func::{ArgList, FunctionInfo};
+use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
@@ -48,7 +50,7 @@ impl Debug for Signature {
     }
 }
 
-impl<T: Borrow<FunctionInfo>> From<T> for Signature {
+impl<T: Borrow<SignatureInfo>> From<T> for Signature {
     fn from(info: T) -> Self {
         let info = info.borrow();
         Self::new(ArgumentSignature::from(info), *info.return_info().ty())
@@ -94,7 +96,7 @@ impl FromIterator<Type> for ArgumentSignature {
     }
 }
 
-impl<T: Borrow<FunctionInfo>> From<T> for ArgumentSignature {
+impl<T: Borrow<SignatureInfo>> From<T> for ArgumentSignature {
     fn from(info: T) -> Self {
         Self(
             info.borrow()
@@ -137,7 +139,7 @@ mod tests {
         }
 
         let info = add.get_function_info();
-        let signature = Signature::from(&info);
+        let signature = Signature::from(info.base());
 
         assert_eq!(signature.args().0.len(), 2);
         assert_eq!(signature.args().0[0], Type::of::<i32>());

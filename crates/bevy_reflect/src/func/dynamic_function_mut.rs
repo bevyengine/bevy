@@ -5,10 +5,9 @@ use core::ops::RangeInclusive;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
-use crate::func::dynamic_function_internal::FunctionMap;
 use crate::func::{
     args::ArgList, dynamic_function_internal::DynamicFunctionInternal, DynamicFunction,
-    FunctionError, FunctionInfoType, FunctionOverloadError, FunctionResult, IntoFunctionMut,
+    FunctionInfo, FunctionOverloadError, FunctionResult, IntoFunctionMut,
 };
 
 /// A [`Box`] containing a callback to a reflected function.
@@ -86,14 +85,14 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// # Panics
     ///
-    /// Panics if no [`FunctionInfo`] is provided or if the conversion to [`FunctionInfoType`] fails.
+    /// Panics if no [`SignatureInfo`] is provided or if the conversion to [`FunctionInfo`] fails.
     ///
     /// [calling]: crate::func::dynamic_function_mut::DynamicFunctionMut::call
-    /// [`FunctionInfo`]: crate::func::FunctionInfo
+    /// [`SignatureInfo`]: crate::func::SignatureInfo
     /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
-        info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
+        info: impl TryInto<FunctionInfo, Error: Debug>,
     ) -> Self {
         Self {
             internal: DynamicFunctionInternal::new(Box::new(func), info.try_into().unwrap()),
@@ -109,7 +108,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.internal.set_name(Some(name.into()));
+        self.internal = self.internal.with_name(name);
         self
     }
 
@@ -167,7 +166,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// assert_eq!(total_f32, 1.23);
     /// ```
     ///
-    /// [argument signature]: ArgumentSignature
+    /// [argument signature]: crate::func::signature::ArgumentSignature
     /// [name]: Self::name
     /// [`try_with_overload`]: Self::try_with_overload
     pub fn with_overload<'a, F: IntoFunctionMut<'a, Marker>, Marker>(
@@ -177,16 +176,9 @@ impl<'env> DynamicFunctionMut<'env> {
     where
         'env: 'a,
     {
-        let function = function.into_function_mut();
-
-        let internal = self
-            .internal
-            .merge(function.internal)
-            .unwrap_or_else(|(_, err)| {
-                panic!("{}", err);
-            });
-
-        DynamicFunctionMut { internal }
+        self.try_with_overload(function).unwrap_or_else(|(_, err)| {
+            panic!("{}", err);
+        })
     }
 
     /// Attempt to add an overload to this function.
@@ -198,19 +190,14 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`with_overload`]: Self::with_overload
     pub fn try_with_overload<F: IntoFunctionMut<'env, Marker>, Marker>(
-        self,
+        mut self,
         function: F,
     ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         let function = function.into_function_mut();
 
         match self.internal.merge(function.internal) {
-            Ok(internal) => Ok(Self { internal }),
-            Err((internal, err)) => Err((
-                Box::new(Self {
-                    internal: *internal,
-                }),
-                err,
-            )),
+            Ok(_) => Ok(self),
+            Err(err) => Err((Box::new(self), err)),
         }
     }
 
@@ -284,7 +271,7 @@ impl<'env> DynamicFunctionMut<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> FunctionInfoType {
+    pub fn info(&self) -> &FunctionInfo {
         self.internal.info()
     }
 
@@ -367,14 +354,7 @@ impl<'env> From<DynamicFunction<'env>> for DynamicFunctionMut<'env> {
     #[inline]
     fn from(function: DynamicFunction<'env>) -> Self {
         Self {
-            internal: function.internal.convert(|map| match map {
-                FunctionMap::Single(func, info) => FunctionMap::Single(arc_to_box(func), info),
-                FunctionMap::Overloaded(funcs, infos, indices) => FunctionMap::Overloaded(
-                    funcs.into_iter().map(arc_to_box).collect(),
-                    infos,
-                    indices,
-                ),
-            }),
+            internal: function.internal.map_functions(arc_to_box),
         }
     }
 }
@@ -398,8 +378,8 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FunctionInfo, IntoReturn};
-    use std::ops::Add;
+    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use core::ops::Add;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -466,12 +446,12 @@ mod tests {
                 Ok(().into_return())
             },
             vec![
-                FunctionInfo::named("add::<i32>").with_arg::<i32>("value"),
-                FunctionInfo::named("add::<i16>").with_arg::<i16>("value"),
+                SignatureInfo::named("add::<i32>").with_arg::<i32>("value"),
+                SignatureInfo::named("add::<i16>").with_arg::<i16>("value"),
             ],
         );
 
-        assert!(func.name().is_none());
+        assert_eq!(func.name().unwrap(), "add::<i32>");
         let mut func = func.with_name("add");
         assert_eq!(func.name().unwrap(), "add");
 
