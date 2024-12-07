@@ -27,14 +27,13 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.15.0-dev" }
 
-petgraph = "0.6"
 bitflags = "2.3"
 concurrent-queue = "2.5.0"
 disqualified = "1.0"
 fixedbitset = "0.5"
 serde = { version = "1", optional = true, default-features = false }
+thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
-  "error",
   "from",
   "display",
   "into",
@@ -43,6 +42,8 @@ derive_more = { version = "1", default-features = false, features = [
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
 smallvec = { version = "1", features = ["union"] }
+indexmap = { version = "2.5.0", default-features = false, features = ["std"] }
+variadics_please = "1.0"
 bumpalo = "3"
 
 [dev-dependencies]

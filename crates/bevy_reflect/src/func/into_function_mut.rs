@@ -1,5 +1,8 @@
 use crate::func::{DynamicFunctionMut, ReflectFnMut, TypedFunction};
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// A trait for types that can be converted into a [`DynamicFunctionMut`].
 ///
 /// This trait is automatically implemented for any type that implements

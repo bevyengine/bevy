@@ -7,6 +7,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::Vec2;
@@ -18,7 +19,8 @@ use bevy_utils::{
     tracing::{info, warn},
     Duration, HashMap,
 };
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
+use thiserror::Error;
 
 /// A gamepad event.
 ///
@@ -246,26 +248,22 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Errors that occur when setting axis settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum AxisSettingsError {
     /// The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
     LiveZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
     DeadZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
     DeadZoneUpperBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
     LiveZoneUpperBoundOutOfRange(f32),
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
-    #[display("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
         /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
@@ -273,7 +271,7 @@ pub enum AxisSettingsError {
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
-    #[display("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
         /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
@@ -281,24 +279,21 @@ pub enum AxisSettingsError {
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
-    #[display("invalid threshold {_0}, expected 0.0 <= threshold <= 2.0")]
-    #[error(ignore)]
+    #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
     Threshold(f32),
 }
 
 /// Errors that occur when setting button settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ButtonSettingsError {
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid release_threshold {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
     ReleaseThresholdOutOfRange(f32),
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid press_threshold {_0}, expected [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
-    #[display("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
+    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
         /// The value of the `press_threshold` parameter.
         press_threshold: f32,

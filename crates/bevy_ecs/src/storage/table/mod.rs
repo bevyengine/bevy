@@ -32,8 +32,6 @@ mod column;
 /// [`Archetype`]: crate::archetype::Archetype
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
-#[repr(transparent)]
 pub struct TableId(u32);
 
 impl TableId {
@@ -102,8 +100,6 @@ impl TableId {
 /// [`Archetype::entity_table_row`]: crate::archetype::Archetype::entity_table_row
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
-#[repr(transparent)]
 pub struct TableRow(u32);
 
 impl TableRow {
@@ -119,7 +115,7 @@ impl TableRow {
     ///
     /// # Panics
     ///
-    /// Will panic if the provided value does not fit within a [`u32`].
+    /// Will panic in debug mode if the provided value does not fit within a [`u32`].
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
         debug_assert!(index as u32 as usize == index);

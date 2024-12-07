@@ -13,8 +13,9 @@ use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
 use smallvec::SmallVec;
+use thiserror::Error;
 
 /// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
@@ -1944,11 +1945,11 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementEr
 }
 
 /// Errors that occur when setting constraints for a `GridPlacement`
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GridPlacementError {
-    #[display("Zero is not a valid grid position")]
+    #[error("Zero is not a valid grid position")]
     InvalidZeroIndex,
-    #[display("Spans cannot be zero length")]
+    #[error("Spans cannot be zero length")]
     InvalidZeroSpan,
 }
 
@@ -2682,14 +2683,14 @@ pub enum UiAntiAlias {
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
 ///         Camera2d,
-///         UiBoxShadowSamples(6),
+///         BoxShadowSamples(6),
 ///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-pub struct UiBoxShadowSamples(pub u32);
+pub struct BoxShadowSamples(pub u32);
 
-impl Default for UiBoxShadowSamples {
+impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
     }

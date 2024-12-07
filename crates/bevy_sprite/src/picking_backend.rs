@@ -7,29 +7,63 @@ use core::cmp::Reverse;
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
+use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
+
+/// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
+#[derive(Debug, Clone, Copy, Reflect)]
+pub enum SpritePickingMode {
+    /// Even if a sprite is picked on a transparent pixel, it should still count within the backend.
+    /// Only consider the rect of a given sprite.
+    BoundingBox,
+    /// Ignore any part of a sprite which has a lower alpha value than the threshold (inclusive)
+    /// Threshold is given as an f32 representing the alpha value in a Bevy Color Value
+    AlphaThreshold(f32),
+}
+
+/// Runtime settings for the [`SpritePickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct SpritePickingSettings {
+    /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
+    ///
+    /// Defaults to an incusive alpha threshold of 0.1
+    pub picking_mode: SpritePickingMode,
+}
+
+impl Default for SpritePickingSettings {
+    fn default() -> Self {
+        Self {
+            picking_mode: SpritePickingMode::AlphaThreshold(0.1),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
+        app.init_resource::<SpritePickingSettings>()
+            .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
 
-pub fn sprite_picking(
+#[allow(clippy::too_many_arguments)]
+fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
+    settings: Res<SpritePickingSettings>,
     sprite_query: Query<(
         Entity,
         &Sprite,
@@ -91,22 +125,6 @@ pub fn sprite_picking(
                     return None;
                 }
 
-                // Hit box in sprite coordinate system
-                let extents = match (sprite.custom_size, &sprite.texture_atlas) {
-                    (Some(custom_size), _) => custom_size,
-                    (None, None) => images.get(&sprite.image)?.size().as_vec2(),
-                    (None, Some(atlas)) => texture_atlas_layout
-                        .get(&atlas.layout)
-                        .and_then(|layout| layout.textures.get(atlas.index))
-                        // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
-                        .map_or(images.get(&sprite.image)?.size().as_vec2(), |rect| {
-                            rect.size().as_vec2()
-                        }),
-                };
-                let anchor = sprite.anchor.as_vec();
-                let center = -anchor * extents;
-                let rect = Rect::from_center_half_size(center, extents / 2.0);
-
                 // Transform cursor line segment to sprite coordinate system
                 let world_to_sprite = sprite_transform.affine().inverse();
                 let cursor_start_sprite = world_to_sprite.transform_point3(cursor_ray_world.origin);
@@ -133,14 +151,46 @@ pub fn sprite_picking(
                     .lerp(cursor_end_sprite, lerp_factor)
                     .xy();
 
-                let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
+                let Ok(cursor_pixel_space) = sprite.compute_pixel_space_point(
+                    cursor_pos_sprite,
+                    &images,
+                    &texture_atlas_layout,
+                ) else {
+                    return None;
+                };
 
-                blocked = is_cursor_in_sprite
+                // Since the pixel space coordinate is `Ok`, we know the cursor is in the bounds of
+                // the sprite.
+
+                let cursor_in_valid_pixels_of_sprite = 'valid_pixel: {
+                    match settings.picking_mode {
+                        SpritePickingMode::AlphaThreshold(cutoff) => {
+                            let Some(image) = images.get(&sprite.image) else {
+                                // [`Sprite::from_color`] returns a defaulted handle.
+                                // This handle doesn't return a valid image, so returning false here would make picking "color sprites" impossible
+                                break 'valid_pixel true;
+                            };
+                            // grab pixel and check alpha
+                            let Ok(color) = image.get_color_at(
+                                cursor_pixel_space.x as u32,
+                                cursor_pixel_space.y as u32,
+                            ) else {
+                                // We don't know how to interpret the pixel.
+                                break 'valid_pixel false;
+                            };
+                            // Check the alpha is above the cutoff.
+                            color.alpha() > cutoff
+                        }
+                        SpritePickingMode::BoundingBox => true,
+                    }
+                };
+
+                blocked = cursor_in_valid_pixels_of_sprite
                     && picking_behavior
                         .map(|p| p.should_block_lower)
                         .unwrap_or(true);
 
-                is_cursor_in_sprite.then(|| {
+                cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
                         sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
                     // Transform point from world to camera space to get the Z distance
