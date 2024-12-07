@@ -37,16 +37,19 @@ pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
-use render::debug_overlay::UiDebugOptions;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+
 use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::render::UiDebugOptions;
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
@@ -231,6 +234,7 @@ impl Plugin for UiPlugin {
             return;
         }
 
+        #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
 
         build_ui_render(app);
