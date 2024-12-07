@@ -241,7 +241,9 @@ fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneC
     let parent = ctx.target();
     for child in children {
         let child_clone = world.commands().spawn_empty().id();
-        let mut clone_entity = ctx.clone_entity_fn(*child, child_clone);
+        let mut clone_entity = ctx
+            .entity_cloner()
+            .with_source_and_target(*child, child_clone);
         world.commands().queue(move |world: &mut World| {
             clone_entity.clone_entity(world);
             world.entity_mut(child_clone).set_parent(parent);

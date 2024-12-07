@@ -1,44 +1,77 @@
-use alloc::{alloc::Layout, sync::Arc};
-use bevy_ptr::{OwningPtr, Ptr};
+use alloc::sync::Arc;
+use bevy_ptr::{Ptr, PtrMut};
+use bumpalo::Bump;
 use core::any::TypeId;
-use core::ptr::NonNull;
-use std::mem::MaybeUninit;
 
 use bevy_utils::{HashMap, HashSet};
 
 use crate::{
-    archetype::Archetype,
     bundle::Bundle,
     component::{
         component_clone_ignore, Component, ComponentCloneHandler, ComponentId, Components,
-        StorageType,
     },
     entity::Entity,
-    world::{DeferredWorld, World},
+    world::World,
 };
 
-pub struct ComponentCloneCtx<'a> {
-    source: Entity,
-    target: Entity,
+/// Context for component clone handlers.
+///
+/// Provides fast access to useful resources like [`AppTypeRegistry`](crate::reflect::AppTypeRegistry)
+/// and allows component clone handler to get information about component being cloned.
+pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     source_component_ptr: Ptr<'a>,
-    target_component_ptr: NonNull<u8>,
     target_component_written: bool,
+    target_components_ptrs: &'a mut Vec<PtrMut<'b>>,
+    target_components_buffer: &'b Bump,
     components: &'a Components,
     entity_cloner: &'a EntityCloner,
-    // #[cfg(feature = "bevy_reflect")]
-    // type_registry: Option<&'a bevy_reflect::TypeRegistry>,
+    #[cfg(feature = "bevy_reflect")]
+    type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
 }
 
-impl<'a> ComponentCloneCtx<'a> {
+impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
+    /// Create a new instance of `ComponentCloneCtx` that can be passed to component clone handlers.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - `components` and `component_id` are from the same world.
+    /// - `source_component_ptr` points to a valid component of type represented by `component_id`.
+    unsafe fn new(
+        component_id: ComponentId,
+        source_component_ptr: Ptr<'a>,
+        target_components_ptrs: &'a mut Vec<PtrMut<'b>>,
+        target_components_buffer: &'b Bump,
+        components: &'a Components,
+        entity_cloner: &'a EntityCloner,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
+    ) -> Self {
+        Self {
+            component_id,
+            source_component_ptr,
+            target_components_ptrs,
+            target_component_written: false,
+            target_components_buffer,
+            components,
+            entity_cloner,
+            #[cfg(feature = "bevy_reflect")]
+            type_registry,
+        }
+    }
+
+    /// Returns true if [`write_target_component`](`Self::write_target_component`) was called before.
+    pub fn target_component_written(&self) -> bool {
+        self.target_component_written
+    }
+
     /// Returns the current source entity.
     pub fn source(&self) -> Entity {
-        self.source
+        self.entity_cloner.source
     }
 
     /// Returns the current target entity.
     pub fn target(&self) -> Entity {
-        self.target
+        self.entity_cloner.target
     }
 
     /// Returns the [`ComponentId`] of currently cloned component.
@@ -46,6 +79,8 @@ impl<'a> ComponentCloneCtx<'a> {
         self.component_id
     }
 
+    /// Returns a reference to the component on the source entity.
+    /// Will return `None` if ComponentId of requested component does not match ComponentId of source component
     pub fn read_source_component<T: Component>(&self) -> Option<&T> {
         if self
             .components
@@ -53,41 +88,63 @@ impl<'a> ComponentCloneCtx<'a> {
             .is_some_and(|id| id == self.component_id)
         {
             // SAFETY:
-            // 1. Components and ComponentId are from the same world
-            // 2. source_component_ptr holds valid data of the type referenced by ComponentId
+            // - Components and ComponentId are from the same world
+            // - source_component_ptr holds valid data of the type referenced by ComponentId
             unsafe { Some(self.source_component_ptr.deref::<T>()) }
         } else {
             None
         }
     }
 
+    /// Writes component data to target entity.
+    ///
+    /// # Panics
+    /// This will panic if:
+    /// - `write_target_component` called more than once.
+    /// - Component being written is not registered in the world.
+    /// - `ComponentId` of component being written does not match expected `ComponentId`.
     pub fn write_target_component<T: Component>(&mut self, component: T) {
         let short_name = disqualified::ShortName::of::<T>();
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
         }
-        if !self
-            .components
-            .component_id::<T>()
-            .is_some_and(|id| id == self.component_id)
-        {
+        let Some(component_id) = self.components.component_id::<T>() else {
+            panic!("Component '{short_name}' is not registered")
+        };
+        if component_id != self.component_id {
             panic!("Component '{short_name}' does not match ComponentId of this ComponentCloneCtx");
         }
-        // SAFETY:
-        // 1. Components and ComponentId are from the same world
-        // 2. target_component_ptr holds valid data of the type referenced by ComponentId
-        unsafe { self.target_component_ptr.cast::<T>().write(component) };
+        let component_ref = self.target_components_buffer.alloc(component);
+        self.target_components_ptrs
+            .push(PtrMut::from(component_ref));
         self.target_component_written = true
     }
 
-    pub fn clone_entity_fn(&self, source: Entity, target: Entity) -> EntityCloner {
-        self.entity_cloner.with_source_and_target(source, target)
+    /// Return a reference to this context's `EntityCloner` instance.
+    ///
+    /// This can be used to issue clone commands using the same cloning configuration:
+    /// ```
+    /// fn clone_handler(&mut world: DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    ///     let another_target = world.spawn_empty();
+    ///     let mut entity_cloner = ctx
+    ///         .entity_cloner()
+    ///         .with_source_and_target(ctx.source(), another_target);
+    ///     world.commands().queue(move |world| {
+    ///         entity_cloner.clone_entity(world);
+    ///     });
+    /// }
+    /// ```
+    pub fn entity_cloner(&self) -> &EntityCloner {
+        self.entity_cloner
     }
 
-    // #[cfg(feature = "bevy_reflect")]
-    // pub fn type_registry(&self) -> Option<&App> {
-    //     self.type_registry.as_ref().read()
-    // }
+    /// Returns [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`) if it exists in the world.
+    ///
+    /// NOTE: Prefer this method instead of manually reading the resource from the world.
+    #[cfg(feature = "bevy_reflect")]
+    pub fn type_registry(&self) -> Option<&crate::reflect::AppTypeRegistry> {
+        self.type_registry
+    }
 }
 
 /// A helper struct to clone an entity. Used internally by [`EntityCloneBuilder::clone_entity`].
@@ -102,7 +159,7 @@ pub struct EntityCloner {
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     pub fn clone_entity(&mut self, world: &mut World) {
-        let (app_registry, source_entity, storages, components, mut deferred_world) = unsafe {
+        let (type_registry, source_entity, components, mut deferred_world) = unsafe {
             let world = world.as_unsafe_world_cell();
             let source_entity = world
                 .get_entity(self.source)
@@ -116,67 +173,15 @@ impl EntityCloner {
             (
                 app_registry,
                 source_entity,
-                world.storages(),
                 world.components(),
                 world.into_deferred(),
             )
         };
         let archetype = source_entity.archetype();
-        let source_location = source_entity.location();
 
-        // // To clone components without table moves we need to use `insert_by_ids`.
-        // // For this, we need 2 things:
-        // // 1. list of component ids
-        // // 2. list of aligned pointers to component data
-        // //
-        // // To reduce the number of memory allocations and provide better data locality, we need to store all this data
-        // // in one big buffer.
-        // // The structure of this buffer is as follows:
-        // // +--------------+------------------------+
-        // // | ComponentIds | Aligned component data |
-        // // +--------------+------------------------+
-        // // This means that we need to preallocate buffer of size (component_count * sizeof::<ComponentId> + Archetype row size)
-
-        // // First, calculate ComponentIds portion of buffer.
-        // let mut buffer_layout = Layout::array::<ComponentId>(archetype.component_count()).unwrap();
-        // // Next, add each component aligned data layout to it.
-        // for component in archetype.components() {
-        //         let layout = world.components().get_info(component).unwrap().layout();
-        //         let (new_layout, _) = buffer_layout.extend(layout.pad_to_align()).unwrap();
-        //         buffer_layout = new_layout;
-        // }
-        // let buffer_size = archetype
-        //     .components()
-        //     .fold(buffer_size, |mut buffer_size, id| {
-        //         let layout = world.components().get_info(id).unwrap().layout();
-
-        //         // Round up current size to meet alignment
-        //         let align = layout.align();
-        //         buffer_size = (buffer_size + align - 1) & !(align - 1);
-
-        //         // Add size of current layout
-        //         buffer_size += layout.size();
-
-        //         buffer_size
-        //     });
-        // let buffer_layout =
-
-        let mut component_data_size = 0;
-        for component in archetype.components() {
-            let layout = components.get_info(component).unwrap().layout();
-
-            // Round up current size to meet alignment
-            let align = layout.align();
-            component_data_size = (component_data_size + align - 1) & !(align - 1);
-
-            // Add size of current layout
-            component_data_size += layout.size();
-        }
+        let component_data = Bump::new();
         let mut component_ids: Vec<ComponentId> = Vec::with_capacity(archetype.component_count());
-        let mut component_data: Vec<u8> = Vec::with_capacity(component_data_size);
-        component_data.push(0);
-        let mut component_data_offsets = Vec::with_capacity(archetype.component_count());
-        let mut component_data_offset = 0;
+        let mut component_data_ptrs: Vec<PtrMut> = Vec::with_capacity(archetype.component_count());
 
         for component in archetype.components() {
             if !self.is_cloning_allowed(&component) {
@@ -191,67 +196,47 @@ impl EntityCloner {
                 Some(ComponentCloneHandler::Custom(handler)) => *handler,
             };
 
-            let source_component_ptr = match archetype.get_storage_type(component) {
-                Some(StorageType::Table) => unsafe {
-                    storages
-                        .tables
-                        .get(source_location.table_id)
-                        .unwrap()
-                        .get_component(component, source_location.table_row)
-                        .unwrap()
-                },
-                Some(StorageType::SparseSet) => storages
-                    .sparse_sets
-                    .get(component)
-                    .unwrap()
-                    .get(self.source)
-                    .unwrap(),
-                None => continue,
+            // SAFETY: There are no other mutable references to source entity.
+            let Some(source_component_ptr) = (unsafe { source_entity.get_by_id(component) }) else {
+                continue;
             };
 
-            let mut ctx = ComponentCloneCtx {
-                source: self.source,
-                target: self.target,
-                component_id: component,
-                entity_cloner: &self,
-                components,
-                source_component_ptr,
-                target_component_ptr: unsafe {
-                    NonNull::new_unchecked(component_data.as_mut_ptr())
-                },
-                target_component_written: false,
-                // type_registry,
+            // SAFETY:
+            // - `components` and `component` are from the same world
+            // - `source_component_ptr` is valid and points to the same type as represented by `component`
+            let mut ctx = unsafe {
+                ComponentCloneCtx::new(
+                    component,
+                    source_component_ptr,
+                    &mut component_data_ptrs,
+                    &component_data,
+                    components,
+                    &self,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
+                )
             };
 
             (handler)(&mut deferred_world, &mut ctx);
 
-            if !ctx.target_component_written {
-                continue;
+            if ctx.target_component_written {
+                component_ids.push(component)
             }
-
-            component_ids.push(component);
-            component_data_offsets.push(component_data_offset);
-
-            let layout = components.get_info(component).unwrap().layout();
-
-            // Round up current size to meet alignment
-            let align = layout.align();
-            component_data_offset = (component_data_offset + align - 1) & !(align - 1);
-
-            // Add size of current layout
-            component_data_offset += layout.size();
         }
 
         world.flush();
 
+        if !world.entities.contains(self.target) {
+            panic!("Target entity does not exist");
+        }
+
+        // SAFETY:
+        // - All `component_ids` are from the same world as `target` entity
+        // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
             world.entity_mut(self.target).insert_by_ids(
                 &component_ids,
-                component_data_offsets.iter().map(|offset| {
-                    OwningPtr::new({
-                        NonNull::new_unchecked(component_data.as_mut_ptr()).add(*offset)
-                    })
-                }),
+                component_data_ptrs.into_iter().map(|ptr| ptr.promote()),
             );
         }
     }
@@ -262,7 +247,7 @@ impl EntityCloner {
     }
 
     /// Reuse existing [`EntityCloner`] configuration with new source and target.
-    fn with_source_and_target(&self, source: Entity, target: Entity) -> EntityCloner {
+    pub fn with_source_and_target(&self, source: Entity, target: Entity) -> EntityCloner {
         EntityCloner {
             source,
             target,
