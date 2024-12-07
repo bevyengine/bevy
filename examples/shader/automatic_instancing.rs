@@ -1,7 +1,7 @@
 //! Shows that multiple instances of a cube are automatically instanced in one draw call
 //! Try running this example in a graphics profiler and all the cubes should be only a single draw call.
 
-use bevy::{pbr::LightShadows, prelude::*};
+use bevy::{pbr::ShadowsStyle, prelude::*};
 
 fn main() {
     App::new()
@@ -24,7 +24,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(0.0, 16.0, 8.0),
     ));
 

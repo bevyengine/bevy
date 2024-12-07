@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolume, LightShadows, VolumetricFog, VolumetricLight},
+    pbr::{FogVolume, ShadowsStyle, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             intensity: 1000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         VolumetricLight,
         MoveBackAndForthHorizontally {
             min_x: -1.93,
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             outer_angle: 0.94,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         VolumetricLight,
     ));
 
@@ -156,11 +156,11 @@ fn create_text(app_settings: &AppSettings) -> Text {
 /// lights with shadows.
 fn tweak_scene(
     mut commands: Commands,
-    mut lights: Query<(Entity, &mut LightShadows), Changed<DirectionalLight>>,
+    mut lights: Query<(Entity, &mut ShadowsStyle), Changed<DirectionalLight>>,
 ) {
     for (light, mut directional_light_shadows) in lights.iter_mut() {
         // Shadows are needed for volumetric lights to work.
-        *directional_light_shadows = LightShadows::Hard;
+        *directional_light_shadows = ShadowsStyle::Hard;
         commands.entity(light).insert(VolumetricLight);
     }
 }

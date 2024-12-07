@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::LightShadows, prelude::*};
+use bevy::{pbr::ShadowsStyle, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             range: 30.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 10.0, 4.0),
     ));
 

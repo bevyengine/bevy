@@ -4,7 +4,7 @@
 use bevy::{
     image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 
@@ -81,7 +81,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera

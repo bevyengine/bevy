@@ -2,7 +2,7 @@
 //! or by accessing the entities of the scene.
 
 use bevy::{
-    pbr::{DirectionalLightShadowMap, LightShadows},
+    pbr::{DirectionalLightShadowMap, ShadowsStyle},
     prelude::*,
 };
 
@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
     ));
     commands.spawn((
         Camera3d::default(),

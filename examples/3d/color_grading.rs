@@ -7,7 +7,7 @@ use std::{
 
 use bevy::{
     ecs::system::EntityCommands,
-    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle},
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
@@ -378,7 +378,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
             illuminance: 15000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,

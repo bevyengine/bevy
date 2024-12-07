@@ -3,7 +3,7 @@
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
     math::prelude::*,
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
     render::mesh::SphereKind,
 };
@@ -83,7 +83,7 @@ fn setup(
     // A light:
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

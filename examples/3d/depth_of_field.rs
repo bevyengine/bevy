@@ -15,7 +15,7 @@ use bevy::{
         dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
-    pbr::{LightShadows, Lightmap},
+    pbr::{ShadowsStyle, Lightmap},
     prelude::*,
     render::camera::PhysicalCameraParameters,
 };
@@ -184,7 +184,7 @@ fn tweak_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut lights: Query<&mut LightShadows, Changed<DirectionalLight>>,
+    mut lights: Query<&mut ShadowsStyle, Changed<DirectionalLight>>,
     mut named_entities: Query<
         (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
@@ -192,7 +192,7 @@ fn tweak_scene(
 ) {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
-        *light = LightShadows::Hard;
+        *light = ShadowsStyle::Hard;
     }
 
     // Add a nice lightmap to the circuit board.

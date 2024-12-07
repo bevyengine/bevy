@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::{GRAY, RED, WHITE},
     input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
     math::StableInterpolate,
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -69,7 +69,7 @@ fn setup(
     // A light source
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 7.0, -4.0),
     ));
 

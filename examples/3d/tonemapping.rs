@@ -2,7 +2,7 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -117,7 +117,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             illuminance: 15_000.,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,

@@ -14,7 +14,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{LightShadows, NotShadowCaster},
+    pbr::{ShadowsStyle, NotShadowCaster},
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -246,7 +246,7 @@ fn setup(
             DirectionalLight::default(),
             Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
         ))
-        .insert_if(LightShadows::Hard, || args.shadows);
+        .insert_if(ShadowsStyle::Hard, || args.shadows);
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

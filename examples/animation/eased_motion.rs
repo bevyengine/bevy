@@ -6,7 +6,7 @@ use bevy::{
     animation::{animated_field, AnimationTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 
@@ -60,7 +60,7 @@ fn setup(
             range: 100.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(8., 16., 8.),
     ));
 

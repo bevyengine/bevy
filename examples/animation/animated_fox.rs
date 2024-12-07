@@ -5,7 +5,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{
     animation::{AnimationTargetId, RepeatAnimation},
     color::palettes::css::WHITE,
-    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle},
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -102,7 +102,7 @@ fn setup(
     let bundle = (
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 200.0,
             maximum_distance: 400.0,

@@ -4,7 +4,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, PURPLE},
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 
@@ -70,7 +70,7 @@ fn setup(
                 color: DARK_CYAN.into(),
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(0.0, 1.5, 0.0),
         ));
         commands.spawn((
@@ -81,7 +81,7 @@ fn setup(
                 inner_angle: PI / 4.0 * 0.8,
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
         ));
         commands.spawn((
@@ -90,7 +90,7 @@ fn setup(
                 illuminance: DirectionalLight::default().illuminance * 0.05,
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
         ));
     }

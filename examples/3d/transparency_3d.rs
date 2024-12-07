@@ -2,7 +2,7 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::{math::ops, pbr::LightShadows, prelude::*};
+use bevy::{math::ops, pbr::ShadowsStyle, prelude::*};
 
 fn main() {
     App::new()
@@ -83,7 +83,7 @@ fn setup(
     // Light
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

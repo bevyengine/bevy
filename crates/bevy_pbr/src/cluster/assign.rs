@@ -21,7 +21,7 @@ use bevy_utils::{prelude::default, tracing::warn};
 
 use crate::{
     prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight,
-    GlobalVisibleClusterableObjects, LightProbe, LightShadows, PointLight, SpotLight,
+    GlobalVisibleClusterableObjects, LightProbe, ShadowsStyle, PointLight, SpotLight,
     ViewClusterBindings, VisibleClusterableObjects, VolumetricLight,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
@@ -154,7 +154,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &PointLight,
-        &LightShadows,
+        &ShadowsStyle,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
@@ -163,7 +163,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &SpotLight,
-        &LightShadows,
+        &ShadowsStyle,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,

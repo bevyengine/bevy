@@ -3,7 +3,7 @@
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
     utils::hashbrown::HashSet,
 };
@@ -134,7 +134,7 @@ fn setup_scene(
             intensity: 10_000_000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
 

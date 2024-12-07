@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
     window::{AppLifecycle, WindowMode},
     winit::WinitSettings,
@@ -108,7 +108,7 @@ fn setup_scene(
         ))
         // Shadows makes some Android devices segfault, this is under investigation
         // https://github.com/bevyengine/bevy/issues/8214
-        .insert_if(LightShadows::Hard, || cfg!(not(target_os = "android")));
+        .insert_if(ShadowsStyle::Hard, || cfg!(not(target_os = "android")));
 
     // camera
     commands.spawn((

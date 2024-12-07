@@ -62,7 +62,7 @@ mod light {
 
     use bevy::{
         color::palettes::css::{DEEP_PINK, LIME, RED},
-        pbr::LightShadows,
+        pbr::ShadowsStyle,
         prelude::*,
     };
 
@@ -99,7 +99,7 @@ mod light {
                 color: RED.into(),
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(1.0, 2.0, 0.0),
             StateScoped(CURRENT_SCENE),
         ));
@@ -112,7 +112,7 @@ mod light {
                 outer_angle: 0.8,
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             StateScoped(CURRENT_SCENE),
         ));
@@ -122,7 +122,7 @@ mod light {
                 illuminance: light_consts::lux::OVERCAST_DAY,
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_rotation_x(-PI / 4.),
@@ -193,7 +193,7 @@ mod bloom {
 }
 
 mod gltf {
-    use bevy::{pbr::LightShadows, prelude::*};
+    use bevy::{pbr::ShadowsStyle, prelude::*};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Gltf;
 
@@ -212,7 +212,7 @@ mod gltf {
 
         commands.spawn((
             DirectionalLight::default(),
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             StateScoped(CURRENT_SCENE),
         ));
         commands.spawn((
@@ -227,7 +227,7 @@ mod gltf {
 mod animation {
     use std::{f32::consts::PI, time::Duration};
 
-    use bevy::{pbr::LightShadows, prelude::*, scene::SceneInstanceReady};
+    use bevy::{pbr::ShadowsStyle, prelude::*, scene::SceneInstanceReady};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Animation;
     const FOX_PATH: &str = "models/animated/Fox.glb";
@@ -262,7 +262,7 @@ mod animation {
         commands.spawn((
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight::default(),
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             StateScoped(CURRENT_SCENE),
         ));
 

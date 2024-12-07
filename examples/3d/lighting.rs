@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,
-    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle},
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
 };
@@ -124,7 +124,7 @@ fn setup(
                 color: RED.into(),
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(1.0, 2.0, 0.0),
         ))
         .with_children(|builder| {
@@ -148,7 +148,7 @@ fn setup(
                 outer_angle: 0.8,
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         ))
         .with_child((
@@ -169,7 +169,7 @@ fn setup(
                 color: BLUE.into(),
                 ..default()
             },
-            LightShadows::Hard,
+            ShadowsStyle::Hard,
             Transform::from_xyz(0.0, 4.0, 0.0),
         ))
         .with_children(|builder| {
@@ -189,7 +189,7 @@ fn setup(
             illuminance: light_consts::lux::OVERCAST_DAY,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),

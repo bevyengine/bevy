@@ -297,7 +297,7 @@ pub struct Cascade {
 }
 
 pub fn clear_directional_light_cascades(
-    mut lights: Query<(&LightShadows, &mut Cascades), With<DirectionalLight>>,
+    mut lights: Query<(&ShadowsStyle, &mut Cascades), With<DirectionalLight>>,
 ) {
     for (directional_light_shadows, mut cascades) in lights.iter_mut() {
         if !directional_light_shadows.enabled() {
@@ -313,7 +313,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
     mut lights: Query<
         (
             &GlobalTransform,
-            &LightShadows,
+            &ShadowsStyle,
             &CascadeShadowConfig,
             &mut Cascades,
         ),
@@ -453,7 +453,7 @@ fn calculate_cascade(
 /// [`SpotLight`]) to control what style of shadows it casts.
 #[derive(Copy, Clone, Default, Component, PartialEq, Eq, Hash, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub enum LightShadows {
+pub enum ShadowsStyle {
     /// Disables all shadows for this light.
     #[default]
     None,
@@ -481,16 +481,16 @@ pub enum LightShadows {
     Soft,
 }
 
-impl LightShadows {
+impl ShadowsStyle {
     pub fn enabled(&self) -> bool {
-        *self != LightShadows::None
+        *self != ShadowsStyle::None
     }
 
     #[inline]
     #[allow(unreachable_patterns)]
     pub(crate) fn if_soft(&self, num: f32) -> f32 {
         match self {
-            LightShadows::None | LightShadows::Hard => 0.0,
+            ShadowsStyle::None | ShadowsStyle::Hard => 0.0,
             _ => num,
         }
     }
@@ -596,7 +596,7 @@ pub fn update_directional_light_frusta(
     mut views: Query<
         (
             &Cascades,
-            &LightShadows,
+            &ShadowsStyle,
             &ViewVisibility,
             &mut CascadesFrusta,
         ),
@@ -639,7 +639,7 @@ pub fn update_point_light_frusta(
             Entity,
             &GlobalTransform,
             &PointLight,
-            &LightShadows,
+            &ShadowsStyle,
             &mut CubemapFrusta,
         ),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
@@ -693,7 +693,7 @@ pub fn update_spot_light_frusta(
             Entity,
             &GlobalTransform,
             &SpotLight,
-            &LightShadows,
+            &ShadowsStyle,
             &mut Frustum,
         ),
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
@@ -747,7 +747,7 @@ pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
         (
-            &LightShadows,
+            &ShadowsStyle,
             &CascadesFrusta,
             &mut CascadesVisibleEntities,
             Option<&RenderLayers>,
@@ -917,7 +917,7 @@ pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
         &PointLight,
-        &LightShadows,
+        &ShadowsStyle,
         &GlobalTransform,
         &CubemapFrusta,
         &mut CubemapVisibleEntities,
@@ -925,7 +925,7 @@ pub fn check_point_light_mesh_visibility(
     )>,
     mut spot_lights: Query<(
         &SpotLight,
-        &LightShadows,
+        &ShadowsStyle,
         &GlobalTransform,
         &Frustum,
         &mut VisibleMeshEntities,

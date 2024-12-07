@@ -1,6 +1,6 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::{pbr::LightShadows, prelude::*};
+use bevy::{pbr::ShadowsStyle, prelude::*};
 
 fn main() {
     App::new()
@@ -30,7 +30,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera

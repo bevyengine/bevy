@@ -7,7 +7,7 @@
 
 use bevy::{
     math::vec3,
-    pbr::{FogVolume, LightShadows, VolumetricFog, VolumetricLight},
+    pbr::{FogVolume, ShadowsStyle, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             illuminance: 32000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         // Make sure to add this for the light to interact with the fog.
         VolumetricLight,
     ));

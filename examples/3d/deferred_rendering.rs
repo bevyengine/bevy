@@ -11,7 +11,7 @@ use bevy::{
     math::ops,
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        LightShadows, NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+        ShadowsStyle, NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
 };
@@ -68,7 +68,7 @@ fn setup(
             illuminance: 15_000.,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
@@ -132,7 +132,7 @@ fn setup(
             color: sphere_color,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         sphere_pos,
     ));
 

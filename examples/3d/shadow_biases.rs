@@ -4,7 +4,7 @@
 mod camera_controller;
 
 use bevy::{
-    pbr::{LightShadows, ShadowFilteringMethod},
+    pbr::{ShadowsStyle, ShadowFilteringMethod},
     prelude::*,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -60,7 +60,7 @@ fn setup(
                     shadow_normal_bias: 0.0,
                     ..default()
                 },
-                LightShadows::Hard,
+                ShadowsStyle::Hard,
             ));
             builder.spawn((
                 DirectionalLight {
@@ -68,7 +68,7 @@ fn setup(
                     shadow_normal_bias: 0.0,
                     ..default()
                 },
-                LightShadows::Hard,
+                ShadowsStyle::Hard,
             ));
         });
 

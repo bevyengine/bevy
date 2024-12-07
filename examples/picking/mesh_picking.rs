@@ -22,7 +22,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    color::palettes::tailwind::*, pbr::LightShadows, picking::pointer::PointerInteraction,
+    color::palettes::tailwind::*, pbr::ShadowsStyle, picking::pointer::PointerInteraction,
     prelude::*,
 };
 
@@ -137,7 +137,7 @@ fn setup_scene(
             shadow_depth_bias: 0.2,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
 

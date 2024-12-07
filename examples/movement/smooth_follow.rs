@@ -2,7 +2,7 @@
 
 use bevy::{
     math::{prelude::*, vec3, NormedVectorSpace},
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 use rand::SeedableRng;
@@ -73,7 +73,7 @@ fn setup(
             intensity: 15_000_000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 

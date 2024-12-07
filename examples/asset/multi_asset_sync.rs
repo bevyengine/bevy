@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use bevy::{gltf::Gltf, pbr::LightShadows, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{gltf::Gltf, pbr::ShadowsStyle, prelude::*, tasks::AsyncComputeTaskPool};
 use event_listener::Event;
 use futures_lite::Future;
 
@@ -195,7 +195,7 @@ fn setup_scene(
     // Light
     commands.spawn((
         DirectionalLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
     ));
 

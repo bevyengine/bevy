@@ -5,7 +5,7 @@ use std::f32::consts::*;
 use bevy::{
     color::palettes::basic::{MAROON, RED},
     math::ops,
-    pbr::{LightShadows, NotShadowCaster},
+    pbr::{ShadowsStyle, NotShadowCaster},
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -97,7 +97,7 @@ fn setup(
                         outer_angle: PI / 4.0,
                         ..default()
                     },
-                    LightShadows::Hard,
+                    ShadowsStyle::Hard,
                     Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                 ))

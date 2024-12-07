@@ -5,7 +5,7 @@ use bevy::{
     core_pipeline::motion_blur::MotionBlur,
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
 };
 
@@ -70,7 +70,7 @@ fn setup_scene(
             illuminance: 3_000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
     ));
     // Sky

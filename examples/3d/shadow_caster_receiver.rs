@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
-    pbr::{CascadeShadowConfigBuilder, LightShadows, NotShadowCaster, NotShadowReceiver},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -78,7 +78,7 @@ fn setup(
             color: Color::WHITE,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(5.0, 5.0, 0.0),
     ));
 
@@ -87,7 +87,7 @@ fn setup(
             illuminance: light_consts::lux::OVERCAST_DAY,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,

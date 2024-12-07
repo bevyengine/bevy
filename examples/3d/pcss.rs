@@ -9,7 +9,7 @@ use bevy::{
         Skybox,
     },
     math::vec3,
-    pbr::{CubemapVisibleEntities, LightShadows, ShadowFilteringMethod, VisibleMeshEntities},
+    pbr::{CubemapVisibleEntities, ShadowsStyle, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
     render::{
         camera::TemporalJitter,
@@ -183,7 +183,7 @@ fn spawn_light(commands: &mut Commands) {
     commands
         .spawn((
             directional_light(),
-            LightShadows::Soft,
+            ShadowsStyle::Soft,
             Transform::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
@@ -288,9 +288,9 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         let shadow_style = if app_status.soft_shadows {
-            LightShadows::Soft
+            ShadowsStyle::Soft
         } else {
-            LightShadows::Hard
+            ShadowsStyle::Hard
         };
 
         for light in lights.iter_mut() {
@@ -348,7 +348,7 @@ fn handle_shadow_filter_change(
 
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
-    mut lights: Query<&mut LightShadows>,
+    mut lights: Query<&mut ShadowsStyle>,
     mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -359,9 +359,9 @@ fn handle_pcss_toggle(
         app_status.soft_shadows = value;
 
         let new_light_shadows = if value {
-            LightShadows::Soft
+            ShadowsStyle::Soft
         } else {
-            LightShadows::Hard
+            ShadowsStyle::Hard
         };
 
         // Recreating the lights is the simplest way to toggle soft shadows.

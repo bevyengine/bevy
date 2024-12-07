@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     math::ops,
-    pbr::{LightShadows, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
+    pbr::{ShadowsStyle, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -72,7 +72,7 @@ fn setup(
 
     commands.spawn((
         DirectionalLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 

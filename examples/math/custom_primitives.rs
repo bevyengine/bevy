@@ -12,7 +12,7 @@ use bevy::{
         },
         Isometry2d,
     },
-    pbr::LightShadows,
+    pbr::ShadowsStyle,
     prelude::*,
     render::{
         camera::ScalingMode,
@@ -153,7 +153,7 @@ fn setup(
             shadow_depth_bias: 0.2,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(8.0, 12.0, 1.0),
     ));
 

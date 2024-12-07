@@ -6,7 +6,7 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::{CascadeShadowConfigBuilder, LightShadows},
+    pbr::{CascadeShadowConfigBuilder, ShadowsStyle},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -210,7 +210,7 @@ fn setup(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight::default(),
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,

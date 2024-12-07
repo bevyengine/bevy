@@ -18,7 +18,7 @@ use bevy::{
     core_pipeline::Skybox,
     math::{uvec3, vec3},
     pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, LightShadows, MaterialExtension,
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, ShadowsStyle, MaterialExtension,
         NotShadowCaster,
     },
     prelude::*,
@@ -260,7 +260,7 @@ fn spawn_light(commands: &mut Commands) {
             intensity: 250000.0,
             ..default()
         },
-        LightShadows::Hard,
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
     ));
 }
