@@ -313,7 +313,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
                 bencher.iter_batched(
                     || s.clone_dynamic(),
                     |mut s| {
-                        black_box(s.insert(black_box(&field), ()));
+                        s.insert(black_box(&field), ());
                     },
                     BatchSize::SmallInput,
                 );
