@@ -21,10 +21,11 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
-use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
+use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -901,7 +902,6 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
@@ -909,6 +909,7 @@ impl<'w> BundleInserter<'w> {
                         add_bundle.iter_existing(),
                     );
                 }
+                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
             }
         }
 

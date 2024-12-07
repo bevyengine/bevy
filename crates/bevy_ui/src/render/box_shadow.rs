@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
-    TargetCamera, TransparentUi, UiBoxShadowSamples, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -344,7 +344,7 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -377,7 +377,7 @@ pub fn queue_shadows(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }

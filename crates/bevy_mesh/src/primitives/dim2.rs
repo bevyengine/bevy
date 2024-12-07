@@ -12,7 +12,7 @@ use bevy_math::{
     },
     FloatExt, Vec2,
 };
-use wgpu::PrimitiveTopology;
+use wgpu_types::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
 #[derive(Clone, Copy, Debug)]
