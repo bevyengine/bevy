@@ -7,9 +7,7 @@ use bevy_utils::{HashMap, HashSet};
 
 use crate::{
     bundle::Bundle,
-    component::{
-        component_clone_ignore, Component, ComponentCloneHandler, ComponentId, Components,
-    },
+    component::{Component, ComponentCloneHandler, ComponentId, Components},
     entity::Entity,
     world::World,
 };
@@ -159,6 +157,11 @@ pub struct EntityCloner {
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     pub fn clone_entity(&mut self, world: &mut World) {
+        // SAFETY:
+        // - `source_entity` is read-only.
+        // - `type_registry` is read-only.
+        // - `components` is read-only.
+        // - `deferred_world` disallows structural ecs changes, which means all read-only resources above a not affected.
         let (type_registry, source_entity, components, mut deferred_world) = unsafe {
             let world = world.as_unsafe_world_cell();
             let source_entity = world
@@ -190,10 +193,10 @@ impl EntityCloner {
 
             let global_handlers = components.get_component_clone_handlers();
             let handler = match self.clone_handlers_overrides.get(&component) {
+                Some(handler) => handler
+                    .get_handler()
+                    .unwrap_or_else(|| global_handlers.get_default_handler()),
                 None => global_handlers.get_handler(component),
-                Some(ComponentCloneHandler::Default) => global_handlers.get_default_handler(),
-                Some(ComponentCloneHandler::Ignore) => component_clone_ignore,
-                Some(ComponentCloneHandler::Custom(handler)) => *handler,
             };
 
             // SAFETY: There are no other mutable references to source entity.
@@ -289,7 +292,7 @@ impl EntityCloner {
 /// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
 /// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
 /// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneHandlers::get_default_handler).
-/// To use `Clone`-based handler ([`component_clone_via_clone`](crate::component::component_clone_via_clone)) in this case it should be set manually using one
+/// To use `Clone`-based handler ([`ComponentCloneHandler::clone_handler`]) in this case it should be set manually using one
 /// of the methods mentioned in the [Handlers](#handlers) section
 ///
 /// Here's an example of how to do it using [`get_component_clone_handler`](Component::get_component_clone_handler):
@@ -302,7 +305,7 @@ impl EntityCloner {
 /// impl Component for SomeComponent {
 ///     const STORAGE_TYPE: StorageType = StorageType::Table;
 ///     fn get_component_clone_handler() -> ComponentCloneHandler {
-///         ComponentCloneHandler::Custom(component_clone_via_clone::<Self>)
+///         ComponentCloneHandler::clone_handler::<Self>()
 ///     }
 /// }
 /// ```

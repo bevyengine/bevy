@@ -885,16 +885,42 @@ impl ComponentDescriptor {
 /// Function type that can be used to clone an entity.
 pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
-/// An enum instructing how to clone a component.
+/// A struct instructing which clone handler to use when cloning a component.
 #[derive(Debug, Default)]
-pub enum ComponentCloneHandler {
-    #[default]
+pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
+
+impl ComponentCloneHandler {
     /// Use the global default function to clone the component with this handler.
-    Default,
+    pub fn default_handler() -> Self {
+        Self(None)
+    }
+
     /// Do not clone the component. When a command to clone an entity is issued, component with this handler will be skipped.
-    Ignore,
+    pub fn ignore() -> Self {
+        Self(Some(component_clone_ignore))
+    }
+
+    /// Set clone handler based on `Clone` trait.
+    ///
+    /// If set as a handler for a component that is not the same as the one used to create this handler, it will panic.
+    pub fn clone_handler<C: Component + Clone>() -> Self {
+        Self(Some(component_clone_via_clone::<C>))
+    }
+
+    /// Set clone handler based on `Reflect` trait.
+    pub fn reflect_handler() -> Self {
+        Self(Some(component_clone_via_reflect))
+    }
+
     /// Set a custom handler for the component.
-    Custom(ComponentCloneFn),
+    pub fn custom_handler(handler: ComponentCloneFn) -> Self {
+        Self(Some(handler))
+    }
+
+    /// Get [`ComponentCloneFn`] representing this handler or `None` if set to default handler.
+    pub fn get_handler(&self) -> Option<ComponentCloneFn> {
+        self.0
+    }
 }
 
 /// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
@@ -925,11 +951,7 @@ impl ComponentCloneHandlers {
         if id.0 >= self.handlers.len() {
             self.handlers.resize(id.0 + 1, None);
         }
-        match handler {
-            ComponentCloneHandler::Default => self.handlers[id.0] = None,
-            ComponentCloneHandler::Ignore => self.handlers[id.0] = Some(component_clone_ignore),
-            ComponentCloneHandler::Custom(handler) => self.handlers[id.0] = Some(handler),
-        };
+        self.handlers[id.0] = handler.0;
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
@@ -2043,6 +2065,6 @@ pub trait ComponentCloneViaClone {
 }
 impl<C: Clone + Component> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<C> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::Custom(component_clone_via_clone::<C>)
+        ComponentCloneHandler::clone_handler::<C>()
     }
 }

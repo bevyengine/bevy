@@ -214,16 +214,16 @@ pub trait CloneEntityHierarchyExt {
 impl CloneEntityHierarchyExt for EntityCloneBuilder<'_> {
     fn recursive(&mut self, recursive: bool) -> &mut Self {
         if recursive {
-            self.override_component_clone_handler::<Children>(ComponentCloneHandler::Custom(
-                component_clone_children,
-            ))
+            self.override_component_clone_handler::<Children>(
+                ComponentCloneHandler::custom_handler(component_clone_children),
+            )
         } else {
             self.remove_component_clone_handler_override::<Children>()
         }
     }
     fn as_child(&mut self, as_child: bool) -> &mut Self {
         if as_child {
-            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::Custom(
+            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::custom_handler(
                 component_clone_parent,
             ))
         } else {

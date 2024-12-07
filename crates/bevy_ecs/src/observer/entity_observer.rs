@@ -42,7 +42,7 @@ impl Component for ObservedBy {
     }
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::Ignore
+        ComponentCloneHandler::ignore()
     }
 }
 
@@ -55,9 +55,9 @@ pub trait CloneEntityWithObserversExt {
 impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
     fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
-            self.override_component_clone_handler::<ObservedBy>(ComponentCloneHandler::Custom(
-                component_clone_observed_by,
-            ))
+            self.override_component_clone_handler::<ObservedBy>(
+                ComponentCloneHandler::custom_handler(component_clone_observed_by),
+            )
         } else {
             self.remove_component_clone_handler_override::<ObservedBy>()
         }

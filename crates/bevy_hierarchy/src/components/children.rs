@@ -44,7 +44,7 @@ impl Component for Children {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::Ignore
+        ComponentCloneHandler::ignore()
     }
 }
 
