@@ -414,15 +414,14 @@ pub fn enforce_no_required_components_recursion(
     if let Some((&requiree, check)) = recursion_check_stack.split_last() {
         if let Some(direct_recursion) = check
             .iter()
-            .rev()
-            .enumerate()
-            .find_map(|(index, &id)| (id == requiree).then_some(index == 0))
+            .position(|&id| id == requiree)
+            .map(|index| index == check.len() - 1)
         {
             panic!(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| ShortName(components.get_name(*id).unwrap()))
+                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
