@@ -11,15 +11,18 @@
 //! `num_systems`: the number of systems in the world (must be nonnegative)
 
 use bevy::{
-    diagnostic::{DiagnosticPath, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{
+        DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
+    },
     ecs::{
         component::{ComponentDescriptor, ComponentId, StorageType},
         system::QueryParamBuilder,
         world::FilteredEntityMut,
     },
+    log::LogPlugin,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
     ptr::OwningPtr,
-    DefaultPlugins,
+    MinimalPlugins,
 };
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};
@@ -138,7 +141,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
-    app.add_plugins(DefaultPlugins)
+    app.add_plugins(MinimalPlugins)
+        .add_plugins(DiagnosticsPlugin)
+        .add_plugins(LogPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
             "fps",
@@ -148,9 +153,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
 #[allow(missing_docs)]
 pub fn main() {
-    let default_num_entities = 10000;
-    let default_num_components = 2000;
-    let default_num_systems = 500;
+    let default_num_entities = 50000;
+    let default_num_components = 1000;
+    let default_num_systems = 800;
 
     // take input
     let num_entities = std::env::args()
