@@ -45,7 +45,6 @@ use bevy_utils::{
     tracing::{error, info_span, warn},
     HashMap, HashSet,
 };
-use derive_more::derive::{Display, Error, From};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -60,6 +59,7 @@ use std::{
     io::Error,
     path::{Path, PathBuf},
 };
+use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -67,59 +67,56 @@ use {
 };
 
 /// An error that occurs when loading a glTF file.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum GltfError {
     /// Unsupported primitive mode.
-    #[display("unsupported primitive mode")]
+    #[error("unsupported primitive mode")]
     UnsupportedPrimitive {
         /// The primitive mode.
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[display("invalid glTF file: {_0}")]
-    Gltf(gltf::Error),
+    #[error("invalid glTF file: {0}")]
+    Gltf(#[from] gltf::Error),
     /// Binary blob is missing.
-    #[display("binary blob is missing")]
+    #[error("binary blob is missing")]
     MissingBlob,
     /// Decoding the base64 mesh data failed.
-    #[display("failed to decode base64 mesh data")]
-    Base64Decode(base64::DecodeError),
+    #[error("failed to decode base64 mesh data")]
+    Base64Decode(#[from] base64::DecodeError),
     /// Unsupported buffer format.
-    #[display("unsupported buffer format")]
+    #[error("unsupported buffer format")]
     BufferFormatUnsupported,
     /// Invalid image mime type.
-    #[display("invalid image mime type: {_0}")]
-    #[error(ignore)]
+    #[error("invalid image mime type: {0}")]
     #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[display("You may need to add the feature for the file format: {_0}")]
-    ImageError(TextureError),
+    #[error("You may need to add the feature for the file format: {0}")]
+    ImageError(#[from] TextureError),
     /// Failed to read bytes from an asset path.
-    #[display("failed to read bytes from an asset path: {_0}")]
-    ReadAssetBytesError(ReadAssetBytesError),
+    #[error("failed to read bytes from an asset path: {0}")]
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
-    #[display("failed to load asset from an asset path: {_0}")]
-    AssetLoadError(AssetLoadError),
+    #[error("failed to load asset from an asset path: {0}")]
+    AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
-    #[display("Missing sampler for animation {_0}")]
-    #[error(ignore)]
+    #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[display("failed to generate tangents: {_0}")]
-    GenerateTangentsError(bevy_render::mesh::GenerateTangentsError),
+    #[error("failed to generate tangents: {0}")]
+    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[display("failed to generate morph targets: {_0}")]
-    MorphTarget(bevy_render::mesh::morph::MorphBuildError),
+    #[error("failed to generate morph targets: {0}")]
+    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
     /// Circular children in Nodes
-    #[display("GLTF model must be a tree, found cycle instead at node indices: {_0:?}")]
-    #[error(ignore)]
+    #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[display("failed to load file: {_0}")]
-    Io(Error),
+    #[error("failed to load file: {0}")]
+    Io(#[from] Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -274,7 +271,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
+        use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
         use bevy_math::curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
         use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
@@ -310,12 +307,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
+                            let translation_property = animated_field!(Transform::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(ConstantCurve::new(Interval::EVERYWHERE, translations[0]))
-                                    .map(TranslationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    translation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, translations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -323,34 +321,47 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, translations)
                                             .ok()
-                                            .map(TranslationCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    translation_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Rotations(rots) => {
+                            let rotation_property = animated_field!(Transform::rotation);
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(ConstantCurve::new(Interval::EVERYWHERE, rotations[0]))
-                                    .map(RotationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    rotation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, rotations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -358,16 +369,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicRotationCurve::new(
@@ -375,19 +394,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             rotations.into_iter().map(Vec4::from),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Scales(scale) => {
+                            let scale_property = animated_field!(Transform::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(ConstantCurve::new(Interval::EVERYWHERE, scales[0]))
-                                    .map(ScaleCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    scale_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, scales[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -395,22 +419,34 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, scales)
                                             .ok()
-                                            .map(ScaleCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    scale_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }

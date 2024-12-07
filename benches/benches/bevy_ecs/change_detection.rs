@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    component::Component,
+    component::{Component, Mutable},
     entity::Entity,
     prelude::{Added, Changed, EntityWorldMut, QueryState},
     query::QueryFilter,
@@ -124,7 +124,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     }
 }
 
-fn all_changed_detection_generic<T: Component + Default + BenchModify>(
+fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {
@@ -172,7 +172,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn few_changed_detection_generic<T: Component + Default + BenchModify>(
+fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {
@@ -222,7 +222,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn none_changed_detection_generic<T: Component + Default>(
+fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
     group: &mut BenchGroup,
     entity_count: u32,
 ) {
@@ -271,7 +271,7 @@ fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
     }
 }
 
-fn add_archetypes_entities<T: Component + Default>(
+fn add_archetypes_entities<T: Component<Mutability = Mutable> + Default>(
     world: &mut World,
     archetype_count: u16,
     entity_count: u32,
@@ -298,7 +298,7 @@ fn add_archetypes_entities<T: Component + Default>(
         }
     }
 }
-fn multiple_archetype_none_changed_detection_generic<T: Component + Default + BenchModify>(
+fn multiple_archetype_none_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
     group: &mut BenchGroup,
     archetype_count: u16,
     entity_count: u32,

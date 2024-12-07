@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
@@ -42,7 +43,7 @@ use crate::{
 /// ```
 ///
 /// [`HashSet`]: std::collections::HashSet
-/// [`BTreeSet`]: std::collections::BTreeSet
+/// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: PartialReflect {

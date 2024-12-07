@@ -133,7 +133,7 @@ impl AsBindGroup for BindlessMaterial {
         );
 
         Ok(PreparedBindGroup {
-            bindings: vec![],
+            bindings: BindingResources(vec![]),
             bind_group,
             data: (),
         })
@@ -145,9 +145,11 @@ impl AsBindGroup for BindlessMaterial {
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
-        // we implement as_bind_group directly because
-        panic!("bindless texture arrays can't be owned")
-        // or rather, they can be owned, but then you can't make a `&'a [&'a TextureView]` from a vec of them in get_binding().
+        // We implement `as_bind_group`` directly because bindless texture
+        // arrays can't be owned.
+        // Or rather, they can be owned, but then you can't make a `&'a [&'a
+        // TextureView]` from a vec of them in `get_binding()`.
+        Err(AsBindGroupError::CreateBindGroupDirectly)
     }
 
     fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry>

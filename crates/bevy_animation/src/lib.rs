@@ -17,7 +17,7 @@ pub mod transition;
 mod util;
 
 use core::{
-    any::{Any, TypeId},
+    any::TypeId,
     cell::RefCell,
     fmt::Debug,
     hash::{Hash, Hasher},
@@ -26,7 +26,10 @@ use core::{
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
-use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
+use crate::{
+    graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
+    prelude::EvaluatorId,
+};
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets};
@@ -38,18 +41,13 @@ use bevy_ecs::{
     world::EntityMutExcept,
 };
 use bevy_math::FloatOrd;
-use bevy_reflect::{
-    prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicTupleStruct,
-    FromReflect, FromType, GetTypeRegistration, PartialReflect, Reflect, ReflectFromPtr,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TupleStruct, TupleStructFieldIter,
-    TupleStructInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnnamedField,
-};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::{prelude::Transform, TransformSystem};
+use bevy_transform::TransformSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
-    NoOpHash, TypeIdMap,
+    NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
 };
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
@@ -100,175 +98,6 @@ impl VariableCurve {
     }
 }
 
-// We have to implement `PartialReflect` manually because of the embedded
-// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
-impl PartialReflect for VariableCurve {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    #[inline]
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    #[inline]
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::TupleStruct(tuple_value) = value.reflect_ref() {
-            for (i, value) in tuple_value.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.try_apply(value)?;
-                }
-            }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::TupleStruct,
-            });
-        }
-        Ok(())
-    }
-
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::TupleStruct(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::TupleStruct(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::TupleStruct(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new((*self).clone())
-    }
-}
-
-// We have to implement `Reflect` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl Reflect for VariableCurve {
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
-// We have to implement `TupleStruct` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl TupleStruct for VariableCurve {
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        match index {
-            0 => Some(self.0.as_partial_reflect()),
-            _ => None,
-        }
-    }
-
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        match index {
-            0 => Some(self.0.as_partial_reflect_mut()),
-            _ => None,
-        }
-    }
-
-    fn field_len(&self) -> usize {
-        1
-    }
-
-    fn iter_fields(&self) -> TupleStructFieldIter {
-        TupleStructFieldIter::new(self)
-    }
-
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct::from_iter([PartialReflect::clone_value(&*self.0)])
-    }
-}
-
-// We have to implement `FromReflect` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl FromReflect for VariableCurve {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<VariableCurve>()?.clone())
-    }
-}
-
-// We have to implement `GetTypeRegistration` manually because of the embedded
-// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
-impl GetTypeRegistration for VariableCurve {
-    fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration
-    }
-}
-
-// We have to implement `Typed` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl Typed for VariableCurve {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| {
-            TypeInfo::TupleStruct(TupleStructInfo::new::<Self>(&[UnnamedField::new::<()>(0)]))
-        })
-    }
-}
-
 /// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
 /// apply.
 ///
@@ -276,6 +105,8 @@ impl Typed for VariableCurve {
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
+    // This field is ignored by reflection because AnimationCurves can contain things that are not reflect-able
+    #[reflect(ignore)]
     curves: AnimationCurves,
     events: AnimationEvents,
     duration: f32,
@@ -878,7 +709,7 @@ pub struct AnimationEvaluationState {
     /// Stores all [`AnimationCurveEvaluator`]s corresponding to properties that
     /// we've seen so far.
     ///
-    /// This is a mapping from the type ID of an animation curve evaluator to
+    /// This is a mapping from the id of an animation curve evaluator to
     /// the animation curve evaluator itself.
     ///
     /// For efficiency's sake, the [`AnimationCurveEvaluator`]s are cached from
@@ -886,15 +717,98 @@ pub struct AnimationEvaluationState {
     /// there may be entries in this list corresponding to properties that the
     /// current [`AnimationPlayer`] doesn't animate. To iterate only over the
     /// properties that are currently being animated, consult the
-    /// [`Self::current_curve_evaluator_types`] set.
-    curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
+    /// [`Self::current_evaluators`] set.
+    evaluators: AnimationCurveEvaluators,
 
     /// The set of [`AnimationCurveEvaluator`] types that the current
     /// [`AnimationPlayer`] is animating.
     ///
     /// This is built up as new curve evaluators are encountered during graph
     /// traversal.
-    current_curve_evaluator_types: TypeIdMap<()>,
+    current_evaluators: CurrentEvaluators,
+}
+
+#[derive(Default)]
+struct AnimationCurveEvaluators {
+    component_property_curve_evaluators:
+        PreHashMap<(TypeId, usize), Box<dyn AnimationCurveEvaluator>>,
+    type_id_curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
+}
+
+impl AnimationCurveEvaluators {
+    #[inline]
+    pub(crate) fn get_mut(&mut self, id: EvaluatorId) -> Option<&mut dyn AnimationCurveEvaluator> {
+        match id {
+            EvaluatorId::ComponentField(component_property) => self
+                .component_property_curve_evaluators
+                .get_mut(component_property),
+            EvaluatorId::Type(type_id) => self.type_id_curve_evaluators.get_mut(&type_id),
+        }
+        .map(|e| &mut **e)
+    }
+
+    #[inline]
+    pub(crate) fn get_or_insert_with(
+        &mut self,
+        id: EvaluatorId,
+        func: impl FnOnce() -> Box<dyn AnimationCurveEvaluator>,
+    ) -> &mut dyn AnimationCurveEvaluator {
+        match id {
+            EvaluatorId::ComponentField(component_property) => &mut **self
+                .component_property_curve_evaluators
+                .get_or_insert_with(component_property, func),
+            EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
+                bevy_utils::hashbrown::hash_map::Entry::Occupied(occupied_entry) => {
+                    &mut **occupied_entry.into_mut()
+                }
+                bevy_utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) => {
+                    &mut **vacant_entry.insert(func())
+                }
+            },
+        }
+    }
+}
+
+#[derive(Default)]
+struct CurrentEvaluators {
+    component_properties: PreHashMap<(TypeId, usize), ()>,
+    type_ids: TypeIdMap<()>,
+}
+
+impl CurrentEvaluators {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId> {
+        self.component_properties
+            .keys()
+            .map(EvaluatorId::ComponentField)
+            .chain(self.type_ids.keys().copied().map(EvaluatorId::Type))
+    }
+
+    pub(crate) fn clear(
+        &mut self,
+        mut visit: impl FnMut(EvaluatorId) -> Result<(), AnimationEvaluationError>,
+    ) -> Result<(), AnimationEvaluationError> {
+        for (key, _) in self.component_properties.drain() {
+            (visit)(EvaluatorId::ComponentField(&key))?;
+        }
+
+        for (key, _) in self.type_ids.drain() {
+            (visit)(EvaluatorId::Type(key))?;
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    pub(crate) fn insert(&mut self, id: EvaluatorId) {
+        match id {
+            EvaluatorId::ComponentField(component_property) => {
+                self.component_properties.insert(*component_property, ());
+            }
+            EvaluatorId::Type(type_id) => {
+                self.type_ids.insert(type_id, ());
+            }
+        }
+    }
 }
 
 impl AnimationPlayer {
@@ -1117,15 +1031,8 @@ pub fn advance_animations(
 }
 
 /// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w> = EntityMutExcept<
-    'w,
-    (
-        AnimationTarget,
-        Transform,
-        AnimationPlayer,
-        AnimationGraphHandle,
-    ),
->;
+pub type AnimationEntityMut<'w> =
+    EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1135,18 +1042,13 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTarget,
-        Option<&mut Transform>,
-        AnimationEntityMut,
-    )>,
+    mut targets: Query<(Entity, &AnimationTarget, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(entity, target, transform, entity_mut)| {
+        .for_each(|(entity, target, entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -1300,19 +1202,20 @@ pub fn animate_targets(
                             // will both yield a `RotationCurveEvaluator` and
                             // therefore will share the same evaluator in this
                             // table.
-                            let curve_evaluator_type_id = (*curve.0).evaluator_type();
+                            let curve_evaluator_id = (*curve.0).evaluator_id();
                             let curve_evaluator = evaluation_state
-                                .curve_evaluators
-                                .entry(curve_evaluator_type_id)
-                                .or_insert_with(|| curve.0.create_evaluator());
+                                .evaluators
+                                .get_or_insert_with(curve_evaluator_id.clone(), || {
+                                    curve.0.create_evaluator()
+                                });
 
                             evaluation_state
-                                .current_curve_evaluator_types
-                                .insert(curve_evaluator_type_id, ());
+                                .current_evaluators
+                                .insert(curve_evaluator_id);
 
                             if let Err(err) = AnimationCurve::apply(
                                 &*curve.0,
-                                &mut **curve_evaluator,
+                                curve_evaluator,
                                 seek_time,
                                 weight,
                                 animation_graph_node_index,
@@ -1324,7 +1227,7 @@ pub fn animate_targets(
                 }
             }
 
-            if let Err(err) = evaluation_state.commit_all(transform, entity_mut) {
+            if let Err(err) = evaluation_state.commit_all(entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
         });
@@ -1425,8 +1328,8 @@ impl AnimationEvaluationState {
         &mut self,
         node_index: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
-            self.curve_evaluators
+        for curve_evaluator_type in self.current_evaluators.keys() {
+            self.evaluators
                 .get_mut(curve_evaluator_type)
                 .unwrap()
                 .blend(node_index)?;
@@ -1439,8 +1342,8 @@ impl AnimationEvaluationState {
     ///
     /// The given `node_index` is the node that we're evaluating.
     fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
-            self.curve_evaluators
+        for curve_evaluator_type in self.current_evaluators.keys() {
+            self.evaluators
                 .get_mut(curve_evaluator_type)
                 .unwrap()
                 .add(node_index)?;
@@ -1459,8 +1362,8 @@ impl AnimationEvaluationState {
         weight: f32,
         node_index: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
-            self.curve_evaluators
+        for curve_evaluator_type in self.current_evaluators.keys() {
+            self.evaluators
                 .get_mut(curve_evaluator_type)
                 .unwrap()
                 .push_blend_register(weight, node_index)?;
@@ -1475,19 +1378,14 @@ impl AnimationEvaluationState {
     /// components being animated.
     fn commit_all(
         &mut self,
-        mut transform: Option<Mut<Transform>>,
         mut entity_mut: AnimationEntityMut,
     ) -> Result<(), AnimationEvaluationError> {
-        for (curve_evaluator_type, _) in self.current_curve_evaluator_types.drain() {
-            self.curve_evaluators
-                .get_mut(&curve_evaluator_type)
+        self.current_evaluators.clear(|id| {
+            self.evaluators
+                .get_mut(id)
                 .unwrap()
-                .commit(
-                    transform.as_mut().map(|transform| transform.reborrow()),
-                    entity_mut.reborrow(),
-                )?;
-        }
-        Ok(())
+                .commit(entity_mut.reborrow())
+        })
     }
 }
 

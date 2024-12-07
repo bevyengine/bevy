@@ -103,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -1840,7 +1839,7 @@ wasm = false
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_deferred` system"
+description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1956,6 +1955,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "immutable_components"
+path = "examples/ecs/immutable_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.immutable_components]
+name = "Immutable Components"
+description = "Demonstrates the creation and utility of immutable components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true
@@ -2018,6 +2028,17 @@ doc-scrape-examples = true
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
 description = "Systems are skipped if their parameters cannot be acquired"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_systems"
+path = "examples/ecs/fallible_systems.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_systems]
+name = "Fallible Systems"
+description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3823,6 +3844,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]

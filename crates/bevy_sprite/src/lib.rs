@@ -41,6 +41,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
+#[cfg(feature = "bevy_sprite_picking_backend")]
+pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
@@ -148,7 +150,7 @@ impl Plugin for SpritePlugin {
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         if self.add_picking {
-            app.add_plugins(picking_backend::SpritePickingPlugin);
+            app.add_plugins(SpritePickingPlugin);
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

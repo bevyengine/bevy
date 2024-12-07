@@ -41,11 +41,7 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 smallvec = "1"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
 
 [lints]
 workspace = true

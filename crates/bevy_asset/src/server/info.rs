@@ -10,8 +10,8 @@ use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
-use derive_more::derive::{Display, Error, From};
 use either::Either;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -757,16 +757,16 @@ pub(crate) enum HandleLoadingMode {
     Force,
 }
 
-#[derive(Error, Display, Debug)]
-#[display("Cannot allocate a handle because no handle provider exists for asset type {_0:?}")]
-#[error(ignore)]
+#[derive(Error, Debug)]
+#[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
 pub struct MissingHandleProviderError(TypeId);
 
 /// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub(crate) enum GetOrCreateHandleInternalError {
-    MissingHandleProviderError(MissingHandleProviderError),
-    #[display("Handle does not exist but TypeId was not specified.")]
+    #[error(transparent)]
+    MissingHandleProviderError(#[from] MissingHandleProviderError),
+    #[error("Handle does not exist but TypeId was not specified.")]
     HandleMissingButTypeIdNotSpecified,
 }
 

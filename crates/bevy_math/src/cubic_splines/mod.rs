@@ -2,66 +2,100 @@
 
 #[cfg(feature = "curve")]
 mod curve_impls;
-
-use core::{fmt::Debug, iter::once};
-
-use crate::{ops::FloatPow, Vec2, VectorSpace};
-
-use derive_more::derive::{Display, Error};
-use itertools::Itertools;
-
+use crate::{
+    ops::{self, FloatPow},
+    Vec2, VectorSpace,
+};
+use thiserror::Error;
+#[cfg(feature = "alloc")]
+use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-
 /// A spline composed of a single cubic Bezier curve.
+
 ///
+
 /// Useful for user-drawn curves with local control, or animation easing. See
+
 /// [`CubicSegment::new_bezier`] for use in easing.
+
 ///
+
 /// ### Interpolation
+
 /// The curve only passes through the first and last control point in each set of four points. The curve
+
 /// is divided into "segments" by every fourth control point.
+
 ///
+
 /// ### Tangency
+
 /// Tangents are manually defined by the two intermediate control points within each set of four points.
+
 /// You can think of the control points the curve passes through as "anchors", and as the intermediate
+
 /// control points as the anchors displaced along their tangent vectors
+
 ///
+
 /// ### Continuity
+
 /// A Bezier curve is at minimum C0 continuous, meaning it has no holes or jumps. Each curve segment is
+
 /// C2, meaning the tangent vector changes smoothly between each set of four control points, but this
+
 /// doesn't hold at the control points between segments. Making the whole curve C1 or C2 requires moving
+
 /// the intermediate control points to align the tangent vectors between segments, and can result in a
+
 /// loss of local control.
+
 ///
+
 /// ### Usage
+
 ///
+
 /// ```
+
 /// # use bevy_math::{*, prelude::*};
+
 /// let points = [[
+
 ///     vec2(-1.0, -20.0),
+
 ///     vec2(3.0, 2.0),
+
 ///     vec2(5.0, 3.0),
+
 ///     vec2(9.0, 8.0),
+
 /// ]];
+
 /// let bezier = CubicBezier::new(points).to_curve().unwrap();
+
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
+
 /// ```
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve.
     pub control_points: Vec<[P; 4]>,
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
-    pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
+    pub fn new(control_points: impl IntoIterator<Item = [P; 4]>) -> Self {
         Self {
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
     type Error = CubicBezierError;
 
@@ -90,62 +124,107 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
         }
     }
 }
-
 /// An error returned during cubic curve generation for cubic Bezier curves indicating that a
-/// segment of control points was not present.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Unable to generate cubic curve: at least one set of control points is required")]
-pub struct CubicBezierError;
 
+/// segment of control points was not present.
+
+#[derive(Clone, Debug, Error)]
+#[error("Unable to generate cubic curve: at least one set of control points is required")]
+pub struct CubicBezierError;
 /// A spline interpolated continuously between the nearest two control points, with the position and
+
 /// velocity of the curve specified at both control points. This curve passes through all control
+
 /// points, with the specified velocity which includes direction and parametric speed.
+
 ///
+
 /// Useful for smooth interpolation when you know the position and velocity at two points in time,
+
 /// such as network prediction.
+
 ///
+
 /// ### Interpolation
+
 /// The curve passes through every control point.
+
 ///
+
 /// ### Tangency
+
 /// Tangents are explicitly defined at each control point.
+
 ///
+
 /// ### Continuity
+
 /// The curve is at minimum C1 continuous, meaning that it has no holes or jumps and the tangent vector also
+
 /// has no sudden jumps.
+
 ///
+
 /// ### Parametrization
+
 /// The first segment of the curve connects the first two control points, the second connects the second and
+
 /// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+
 /// the final curve segment connects the last control point to the first.
+
 ///
+
 /// ### Usage
+
 ///
+
 /// ```
+
 /// # use bevy_math::{*, prelude::*};
+
 /// let points = [
+
 ///     vec2(-1.0, -20.0),
+
 ///     vec2(3.0, 2.0),
+
 ///     vec2(5.0, 3.0),
+
 ///     vec2(9.0, 8.0),
+
 /// ];
+
 /// let tangents = [
+
 ///     vec2(0.0, 1.0),
+
 ///     vec2(0.0, 1.0),
+
 ///     vec2(0.0, 1.0),
+
 ///     vec2(0.0, 1.0),
+
 /// ];
+
 /// let hermite = CubicHermite::new(points, tangents).to_curve().unwrap();
+
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
+
 /// ```
+
 ///
+
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve.
     pub control_points: Vec<(P, P)>,
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
     pub fn new(
@@ -172,6 +251,7 @@ impl<P: VectorSpace> CubicHermite<P> {
         ]
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
@@ -196,6 +276,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
         }
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
 
@@ -221,43 +302,79 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
         }
     }
 }
-
 /// A spline interpolated continuously across the nearest four control points, with the position of
+
 /// the curve specified at every control point and the tangents computed automatically. The associated [`CubicCurve`]
+
 /// has one segment between each pair of adjacent control points.
+
 ///
+
 /// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
+
 ///
+
 /// ### Interpolation
+
 /// The curve passes through every control point.
+
 ///
+
 /// ### Tangency
+
 /// Tangents are automatically computed based on the positions of control points.
+
 ///
+
 /// ### Continuity
+
 /// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
+
 /// vector is also well-defined everywhere, without sudden jumps.
+
 ///
+
 /// ### Parametrization
+
 /// The first segment of the curve connects the first two control points, the second connects the second and
+
 /// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+
 /// the final curve segment connects the last control point to the first.
+
 ///
+
 /// ### Usage
+
 ///
+
 /// ```
+
 /// # use bevy_math::{*, prelude::*};
+
 /// let points = [
+
 ///     vec2(-1.0, -20.0),
+
 ///     vec2(3.0, 2.0),
+
 ///     vec2(5.0, 3.0),
+
 ///     vec2(9.0, 8.0),
+
 /// ];
+
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve().unwrap();
+
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
+
 /// ```
+
 ///
+
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
@@ -266,21 +383,21 @@ pub struct CubicCardinalSpline<P: VectorSpace> {
     /// The control points of the Cardinal spline
     pub control_points: Vec<P>,
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
-    pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new(tension: f32, control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
             tension,
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
     /// Build a new Catmull-Rom spline, the special case of a Cardinal spline where tension = 1/2.
-    pub fn new_catmull_rom(control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new_catmull_rom(control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
             tension: 0.5,
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
@@ -299,6 +416,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
         ]
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
@@ -335,6 +453,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
         Ok(CubicCurve { segments })
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
 
@@ -377,51 +496,85 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
         Ok(CubicCurve { segments })
     }
 }
-
 /// A spline interpolated continuously across the nearest four control points. The curve does not
+
 /// necessarily pass through any of the control points.
+
 ///
+
 /// ### Interpolation
+
 /// The curve does not necessarily pass through its control points.
+
 ///
+
 /// ### Tangency
+
 /// Tangents are automatically computed based on the positions of control points.
+
 ///
+
 /// ### Continuity
+
 /// The curve is C2 continuous, meaning it has no holes or jumps, the tangent vector changes smoothly along
+
 /// the entire curve, and the acceleration also varies continuously. The acceleration continuity of this
+
 /// spline makes it useful for camera paths.
+
 ///
+
 /// ### Parametrization
+
 /// Each curve segment is defined by a window of four control points taken in sequence. When [`to_curve_cyclic`]
+
 /// is used to form a cyclic curve, the three additional segments used to close the curve come last.
+
 ///
+
 /// ### Usage
+
 ///
+
 /// ```
+
 /// # use bevy_math::{*, prelude::*};
+
 /// let points = [
+
 ///     vec2(-1.0, -20.0),
+
 ///     vec2(3.0, 2.0),
+
 ///     vec2(5.0, 3.0),
+
 ///     vec2(9.0, 8.0),
+
 /// ];
+
 /// let b_spline = CubicBSpline::new(points).to_curve().unwrap();
+
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
+
 /// ```
+
 ///
+
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
     pub control_points: Vec<P>,
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
-    pub fn new(control_points: impl Into<Vec<P>>) -> Self {
+    pub fn new(control_points: impl IntoIterator<Item = P>) -> Self {
         Self {
-            control_points: control_points.into(),
+            control_points: control_points.into_iter().collect(),
         }
     }
 
@@ -448,6 +601,7 @@ impl<P: VectorSpace> CubicBSpline<P> {
         char_matrix
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
@@ -469,7 +623,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
         }
     }
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
 
@@ -497,12 +651,12 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
         }
     }
 }
-
 /// Error during construction of [`CubicNurbs`]
-#[derive(Clone, Debug, Error, Display)]
+
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
-    #[display("Wrong number of knots: expected {expected}, provided {provided}")]
+    #[error("Wrong number of knots: expected {expected}, provided {provided}")]
     KnotsNumberMismatch {
         /// Expected number of knots
         expected: usize,
@@ -511,13 +665,13 @@ pub enum CubicNurbsError {
     },
     /// The provided knots had a descending knot pair. Subsequent knots must
     /// either increase or stay the same.
-    #[display("Invalid knots: contains descending knot pair")]
+    #[error("Invalid knots: contains descending knot pair")]
     DescendingKnots,
     /// The provided knots were all equal. Knots must contain at least one increasing pair.
-    #[display("Invalid knots: all knots are equal")]
+    #[error("Invalid knots: all knots are equal")]
     ConstantKnots,
     /// Provided a different number of weights and control points.
-    #[display("Incorrect number of weights: expected {expected}, provided {provided}")]
+    #[error("Incorrect number of weights: expected {expected}, provided {provided}")]
     WeightsNumberMismatch {
         /// Expected number of weights
         expected: usize,
@@ -525,59 +679,105 @@ pub enum CubicNurbsError {
         provided: usize,
     },
     /// The number of control points provided is less than 4.
-    #[display("Not enough control points, at least 4 are required, {provided} were provided")]
+    #[error("Not enough control points, at least 4 are required, {provided} were provided")]
     NotEnoughControlPoints {
         /// The number of control points provided
         provided: usize,
     },
 }
-
 /// Non-uniform Rational B-Splines (NURBS) are a powerful generalization of the [`CubicBSpline`] which can
+
 /// represent a much more diverse class of curves (like perfect circles and ellipses).
+
 ///
+
 /// ### Non-uniformity
+
 /// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called 'knots'.
+
 /// The knots are a non-decreasing sequence of floating point numbers. The first and last three pairs of
+
 /// knots control the behavior of the curve as it approaches its endpoints. The intermediate pairs
+
 /// each control the length of one segment of the curve. Multiple repeated knot values are called
+
 /// "knot multiplicity". Knot multiplicity in the intermediate knots causes a "zero-length" segment,
+
 /// and can create sharp corners.
+
 ///
+
 /// ### Rationality
+
 /// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
+
 /// be assigned a weighting, which controls how much it affects the curve compared to the other points.
+
 ///
+
 /// ### Interpolation
+
 /// The curve will not pass through the control points except where a knot has multiplicity four.
+
 ///
+
 /// ### Tangency
+
 /// Tangents are automatically computed based on the position of control points.
+
 ///
+
 /// ### Continuity
+
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
+
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
+
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
+
 /// continuity to C1, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
+
 /// C0, meaning it has no jumps or holes.
+
 ///
+
 /// ### Usage
+
 ///
+
 /// ```
+
 /// # use bevy_math::{*, prelude::*};
+
 /// let points = [
+
 ///     vec2(-1.0, -20.0),
+
 ///     vec2(3.0, 2.0),
+
 ///     vec2(5.0, 3.0),
+
 ///     vec2(9.0, 8.0),
+
 /// ];
+
 /// let weights = [1.0, 1.0, 2.0, 1.0];
+
 /// let knots = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
+
 /// let nurbs = CubicNurbs::new(points, Some(weights), Some(knots))
+
 ///     .expect("NURBS construction failed!")
+
 ///     .to_curve()
+
 ///     .unwrap();
+
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
+
 /// ```
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
@@ -588,6 +788,7 @@ pub struct CubicNurbs<P: VectorSpace> {
     /// Knots
     pub knots: Vec<f32>,
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
@@ -599,11 +800,11 @@ impl<P: VectorSpace> CubicNurbs<P> {
     ///
     /// At least 4 points must be provided, otherwise an error will be returned.
     pub fn new(
-        control_points: impl Into<Vec<P>>,
-        weights: Option<impl Into<Vec<f32>>>,
-        knots: Option<impl Into<Vec<f32>>>,
+        control_points: impl IntoIterator<Item = P>,
+        weights: Option<impl IntoIterator<Item = f32>>,
+        knots: Option<impl IntoIterator<Item = f32>>,
     ) -> Result<Self, CubicNurbsError> {
-        let mut control_points: Vec<P> = control_points.into();
+        let mut control_points: Vec<P> = control_points.into_iter().collect();
         let control_points_len = control_points.len();
 
         if control_points_len < 4 {
@@ -612,11 +813,11 @@ impl<P: VectorSpace> CubicNurbs<P> {
             });
         }
 
-        let weights = weights
-            .map(Into::into)
+        let weights: Vec<f32> = weights
+            .map(|ws| ws.into_iter().collect())
             .unwrap_or_else(|| vec![1.0; control_points_len]);
 
-        let mut knots: Vec<f32> = knots.map(Into::into).unwrap_or_else(|| {
+        let mut knots: Vec<f32> = knots.map(|ks| ks.into_iter().collect()).unwrap_or_else(|| {
             Self::open_uniform_knots(control_points_len)
                 .expect("The amount of control points was checked")
         });
@@ -748,6 +949,7 @@ impl<P: VectorSpace> CubicNurbs<P> {
         ]
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
     type Error = InsufficientDataError;
 
@@ -785,37 +987,55 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
         }
     }
 }
-
 /// A spline interpolated linearly between the nearest 2 points.
+
 ///
+
 /// ### Interpolation
+
 /// The curve passes through every control point.
+
 ///
+
 /// ### Tangency
+
 /// The curve is not generally differentiable at control points.
+
 ///
+
 /// ### Continuity
+
 /// The curve is C0 continuous, meaning it has no holes or jumps.
+
 ///
+
 /// ### Parametrization
+
 /// Each curve segment connects two adjacent control points in sequence. When a cyclic curve is
+
 /// formed with [`to_curve_cyclic`], the final segment connects the last control point with the first.
+
 ///
+
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the linear spline.
     pub points: Vec<P>,
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline from a list of points to be interpolated.
-    pub fn new(points: impl Into<Vec<P>>) -> Self {
+    pub fn new(points: impl IntoIterator<Item = P>) -> Self {
         Self {
-            points: points.into(),
+            points: points.into_iter().collect(),
         }
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
     type Error = InsufficientDataError;
 
@@ -843,6 +1063,7 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
         }
     }
 }
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
     type Error = InsufficientDataError;
 
@@ -867,16 +1088,17 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
         }
     }
 }
-
 /// An error indicating that a spline construction didn't have enough control points to generate a curve.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
+
+#[derive(Clone, Debug, Error)]
+#[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
 pub struct InsufficientDataError {
     expected: usize,
     given: usize,
 }
-
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
+
+#[cfg(feature = "alloc")]
 pub trait CubicGenerator<P: VectorSpace> {
     /// An error type indicating why construction might fail.
     type Error;
@@ -884,10 +1106,13 @@ pub trait CubicGenerator<P: VectorSpace> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error>;
 }
-
 /// Implement this on cubic splines that can generate a cyclic cubic curve from their spline parameters.
+
 ///
+
 /// This makes sense only when the control data can be interpreted cyclically.
+
+#[cfg(feature = "alloc")]
 pub trait CyclicCubicGenerator<P: VectorSpace> {
     /// An error type indicating why construction might fail.
     type Error;
@@ -896,14 +1121,20 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
     /// treating the control data as cyclic so that the result is a closed curve.
     fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error>;
 }
-
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
+
 /// It is a [`Curve`] with domain `[0, 1]`.
+
 ///
+
 /// Segments can be chained together to form a longer [compound curve].
+
 ///
+
 /// [compound curve]: CubicCurve
+
 /// [`Curve`]: crate::curve::Curve
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -911,7 +1142,6 @@ pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
     pub coeff: [P; 4],
 }
-
 impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
@@ -938,6 +1168,7 @@ impl<P: VectorSpace> CubicSegment<P> {
     }
 
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
+    #[allow(unused)]
     #[inline]
     fn coefficients(p: [P; 4], char_matrix: [[f32; 4]; 4]) -> Self {
         let [c0, c1, c2, c3] = char_matrix;
@@ -952,11 +1183,14 @@ impl<P: VectorSpace> CubicSegment<P> {
         Self { coeff }
     }
 }
-
 /// The `CubicSegment<Vec2>` can be used as a 2-dimensional easing curve for animation.
+
 ///
+
 /// The x-axis of the curve is time, and the y-axis is the output value. This struct provides
+
 /// methods for extremely fast solves for y given x.
+
 impl CubicSegment<Vec2> {
     /// Construct a cubic Bezier curve for animation easing, with control points `p1` and `p2`. A
     /// cubic Bezier easing curve has control point `p0` at (0, 0) and `p3` at (1, 1), leaving only
@@ -965,6 +1199,7 @@ impl CubicSegment<Vec2> {
     ///
     /// This is a very common tool for UI animations that accelerate and decelerate smoothly. For
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
+    #[cfg(feature = "alloc")]
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]])
@@ -985,9 +1220,12 @@ impl CubicSegment<Vec2> {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # #[cfg(feature = "alloc")]
+    /// # {
     /// let cubic_bezier = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0));
     /// assert_eq!(cubic_bezier.ease(0.0), 0.0);
     /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
+    /// # }
     /// ```
     ///
     /// # How cubic easing works
@@ -1051,7 +1289,7 @@ impl CubicSegment<Vec2> {
         for _ in 0..Self::MAX_ITERS {
             pos_guess = self.position(t_guess);
             let error = pos_guess.x - x;
-            if error.abs() <= Self::MAX_ERROR {
+            if ops::abs(error) <= Self::MAX_ERROR {
                 break;
             }
             // Using Newton's method, use the tangent line to estimate a better guess value.
@@ -1061,14 +1299,20 @@ impl CubicSegment<Vec2> {
         pos_guess.y
     }
 }
-
 /// A collection of [`CubicSegment`]s chained into a single parametric curve. It is a [`Curve`]
+
 /// with domain `[0, N]`, where `N` is its number of segments.
+
 ///
+
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
+
 /// [`CubicBezier`].
+
 ///
+
 /// [`Curve`]: crate::curve::Curve
+
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
@@ -1076,12 +1320,12 @@ pub struct CubicCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<CubicSegment<P>>,
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
-    pub fn from_segments(segments: impl Into<Vec<CubicSegment<P>>>) -> Option<Self> {
-        let segments: Vec<_> = segments.into();
+    pub fn from_segments(segments: impl IntoIterator<Item = CubicSegment<P>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into_iter().collect();
         if segments.is_empty() {
             None
         } else {
@@ -1183,18 +1427,17 @@ impl<P: VectorSpace> CubicCurve<P> {
         if self.segments.len() == 1 {
             (&self.segments[0], t)
         } else {
-            let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
+            let i = (ops::floor(t) as usize).clamp(0, self.segments.len() - 1);
             (&self.segments[i], t - i as f32)
         }
     }
 }
-
 impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
     type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
 
@@ -1204,8 +1447,9 @@ impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
         self.segments.into_iter()
     }
 }
-
 /// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
+
+#[cfg(feature = "alloc")]
 pub trait RationalGenerator<P: VectorSpace> {
     /// An error type indicating why construction might fail.
     type Error;
@@ -1213,15 +1457,22 @@ pub trait RationalGenerator<P: VectorSpace> {
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> Result<RationalCurve<P>, Self::Error>;
 }
-
 /// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
+
 /// It is a [`Curve`] with domain `[0, 1]`.
+
 ///
+
 /// Note that the `knot_span` is used only by [compound curves] constructed by chaining these
+
 /// together.
+
 ///
+
 /// [compound curves]: RationalCurve
+
 /// [`Curve`]: crate::curve::Curve
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -1233,7 +1484,6 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
-
 impl<P: VectorSpace> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
@@ -1310,6 +1560,7 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
+    #[allow(unused)]
     #[inline]
     fn coefficients(
         control_points: [P; 4],
@@ -1346,14 +1597,20 @@ impl<P: VectorSpace> RationalSegment<P> {
         }
     }
 }
-
 /// A collection of [`RationalSegment`]s chained into a single parametric curve. It is a [`Curve`]
+
 /// with domain `[0, N]`, where `N` is the number of segments.
+
 ///
+
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
+
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
+
 ///
+
 /// [`Curve`]: crate::curve::Curve
+
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
@@ -1361,12 +1618,12 @@ pub struct RationalCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<RationalSegment<P>>,
 }
-
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> RationalCurve<P> {
     /// Create a new curve from a collection of segments. If the collection of segments is empty,
     /// a curve cannot be built and `None` will be returned instead.
-    pub fn from_segments(segments: impl Into<Vec<RationalSegment<P>>>) -> Option<Self> {
-        let segments: Vec<_> = segments.into();
+    pub fn from_segments(segments: impl IntoIterator<Item = RationalSegment<P>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into_iter().collect();
         if segments.is_empty() {
             None
         } else {
@@ -1492,13 +1749,20 @@ impl<P: VectorSpace> RationalCurve<P> {
         self.segments.iter().map(|segment| segment.knot_span).sum()
     }
 }
-
+use core::fmt::Debug;
+#[cfg(feature = "alloc")]
+#[cfg(all(feature = "curve", feature = "alloc"))]
+#[cfg(feature = "alloc")]
+#[cfg(feature = "alloc")]
+#[cfg(all(feature = "curve", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> Extend<RationalSegment<P>> for RationalCurve<P> {
     fn extend<T: IntoIterator<Item = RationalSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> IntoIterator for RationalCurve<P> {
     type IntoIter = <Vec<RationalSegment<P>> as IntoIterator>::IntoIter;
 
@@ -1519,6 +1783,7 @@ impl<P: VectorSpace> From<CubicSegment<P>> for RationalSegment<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
     fn from(value: CubicCurve<P>) -> Self {
         Self {
@@ -1527,10 +1792,9 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
     }
 }
 
+#[cfg(feature = "alloc")]
 #[cfg(test)]
 mod tests {
-    use glam::{vec2, Vec2};
-
     use crate::{
         cubic_splines::{
             CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
@@ -1538,6 +1802,8 @@ mod tests {
         },
         ops::{self, FloatPow},
     };
+    use alloc::vec::Vec;
+    use glam::{vec2, Vec2};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -1710,7 +1976,7 @@ mod tests {
         let curve = spline.to_curve().unwrap();
         for (i, point) in curve.iter_positions(10).enumerate() {
             assert!(
-                f32::abs(point.length() - 1.0) < EPSILON,
+                ops::abs(point.length() - 1.0) < EPSILON,
                 "Point {i} is not on the unit circle: {point:?} has length {}",
                 point.length()
             );

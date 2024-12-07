@@ -291,21 +291,27 @@ pub mod derivatives;
 pub mod easing;
 pub mod interval;
 pub mod iterable;
+
+#[cfg(feature = "alloc")]
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
 pub use easing::*;
 pub use interval::{interval, Interval};
-pub use sample_curves::*;
 
-use cores::{EvenCore, UnevenCore};
+#[cfg(feature = "alloc")]
+pub use {
+    crate::StableInterpolate,
+    cores::{EvenCore, UnevenCore},
+    itertools::Itertools,
+    sample_curves::*,
+};
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::VectorSpace;
 use core::{marker::PhantomData, ops::Deref};
-use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
-use itertools::Itertools;
+use thiserror::Error;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -717,6 +723,7 @@ pub trait Curve<T> {
     /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
     /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
     /// ```
+    #[cfg(feature = "alloc")]
     fn resample<I>(
         &self,
         segments: usize,
@@ -744,6 +751,7 @@ pub trait Curve<T> {
     /// domain, then a [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
         Self: Sized,
@@ -795,6 +803,7 @@ pub trait Curve<T> {
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    #[cfg(feature = "alloc")]
     fn resample_uneven<I>(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -833,6 +842,7 @@ pub trait Curve<T> {
     /// sample times of the iterator.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -906,74 +916,73 @@ where
 
 /// An error indicating that a linear reparameterization couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not build a linear function to reparametrize this curve")]
+#[derive(Debug, Error)]
+#[error("Could not build a linear function to reparametrize this curve")]
 pub enum LinearReparamError {
     /// The source curve that was to be reparametrized had unbounded domain.
-    #[display("This curve has unbounded domain")]
+    #[error("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
     /// The target interval for reparameterization was unbounded.
-    #[display("The target interval for reparameterization is unbounded")]
+    #[error("The target interval for reparameterization is unbounded")]
     TargetIntervalUnbounded,
 }
 
 /// An error indicating that a reversion of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not reverse this curve")]
+#[derive(Debug, Error)]
+#[error("Could not reverse this curve")]
 pub enum ReverseError {
     /// The source curve that was to be reversed had unbounded domain end.
-    #[display("This curve has an unbounded domain end")]
+    #[error("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that a repetition of a curve couldn't be performed because of malformed
 /// inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not repeat this curve")]
+#[derive(Debug, Error)]
+#[error("Could not repeat this curve")]
 pub enum RepeatError {
     /// The source curve that was to be repeated had unbounded domain.
-    #[display("This curve has an unbounded domain")]
+    #[error("This curve has an unbounded domain")]
     SourceDomainUnbounded,
 }
 
 /// An error indicating that a ping ponging of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not ping pong this curve")]
+#[derive(Debug, Error)]
+#[error("Could not ping pong this curve")]
 pub enum PingPongError {
     /// The source curve that was to be ping ponged had unbounded domain end.
-    #[display("This curve has an unbounded domain end")]
+    #[error("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not compose these curves together")]
+#[derive(Debug, Error)]
+#[error("Could not compose these curves together")]
 pub enum ChainError {
     /// The right endpoint of the first curve was infinite.
-    #[display("The first curve's domain has an infinite end")]
+    #[error("The first curve's domain has an infinite end")]
     FirstEndInfinite,
 
     /// The left endpoint of the second curve was infinite.
-    #[display("The second curve's domain has an infinite start")]
+    #[error("The second curve's domain has an infinite start")]
     SecondStartInfinite,
 }
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug, Error, Display)]
-#[display("Could not resample from this curve because of bad inputs")]
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[display("Not enough unique samples to construct resampled curve")]
-    #[error(ignore)]
+    #[error("Not enough unique samples to construct resampled curve")]
     NotEnoughSamples(usize),
 
     /// This resampling operation failed because of an unbounded interval.
-    #[display("Could not resample because this curve has unbounded domain")]
+    #[error("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
 }
 

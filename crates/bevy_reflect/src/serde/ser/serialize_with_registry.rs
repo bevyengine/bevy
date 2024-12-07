@@ -1,4 +1,5 @@
 use crate::{FromType, Reflect, TypeRegistry};
+use alloc::boxed::Box;
 use serde::{Serialize, Serializer};
 
 /// Trait used to provide finer control when serializing a reflected type with one of
