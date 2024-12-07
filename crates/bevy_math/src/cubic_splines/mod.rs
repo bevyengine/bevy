@@ -49,13 +49,14 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 /// let bezier = CubicBezier::new(points).to_curve().unwrap();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve.
     pub control_points: Vec<[P; 4]>,
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
@@ -65,6 +66,7 @@ impl<P: VectorSpace> CubicBezier<P> {
         }
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
     type Error = CubicBezierError;
@@ -147,13 +149,14 @@ pub struct CubicBezierError;
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve.
     pub control_points: Vec<(P, P)>,
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
@@ -181,6 +184,7 @@ impl<P: VectorSpace> CubicHermite<P> {
         ]
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
@@ -206,6 +210,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
         }
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
     type Error = InsufficientDataError;
@@ -273,8 +278,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     /// Tension
@@ -282,6 +287,7 @@ pub struct CubicCardinalSpline<P: VectorSpace> {
     /// The control points of the Cardinal spline
     pub control_points: Vec<P>,
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
@@ -315,6 +321,7 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
         ]
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
@@ -352,6 +359,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
         Ok(CubicCurve { segments })
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     type Error = InsufficientDataError;
@@ -432,8 +440,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
@@ -471,6 +479,7 @@ impl<P: VectorSpace> CubicBSpline<P> {
         char_matrix
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
@@ -493,6 +502,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
         }
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
     type Error = InsufficientDataError;
@@ -521,8 +531,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
         }
     }
 }
-/// Error during construction of [`CubicNurbs`]
 
+/// Error during construction of [`CubicNurbs`]
 #[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
@@ -607,8 +617,8 @@ pub enum CubicNurbsError {
 ///     .unwrap();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
     /// The control points of the NURBS
@@ -618,6 +628,7 @@ pub struct CubicNurbs<P: VectorSpace> {
     /// Knots
     pub knots: Vec<f32>,
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
@@ -779,6 +790,7 @@ impl<P: VectorSpace> CubicNurbs<P> {
         ]
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
     type Error = InsufficientDataError;
@@ -838,13 +850,14 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// formed with [`to_curve_cyclic`], the final segment connects the last control point with the first.
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the linear spline.
     pub points: Vec<P>,
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline from a list of points to be interpolated.
@@ -854,6 +867,7 @@ impl<P: VectorSpace> LinearSpline<P> {
         }
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
     type Error = InsufficientDataError;
@@ -882,6 +896,7 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
         }
     }
 }
+
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
     type Error = InsufficientDataError;
@@ -907,14 +922,15 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
         }
     }
 }
-/// An error indicating that a spline construction didn't have enough control points to generate a curve.
 
+/// An error indicating that a spline construction didn't have enough control points to generate a curve.
 #[derive(Clone, Debug, Error)]
 #[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
 pub struct InsufficientDataError {
     expected: usize,
     given: usize,
 }
+
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
 #[cfg(feature = "alloc")]
 pub trait CubicGenerator<P: VectorSpace> {
@@ -952,6 +968,7 @@ pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
     pub coeff: [P; 4],
 }
+
 impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
