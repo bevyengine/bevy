@@ -26,7 +26,7 @@ use rand::prelude::{Rng, SeedableRng, SliceRandom};
 use rand_chacha::ChaCha8Rng;
 use std::{alloc::Layout, num::Wrapping};
 
-// A simple sytem that matches against several components and does some menial calculation to create
+// A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
     for mut filtered_entity in &mut query {
