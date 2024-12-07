@@ -16,13 +16,10 @@ bevy_ci_testing = ["serde", "ron"]
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.15.0-dev" }
