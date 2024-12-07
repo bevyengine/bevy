@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(feature = "bevy_ui_debug_overlay")]
+                            #[cfg(feature = "bevy_ui_debug")]
                             // Debug overlay text
                             parent.spawn((
                                 Text::new("Press Space to toggle debug outlines."),
@@ -87,12 +87,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(not(feature = "bevy_ui_debug_overlay"))]
+                            #[cfg(not(feature = "bevy_ui_debug"))]
                             parent.spawn((
-                                Text::new("Try enabling feature \"bevy_ui_debug_overlay\"."),
+                                Text::new("Try enabling feature \"bevy_ui_debug\"."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: 16.0,
                                     ..default()
                                 },
                                 Label,

@@ -46,7 +46,7 @@ accesskit = "0.17"
 default = []
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
 bevy_ui_picking_backend = ["bevy_picking"]
-bevy_ui_debug_overlay = []
+bevy_ui_debug = []
 
 # Experimental features
 ghost_nodes = []
