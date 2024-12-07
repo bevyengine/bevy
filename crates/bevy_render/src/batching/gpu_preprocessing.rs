@@ -10,19 +10,21 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
+use bevy_utils::tracing::error;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
-use smallvec::smallvec;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
+        CachedRenderPipelinePhaseItem, PhaseItemBinKey as _, PhaseItemExtraIndex, SortedPhaseItem,
+        SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
+        ViewSortedRenderPhases,
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::MainEntity,
     view::{ExtractedView, GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -63,12 +65,49 @@ impl Plugin for BatchingPlugin {
 ///
 /// [a `wgpu` limitation]: https://github.com/gfx-rs/wgpu/issues/2471
 #[derive(Clone, Copy, PartialEq, Resource)]
-pub enum GpuPreprocessingSupport {
-    /// No GPU preprocessing support is available at all.
+pub struct GpuPreprocessingSupport {
+    /// The maximum amount of GPU preprocessing available on this platform.
+    pub max_supported_mode: GpuPreprocessingMode,
+}
+
+impl GpuPreprocessingSupport {
+    /// Returns true if this GPU preprocessing support level isn't `None`.
+    #[inline]
+    pub fn is_available(&self) -> bool {
+        self.max_supported_mode != GpuPreprocessingMode::None
+    }
+
+    /// Returns the given GPU preprocessing mode, capped to the current
+    /// preprocessing mode.
+    pub fn min(&self, mode: GpuPreprocessingMode) -> GpuPreprocessingMode {
+        match (self.max_supported_mode, mode) {
+            (GpuPreprocessingMode::None, _) | (_, GpuPreprocessingMode::None) => {
+                GpuPreprocessingMode::None
+            }
+            (mode, GpuPreprocessingMode::Culling) | (GpuPreprocessingMode::Culling, mode) => mode,
+            (GpuPreprocessingMode::PreprocessingOnly, GpuPreprocessingMode::PreprocessingOnly) => {
+                GpuPreprocessingMode::PreprocessingOnly
+            }
+        }
+    }
+}
+
+/// The amount of GPU preprocessing (compute and indirect draw) that we do.
+#[derive(Clone, Copy, PartialEq)]
+pub enum GpuPreprocessingMode {
+    /// No GPU preprocessing is in use at all.
+    ///
+    /// This is used when GPU compute isn't available.
     None,
-    /// GPU preprocessing is available, but GPU culling isn't.
+
+    /// GPU preprocessing is in use, but GPU culling isn't.
+    ///
+    /// This is used by default.
     PreprocessingOnly,
-    /// Both GPU preprocessing and GPU culling are available.
+
+    /// Both GPU preprocessing and GPU culling are in use.
+    ///
+    /// This is used when the [`GpuCulling`] component is present on the camera.
     Culling,
 }
 
@@ -103,7 +142,7 @@ where
     /// The uniform data inputs for the current frame.
     ///
     /// These are uploaded during the extraction phase.
-    pub current_input_buffer: RawBufferVec<BDI>,
+    pub current_input_buffer: InstanceInputUniformBuffer<BDI>,
 
     /// The uniform data inputs for the previous frame.
     ///
@@ -112,7 +151,58 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: RawBufferVec<BDI>,
+    pub previous_input_buffer: InstanceInputUniformBuffer<BDI>,
+}
+
+/// Holds the GPU buffer of instance input data, which is the data about each
+/// mesh instance that the CPU provides.
+///
+/// `BDI` is the *buffer data input* type, which the GPU mesh preprocessing
+/// shader is expected to expand to the full *buffer data* type.
+pub struct InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    /// The buffer containing the data that will be uploaded to the GPU.
+    pub buffer: RawBufferVec<BDI>,
+
+    /// The main-world entity that each item in
+    /// [`InstanceInputUniformBuffer::buffer`] corresponds to.
+    ///
+    /// This array must have the same length as
+    /// [`InstanceInputUniformBuffer::buffer`]. This bookkeeping is needed when
+    /// moving the data for an entity in the buffer (which happens when an
+    /// entity is removed), so that we can update other data structures with the
+    /// new buffer index of that entity.
+    pub main_entities: Vec<MainEntity>,
+}
+
+impl<BDI> InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    /// Creates a new, empty buffer.
+    pub fn new() -> InstanceInputUniformBuffer<BDI> {
+        InstanceInputUniformBuffer {
+            buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            main_entities: vec![],
+        }
+    }
+
+    /// Clears the buffer and entity list out.
+    pub fn clear(&mut self) {
+        self.buffer.clear();
+        self.main_entities.clear();
+    }
+}
+
+impl<BDI> Default for InstanceInputUniformBuffer<BDI>
+where
+    BDI: Pod,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
@@ -249,19 +339,21 @@ impl FromWorld for GpuPreprocessingSupport {
             }
         }
 
-        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
         {
-            GpuPreprocessingSupport::None
+            GpuPreprocessingMode::None
         } else if !device
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE) ||
             !adapter.get_downlevel_capabilities().flags.contains(
         DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
         {
-            GpuPreprocessingSupport::PreprocessingOnly
+            GpuPreprocessingMode::PreprocessingOnly
         } else {
-            GpuPreprocessingSupport::Culling
-        }
+            GpuPreprocessingMode::Culling
+        };
+
+        GpuPreprocessingSupport { max_supported_mode }
     }
 }
 
@@ -275,8 +367,8 @@ where
         BatchedInstanceBuffers {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
             work_item_buffers: EntityHashMap::default(),
-            current_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
-            previous_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            current_input_buffer: InstanceInputUniformBuffer::new(),
+            previous_input_buffer: InstanceInputUniformBuffer::new(),
         }
     }
 
@@ -292,8 +384,6 @@ where
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
         self.data_buffer.clear();
-        self.current_input_buffer.clear();
-        self.previous_input_buffer.clear();
         for work_item_buffer in self.work_item_buffers.values_mut() {
             work_item_buffer.buffer.clear();
         }
@@ -550,6 +640,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
+        // If multi-draw is in use, as we step through the list of batchables,
+        // we gather adjacent batches that have the same *batch set* key into
+        // batch sets. This variable stores the last batch set key that we've
+        // seen. If our current batch set key is identical to this one, we can
+        // merge the current batch into the last batch set.
+        let mut last_multidraw_key = None;
+
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
@@ -565,10 +662,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         batch.instance_range.end = output_index + 1;
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
-                            output_index: batch
-                                .extra_index
-                                .as_indirect_parameters_index()
-                                .unwrap_or(output_index),
+                            output_index: match batch.extra_index {
+                                PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                                    range.start
+                                }
+                                PhaseItemExtraIndex::DynamicOffset(_)
+                                | PhaseItemExtraIndex::None => output_index,
+                            },
                         });
                     }
 
@@ -600,14 +700,33 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                     }
                 }
             }
 
             if let Some(batch) = batch {
-                phase.batch_sets.push(smallvec![batch]);
+                match phase.batch_sets {
+                    BinnedRenderPhaseBatchSets::DynamicUniforms(_) => {
+                        error!("Dynamic uniform batch sets shouldn't be used here");
+                    }
+                    BinnedRenderPhaseBatchSets::Direct(ref mut vec) => {
+                        vec.push(batch);
+                    }
+                    BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets) => {
+                        // We're in multi-draw mode. Check to see whether our
+                        // batch set key is the same as the last one. If so,
+                        // merge this batch into the preceding batch set.
+                        let this_multidraw_key = key.get_batch_set_key();
+                        if last_multidraw_key.as_ref() == Some(&this_multidraw_key) {
+                            batch_sets.last_mut().unwrap().push(batch);
+                        } else {
+                            last_multidraw_key = Some(this_multidraw_key);
+                            batch_sets.push(vec![batch]);
+                        }
+                    }
+                }
             }
         }
 
@@ -638,8 +757,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
                             instance_index: indirect_parameters_index.into(),
-                            extra_index: PhaseItemExtraIndex::indirect_parameters_index(
-                                indirect_parameters_index.into(),
+                            extra_index: PhaseItemExtraIndex::IndirectParametersIndex(
+                                u32::from(indirect_parameters_index)
+                                    ..(u32::from(indirect_parameters_index) + 1),
                             ),
                         });
                 } else {
@@ -651,7 +771,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
                             instance_index: output_index,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                 }
             }
@@ -671,13 +791,16 @@ pub fn write_batched_instance_buffers<GFBD>(
         ref mut data_buffer,
         work_item_buffers: ref mut index_buffers,
         ref mut current_input_buffer,
-        previous_input_buffer: _,
+        ref mut previous_input_buffer,
     } = gpu_array_buffer.into_inner();
 
     data_buffer.write_buffer(&render_device);
-    current_input_buffer.write_buffer(&render_device, &render_queue);
-    // There's no need to write `previous_input_buffer`, as we wrote
-    // that on the previous frame, and it hasn't changed.
+    current_input_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
+    previous_input_buffer
+        .buffer
+        .write_buffer(&render_device, &render_queue);
 
     for index_buffer in index_buffers.values_mut() {
         index_buffer

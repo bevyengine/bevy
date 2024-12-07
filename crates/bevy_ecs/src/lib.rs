@@ -1,5 +1,7 @@
 // FIXME(11590): remove this once the lint is fixed
 #![allow(unsafe_op_in_unsafe_fn)]
+// TODO: remove once Edition 2024 is released
+#![allow(dependency_on_unit_never_type_fallback)]
 #![doc = include_str!("../README.md")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
@@ -30,6 +32,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod removal_detection;
+pub mod result;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -42,19 +45,21 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::Component,
+        component::{require, Component},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        result::{Error, Result},
         schedule::{
-            apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
-            IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
+            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
@@ -82,11 +87,10 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
@@ -2343,6 +2347,94 @@ mod tests {
         let id = world.spawn(A).id();
 
         assert!(world.entity(id).get::<C>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_up_even_more() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<D>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components_with::<D, Counter>(|| Counter(2));
+        // This should replace the require constructor in A since it is
+        // shallower.
+        world.register_required_components_with::<C, Counter>(|| Counter(1));
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require_deep_subtree_after_shallow(
+    ) {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component, Default)]
+        struct D;
+        #[derive(Component, Default)]
+        struct E;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct F;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components::<D, E>();
+        world.register_required_components_with::<E, Counter>(|| Counter(1));
+        world.register_required_components_with::<F, Counter>(|| Counter(2));
+        world.register_required_components::<E, F>();
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
     }
 
     #[test]

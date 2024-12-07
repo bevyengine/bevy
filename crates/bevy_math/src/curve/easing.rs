@@ -309,18 +309,18 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn circular_in(t: f32) -> f32 {
-        1.0 - (1.0 - t.squared()).sqrt()
+        1.0 - ops::sqrt(1.0 - t.squared())
     }
     #[inline]
     pub(crate) fn circular_out(t: f32) -> f32 {
-        (1.0 - (t - 1.0).squared()).sqrt()
+        ops::sqrt(1.0 - (t - 1.0).squared())
     }
     #[inline]
     pub(crate) fn circular_in_out(t: f32) -> f32 {
         if t < 0.5 {
-            (1.0 - (1.0 - (2.0 * t).squared()).sqrt()) / 2.0
+            (1.0 - ops::sqrt(1.0 - (2.0 * t).squared())) / 2.0
         } else {
-            ((1.0 - (-2.0 * t + 2.0).squared()).sqrt() + 1.0) / 2.0
+            (ops::sqrt(1.0 - (-2.0 * t + 2.0).squared()) + 1.0) / 2.0
         }
     }
 
@@ -411,7 +411,7 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        (t * num_steps as f32).round() / num_steps.max(1) as f32
+        ops::round(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
     #[inline]

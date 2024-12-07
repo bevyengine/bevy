@@ -289,6 +289,28 @@ pub struct TextFont {
 }
 
 impl TextFont {
+    /// Returns a new [`TextFont`] with the specified font face handle.
+    pub fn from_font(font: Handle<Font>) -> Self {
+        Self::default().with_font(font)
+    }
+
+    /// Returns a new [`TextFont`] with the specified font size.
+    pub fn from_font_size(font_size: f32) -> Self {
+        Self::default().with_font_size(font_size)
+    }
+
+    /// Returns this [`TextFont`] with the specified font face handle.
+    pub fn with_font(mut self, font: Handle<Font>) -> Self {
+        self.font = font;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font size.
+    pub const fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;

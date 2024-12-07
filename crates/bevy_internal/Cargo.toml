@@ -24,7 +24,7 @@ trace = [
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-detailed_trace = ["bevy_utils/detailed_trace"]
+detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
@@ -218,12 +218,22 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 bevy_remote = ["dep:bevy_remote"]
 
 # Provides picking functionality
-bevy_picking = [
-  "dep:bevy_picking",
-  "bevy_picking/bevy_mesh",
-  "bevy_ui?/bevy_picking",
-  "bevy_sprite?/bevy_picking",
+bevy_picking = ["dep:bevy_picking"]
+
+# Provides a mesh picking backend
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_picking/bevy_mesh_picking_backend",
 ]
+
+# Provides a sprite picking backend
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_sprite/bevy_sprite_picking_backend",
+]
+
+# Provides a UI picking backend
+bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
@@ -258,6 +268,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.15.0-dev" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.15.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }

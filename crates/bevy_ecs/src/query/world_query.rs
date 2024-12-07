@@ -6,7 +6,7 @@ use crate::{
     storage::{Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]

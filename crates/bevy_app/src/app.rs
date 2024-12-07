@@ -15,11 +15,11 @@ use bevy_ecs::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
-use derive_more::derive::{Display, Error};
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
+use thiserror::Error;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -32,9 +32,9 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub(crate) enum AppError {
-    #[display("duplicate plugin {plugin_name:?}")]
+    #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
@@ -1008,12 +1008,18 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
-    /// Returns a reference to the [`World`].
+    /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main().world()`].
+    ///
+    /// [`app.main().world()`]: SubApp::world
     pub fn world(&self) -> &World {
         self.main().world()
     }
 
-    /// Returns a mutable reference to the [`World`].
+    /// Returns a mutable reference to the main [`SubApp`]'s [`World`]. This is the same as calling
+    /// [`app.main_mut().world_mut()`].
+    ///
+    /// [`app.main_mut().world_mut()`]: SubApp::world_mut
     pub fn world_mut(&mut self) -> &mut World {
         self.main_mut().world_mut()
     }

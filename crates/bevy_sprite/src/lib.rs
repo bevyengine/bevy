@@ -41,6 +41,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
+#[cfg(feature = "bevy_sprite_picking_backend")]
+pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
@@ -63,8 +65,20 @@ use bevy_render::{
 };
 
 /// Adds support for 2D sprite rendering.
-#[derive(Default)]
-pub struct SpritePlugin;
+pub struct SpritePlugin {
+    /// Whether to add the sprite picking backend to the app.
+    #[cfg(feature = "bevy_sprite_picking_backend")]
+    pub add_picking: bool,
+}
+
+impl Default for SpritePlugin {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "bevy_sprite_picking_backend")]
+            add_picking: true,
+        }
+    }
+}
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
 pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
@@ -135,7 +149,9 @@ impl Plugin for SpritePlugin {
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        app.add_plugins(picking_backend::SpritePickingPlugin);
+        if self.add_picking {
+            app.add_plugins(SpritePickingPlugin);
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
