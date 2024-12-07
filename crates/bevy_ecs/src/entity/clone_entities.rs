@@ -80,7 +80,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 
     /// Returns a reference to the component on the source entity.
-    /// Will return `None` if ComponentId of requested component does not match ComponentId of source component
+    ///
+    /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
     pub fn read_source_component<T: Component>(&self) -> Option<&T> {
         if self
             .components
@@ -94,6 +95,22 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         } else {
             None
         }
+    }
+
+    /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Will return `None` if:
+    /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
+    /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
+    /// - Component is not registered.
+    /// - Component does not have [`TypeId`]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn read_source_component_reflect(&self) -> Option<&dyn bevy_reflect::Reflect> {
+        let registry = self.type_registry?.read();
+        let type_id = self.components.get_info(self.component_id)?.type_id()?;
+        let reflect_from_ptr = registry.get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)?;
+        // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
+        unsafe { Some(reflect_from_ptr.as_reflect(self.source_component_ptr)) }
     }
 
     /// Writes component data to target entity.
@@ -119,6 +136,53 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             .push(PtrMut::from(component_ref));
         self.target_component_written = true
     }
+
+    // /// Writes component data to target entity.
+    // ///
+    // /// # Panics
+    // /// This will panic if:
+    // /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
+    // /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
+    // /// - Component is not registered.
+    // /// - Component does not have [`TypeId`]
+    // #[cfg(feature = "bevy_reflect")]
+    // pub fn write_target_component_reflect(&mut self, component: impl bevy_reflect::Reflect) {
+    //     let registry = self.type_registry.unwrap().read();
+    //     let component_info = self.components.get_info(self.component_id).unwrap();
+    //     let component_layout = component_info.layout();
+    //     let type_id = component_info.type_id().unwrap();
+    //     let reflect_from_ptr = registry
+    //         .get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)
+    //         .unwrap();
+
+    //     let target_component_data_ptr =
+    //         self.target_components_buffer.alloc_layout(component_layout);
+    //     unsafe {
+    //         core::ptr::copy_nonoverlapping(
+    //             self.source_component_ptr.as_ptr(),
+    //             target_component_data_ptr.as_ptr(),
+    //             component_layout.size(),
+    //         );
+    //         let target_reflect =
+    //             reflect_from_ptr.as_reflect_mut(PtrMut::new(target_component_data_ptr));
+    //         *target_reflect = component;
+    //     }
+
+    //     let short_name = disqualified::ShortName::of::<T>();
+    //     if self.target_component_written {
+    //         panic!("Trying to write component '{short_name}' multiple times")
+    //     }
+    //     let Some(component_id) = self.components.component_id::<T>() else {
+    //         panic!("Component '{short_name}' is not registered")
+    //     };
+    //     if component_id != self.component_id {
+    //         panic!("Component '{short_name}' does not match ComponentId of this ComponentCloneCtx");
+    //     }
+    //     let component_ref = self.target_components_buffer.alloc(component);
+    //     self.target_components_ptrs
+    //         .push(PtrMut::from(component_ref));
+    //     self.target_component_written = true
+    // }
 
     /// Return a reference to this context's `EntityCloner` instance.
     ///
