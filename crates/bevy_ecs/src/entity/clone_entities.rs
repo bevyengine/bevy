@@ -78,7 +78,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 
     /// Returns a reference to the component on the source entity.
-    /// Will return `None` if ComponentId of requested component does not match ComponentId of source component
+    /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
     pub fn read_source_component<T: Component>(&self) -> Option<&T> {
         if self
             .components
@@ -115,7 +115,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         let component_ref = self.target_components_buffer.alloc(component);
         self.target_components_ptrs
             .push(PtrMut::from(component_ref));
-        self.target_component_written = true
+        self.target_component_written = true;
     }
 
     /// Return a reference to this context's `EntityCloner` instance.
@@ -214,7 +214,7 @@ impl EntityCloner {
                     &mut component_data_ptrs,
                     &component_data,
                     components,
-                    &self,
+                    self,
                     #[cfg(feature = "bevy_reflect")]
                     type_registry,
                 )
@@ -223,7 +223,7 @@ impl EntityCloner {
             (handler)(&mut deferred_world, &mut ctx);
 
             if ctx.target_component_written {
-                component_ids.push(component)
+                component_ids.push(component);
             }
         }
 
