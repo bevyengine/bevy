@@ -140,20 +140,22 @@ impl AssetReader for HttpSourceAssetReader {
 /// `ureq` currently does not support caching, so this is a simple workaround.
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
 mod http_asset_cache {
+    use std::collections::hash_map::DefaultHasher;
     use std::fs::{self, File};
+    use std::hash::{Hash, Hasher};
     use std::io::{self, Read, Write};
     use std::path::PathBuf;
 
     const CACHE_DIR: &str = ".http-asset-cache";
 
-    fn url_to_filename(url: &str) -> String {
-        // Basic URL to filename conversion
-        // This is a naive implementation and might need more robust handling
-        url.replace([':', '/', '?', '=', '&'], "_")
+    fn url_to_hash(url: &str) -> String {
+        let mut hasher = DefaultHasher::new();
+        url.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
     }
 
     pub fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
-        let filename = url_to_filename(url);
+        let filename = url_to_hash(url);
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
         if cache_path.exists() {
@@ -167,7 +169,7 @@ mod http_asset_cache {
     }
 
     pub fn save_to_cache(url: &str, data: &[u8]) -> Result<(), io::Error> {
-        let filename = url_to_filename(url);
+        let filename = url_to_hash(url);
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
         fs::create_dir_all(CACHE_DIR).ok();
