@@ -54,7 +54,7 @@ fn call(c: &mut Criterion) {
         .bench_function("function", |b| {
             let add = add.into_function();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32).push_owned(25_i32),
+                || ArgList::new().with_owned(75_i32).with_owned(25_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );
@@ -63,7 +63,7 @@ fn call(c: &mut Criterion) {
             let capture = 25;
             let add = (|a: i32| a + capture).into_function();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32),
+                || ArgList::new().with_owned(75_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );
@@ -72,7 +72,7 @@ fn call(c: &mut Criterion) {
             let mut capture = 25;
             let mut add = (|a: i32| capture += a).into_function_mut();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32),
+                || ArgList::new().with_owned(75_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );

@@ -187,7 +187,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_i32);
+        let args = ArgList::new().with_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -203,7 +203,7 @@ mod tests {
         fn foo(_: i32) {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_u32);
+        let args = ArgList::new().with_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -220,7 +220,7 @@ mod tests {
         fn foo(_: &i32) {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_i32);
+        let args = ArgList::new().with_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
