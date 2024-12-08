@@ -181,13 +181,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     ///
     /// This can be used to issue clone commands using the same cloning configuration:
     /// ```
-    /// # use bevy_ecs::{DeferredWorld, ComponentCloneCtx};
-    /// fn clone_handler(&mut world: DeferredWorld, ctx: &mut ComponentCloneCtx) {
-    ///     let another_target = world.spawn_empty();
+    /// # use bevy_ecs::world::{DeferredWorld, World};
+    /// # use bevy_ecs::entity::ComponentCloneCtx;
+    /// fn clone_handler(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    ///     let another_target = world.commands().spawn_empty().id();
     ///     let mut entity_cloner = ctx
     ///         .entity_cloner()
     ///         .with_source_and_target(ctx.source(), another_target);
-    ///     world.commands().queue(move |world| {
+    ///     world.commands().queue(move |world: &mut World| {
     ///         entity_cloner.clone_entity(world);
     ///     });
     /// }
