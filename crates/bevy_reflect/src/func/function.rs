@@ -52,8 +52,10 @@ pub trait Function: PartialReflect + Debug {
 
     /// Returns the number of arguments the function expects.
     ///
-    /// For overloaded functions that can have a variable number of arguments,
+    /// For [overloaded] functions that can have a variable number of arguments,
     /// this will contain the full set of counts for all signatures.
+    ///
+    /// [overloaded]: crate::func#overloading-functions
     fn arg_count(&self) -> ArgCount {
         self.info().arg_count()
     }
