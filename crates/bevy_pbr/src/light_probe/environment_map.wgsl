@@ -256,7 +256,7 @@ fn environment_map_light(
 }
 
 // "Moving Frostbite to Physically Based Rendering 3.0", listing 22
-// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf
+// https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
 fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * sqrt((smoothness) + roughness);
