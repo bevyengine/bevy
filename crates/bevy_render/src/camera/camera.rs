@@ -32,7 +32,7 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{default, tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -62,7 +62,7 @@ pub struct Viewport {
 impl Default for Viewport {
     fn default() -> Self {
         Self {
-            physical_position: Default::default(),
+            physical_position: default(),
             physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
         }
@@ -338,12 +338,12 @@ impl Default for Camera {
             is_active: true,
             order: 0,
             viewport: None,
-            computed: Default::default(),
-            target: Default::default(),
-            output_mode: Default::default(),
+            computed: default(),
+            target: default(),
+            output_mode: default(),
             hdr: false,
             msaa_writeback: true,
-            clear_color: Default::default(),
+            clear_color: default(),
             sub_camera_view: None,
         }
     }
@@ -726,7 +726,7 @@ pub enum RenderTarget {
 
 impl Default for RenderTarget {
     fn default() -> Self {
-        Self::Window(Default::default())
+        Self::Window(default())
     }
 }
 
