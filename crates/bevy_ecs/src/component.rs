@@ -1021,7 +1021,7 @@ pub struct ComponentCloneHandlers {
 }
 
 impl ComponentCloneHandlers {
-    /// Sets the default handler for this registry. All components with [`Default`](ComponentCloneHandler::Default) handler, as well as any component that does not have an
+    /// Sets the default handler for this registry. All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
     /// explicitly registered clone function will use this handler.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
