@@ -620,15 +620,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> RepeatCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
         let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
@@ -668,15 +678,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> ForeverCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
         let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
