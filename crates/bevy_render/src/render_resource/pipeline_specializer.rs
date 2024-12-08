@@ -13,7 +13,7 @@ use bevy_utils::{
     Entry, HashMap,
 };
 use core::{fmt::Debug, hash::Hash};
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
@@ -183,7 +183,8 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     }
 }
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum SpecializedMeshPipelineError {
-    MissingVertexAttribute(MissingVertexAttributeError),
+    #[error(transparent)]
+    MissingVertexAttribute(#[from] MissingVertexAttributeError),
 }

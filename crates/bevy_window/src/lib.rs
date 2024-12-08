@@ -164,7 +164,8 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<AppLifecycle>();
+            .register_type::<AppLifecycle>()
+            .register_type::<Monitor>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

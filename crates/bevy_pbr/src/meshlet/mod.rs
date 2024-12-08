@@ -68,7 +68,7 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
-    component::Component,
+    component::{require, Component},
     entity::Entity,
     prelude::With,
     query::Has,
@@ -142,6 +142,7 @@ impl MeshletPlugin {
         WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
+            | WgpuFeatures::DEPTH_CLIP_CONTROL
             | WgpuFeatures::PUSH_CONSTANTS
     }
 }

@@ -374,7 +374,7 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [trait reflection example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/trait_reflection.rs)
+//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
 //! # Serialization
@@ -552,6 +552,8 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 mod array;
@@ -649,6 +651,18 @@ pub mod __macro_exports {
         DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
+
+    /// Re-exports of items from the [`alloc`] crate.
+    ///
+    /// This is required because in `std` environments (e.g., the `std` feature is enabled)
+    /// the `alloc` crate may not have been included, making its namespace unreliable.
+    pub mod alloc_utils {
+        pub use ::alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            string::ToString,
+        };
+    }
 
     /// A wrapper trait around [`GetTypeRegistration`].
     ///

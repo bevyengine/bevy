@@ -1,3 +1,5 @@
+use self::assign::ClusterableObjectType;
+use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
@@ -9,8 +11,11 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::camera::SortedCameras;
-use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::SortedCameras,
+    mesh::allocator::MeshAllocator,
+};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -23,6 +28,10 @@ use bevy_render::{
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
+};
+use bevy_render::{
+    mesh::allocator::SlabId,
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -671,8 +680,7 @@ pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    (render_device, render_queue): (Res<RenderDevice>, Res<RenderQueue>),
     mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -701,6 +709,7 @@ pub fn prepare_lights(
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
     mut light_view_entities: Query<&mut LightViewEntities>,
     sorted_cameras: Res<SortedCameras>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -820,15 +829,11 @@ pub fn prepare_lights(
         clusterable_object_order(
             ClusterableObjectOrderData {
                 entity: entity_1,
-                shadows_enabled: &light_1.shadows_enabled,
-                is_volumetric_light: &light_1.volumetric,
-                is_spot_light: &light_1.spot_light_angles.is_some(),
+                object_type: &ClusterableObjectType::from_point_or_spot_light(light_1),
             },
             ClusterableObjectOrderData {
                 entity: entity_2,
-                shadows_enabled: &light_2.shadows_enabled,
-                is_volumetric_light: &light_2.volumetric,
-                is_spot_light: &light_2.spot_light_angles.is_some(),
+                object_type: &ClusterableObjectType::from_point_or_spot_light(light_2),
             },
         )
     });
@@ -1231,7 +1236,11 @@ pub fn prepare_lights(
 
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
-                    shadow_render_phases.insert_or_clear(view_light_entity);
+                    // TODO: Implement GPU culling for shadow passes.
+                    shadow_render_phases.insert_or_clear(
+                        view_light_entity,
+                        gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
+                    );
                     live_shadow_mapping_lights.insert(view_light_entity);
                 }
             }
@@ -1319,7 +1328,10 @@ pub fn prepare_lights(
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(view_light_entity);
+                shadow_render_phases.insert_or_clear(
+                    view_light_entity,
+                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
+                );
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
@@ -1449,7 +1461,11 @@ pub fn prepare_lights(
 
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
-                shadow_render_phases.insert_or_clear(view_light_entity);
+                // TODO: Implement GPU culling for shadow passes.
+                shadow_render_phases.insert_or_clear(
+                    view_light_entity,
+                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
+                );
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
@@ -1500,14 +1516,20 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    (render_meshes, render_mesh_instances): (
+        Res<RenderAssets<RenderMesh>>,
+        Res<RenderMeshInstances>,
+    ),
+    (render_materials, render_material_instances): (
+        Res<RenderAssets<PreparedMaterial<M>>>,
+        Res<RenderMaterialInstances<M>>,
+    ),
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
+    mesh_allocator: Res<MeshAllocator>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1554,7 +1576,7 @@ pub fn queue_shadows<M: Material>(
                     .expect("Failed to get spot light visible entities"),
             };
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
+            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
@@ -1574,6 +1596,11 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
+                let Some(material_bind_group) =
+                    material_bind_group_allocator.get(material.binding.group)
+                else {
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -1605,7 +1632,9 @@ pub fn queue_shadows<M: Material>(
                     &prepass_pipeline,
                     MaterialPipelineKey {
                         mesh_key,
-                        bind_group_data: material.key.clone(),
+                        bind_group_data: material_bind_group
+                            .get_extra_data(material.binding.slot)
+                            .clone(),
                     },
                     &mesh.layout,
                 );
@@ -1618,14 +1647,17 @@ pub fn queue_shadows<M: Material>(
                     }
                 };
 
-                mesh_instance
-                    .material_bind_group_id
-                    .set(material.get_bind_group_id());
+                let (vertex_slab, index_slab) =
+                    mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 shadow_phase.add(
                     ShadowBinKey {
-                        draw_function: draw_shadow_mesh,
-                        pipeline: pipeline_id,
+                        batch_set_key: ShadowBatchSetKey {
+                            pipeline: pipeline_id,
+                            draw_function: draw_shadow_mesh,
+                            vertex_slab: vertex_slab.unwrap_or_default(),
+                            index_slab,
+                        },
                         asset_id: mesh_instance.mesh_asset_id.into(),
                     },
                     (entity, main_entity),
@@ -1643,17 +1675,50 @@ pub struct Shadow {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-/// Data used to bin each object in the shadow map phase.
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set*.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ShadowBinKey {
+pub struct ShadowBatchSetKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
+    /// The ID of the slab of GPU memory that contains vertex data.
+    ///
+    /// For non-mesh items, you can fill this with 0 if your items can be
+    /// multi-drawn, or with a unique value if they can't.
+    pub vertex_slab: SlabId,
+
+    /// The ID of the slab of GPU memory that contains index data, if present.
+    ///
+    /// For non-mesh items, you can safely fill this with `None`.
+    pub index_slab: Option<SlabId>,
+}
+
+/// Data used to bin each object in the shadow map phase.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ShadowBinKey {
+    /// The key of the *batch set*.
+    ///
+    /// As batches belong to a batch set, meshes in a batch must obviously be
+    /// able to be placed in a single batch set.
+    pub batch_set_key: ShadowBatchSetKey,
+
     /// The object.
     pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItemBinKey for ShadowBinKey {
+    type BatchSetKey = ShadowBatchSetKey;
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        Some(self.batch_set_key.clone())
+    }
 }
 
 impl PhaseItem for Shadow {
@@ -1668,7 +1733,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -1683,7 +1748,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -1714,7 +1779,7 @@ impl BinnedPhaseItem for Shadow {
 impl CachedRenderPipelinePhaseItem for Shadow {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 

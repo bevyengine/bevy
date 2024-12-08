@@ -29,7 +29,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2d, IsDefaultUiCamera, UiBoxShadowSamples(6)));
+    commands.spawn((Camera2d, IsDefaultUiCamera, BoxShadowSamples(6)));
 
     // root node
     commands
@@ -190,7 +190,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
 
-            let shadow = BoxShadow {
+            let shadow_style = ShadowStyle {
                 color: Color::BLACK.with_alpha(0.5),
                 blur_radius: Val::Px(2.),
                 x_offset: Val::Px(10.),
@@ -218,7 +218,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
-                            shadow,
+                            BoxShadow::from(shadow_style),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
@@ -232,7 +232,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -244,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             parent.spawn((
                                 Node {
@@ -256,7 +256,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
-                                shadow,
+                                BoxShadow::from(shadow_style),
                             ));
                             // alpha test
                             parent.spawn((
@@ -269,10 +269,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
-                                BoxShadow {
+                                BoxShadow::from(ShadowStyle {
                                     color: Color::BLACK.with_alpha(0.3),
-                                    ..shadow
-                                },
+                                    ..shadow_style
+                                }),
                             ));
                         });
                 });
