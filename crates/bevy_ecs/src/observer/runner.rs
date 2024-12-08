@@ -196,8 +196,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-///     println!("Entity {:?} goes BOOM!", trigger.entity());
-///     commands.entity(trigger.entity()).despawn();
+///     println!("Entity {:?} goes BOOM!", trigger.target());
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.flush();
@@ -230,7 +230,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.entity()).despawn();
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
