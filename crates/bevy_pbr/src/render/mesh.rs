@@ -939,11 +939,13 @@ impl RenderMeshInstanceGpuBuilder {
                 current_input_buffer.buffer.values_mut()[current_uniform_index] =
                     mesh_input_uniform;
 
-                occupied_entry.replace_entry(RenderMeshInstanceGpu {
-                    translation: self.world_from_local.translation,
-                    shared: self.shared,
-                    current_uniform_index: NonMaxU32::new(current_uniform_index as u32)
-                        .unwrap_or_default(),
+                occupied_entry.replace_entry_with(|_, _| {
+                    Some(RenderMeshInstanceGpu {
+                        translation: self.world_from_local.translation,
+                        shared: self.shared,
+                        current_uniform_index: NonMaxU32::new(current_uniform_index as u32)
+                            .unwrap_or_default(),
+                    })
                 });
             }
 
@@ -1172,7 +1174,7 @@ pub fn extract_meshes_for_cpu_building(
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
         for (entity, render_mesh_instance) in queue.drain(..) {
-            render_mesh_instances.insert_unique_unchecked(entity.into(), render_mesh_instance);
+            render_mesh_instances.insert(entity.into(), render_mesh_instance);
         }
     }
 }

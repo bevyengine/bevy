@@ -24,7 +24,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{hashbrown::HashSet, tracing::warn};
+use bevy_utils::{tracing::warn, HashSet};
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;

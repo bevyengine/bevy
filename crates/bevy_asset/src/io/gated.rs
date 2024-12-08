@@ -44,7 +44,7 @@ impl<R: AssetReader> GatedReader<R> {
     /// Creates a new [`GatedReader`], which wraps the given `reader`. Also returns a [`GateOpener`] which
     /// can be used to open "path gates" for this [`GatedReader`].
     pub fn new(reader: R) -> (Self, GateOpener) {
-        let gates = Arc::new(RwLock::new(HashMap::new()));
+        let gates = Arc::new(RwLock::new(HashMap::default()));
         (
             Self {
                 reader,

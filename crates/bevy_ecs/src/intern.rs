@@ -164,8 +164,8 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use core::hash::{Hash, Hasher};
-    use std::collections::hash_map::DefaultHasher;
+    use bevy_utils::FixedHasher;
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};
 
@@ -250,13 +250,8 @@ mod tests {
 
         assert_eq!(a, b);
 
-        let mut hasher = DefaultHasher::default();
-        a.hash(&mut hasher);
-        let hash_a = hasher.finish();
-
-        let mut hasher = DefaultHasher::default();
-        b.hash(&mut hasher);
-        let hash_b = hasher.finish();
+        let hash_a = FixedHasher.hash_one(a);
+        let hash_b = FixedHasher.hash_one(b);
 
         assert_eq!(hash_a, hash_b);
     }
