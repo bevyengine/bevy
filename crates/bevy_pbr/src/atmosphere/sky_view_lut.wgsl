@@ -22,11 +22,10 @@
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = (vec2<f32>(idx.xy) + vec2(0.5)) / f32(settings.sky_view_lut_size);
 
-    let r = atmosphere.bottom_radius; //TODO: paper says to center the sky view on the planet ground
-
+    let r = view_radius();
     let ray_dir_as_squashed = cubemap_coords_to_ray_dir(uv, idx.z);
     let ray_dir_as = correct_sampling_dir(r, sky_view_lut_unsquash_ray_dir(ray_dir_as_squashed));
-    let ray_dir = direction_view_to_world(ray_dir_as);
+    let ray_dir = direction_atmosphere_to_world(ray_dir_as);
 
     let mu = ray_dir.y;
 
@@ -36,7 +35,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     var total_inscattering = vec3(0.0);
     var optical_depth = vec3(0.0);
     for (var step_i: u32 = 0u; step_i < settings.sky_view_lut_samples; step_i++) {
-        let t_i = dt * (f32(step_i) + 0.5); //todo: 0.3???;
+        let t_i = dt * (f32(step_i) + 0.3); //todo: 0.3???;
         let local_r = get_local_r(r, mu, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
 

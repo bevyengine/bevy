@@ -98,7 +98,7 @@ fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec4<f32> {
 // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
 // instead of towards it (which would be the *view direction*, V)
 
-// evaluates the henyey-greenstein phase function, which describes the likelyhood
+// evaluates the rayleigh phase function, which describes the likelyhood
 // of a rayleigh scattering event scattering light from the light direction towards the view
 fn rayleigh(neg_LdotV: f32) -> f32 {
     return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
@@ -194,8 +194,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
     return (local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering) * view.exposure;
 }
 
-//TODO: make pr to specify light angular size on struct itself
-const SUN_ANGULAR_SIZE: f32 = 0.00436332; //angular radius of sun in radians
+const SUN_ANGULAR_SIZE: f32 = 0.00872665; //angular radius of sun in radians
 
 fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
     var sun_illuminance = vec3(0.0);
@@ -250,7 +249,6 @@ fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
 }
-
 
 /// Convert in 
 fn direction_atmosphere_to_world(atmo_dir: vec3<f32>) -> vec3<f32> {

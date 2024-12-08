@@ -17,7 +17,7 @@
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
     if depth == 0.0 {
-        let ray_dir_as = uv_to_ray_direction_as(in.uv).xyz;
+        let ray_dir_as = uv_to_ray_direction_as(in.uv);
         let ray_dir_ws = direction_atmosphere_to_world(ray_dir_as);
 
         let r = view_radius();

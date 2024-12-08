@@ -47,7 +47,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let local_up = get_local_up(r, t_i, ray_dir.xyz);
 
             let local_atmosphere = sample_atmosphere(local_r);
-            optical_depth += local_atmosphere.extinction * dt; //TODO: units between dt and atmosphere
+            optical_depth += local_atmosphere.extinction * dt; 
 
             // use beer's law to get transmittance from optical density
             let transmittance_to_sample = exp(-optical_depth);
@@ -63,11 +63,10 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     }
 }
 
-// linearly interpolates from 0..1 on the domain of slice_i, using step_i as a substep index 
+// linearly interpolates from 0..1 on the domain of slice_i, using step_i as a substep index
 fn depth_at_sample(slice_i: i32, step_i: i32) -> f32 {
     return (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
 }
-
 
 //Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
 //w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
@@ -86,13 +85,12 @@ fn uv_to_ray_direction_ws(uv: vec2<f32>) -> vec4<f32> {
         1.0,
     );
 
-    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w; //TODO: remove this step and just use position_ndc_to_world? we didn't need to transform in view space
-
+    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
     // Transforming the view space ray direction by the inverse view matrix, transforms the
     // direction to world space. Note that the w element is set to 0.0, as this is a
     // vector direction, not a position, That causes the matrix multiplication to ignore
     // the translations from the view matrix.
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
-    return vec4(normalize(ray_direction), -view_ray_direction.z); //TODO: correct sign?
+    return vec4(normalize(ray_direction), -view_ray_direction.z);
 }

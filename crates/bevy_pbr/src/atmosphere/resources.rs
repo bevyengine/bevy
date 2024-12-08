@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Vec3, Vec3Swizzles};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
@@ -567,9 +567,14 @@ pub(super) fn prepare_atmosphere_transforms(
     for (entity, view) in &views {
         let world_from_view = view.world_from_view.compute_matrix();
         let camera_z = world_from_view.z_axis.truncate();
+        let camera_y = world_from_view.y_axis.truncate();
+        let atmo_z = camera_z
+            .with_y(0.0)
+            .try_normalize()
+            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
         let atmo_y = Vec3::Y;
-        let atmo_x = atmo_y.cross(camera_z).normalize();
-        let atmo_z = atmo_x.cross(atmo_y).normalize();
+        let atmo_x = atmo_z.zyx() * Vec3::NEG_Z; //simplified version of cross(atmo_y, atmo_z);
+
         let world_from_atmosphere = Mat4::from_cols(
             atmo_x.extend(0.0),
             atmo_y.extend(0.0),

@@ -56,7 +56,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         f_ms += ms_sample.f_ms;
     }
 
-    l_2 *= FRAC_4_PI;
     l_2 /= f32(settings.multiscattering_lut_dirs);
     f_ms /= f32(settings.multiscattering_lut_dirs);
 
@@ -95,7 +94,7 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
 
         let mu_light = dot(light_dir, local_up);
         let scattering_no_phase = local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering;
-        f_ms += transmittance_to_sample * scattering_no_phase * dt;
+        f_ms += transmittance_to_sample * scattering_no_phase * FRAC_4_PI * dt;
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
@@ -104,7 +103,7 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
         let rayleigh_scattering = (local_atmosphere.rayleigh_scattering * rayleigh_phase);
         let mie_scattering = (local_atmosphere.mie_scattering * mie_phase);
 
-        l_2 += transmittance_to_sample * shadow_factor * (rayleigh_scattering + mie_scattering) * dt;
+        l_2 += transmittance_to_sample * shadow_factor * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering) * FRAC_4_PI * dt;
     }
 
     //include reflected luminance from planet ground 
