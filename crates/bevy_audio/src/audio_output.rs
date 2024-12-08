@@ -263,7 +263,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     }
     for (entity, sink) in &query_nonspatial_remove {
         if sink.sink.empty() {
-            commands.entity(entity).remove::<(
+            commands.entity(entity).ignore_if_missing().remove::<(
                 AudioPlayer<T>,
                 AudioSink,
                 PlaybackSettings,
@@ -273,7 +273,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     }
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.empty() {
-            commands.entity(entity).remove::<(
+            commands.entity(entity).ignore_if_missing().remove::<(
                 AudioPlayer<T>,
                 SpatialAudioSink,
                 PlaybackSettings,

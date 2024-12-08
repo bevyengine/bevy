@@ -279,12 +279,17 @@ pub fn extract_volumetric_fog(
     if volumetric_lights.is_empty() {
         // TODO: needs better way to handle clean up in render world
         for (entity, ..) in view_targets.iter() {
-            commands
-                .entity(entity)
-                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
+            commands.entity(entity).ignore_if_missing().remove::<(
+                VolumetricFog,
+                ViewVolumetricFogPipelines,
+                ViewVolumetricFog,
+            )>();
         }
         for (entity, ..) in fog_volumes.iter() {
-            commands.entity(entity).remove::<FogVolume>();
+            commands
+                .entity(entity)
+                .ignore_if_missing()
+                .remove::<FogVolume>();
         }
         return;
     }

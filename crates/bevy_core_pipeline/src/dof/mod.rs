@@ -832,7 +832,7 @@ fn extract_depth_of_field_settings(
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
+            entity_commands.ignore_if_missing().remove::<(
                 DepthOfField,
                 DepthOfFieldUniform,
                 // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)

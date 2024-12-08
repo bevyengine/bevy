@@ -146,6 +146,7 @@ fn prepare_msaa_writeback_pipelines(
             // want this to silently break
             commands
                 .entity(entity)
+                .ignore_if_missing()
                 .remove::<MsaaWritebackBlitPipeline>();
         }
     }
