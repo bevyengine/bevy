@@ -316,7 +316,6 @@ fn setup(
                 range: 4.0,
                 radius: 0.6,
                 intensity: 1.0,
-                shadows_enabled: false,
                 color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
@@ -330,7 +329,6 @@ fn setup(
         PointLight {
             color: SKY_COLOR,
             intensity: 2_000.0,
-            shadows_enabled: false,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

@@ -191,9 +191,9 @@ fn sample_directional_cascade(
     let texel_size = (*cascade).texel_size;
 
     // If soft shadows are enabled, use the PCSS path.
-    if ((*light).soft_shadow_size > 0.0) {
+    if ((*light).tan_half_angular_size > 0.0) {
         return sample_shadow_map_pcss(
-            light_local.xy, light_local.z, array_index, texel_size, (*light).soft_shadow_size);
+            light_local.xy, light_local.z, array_index, texel_size, (*light).tan_half_angular_size);
     }
 
     return sample_shadow_map(light_local.xy, light_local.z, array_index, texel_size);
