@@ -1,4 +1,4 @@
-use crate::func::signature::ArgumentSignature;
+use crate::func::signature::{ArgListSignature, ArgumentSignature};
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
 use alloc::borrow::Cow;
 use bevy_utils::hashbrown::HashMap;
@@ -62,13 +62,13 @@ impl<F> DynamicFunctionInternal<F> {
             return Ok(&self.functions[0]);
         }
 
-        let signature = ArgumentSignature::from(args);
+        let signature = ArgListSignature::from(args);
         self.arg_map
             .get(&signature)
             .map(|index| &self.functions[*index])
             .ok_or_else(|| FunctionError::NoOverload {
                 expected: self.arg_map.keys().cloned().collect(),
-                received: signature,
+                received: ArgumentSignature::from(args),
             })
     }
 
@@ -83,13 +83,13 @@ impl<F> DynamicFunctionInternal<F> {
             return Ok(&mut self.functions[0]);
         }
 
-        let signature = ArgumentSignature::from(args);
+        let signature = ArgListSignature::from(args);
         self.arg_map
             .get(&signature)
             .map(|index| &mut self.functions[*index])
             .ok_or_else(|| FunctionError::NoOverload {
                 expected: self.arg_map.keys().cloned().collect(),
-                received: signature,
+                received: ArgumentSignature::from(args),
             })
     }
 

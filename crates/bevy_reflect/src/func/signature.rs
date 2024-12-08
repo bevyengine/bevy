@@ -14,8 +14,10 @@
 use crate::func::args::ArgInfo;
 use crate::func::{ArgList, SignatureInfo};
 use crate::Type;
+use bevy_utils::hashbrown::Equivalent;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
+use core::hash::{Hash, Hasher};
 use core::ops::{Deref, DerefMut};
 
 /// The signature of a function.
@@ -57,13 +59,69 @@ impl<T: Borrow<SignatureInfo>> From<T> for Signature {
     }
 }
 
+/// A wrapper around a borrowed [`ArgList`] that can be used as an
+/// [equivalent] of an [`ArgumentSignature`].
+///
+/// [equivalent]: Equivalent
+pub(super) struct ArgListSignature<'a, 'b>(&'a ArgList<'b>);
+
+impl Equivalent<ArgumentSignature> for ArgListSignature<'_, '_> {
+    fn equivalent(&self, key: &ArgumentSignature) -> bool {
+        self.len() == key.len() && self.iter().eq(key.iter())
+    }
+}
+
+impl<'a, 'b> ArgListSignature<'a, 'b> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &Type> {
+        self.0.iter().map(|arg| {
+            arg.value()
+                .get_represented_type_info()
+                .unwrap_or_else(|| {
+                    panic!("no `TypeInfo` found for argument: {:?}", arg);
+                })
+                .ty()
+        })
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl Eq for ArgListSignature<'_, '_> {}
+impl PartialEq for ArgListSignature<'_, '_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().eq(other.iter())
+    }
+}
+
+impl Hash for ArgListSignature<'_, '_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.iter().for_each(|arg| {
+            arg.value()
+                .get_represented_type_info()
+                .unwrap_or_else(|| {
+                    panic!("no `TypeInfo` found for argument: {:?}", arg);
+                })
+                .ty()
+                .hash(state);
+        });
+    }
+}
+
+impl<'a, 'b> From<&'a ArgList<'b>> for ArgListSignature<'a, 'b> {
+    fn from(args: &'a ArgList<'b>) -> Self {
+        Self(args)
+    }
+}
+
 /// The argument-portion of a function signature.
 ///
 /// For example, given a function signature `(a: i32, b: f32) -> u32`,
 /// the argument signature would be `(i32, f32)`.
 ///
 /// This can be used as a way to compare or hash functions based on their arguments.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct ArgumentSignature(Box<[Type]>);
 
 impl Debug for ArgumentSignature {
@@ -87,6 +145,20 @@ impl Deref for ArgumentSignature {
 impl DerefMut for ArgumentSignature {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Eq for ArgumentSignature {}
+
+impl PartialEq for ArgumentSignature {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len() && self.0.iter().eq(other.0.iter())
+    }
+}
+
+impl Hash for ArgumentSignature {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.iter().for_each(|ty| ty.hash(state));
     }
 }
 
