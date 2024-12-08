@@ -137,52 +137,47 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.target_component_written = true
     }
 
-    // /// Writes component data to target entity.
-    // ///
-    // /// # Panics
-    // /// This will panic if:
-    // /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
-    // /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
-    // /// - Component is not registered.
-    // /// - Component does not have [`TypeId`]
-    // #[cfg(feature = "bevy_reflect")]
-    // pub fn write_target_component_reflect(&mut self, component: impl bevy_reflect::Reflect) {
-    //     let registry = self.type_registry.unwrap().read();
-    //     let component_info = self.components.get_info(self.component_id).unwrap();
-    //     let component_layout = component_info.layout();
-    //     let type_id = component_info.type_id().unwrap();
-    //     let reflect_from_ptr = registry
-    //         .get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)
-    //         .unwrap();
+    /// Writes component data to target entity.
+    ///
+    /// # Panics
+    /// This will panic if:
+    /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
+    /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
+    /// - Component is not registered.
+    /// - Component does not have [`TypeId`]
+    /// - Passed component's [`TypeId`] does not match source component [`TypeId`]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
+        let source_type_id = self
+            .components
+            .get_info(self.component_id)
+            .unwrap()
+            .type_id()
+            .unwrap();
+        let component_type_id = component.reflect_type_info().type_id();
+        if source_type_id != component_type_id {
+            panic!("Passed component TypeId does not match source component TypeId")
+        }
+        let component_info = self.components.get_info(self.component_id).unwrap();
+        let component_layout = component_info.layout();
 
-    //     let target_component_data_ptr =
-    //         self.target_components_buffer.alloc_layout(component_layout);
-    //     unsafe {
-    //         core::ptr::copy_nonoverlapping(
-    //             self.source_component_ptr.as_ptr(),
-    //             target_component_data_ptr.as_ptr(),
-    //             component_layout.size(),
-    //         );
-    //         let target_reflect =
-    //             reflect_from_ptr.as_reflect_mut(PtrMut::new(target_component_data_ptr));
-    //         *target_reflect = component;
-    //     }
+        let component_data_ptr = Box::into_raw(component) as *mut u8;
+        let target_component_data_ptr =
+            self.target_components_buffer.alloc_layout(component_layout);
+        // SAFETY:
+        // - target_component_data_ptr and component_data have the same data type.
+        // - component_data_ptr has layout of component_layout
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                component_data_ptr,
+                target_component_data_ptr.as_ptr(),
+                component_layout.size(),
+            );
+            alloc::alloc::dealloc(component_data_ptr, component_layout);
+        }
 
-    //     let short_name = disqualified::ShortName::of::<T>();
-    //     if self.target_component_written {
-    //         panic!("Trying to write component '{short_name}' multiple times")
-    //     }
-    //     let Some(component_id) = self.components.component_id::<T>() else {
-    //         panic!("Component '{short_name}' is not registered")
-    //     };
-    //     if component_id != self.component_id {
-    //         panic!("Component '{short_name}' does not match ComponentId of this ComponentCloneCtx");
-    //     }
-    //     let component_ref = self.target_components_buffer.alloc(component);
-    //     self.target_components_ptrs
-    //         .push(PtrMut::from(component_ref));
-    //     self.target_component_written = true
-    // }
+        self.target_component_written = true
+    }
 
     /// Return a reference to this context's `EntityCloner` instance.
     ///
@@ -200,6 +195,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// ```
     pub fn entity_cloner(&self) -> &EntityCloner {
         self.entity_cloner
+    }
+
+    /// Returns instance of [`Components`].
+    pub fn components(&self) -> &Components {
+        self.components
     }
 
     /// Returns [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`) if it exists in the world.
@@ -576,6 +576,38 @@ mod tests {
         registry.write().register::<A>();
 
         let component = A { field: 5 };
+
+        let e = world.spawn(component.clone()).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
+
+        assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
+    }
+
+    // TODO: remove this when 13432 lands
+    #[cfg(feature = "bevy_reflect")]
+    #[test]
+    fn clone_entity_using_reflect_with_default() {
+        use crate::reflect::{AppTypeRegistry, ReflectComponent};
+        use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
+        #[derive(Component, Reflect, Clone, PartialEq, Eq, Default)]
+        #[reflect(Component, Default)]
+        struct A {
+            field: usize,
+            field2: Vec<usize>,
+        }
+
+        let mut world = World::default();
+        world.init_resource::<AppTypeRegistry>();
+        let registry = world.get_resource::<AppTypeRegistry>().unwrap();
+        registry.write().register::<A>();
+
+        let component = A {
+            field: 5,
+            field2: vec![1, 2, 3, 4, 5],
+        };
 
         let e = world.spawn(component.clone()).id();
         let e_clone = world.spawn_empty().id();
