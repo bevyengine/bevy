@@ -65,10 +65,9 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
+use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
 use bevy_render::mesh::allocator::SlabId;
 use bevy_render::render_phase::PhaseItemBinKey;
-use bevy_render::view::GpuCulling;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -568,24 +567,20 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<GpuCulling>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, has_gpu_culling) in &cameras_3d {
+    for (entity, camera) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
-            GpuPreprocessingMode::Culling
-        } else {
-            GpuPreprocessingMode::PreprocessingOnly
-        });
+        let gpu_preprocessing_mode = gpu_preprocessing_support.max_supported_mode;
 
         opaque_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
@@ -615,7 +610,6 @@ pub fn extract_camera_prepass_phase(
             (
                 RenderEntity,
                 &Camera,
-                Has<GpuCulling>,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
@@ -629,15 +623,8 @@ pub fn extract_camera_prepass_phase(
 ) {
     live_entities.clear();
 
-    for (
-        entity,
-        camera,
-        gpu_culling,
-        depth_prepass,
-        normal_prepass,
-        motion_vector_prepass,
-        deferred_prepass,
-    ) in cameras_3d.iter()
+    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
+        cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
@@ -645,11 +632,7 @@ pub fn extract_camera_prepass_phase(
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if gpu_culling {
-            GpuPreprocessingMode::Culling
-        } else {
-            GpuPreprocessingMode::PreprocessingOnly
-        });
+        let gpu_preprocessing_mode = gpu_preprocessing_support.max_supported_mode;
 
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);

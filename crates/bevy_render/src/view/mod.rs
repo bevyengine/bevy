@@ -620,9 +620,11 @@ impl From<ColorGrading> for ColorGradingUniform {
     }
 }
 
-#[derive(Component)]
-pub struct GpuCulling;
-
+/// Add this component to your camera in order to disable CPU culling and rely
+/// solely on the GPU for culling, if available.
+///
+/// Depending on the relative power of the CPU and GPU, this may be a
+/// performance benefit in rare situations.
 #[derive(Component)]
 pub struct NoCpuCulling;
 
