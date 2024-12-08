@@ -1486,7 +1486,7 @@ mod tests {
         let mut world = World::default();
         assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
         world.insert_resource(A(0));
-        world.try_resource_scope(|world: &mut World, mut value: Mut<A>| {
+        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
             value.0 += 1;
             assert!(!world.contains_resource::<A>());
         });
