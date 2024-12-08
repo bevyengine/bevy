@@ -2,10 +2,11 @@
 
 use bevy_math::Mat4;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
+    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice,
+    texture::FallbackImage,
 };
 
-use crate::render::skin::MAX_JOINTS;
+use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, LightmapSlab};
 
 const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
@@ -15,8 +16,10 @@ pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 /// Individual layout entries.
 mod layout_entry {
+    use core::num::NonZeroU32;
+
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
-    use crate::MeshUniform;
+    use crate::{MeshUniform, LIGHTMAPS_PER_SLAB};
     use bevy_render::{
         render_resource::{
             binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
@@ -45,6 +48,16 @@ mod layout_entry {
     pub(super) fn lightmaps_sampler() -> BindGroupLayoutEntryBuilder {
         sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT)
     }
+    pub(super) fn lightmaps_texture_view_array() -> BindGroupLayoutEntryBuilder {
+        texture_2d(TextureSampleType::Float { filterable: true })
+            .visibility(ShaderStages::FRAGMENT)
+            .count(NonZeroU32::new(LIGHTMAPS_PER_SLAB as u32).unwrap())
+    }
+    pub(super) fn lightmaps_sampler_array() -> BindGroupLayoutEntryBuilder {
+        sampler(SamplerBindingType::Filtering)
+            .visibility(ShaderStages::FRAGMENT)
+            .count(NonZeroU32::new(LIGHTMAPS_PER_SLAB as u32).unwrap())
+    }
 }
 
 /// Individual [`BindGroupEntry`]
@@ -53,6 +66,7 @@ mod entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
     use bevy_render::render_resource::{
         BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
+        WgpuSampler, WgpuTextureView,
     };
 
     fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
@@ -90,6 +104,24 @@ mod entry {
         BindGroupEntry {
             binding,
             resource: BindingResource::Sampler(sampler),
+        }
+    }
+    pub(super) fn lightmaps_texture_view_array<'a>(
+        binding: u32,
+        textures: &'a [&'a WgpuTextureView],
+    ) -> BindGroupEntry<'a> {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::TextureViewArray(textures),
+        }
+    }
+    pub(super) fn lightmaps_sampler_array<'a>(
+        binding: u32,
+        samplers: &'a [&'a WgpuSampler],
+    ) -> BindGroupEntry<'a> {
+        BindGroupEntry {
+            binding,
+            resource: BindingResource::SamplerArray(samplers),
         }
     }
 }
@@ -271,17 +303,31 @@ impl MeshLayouts {
     }
 
     fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(
-            "lightmapped_mesh_layout",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::VERTEX,
-                (
-                    (0, layout_entry::model(render_device)),
-                    (4, layout_entry::lightmaps_texture_view()),
-                    (5, layout_entry::lightmaps_sampler()),
+        if binding_arrays_are_usable(render_device) {
+            render_device.create_bind_group_layout(
+                "lightmapped_mesh_layout",
+                &BindGroupLayoutEntries::with_indices(
+                    ShaderStages::VERTEX,
+                    (
+                        (0, layout_entry::model(render_device)),
+                        (4, layout_entry::lightmaps_texture_view_array()),
+                        (5, layout_entry::lightmaps_sampler_array()),
+                    ),
                 ),
-            ),
-        )
+            )
+        } else {
+            render_device.create_bind_group_layout(
+                "lightmapped_mesh_layout",
+                &BindGroupLayoutEntries::with_indices(
+                    ShaderStages::VERTEX,
+                    (
+                        (0, layout_entry::model(render_device)),
+                        (4, layout_entry::lightmaps_texture_view()),
+                        (5, layout_entry::lightmaps_sampler()),
+                    ),
+                ),
+            )
+        }
     }
 
     // ---------- BindGroup methods ----------
@@ -297,18 +343,34 @@ impl MeshLayouts {
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
+        fallback_images: &FallbackImage,
         model: &BindingResource,
-        lightmap: &GpuImage,
+        lightmap_slab: &mut LightmapSlab,
+        bindless_lightmaps: bool,
     ) -> BindGroup {
-        render_device.create_bind_group(
-            "lightmapped_mesh_bind_group",
-            &self.lightmapped,
-            &[
-                entry::model(0, model.clone()),
-                entry::lightmaps_texture_view(4, &lightmap.texture_view),
-                entry::lightmaps_sampler(5, &lightmap.sampler),
-            ],
-        )
+        if bindless_lightmaps {
+            let (texture_views, samplers) = lightmap_slab.build_binding_arrays(fallback_images);
+            render_device.create_bind_group(
+                "lightmapped_mesh_bind_group",
+                &self.lightmapped,
+                &[
+                    entry::model(0, model.clone()),
+                    entry::lightmaps_texture_view_array(4, &texture_views),
+                    entry::lightmaps_sampler_array(5, &samplers),
+                ],
+            )
+        } else {
+            let (texture_view, sampler) = lightmap_slab.bindings_for_first_lightmap();
+            render_device.create_bind_group(
+                "lightmapped_mesh_bind_group",
+                &self.lightmapped,
+                &[
+                    entry::model(0, model.clone()),
+                    entry::lightmaps_texture_view(4, texture_view),
+                    entry::lightmaps_sampler(5, sampler),
+                ],
+            )
+        }
     }
 
     /// Creates the bind group for skinned meshes with no morph targets.

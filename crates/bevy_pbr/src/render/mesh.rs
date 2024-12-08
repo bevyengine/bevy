@@ -35,7 +35,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::DefaultImageSampler,
+    texture::{DefaultImageSampler, FallbackImage},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
@@ -351,10 +351,10 @@ pub struct MeshInputUniform {
     pub first_vertex_index: u32,
     /// Index of the material inside the bind group data.
     pub material_bind_group_slot: u32,
+    /// The index of the lightmap in the binding array.
+    pub lightmap_slot: u32,
     /// Padding.
     pub pad_a: u32,
-    /// Padding.
-    pub pad_b: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -896,6 +896,7 @@ impl RenderMeshInstanceGpuBuilder {
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
+        render_lightmaps: &RenderLightmaps,
     ) -> usize {
         let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
         {
@@ -911,8 +912,11 @@ impl RenderMeshInstanceGpuBuilder {
             previous_input_index: u32::MAX,
             first_vertex_index,
             material_bind_group_slot: *self.shared.material_bindings_index.slot,
+            lightmap_slot: match render_lightmaps.render_lightmaps.get(&entity) {
+                Some(render_lightmap) => u32::from(*render_lightmap.slot_index),
+                None => u32::MAX,
+            },
             pad_a: 0,
-            pad_b: 0,
         };
 
         // Did the last frame contain this entity as well?
@@ -1375,6 +1379,7 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
+    render_lightmaps: Res<RenderLightmaps>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1410,6 +1415,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &render_lightmaps,
                     );
                 }
 
@@ -1433,6 +1439,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &render_lightmaps,
                     );
                     mesh_culling_builder.update(&mut mesh_culling_data_buffer, instance_data_index);
                 }
@@ -2256,6 +2263,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
@@ -2339,7 +2347,7 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<MeshBindGroupPair>,
     morph_targets: HashMap<AssetId<Mesh>, MeshBindGroupPair>,
-    lightmaps: HashMap<AssetId<Image>, BindGroup>,
+    lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
 }
 
 pub struct MeshBindGroupPair {
@@ -2359,7 +2367,7 @@ impl MeshBindGroups {
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
-        lightmap: Option<AssetId<Image>>,
+        lightmap: Option<LightmapSlabIndex>,
         is_skinned: bool,
         morph: bool,
         motion_vectors: bool,
@@ -2373,7 +2381,7 @@ impl MeshBindGroups {
                 .skinned
                 .as_ref()
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
-            (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
+            (false, false, Some(lightmap_slab)) => self.lightmaps.get(&lightmap_slab),
             (false, false, None) => self.model_only.as_ref(),
         }
     }
@@ -2392,7 +2400,6 @@ impl MeshBindGroupPair {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<RenderMesh>>,
-    images: Res<RenderAssets<GpuImage>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -2404,7 +2411,8 @@ pub fn prepare_mesh_bind_group(
     >,
     skins_uniform: Res<SkinUniforms>,
     weights_uniform: Res<MorphUniforms>,
-    render_lightmaps: Res<RenderLightmaps>,
+    mut render_lightmaps: ResMut<RenderLightmaps>,
+    fallback_images: Res<FallbackImage>,
 ) {
     groups.reset();
 
@@ -2486,13 +2494,19 @@ pub fn prepare_mesh_bind_group(
         }
     }
 
-    // Create lightmap bindgroups.
-    for &image_id in &render_lightmaps.all_lightmap_images {
-        if let (Entry::Vacant(entry), Some(image)) =
-            (groups.lightmaps.entry(image_id), images.get(image_id))
-        {
-            entry.insert(layouts.lightmapped(&render_device, &model, image));
-        }
+    // Create lightmap bindgroups. There will be one bindgroup for each slab.
+    let bindless_supported = render_lightmaps.bindless_supported;
+    for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
+        groups.lightmaps.insert(
+            LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+            layouts.lightmapped(
+                &render_device,
+                &fallback_images,
+                &model,
+                lightmap_slab,
+                bindless_supported,
+            ),
+        );
     }
 }
 
@@ -2587,14 +2601,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let is_skinned = current_skin_index.is_some();
         let is_morphed = current_morph_index.is_some();
 
-        let lightmap = lightmaps
+        let lightmap_slab_index = lightmaps
             .render_lightmaps
             .get(entity)
-            .map(|render_lightmap| render_lightmap.image);
+            .map(|render_lightmap| render_lightmap.slab_index);
 
         let Some(bind_group) = bind_groups.get(
             mesh_asset_id,
-            lightmap,
+            lightmap_slab_index,
             is_skinned,
             is_morphed,
             has_motion_vector_prepass,
