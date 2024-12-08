@@ -15,7 +15,7 @@ use bevy_render::{
     view::{RenderLayers, VisibilitySystems},
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
-use bevy_ui::{ComputedNode, DefaultUiCamera, Display, Node, TargetCamera, UiScale};
+use bevy_ui::{ComputedNode, DefaultUiCamera, Display, Node, TargetCamera};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};
 
@@ -156,7 +156,6 @@ struct OutlineParam<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     nodes: Query<'w, 's, NodesQuery>,
     view_visibility: Query<'w, 's, &'static ViewVisibility>,
-    ui_scale: Res<'w, UiScale>,
 }
 
 type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
@@ -198,7 +197,6 @@ fn outline_roots(
         );
     }
     let window_scale = window.get_single().map_or(1., Window::scale_factor);
-    let scale_factor = outline.ui_scale.0;
 
     // We let the line be defined by the window scale alone
     let line_width = outline
@@ -238,9 +236,9 @@ fn outline_roots(
             }
         }
 
-        let rect = LayoutRect::new(trans, node, scale_factor);
+        let rect = LayoutRect::new(trans, node, window_scale.recip());
         outline_node(entity, rect, &mut draw);
-        outline_nodes(&outline, &mut draw, entity, scale_factor);
+        outline_nodes(&outline, &mut draw, entity, window_scale.recip());
     }
 }
 
