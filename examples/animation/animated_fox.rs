@@ -74,9 +74,9 @@ fn setup(
 ) {
     // Build the animation graph
     let (graph, node_indices) = AnimationGraph::from_clips([
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::animation("Walk").from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::animation("Survey").from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::animation("Run").from_asset(FOX_PATH)),
     ]);
 
     // Insert a resource with the current scene information
@@ -115,7 +115,7 @@ fn setup(
 
     // Fox
     commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::scene("0").from_asset(FOX_PATH)),
     ));
 
     println!("Animation controls:");
