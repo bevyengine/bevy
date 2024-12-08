@@ -1909,14 +1909,14 @@ impl Measured2d for RegularPolygon {
 pub struct Capsule2d {
     /// The radius of the capsule
     pub radius: f32,
-    /// Half the height of the capsule, excluding the hemicircles
+    /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {
     /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
-    /// excluding the hemicircles.
+    /// excluding the semicircles.
     fn default() -> Self {
         Self {
             radius: 0.5,
