@@ -78,6 +78,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 
     /// Returns a reference to the component on the source entity.
+    ///
     /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
     pub fn read_source_component<T: Component>(&self) -> Option<&T> {
         if self
@@ -92,6 +93,22 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         } else {
             None
         }
+    }
+
+    /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Will return `None` if:
+    /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
+    /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
+    /// - Component is not registered.
+    /// - Component does not have [`TypeId`]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn read_source_component_reflect(&self) -> Option<&dyn bevy_reflect::Reflect> {
+        let registry = self.type_registry?.read();
+        let type_id = self.components.get_info(self.component_id)?.type_id()?;
+        let reflect_from_ptr = registry.get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)?;
+        // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
+        unsafe { Some(reflect_from_ptr.as_reflect(self.source_component_ptr)) }
     }
 
     /// Writes component data to target entity.
@@ -118,6 +135,48 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.target_component_written = true;
     }
 
+    /// Writes component data to target entity.
+    ///
+    /// # Panics
+    /// This will panic if:
+    /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
+    /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
+    /// - Component is not registered.
+    /// - Component does not have [`TypeId`]
+    /// - Passed component's [`TypeId`] does not match source component [`TypeId`]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
+        let source_type_id = self
+            .components
+            .get_info(self.component_id)
+            .unwrap()
+            .type_id()
+            .unwrap();
+        let component_type_id = component.reflect_type_info().type_id();
+        if source_type_id != component_type_id {
+            panic!("Passed component TypeId does not match source component TypeId")
+        }
+        let component_info = self.components.get_info(self.component_id).unwrap();
+        let component_layout = component_info.layout();
+
+        let component_data_ptr = Box::into_raw(component) as *mut u8;
+        let target_component_data_ptr =
+            self.target_components_buffer.alloc_layout(component_layout);
+        // SAFETY:
+        // - target_component_data_ptr and component_data have the same data type.
+        // - component_data_ptr has layout of component_layout
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                component_data_ptr,
+                target_component_data_ptr.as_ptr(),
+                component_layout.size(),
+            );
+            alloc::alloc::dealloc(component_data_ptr, component_layout);
+        }
+
+        self.target_component_written = true;
+    }
+
     /// Return a reference to this context's `EntityCloner` instance.
     ///
     /// This can be used to issue clone commands using the same cloning configuration:
@@ -134,6 +193,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// ```
     pub fn entity_cloner(&self) -> &EntityCloner {
         self.entity_cloner
+    }
+
+    /// Returns instance of [`Components`].
+    pub fn components(&self) -> &Components {
+        self.components
     }
 
     /// Returns [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`) if it exists in the world.
@@ -516,6 +580,38 @@ mod tests {
         registry.write().register::<A>();
 
         let component = A { field: 5 };
+
+        let e = world.spawn(component.clone()).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
+
+        assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
+    }
+
+    // TODO: remove this when 13432 lands
+    #[cfg(feature = "bevy_reflect")]
+    #[test]
+    fn clone_entity_using_reflect_with_default() {
+        use crate::reflect::{AppTypeRegistry, ReflectComponent};
+        use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
+        #[derive(Component, Reflect, Clone, PartialEq, Eq, Default)]
+        #[reflect(Component, Default)]
+        struct A {
+            field: usize,
+            field2: Vec<usize>,
+        }
+
+        let mut world = World::default();
+        world.init_resource::<AppTypeRegistry>();
+        let registry = world.get_resource::<AppTypeRegistry>().unwrap();
+        registry.write().register::<A>();
+
+        let component = A {
+            field: 5,
+            field2: vec![1, 2, 3, 4, 5],
+        };
 
         let e = world.spawn(component.clone()).id();
         let e_clone = world.spawn_empty().id();

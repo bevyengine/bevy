@@ -2087,33 +2087,56 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// See [`ComponentCloneHandlers`] for more details.
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    fn clone_fast(ctx: &mut ComponentCloneCtx) -> Option<()> {
+        let registry = ctx.type_registry()?;
+        let component = {
+            let source_component_reflect = ctx.read_source_component_reflect()?;
+            let registry = registry.read();
+            let component_info = ctx.components().get_info(ctx.component_id())?;
+            let type_id = component_info.type_id()?;
+            let reflect_default =
+                registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)?;
+            let mut component = reflect_default.default();
+            component.apply(source_component_reflect.as_partial_reflect());
+            component
+        };
+        ctx.write_target_component_reflect(component);
+
+        Some(())
+    }
+
+    fn clone_slow(
+        component_id: ComponentId,
+        source: Entity,
+        target: Entity,
+        registry: &crate::reflect::AppTypeRegistry,
+        world: &mut World,
+    ) -> Option<()> {
+        let registry = registry.read();
+
+        let component_info = world.components().get_info(component_id)?;
+        let type_id = component_info.type_id()?;
+        let reflect_component =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)?;
+        let source_component = reflect_component
+            .reflect(world.get_entity(source).ok()?)?
+            .clone_value();
+        let mut target = world.get_entity_mut(target).ok()?;
+        reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
+        Some(())
+    }
+
+    // Try to clone fast first, if it doesn't work use the slow path
+    if clone_fast(ctx).is_some() {
+        return;
+    };
+
     let component_id = ctx.component_id();
     let source = ctx.source();
     let target = ctx.target();
     world.commands().queue(move |world: &mut World| {
-        world.resource_scope::<crate::reflect::AppTypeRegistry, ()>(|world, registry| {
-            let registry = registry.read();
-
-            let component_info = world
-                .components()
-                .get_info(component_id)
-                .expect("Component must be registered");
-            let Some(type_id) = component_info.type_id() else {
-                return;
-            };
-            let Some(reflect_component) =
-                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-            else {
-                return;
-            };
-            let source_component = reflect_component
-                .reflect(world.get_entity(source).expect("Source entity must exist"))
-                .expect("Source entity must have reflected component")
-                .clone_value();
-            let mut target = world
-                .get_entity_mut(target)
-                .expect("Target entity must exist");
-            reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
+        world.resource_scope(|world, registry| {
+            clone_slow(component_id, source, target, &*registry, world);
         });
     });
 }

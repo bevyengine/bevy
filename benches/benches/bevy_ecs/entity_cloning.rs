@@ -3,95 +3,59 @@ use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
+use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
 criterion_group!(benches, reflect_benches, clone_benches);
 criterion_main!(benches);
 
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent1(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent2(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent3(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent4(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent5(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent6(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent7(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent8(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent9(Mat4);
-
-#[derive(Component, Reflect, Default)]
-#[reflect(Component)]
-struct ReflectComponent10(Mat4);
+#[derive(Component, Reflect, Default, Clone)]
+#[reflect(Component, Default)]
+struct C1(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent1(Mat4);
+#[reflect(Component, Default)]
+struct C2(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent2(Mat4);
+#[reflect(Component, Default)]
+struct C3(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent3(Mat4);
+#[reflect(Component, Default)]
+struct C4(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent4(Mat4);
+#[reflect(Component, Default)]
+struct C5(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent5(Mat4);
+#[reflect(Component, Default)]
+struct C6(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent6(Mat4);
+#[reflect(Component, Default)]
+struct C7(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent7(Mat4);
+#[reflect(Component, Default)]
+struct C8(Mat4);
+#[derive(Component, Reflect, Default, Clone)]
+#[reflect(Component, Default)]
+struct C9(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent8(Mat4);
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent9(Mat4);
+#[reflect(Component, Default)]
+struct C10(Mat4);
 
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct CloneComponent10(Mat4);
+type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 
 fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     width: usize,
     height: usize,
+    clone_via_reflect: bool,
 ) {
     let mut world = World::default();
     let registry = AppTypeRegistry::default();
@@ -100,6 +64,19 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
         r.register::<C>();
     }
     world.insert_resource(registry);
+    world.register_bundle::<C>();
+    if clone_via_reflect {
+        let mut components = Vec::new();
+        C::get_component_ids(world.components(), &mut |id| components.push(id.unwrap()));
+        for component in components {
+            world
+                .get_component_clone_handlers_mut()
+                .set_component_handler(
+                    component,
+                    bevy_ecs::component::ComponentCloneHandler::Default,
+                );
+        }
+    }
 
     let id = world.spawn(black_box(C::default())).id();
 
@@ -128,7 +105,7 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     });
 }
 
-fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher) {
+fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher, clone_via_reflect: bool) {
     let mut world = World::default();
     let registry = AppTypeRegistry::default();
     {
@@ -136,6 +113,19 @@ fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher) {
         r.register::<C>();
     }
     world.insert_resource(registry);
+    world.register_bundle::<C>();
+    if clone_via_reflect {
+        let mut components = Vec::new();
+        C::get_component_ids(world.components(), &mut |id| components.push(id.unwrap()));
+        for component in components {
+            world
+                .get_component_clone_handlers_mut()
+                .set_component_handler(
+                    component,
+                    bevy_ecs::component::ComponentCloneHandler::Default,
+                );
+        }
+    }
     let id = world.spawn(black_box(C::default())).id();
 
     b.iter(move || {
@@ -146,80 +136,36 @@ fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher) {
 
 fn reflect_benches(c: &mut Criterion) {
     c.bench_function("many components reflect", |b| {
-        simple::<(
-            ReflectComponent1,
-            ReflectComponent2,
-            ReflectComponent3,
-            ReflectComponent4,
-            ReflectComponent5,
-            ReflectComponent6,
-            ReflectComponent7,
-            ReflectComponent8,
-            ReflectComponent9,
-            ReflectComponent10,
-        )>(b);
+        simple::<ComplexBundle>(b, true);
     });
 
     c.bench_function("hierarchy wide reflect", |b| {
-        hierarchy::<ReflectComponent1>(b, 5, 4);
+        hierarchy::<C1>(b, 10, 4, true);
     });
 
     c.bench_function("hierarchy tall reflect", |b| {
-        hierarchy::<ReflectComponent1>(b, 1, 50);
+        hierarchy::<C1>(b, 1, 50, true);
     });
 
     c.bench_function("hierarchy many reflect", |b| {
-        hierarchy::<(
-            ReflectComponent1,
-            ReflectComponent2,
-            ReflectComponent3,
-            ReflectComponent4,
-            ReflectComponent5,
-            ReflectComponent6,
-            ReflectComponent7,
-            ReflectComponent8,
-            ReflectComponent9,
-            ReflectComponent10,
-        )>(b, 3, 3);
+        hierarchy::<ComplexBundle>(b, 5, 5, true);
     });
 }
 
 fn clone_benches(c: &mut Criterion) {
     c.bench_function("many components clone", |b| {
-        simple::<(
-            CloneComponent1,
-            CloneComponent2,
-            CloneComponent3,
-            CloneComponent4,
-            CloneComponent5,
-            CloneComponent6,
-            CloneComponent7,
-            CloneComponent8,
-            CloneComponent9,
-            CloneComponent10,
-        )>(b);
+        simple::<ComplexBundle>(b, false);
     });
 
     c.bench_function("hierarchy wide clone", |b| {
-        hierarchy::<CloneComponent1>(b, 5, 4);
+        hierarchy::<C1>(b, 10, 4, false);
     });
 
     c.bench_function("hierarchy tall clone", |b| {
-        hierarchy::<CloneComponent1>(b, 1, 50);
+        hierarchy::<C1>(b, 1, 50, false);
     });
 
     c.bench_function("hierarchy many clone", |b| {
-        hierarchy::<(
-            CloneComponent1,
-            CloneComponent2,
-            CloneComponent3,
-            CloneComponent4,
-            CloneComponent5,
-            CloneComponent6,
-            CloneComponent7,
-            CloneComponent8,
-            CloneComponent9,
-            CloneComponent10,
-        )>(b, 3, 3);
+        hierarchy::<ComplexBundle>(b, 5, 5, false);
     });
 }
