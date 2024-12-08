@@ -1,3 +1,4 @@
+[package]
 name = "bevy_reflect"
 version = "0.15.0-dev"
 edition = "2021"
