@@ -27,6 +27,7 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
+use disqualified::ShortName;
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -404,6 +405,7 @@ pub trait Component: Send + Sync + 'static {
         _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
+        _recursion_check_stack: &mut Vec<ComponentId>,
     ) {
     }
 
@@ -1075,7 +1077,16 @@ impl Components {
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        let mut registered = false;
+        self.register_component_internal::<T>(storages, &mut Vec::new())
+    }
+
+    #[inline]
+    fn register_component_internal<T: Component>(
+        &mut self,
+        storages: &mut Storages,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) -> ComponentId {
+        let mut is_new_registration = false;
         let id = {
             let Components {
                 indices,
@@ -1089,13 +1100,20 @@ impl Components {
                     storages,
                     ComponentDescriptor::new::<T>(),
                 );
-                registered = true;
+                is_new_registration = true;
                 id
             })
         };
-        if registered {
+        if is_new_registration {
             let mut required_components = RequiredComponents::default();
-            T::register_required_components(id, self, storages, &mut required_components, 0);
+            T::register_required_components(
+                id,
+                self,
+                storages,
+                &mut required_components,
+                0,
+                recursion_check_stack,
+            );
             let info = &mut self.components[id.index()];
             T::register_component_hooks(&mut info.hooks);
             info.required_components = required_components;
@@ -1358,6 +1376,9 @@ impl Components {
     /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
     /// Lower depths are more specific requirements, and can override existing less specific registrations.
     ///
+    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
+    /// own (indirect) required component.
+    ///
     /// This method does *not* register any components as required by components that require `T`.
     ///
     /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
@@ -1371,9 +1392,10 @@ impl Components {
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component::<T>(storages);
-        let required = self.register_component::<R>(storages);
+        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
+        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -2040,6 +2062,40 @@ impl RequiredComponents {
     pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
         for (id, constructor) in &required_components.0 {
             self.0.entry(*id).or_insert_with(|| constructor.clone());
+        }
+    }
+}
+
+// NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
+// This exists as a standalone function instead of being inlined into the component derive macro so as
+// to reduce the amount of generated code.
+#[doc(hidden)]
+pub fn enforce_no_required_components_recursion(
+    components: &Components,
+    recursion_check_stack: &[ComponentId],
+) {
+    if let Some((&requiree, check)) = recursion_check_stack.split_last() {
+        if let Some(direct_recursion) = check
+            .iter()
+            .position(|&id| id == requiree)
+            .map(|index| index == check.len() - 1)
+        {
+            panic!(
+                "Recursive required components detected: {}\nhelp: {}",
+                recursion_check_stack
+                    .iter()
+                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
+                    .collect::<Vec<_>>()
+                    .join(" → "),
+                if direct_recursion {
+                    format!(
+                        "Remove require({})",
+                        ShortName(components.get_name(requiree).unwrap())
+                    )
+                } else {
+                    "If this is intentional, consider merging the components.".into()
+                }
+            );
         }
     }
 }
