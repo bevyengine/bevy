@@ -1,7 +1,7 @@
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -174,11 +174,11 @@ impl Neg for Val {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
-    #[display("the variants of the Vals don't match")]
+    #[error("the variants of the Vals don't match")]
     NonIdenticalVariants,
-    #[display("the given variant of Val is not evaluateable (non-numeric)")]
+    #[error("the given variant of Val is not evaluateable (non-numeric)")]
     NonEvaluateable,
 }
 

@@ -42,7 +42,7 @@ pub struct Camera3d {
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
     /// specular transmissive objects. Each step requires making one additional
-    /// texture copy, so it's recommended to keep this number to a resonably low value. Defaults to `1`.
+    /// texture copy, so it's recommended to keep this number to a reasonably low value. Defaults to `1`.
     ///
     /// ### Notes
     ///

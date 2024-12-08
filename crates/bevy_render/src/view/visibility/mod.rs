@@ -5,13 +5,14 @@ mod render_layers;
 
 use core::any::TypeId;
 
+use bevy_ecs::entity::EntityHashSet;
 pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
-use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryFilter};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{change_detection::DetectChangesMut as _, prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
@@ -331,6 +332,10 @@ pub enum VisibilitySystems {
     /// the order of systems within this set is irrelevant, as [`check_visibility`]
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
+    /// Label for the system that runs after visibility checking and marks
+    /// entities that have gone from visible to invisible, or vice versa, as
+    /// changed.
+    VisibilityChangeDetect,
 }
 
 pub struct VisibilityPlugin;
@@ -346,12 +351,15 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate),
         )
         .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
+        .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
+        .init_resource::<PreviousVisibleEntities>()
         .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility::<With<Mesh3d>>.in_set(CheckVisibility),
+                mark_view_visibility_as_changed_if_necessary.in_set(VisibilityChangeDetect),
             ),
         );
     }
@@ -456,14 +464,28 @@ fn propagate_recursive(
     Ok(())
 }
 
+/// Stores all entities that were visible in the previous frame.
+///
+/// At the end of visibility checking, we compare the visible entities against
+/// these and set the [`ViewVisibility`] change flags accordingly.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct PreviousVisibleEntities(EntityHashSet);
+
 /// Resets the view visibility of every entity.
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
-fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    query.iter_mut().for_each(|mut view_visibility| {
-        // NOTE: We do not use `set_if_neq` here, as we don't care about
-        // change detection for view visibility, and adding a branch to every
-        // loop iteration would pessimize performance.
+fn reset_view_visibility(
+    mut query: Query<(Entity, &mut ViewVisibility)>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
+) {
+    previous_visible_entities.clear();
+
+    query.iter_mut().for_each(|(entity, mut view_visibility)| {
+        // Record the entities that were previously visible.
+        if view_visibility.get() {
+            previous_visible_entities.insert(entity);
+        }
+
         *view_visibility.bypass_change_detection() = ViewVisibility::HIDDEN;
     });
 }
@@ -569,13 +591,35 @@ pub fn check_visibility<QF>(
                     }
                 }
 
-                view_visibility.set();
+                // Make sure we don't trigger changed notifications
+                // unnecessarily.
+                view_visibility.bypass_change_detection().set();
+
                 queue.push(entity);
             },
         );
 
         visible_entities.clear::<QF>();
         thread_queues.drain_into(visible_entities.get_mut::<QF>());
+    }
+}
+
+/// A system that marks [`ViewVisibility`] components as changed if their
+/// visibility changed this frame.
+///
+/// Ordinary change detection doesn't work for this use case because we use
+/// multiple [`check_visibility`] systems, and visibility is set if *any one* of
+/// those systems judges the entity to be visible. Thus, in order to perform
+/// change detection, we need this system, which is a follow-up pass that has a
+/// global view of whether the entity became visible or not.
+fn mark_view_visibility_as_changed_if_necessary(
+    mut query: Query<(Entity, &mut ViewVisibility)>,
+    previous_visible_entities: Res<PreviousVisibleEntities>,
+) {
+    for (entity, mut view_visibility) in query.iter_mut() {
+        if previous_visible_entities.contains(&entity) != view_visibility.get() {
+            view_visibility.set_changed();
+        }
     }
 }
 

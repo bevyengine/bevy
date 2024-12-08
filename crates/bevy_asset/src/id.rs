@@ -9,7 +9,8 @@ use core::{
     hash::Hash,
     marker::PhantomData,
 };
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
+use thiserror::Error;
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
 /// lifetime of the Asset. This means it _can_ point to an [`Asset`] that no longer exists.
@@ -398,11 +399,11 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedAssetId`] and an [`AssetId`].
-#[derive(Error, Display, Debug, PartialEq, Clone)]
+#[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetIdConversionError {
     /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
-    #[display("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
+    #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
     TypeIdMismatch { expected: TypeId, found: TypeId },
 }
 

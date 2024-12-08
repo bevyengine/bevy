@@ -304,7 +304,7 @@ pub struct BrpQueryRow {
     pub components: HashMap<String, Value>,
 
     /// The boolean-only containment query results.
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
     pub has: HashMap<String, Value>,
 }
 
