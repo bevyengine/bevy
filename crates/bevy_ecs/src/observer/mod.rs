@@ -953,6 +953,119 @@ mod tests {
     }
 
     #[test]
+    fn observer_multiple_targets() {
+        #[derive(Resource, Default)]
+        struct R(i32);
+
+        let mut world = World::new();
+        let component_a = world.register_component::<A>();
+        let component_b = world.register_component::<B>();
+        world.init_resource::<R>();
+
+        // targets (entity_1, A)
+        let entity_1 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, A>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        // targets (entity_2, B)
+        let entity_2 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, B>, mut res: ResMut<R>| res.0 += 10)
+            .id();
+        // targets any entity or component
+        world.add_observer(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 100);
+        // targets any entity, and components A or B
+        world.add_observer(|_: Trigger<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        // test all tuples
+        world.add_observer(|_: Trigger<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+                res.0 += 100000;
+            },
+        );
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+             mut res: ResMut<R>| res.0 += 1000000,
+        );
+
+        // WorldEntityMut does not automatically flush.
+        world.flush();
+
+        // trigger for an entity and a component
+        world.trigger_targets(EventA, (entity_1, component_a));
+        world.flush();
+        // only observer that doesn't trigger is the one only watching entity_2
+        assert_eq!(1111101, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities, but no components: trigger once per entity target
+        world.trigger_targets(EventA, (entity_1, entity_2));
+        world.flush();
+        // only the observer that doesn't require components triggers - once per entity
+        assert_eq!(200, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both components, but no entities: trigger once
+        world.trigger_targets(EventA, (component_a, component_b));
+        world.flush();
+        // all component observers trigger, entities are not observed
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities and both components: trigger once per entity target
+        // we only get 2222211 because a given observer can trigger only once per entity target
+        world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
+        world.flush();
+        assert_eq!(2222211, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B))
+        world.trigger_targets(
+            EventA,
+            (component_a, component_b, (component_a, component_b)),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                ((component_a, component_b), (component_a, component_b)),
+            ),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test the most complex tuple: (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                (component_b, component_a),
+                (
+                    component_a,
+                    component_b,
+                    ((component_a, component_b), (component_b, component_a)),
+                ),
+            ),
+        );
+        world.flush();
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+    }
+
+    #[test]
     fn observer_dynamic_component() {
         let mut world = World::new();
         world.init_resource::<Order>();
