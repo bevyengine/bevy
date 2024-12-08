@@ -652,22 +652,6 @@ pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
 #[derive(Default, Deref, DerefMut)]
 pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 
-/// The result of an entity removal.
-///
-/// We want the mesh input uniform array to have no gaps in it in order to
-/// simplify the GPU logic. Therefore, whenever entity data is removed from the
-/// [`MeshInputUniform`] buffer, the last entity is swapped in to fill it. If
-/// culling is enabled, the mesh culling data corresponding to an entity must
-/// have the same indices as the mesh input uniforms for that entity. Thus we
-/// need to pass this information to [`MeshCullingDataBuffer::remove`] so that
-/// it can update its buffer to match the [`MeshInputUniform`] buffer.
-struct RemovedMeshInputUniformIndices {
-    /// The index of the mesh input that was removed.
-    removed_index: usize,
-    /// The index of the mesh input that was moved to fill its place.
-    moved_index: usize,
-}
-
 /// Maps each mesh instance to the material ID, and allocated binding ID,
 /// associated with that mesh instance.
 #[derive(Resource, Default)]
@@ -896,7 +880,7 @@ impl RenderMeshInstanceGpuBuilder {
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
-    ) -> usize {
+    ) -> u32 {
         let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
         {
             Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
@@ -922,39 +906,33 @@ impl RenderMeshInstanceGpuBuilder {
                 // Yes, it did. Replace its entry with the new one.
 
                 // Reserve a slot.
-                current_uniform_index =
-                    u32::from(occupied_entry.get_mut().current_uniform_index) as usize;
+                current_uniform_index = u32::from(occupied_entry.get_mut().current_uniform_index);
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform =
-                    current_input_buffer.buffer.values()[current_uniform_index];
-                let previous_input_index = previous_input_buffer
-                    .buffer
-                    .push(previous_mesh_input_uniform);
-                previous_input_buffer.main_entities.push(entity);
-                mesh_input_uniform.previous_input_index = previous_input_index as u32;
+                let previous_mesh_input_uniform = current_input_buffer.get(current_uniform_index);
+                let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
+                mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
-                current_input_buffer.buffer.values_mut()[current_uniform_index] =
-                    mesh_input_uniform;
+                current_input_buffer.set(current_uniform_index, mesh_input_uniform);
 
                 occupied_entry.replace_entry(RenderMeshInstanceGpu {
                     translation: self.world_from_local.translation,
                     shared: self.shared,
-                    current_uniform_index: NonMaxU32::new(current_uniform_index as u32)
+                    current_uniform_index: NonMaxU32::new(current_uniform_index)
                         .unwrap_or_default(),
                 });
             }
 
             Entry::Vacant(vacant_entry) => {
                 // No, this is a new entity. Push its data on to the buffer.
-                current_uniform_index = current_input_buffer.buffer.push(mesh_input_uniform);
-                current_input_buffer.main_entities.push(entity);
+                current_uniform_index = current_input_buffer.add(mesh_input_uniform);
+
                 vacant_entry.insert(RenderMeshInstanceGpu {
                     translation: self.world_from_local.translation,
                     shared: self.shared,
-                    current_uniform_index: NonMaxU32::new(current_uniform_index as u32)
+                    current_uniform_index: NonMaxU32::new(current_uniform_index)
                         .unwrap_or_default(),
                 });
             }
@@ -970,34 +948,13 @@ fn remove_mesh_input_uniform(
     entity: MainEntity,
     render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
     current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-) -> Option<RemovedMeshInputUniformIndices> {
+) -> Option<u32> {
     // Remove the uniform data.
     let removed_render_mesh_instance = render_mesh_instances.remove(&entity)?;
-    let removed_uniform_index = removed_render_mesh_instance.current_uniform_index.get() as usize;
 
-    // Now *move* the final mesh uniform to fill its place in the buffer, so
-    // that the buffer remains contiguous.
-    let moved_uniform_index = current_input_buffer.buffer.len() - 1;
-    if moved_uniform_index != removed_uniform_index {
-        let moved_uniform = current_input_buffer.buffer.pop().unwrap();
-        let moved_entity = current_input_buffer.main_entities.pop().unwrap();
-
-        current_input_buffer.buffer.values_mut()[removed_uniform_index] = moved_uniform;
-
-        if let Some(moved_render_mesh_instance) = render_mesh_instances.get_mut(&moved_entity) {
-            moved_render_mesh_instance.current_uniform_index =
-                NonMaxU32::new(removed_uniform_index as u32).unwrap_or_default();
-        }
-    } else {
-        current_input_buffer.buffer.pop();
-        current_input_buffer.main_entities.pop();
-    }
-
-    // Tell our caller what we did.
-    Some(RemovedMeshInputUniformIndices {
-        removed_index: removed_uniform_index,
-        moved_index: moved_uniform_index,
-    })
+    let removed_uniform_index = removed_render_mesh_instance.current_uniform_index.get();
+    current_input_buffer.remove(removed_uniform_index);
+    Some(removed_uniform_index)
 }
 
 impl MeshCullingData {
@@ -1036,26 +993,6 @@ impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
         Self(RawBufferVec::new(BufferUsages::STORAGE))
-    }
-}
-
-impl MeshCullingDataBuffer {
-    /// Updates the culling data buffer after a mesh has been removed from the scene.
-    ///
-    /// [`remove_mesh_input_uniform`] removes a mesh input uniform from the
-    /// buffer, swapping in the last uniform to fill the space if necessary. The
-    /// index of each mesh in the mesh culling data and that index of the mesh
-    /// in the mesh input uniform buffer must match. Thus we have to perform the
-    /// corresponding operation here too. [`remove_mesh_input_uniform`] returns
-    /// a [`RemovedMeshInputUniformIndices`] value to tell us what to do, and
-    /// this function is where we process that value.
-    fn remove(&mut self, removed_indices: RemovedMeshInputUniformIndices) {
-        if removed_indices.moved_index != removed_indices.removed_index {
-            let moved_culling_data = self.pop().unwrap();
-            self.values_mut()[removed_indices.removed_index] = moved_culling_data;
-        } else {
-            self.pop();
-        }
     }
 }
 
@@ -1434,31 +1371,23 @@ pub fn collect_meshes_for_gpu_building(
                         previous_input_buffer,
                         &mesh_allocator,
                     );
-                    mesh_culling_builder.update(&mut mesh_culling_data_buffer, instance_data_index);
+                    mesh_culling_builder
+                        .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
                 }
 
                 for entity in removed.drain(..) {
-                    if let Some(removed_indices) = remove_mesh_input_uniform(
+                    remove_mesh_input_uniform(
                         entity,
                         &mut *render_mesh_instances,
                         current_input_buffer,
-                    ) {
-                        mesh_culling_data_buffer.remove(removed_indices);
-                    }
+                    );
                 }
             }
         }
     }
 
     // Buffers can't be empty. Make sure there's something in the previous input buffer.
-    if previous_input_buffer.buffer.is_empty() {
-        previous_input_buffer
-            .buffer
-            .push(MeshInputUniform::default());
-        previous_input_buffer
-            .main_entities
-            .push(Entity::PLACEHOLDER.into());
-    }
+    previous_input_buffer.ensure_nonempty();
 }
 
 /// All data needed to construct a pipeline for rendering 3D meshes.
