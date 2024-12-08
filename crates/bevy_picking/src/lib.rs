@@ -172,7 +172,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
