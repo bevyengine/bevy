@@ -1,10 +1,12 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    func::{
+        args::{ArgCount, ArgList},
+        DynamicFunction, FunctionInfo, FunctionResult,
+    },
     PartialReflect,
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;
-use core::ops::RangeInclusive;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
@@ -51,10 +53,8 @@ pub trait Function: PartialReflect + Debug {
     /// Returns the number of arguments the function expects.
     ///
     /// For overloaded functions that can have a variable number of arguments,
-    /// this will return the minimum and maximum number of arguments.
-    ///
-    /// Otherwise, the range will have the same start and end.
-    fn arg_count(&self) -> RangeInclusive<usize> {
+    /// this will contain the full set of counts for all signatures.
+    fn arg_count(&self) -> ArgCount {
         self.info().arg_count()
     }
 

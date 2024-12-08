@@ -191,12 +191,12 @@ pub mod signature;
 mod tests {
     use alloc::borrow::Cow;
 
+    use super::*;
+    use crate::func::args::ArgCount;
     use crate::{
         func::args::{ArgError, ArgList, Ownership},
         TypePath,
     };
-
-    use super::*;
 
     #[test]
     fn should_error_on_missing_args() {
@@ -208,7 +208,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 1..=1,
+                expected: ArgCount::new(1).unwrap(),
                 received: 0
             }
         );
@@ -224,7 +224,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 0..=0,
+                expected: ArgCount::new(0).unwrap(),
                 received: 1
             }
         );

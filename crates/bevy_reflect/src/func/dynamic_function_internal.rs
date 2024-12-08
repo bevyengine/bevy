@@ -1,9 +1,9 @@
+use crate::func::args::ArgCount;
 use crate::func::signature::{ArgListSignature, ArgumentSignature};
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
 use alloc::borrow::Cow;
 use bevy_utils::hashbrown::HashMap;
 use core::fmt::{Debug, Formatter};
-use core::ops::RangeInclusive;
 
 /// An internal structure for storing a function and its corresponding [function information].
 ///
@@ -101,11 +101,9 @@ impl<F> DynamicFunctionInternal<F> {
 
     /// Returns the number of arguments the function expects.
     ///
-    /// For[overloaded functions that can have a variable number of arguments,
-    /// this will return the minimum and maximum number of arguments.
-    ///
-    /// Otherwise, the range will have the same start and end.
-    pub fn arg_count(&self) -> RangeInclusive<usize> {
+    /// For overloaded functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    pub fn arg_count(&self) -> ArgCount {
         self.info.arg_count()
     }
 
@@ -117,7 +115,7 @@ impl<F> DynamicFunctionInternal<F> {
         let expected_arg_count = self.arg_count();
         let received_arg_count = args.len();
 
-        if !expected_arg_count.contains(&received_arg_count) {
+        if !expected_arg_count.contains(received_arg_count) {
             Err(FunctionError::ArgCountMismatch {
                 expected: expected_arg_count,
                 received: received_arg_count,

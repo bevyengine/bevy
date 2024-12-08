@@ -1,13 +1,13 @@
 use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::fmt::{Debug, Formatter};
-use core::ops::RangeInclusive;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
 use crate::func::{
-    args::ArgList, dynamic_function_internal::DynamicFunctionInternal, DynamicFunction,
-    FunctionInfo, FunctionOverloadError, FunctionResult, IntoFunctionMut,
+    args::{ArgCount, ArgList},
+    dynamic_function_internal::DynamicFunctionInternal,
+    DynamicFunction, FunctionInfo, FunctionOverloadError, FunctionResult, IntoFunctionMut,
 };
 
 /// A [`Box`] containing a callback to a reflected function.
@@ -85,7 +85,10 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// # Panics
     ///
-    /// Panics if no [`SignatureInfo`] is provided or if the conversion to [`FunctionInfo`] fails.
+    /// This function may panic for any of the following reasons:
+    /// - No [`SignatureInfo`] is provided.
+    /// - A provided [`SignatureInfo`] has more arguments than [`ArgCount::MAX_COUNT`].
+    /// - The conversion to [`FunctionInfo`] fails.
     ///
     /// [calling]: crate::func::dynamic_function_mut::DynamicFunctionMut::call
     /// [`SignatureInfo`]: crate::func::SignatureInfo
@@ -313,23 +316,22 @@ impl<'env> DynamicFunctionMut<'env> {
     /// Returns the number of arguments the function expects.
     ///
     /// For [overloaded] functions that can have a variable number of arguments,
-    /// this will return the minimum and maximum number of arguments.
-    ///
-    /// Otherwise, the range will have the same start and end.
+    /// this will contain the full set of counts for all signatures.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_reflect::func::IntoFunctionMut;
     /// let add = (|a: i32, b: i32| a + b).into_function_mut();
-    /// assert_eq!(add.arg_count(), 2..=2);
+    /// assert!(add.arg_count().contains(2));
     ///
     /// let add = add.with_overload(|a: f32, b: f32, c: f32| a + b + c);
-    /// assert_eq!(add.arg_count(), 2..=3);
+    /// assert!(add.arg_count().contains(2));
+    /// assert!(add.arg_count().contains(3));
     /// ```
     ///
     /// [overloaded]: Self::with_overload
-    pub fn arg_count(&self) -> RangeInclusive<usize> {
+    pub fn arg_count(&self) -> ArgCount {
         self.internal.arg_count()
     }
 }
@@ -412,7 +414,7 @@ mod tests {
         assert_eq!(
             error,
             FunctionError::ArgCountMismatch {
-                expected: 2..=2,
+                expected: ArgCount::new(2).unwrap(),
                 received: 1
             }
         );
@@ -422,7 +424,7 @@ mod tests {
         assert_eq!(
             error,
             FunctionError::ArgCountMismatch {
-                expected: 2..=2,
+                expected: ArgCount::new(2).unwrap(),
                 received: 1
             }
         );

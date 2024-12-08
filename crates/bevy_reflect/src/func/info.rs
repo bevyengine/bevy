@@ -1,18 +1,17 @@
 use alloc::{borrow::Cow, vec};
+use core::fmt::{Debug, Formatter};
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
 use crate::{
-    func::args::{ArgInfo, GetOwnership, Ownership},
+    func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
     func::signature::ArgumentSignature,
     func::FunctionOverloadError,
     type_info::impl_type_methods,
     Type, TypePath,
 };
 
-use core::fmt::{Debug, Formatter};
-use core::ops::RangeInclusive;
 use variadics_please::all_tuples;
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -28,14 +27,21 @@ use variadics_please::all_tuples;
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
+    arg_count: ArgCount,
     signatures: Box<[SignatureInfo]>,
 }
 
 impl FunctionInfo {
     /// Create a new [`FunctionInfo`] for a function with the given signature.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
     pub fn new(signature: SignatureInfo) -> Self {
         Self {
             name: signature.name.clone(),
+            arg_count: ArgCount::new(signature.arg_count()).unwrap(),
             signatures: vec![signature].into(),
         }
     }
@@ -48,9 +54,23 @@ impl FunctionInfo {
     ) -> Result<Self, FunctionOverloadError> {
         let mut iter = signatures.into_iter();
 
-        let mut info = Self::new(iter.next().ok_or(FunctionOverloadError::MissingSignature)?);
+        let base = iter.next().ok_or(FunctionOverloadError::MissingSignature)?;
+
+        if base.arg_count() > ArgCount::MAX_COUNT {
+            return Err(FunctionOverloadError::TooManyArguments(
+                ArgumentSignature::from(&base),
+            ));
+        }
+
+        let mut info = Self::new(base);
 
         for signature in iter {
+            if signature.arg_count() > ArgCount::MAX_COUNT {
+                return Err(FunctionOverloadError::TooManyArguments(
+                    ArgumentSignature::from(&signature),
+                ));
+            }
+
             info = info.with_overload(signature).map_err(|sig| {
                 FunctionOverloadError::DuplicateSignature(ArgumentSignature::from(&sig))
             })?;
@@ -102,6 +122,11 @@ impl FunctionInfo {
     ///
     /// If a signature with the same [`ArgumentSignature`] already exists,
     /// an error is returned with the given signature.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
     pub fn with_overload(mut self, signature: SignatureInfo) -> Result<Self, SignatureInfo> {
         let is_duplicate = self.signatures.iter().any(|s| {
             s.arg_count() == signature.arg_count()
@@ -112,6 +137,7 @@ impl FunctionInfo {
             return Err(signature);
         }
 
+        self.arg_count.add(signature.arg_count());
         self.signatures = IntoIterator::into_iter(self.signatures)
             .chain(Some(signature))
             .collect();
@@ -121,16 +147,9 @@ impl FunctionInfo {
     /// Returns the number of arguments the function expects.
     ///
     /// For overloaded functions that can have a variable number of arguments,
-    /// this will return the minimum and maximum number of arguments.
-    ///
-    /// Otherwise, the range will have the same start and end.
-    pub fn arg_count(&self) -> RangeInclusive<usize> {
-        self.signatures
-            .iter()
-            .map(SignatureInfo::arg_count)
-            .fold(RangeInclusive::new(usize::MAX, usize::MIN), |acc, count| {
-                RangeInclusive::new((*acc.start()).min(count), (*acc.end()).max(count))
-            })
+    /// this will contain the full set of counts for all signatures.
+    pub fn arg_count(&self) -> ArgCount {
+        self.arg_count
     }
 
     /// The signatures of the function.
@@ -164,6 +183,11 @@ impl FunctionInfo {
     }
 
     /// Extend this [`FunctionInfo`] with another without checking for duplicates.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
     pub(super) fn extend_unchecked(&mut self, other: FunctionInfo) {
         if self.name.is_none() {
             self.name = other.name;
@@ -173,12 +197,26 @@ impl FunctionInfo {
         self.signatures = IntoIterator::into_iter(signatures)
             .chain(IntoIterator::into_iter(other.signatures))
             .collect();
+        self.arg_count = self
+            .signatures
+            .iter()
+            .fold(ArgCount::default(), |mut count, sig| {
+                count.add(sig.arg_count());
+                count
+            });
     }
 }
 
-impl From<SignatureInfo> for FunctionInfo {
-    fn from(info: SignatureInfo) -> Self {
-        Self::new(info)
+impl TryFrom<SignatureInfo> for FunctionInfo {
+    type Error = ArgCountOutOfBoundsError;
+
+    fn try_from(signature: SignatureInfo) -> Result<Self, Self::Error> {
+        let count = signature.arg_count();
+        if count > ArgCount::MAX_COUNT {
+            return Err(ArgCountOutOfBoundsError(count));
+        }
+
+        Ok(Self::new(signature))
     }
 }
 
@@ -531,7 +569,7 @@ impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
 ///
 /// let info = print.get_function_info();
 /// assert!(info.name().unwrap().ends_with("print"));
-/// assert!(info.arg_count().contains(&1));
+/// assert!(info.arg_count().contains(1));
 /// assert_eq!(info.base().args()[0].type_path(), "alloc::string::String");
 /// assert_eq!(info.base().return_info().type_path(), "()");
 /// ```
