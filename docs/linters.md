@@ -44,4 +44,4 @@ Currently, this is not needed as the extension already disables the rule `MD013`
 
 ### Other Linters provided by [super-linter](https://github.com/github/super-linter)
 
-All other linters not mentioned in the this file are not activated and can be seen [here](https://github.com/github/super-linter#supported-linters).
+All other linters not mentioned in this file are not activated and can be seen [here](https://github.com/github/super-linter#supported-linters).

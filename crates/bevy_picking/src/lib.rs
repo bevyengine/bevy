@@ -18,7 +18,7 @@
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
-//!         // Stop the event from bubbling up the entity hierarchjy
+//!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
 //!     });
 //! ```
@@ -288,7 +288,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
+/// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
