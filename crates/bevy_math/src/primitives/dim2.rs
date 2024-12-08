@@ -1,5 +1,6 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
+use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -1654,10 +1655,10 @@ pub struct ConvexPolygon<const N: usize> {
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
-#[derive(Error, Display, Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
-    #[display("The created polygon is not convex")]
+    #[error("The created polygon is not convex")]
     Concave,
 }
 
@@ -1908,14 +1909,14 @@ impl Measured2d for RegularPolygon {
 pub struct Capsule2d {
     /// The radius of the capsule
     pub radius: f32,
-    /// Half the height of the capsule, excluding the hemicircles
+    /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {
     /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
-    /// excluding the hemicircles.
+    /// excluding the semicircles.
     fn default() -> Self {
         Self {
             radius: 0.5,

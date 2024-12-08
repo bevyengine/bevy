@@ -16,13 +16,13 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use core::marker::PhantomData;
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
-    #[display("Failed to prepare asset")]
+    #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
-    #[display("Failed to build bind group: {_0}")]
+    #[error("Failed to build bind group: {0}")]
     AsBindGroupError(AsBindGroupError),
 }
 

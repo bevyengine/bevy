@@ -369,7 +369,7 @@ fn queue_line_gizmos_3d(
                     pipeline,
                     distance: 0.,
                     batch_range: 0..1,
-                    extra_index: PhaseItemExtraIndex::NONE,
+                    extra_index: PhaseItemExtraIndex::None,
                 });
             }
 
@@ -390,7 +390,7 @@ fn queue_line_gizmos_3d(
                     pipeline,
                     distance: 0.,
                     batch_range: 0..1,
-                    extra_index: PhaseItemExtraIndex::NONE,
+                    extra_index: PhaseItemExtraIndex::None,
                 });
             }
         }
@@ -486,7 +486,7 @@ fn queue_line_joint_gizmos_3d(
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
             });
         }
     }

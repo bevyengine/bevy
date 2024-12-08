@@ -52,11 +52,8 @@ bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 # other
 bitflags = "2.3"
 fixedbitset = "0.5"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 # meshlet
 lz4_flex = { version = "0.11", default-features = false, features = [
   "frame",

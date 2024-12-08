@@ -602,7 +602,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
+                        extra_index: PhaseItemExtraIndex::None,
                     });
                 }
             }

@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::ComponentId,
+    component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
@@ -71,7 +71,10 @@ impl<'w> DeferredWorld<'w> {
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
     /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -401,7 +404,12 @@ impl<'w> DeferredWorld<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
+        unsafe {
+            self.world
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
+                .ok()
+        }
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
@@ -526,7 +534,7 @@ impl<'w> DeferredWorld<'w> {
         data: &mut E,
         mut propagate: bool,
     ) where
-        T: Traversal,
+        T: Traversal<E>,
     {
         loop {
             Observers::invoke::<_>(
@@ -544,7 +552,7 @@ impl<'w> DeferredWorld<'w> {
                 .get_entity(target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
-                .and_then(T::traverse)
+                .and_then(|item| T::traverse(item, data))
             {
                 target = traverse_to;
             } else {

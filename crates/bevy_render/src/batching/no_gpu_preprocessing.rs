@@ -2,13 +2,15 @@
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{Res, ResMut, Resource, StaticSystemParam};
+use bevy_utils::tracing::error;
 use smallvec::{smallvec, SmallVec};
 use wgpu::BindingResource;
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
+        CachedRenderPipelinePhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
@@ -138,7 +140,17 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 }
             }
 
-            phase.batch_sets.push(batch_set);
+            match phase.batch_sets {
+                BinnedRenderPhaseBatchSets::DynamicUniforms(ref mut batch_sets) => {
+                    batch_sets.push(batch_set);
+                }
+                BinnedRenderPhaseBatchSets::Direct(_)
+                | BinnedRenderPhaseBatchSets::MultidrawIndirect(_) => {
+                    error!(
+                        "Dynamic uniform batch sets should be used when GPU preprocessing is off"
+                    );
+                }
+            }
         }
 
         // Prepare unbatchables.

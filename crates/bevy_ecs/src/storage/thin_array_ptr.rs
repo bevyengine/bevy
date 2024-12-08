@@ -144,7 +144,7 @@ impl<T> ThinArrayPtr<T> {
         let ptr = unsafe { self.data.as_ptr().add(index) };
         // SAFETY:
         // - The pointer is properly aligned
-        // - It is derefrancable (all in the same allocation)
+        // - It is dereferenceable (all in the same allocation)
         // - `index` < `len` and the element is safe to write to, so its valid
         // - We have a reference to self, so no other mutable accesses to the element can occur
         unsafe {
@@ -166,7 +166,7 @@ impl<T> ThinArrayPtr<T> {
         let ptr = unsafe { self.data.as_ptr().add(index) };
         // SAFETY:
         // - The pointer is properly aligned
-        // - It is derefrancable (all in the same allocation)
+        // - It is dereferenceable (all in the same allocation)
         // - `index` < `len` and the element is safe to write to, so its valid
         // - We have a mutable reference to `self`
         unsafe {
@@ -294,7 +294,7 @@ impl<T> ThinArrayPtr<T> {
     #[inline]
     pub unsafe fn as_slice(&self, slice_len: usize) -> &[T] {
         // SAFETY:
-        // - the data is valid - allocated with the same allocater
+        // - the data is valid - allocated with the same allocator
         // - non-null and well-aligned
         // - we have a shared reference to self - the data will not be mutated during 'a
         unsafe { core::slice::from_raw_parts(self.data.as_ptr(), slice_len) }

@@ -58,7 +58,7 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -133,7 +133,7 @@ impl PhaseItem for AlphaMask3dDeferred {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]

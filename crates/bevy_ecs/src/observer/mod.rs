@@ -469,7 +469,7 @@ impl World {
             // Populate ObservedBy for each observed entity.
             for watched_entity in &(*observer_state).descriptor.entities {
                 let mut entity_mut = self.entity_mut(*watched_entity);
-                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default();
+                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
             (&*observer_state, &mut self.archetypes, &mut self.observers)
@@ -628,8 +628,8 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for &'_ Parent {
-        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+    impl<D> Traversal<D> for &'_ Parent {
+        fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
     }
