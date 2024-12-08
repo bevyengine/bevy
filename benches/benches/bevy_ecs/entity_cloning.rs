@@ -73,7 +73,7 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
                 .get_component_clone_handlers_mut()
                 .set_component_handler(
                     component,
-                    bevy_ecs::component::ComponentCloneHandler::Default,
+                    bevy_ecs::component::ComponentCloneHandler::default_handler(),
                 );
         }
     }
@@ -98,7 +98,7 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     world.flush();
 
     b.iter(move || {
-        world.commands().clone_entity_with(id, |builder| {
+        world.commands().entity(id).clone_with(|builder| {
             builder.recursive(true);
         });
         world.flush();
@@ -122,14 +122,14 @@ fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher, clone_via_
                 .get_component_clone_handlers_mut()
                 .set_component_handler(
                     component,
-                    bevy_ecs::component::ComponentCloneHandler::Default,
+                    bevy_ecs::component::ComponentCloneHandler::default_handler(),
                 );
         }
     }
     let id = world.spawn(black_box(C::default())).id();
 
     b.iter(move || {
-        world.commands().clone_entity(id);
+        world.commands().entity(id).clone();
         world.flush();
     });
 }

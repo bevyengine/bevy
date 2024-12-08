@@ -2136,7 +2136,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
     let target = ctx.target();
     world.commands().queue(move |world: &mut World| {
         world.resource_scope(|world, registry| {
-            clone_slow(component_id, source, target, &*registry, world);
+            clone_slow(component_id, source, target, &registry, world);
         });
     });
 }

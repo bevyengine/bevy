@@ -159,7 +159,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         let component_info = self.components.get_info(self.component_id).unwrap();
         let component_layout = component_info.layout();
 
-        let component_data_ptr = Box::into_raw(component) as *mut u8;
+        let component_data_ptr = Box::into_raw(component).cast::<u8>();
         let target_component_data_ptr =
             self.target_components_buffer.alloc_layout(component_layout);
         // SAFETY:
