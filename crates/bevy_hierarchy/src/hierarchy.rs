@@ -444,7 +444,7 @@ mod tests {
                 .id();
             let e_clone = commands
                 .entity(e)
-                .clone_with(|builder| {
+                .spawn_clone_with(|builder| {
                     builder.recursive(true);
                 })
                 .id();
@@ -483,7 +483,7 @@ mod tests {
 
         let child_clone = commands
             .entity(child)
-            .clone_with(|builder| {
+            .spawn_clone_with(|builder| {
                 builder.as_child(true);
             })
             .id();

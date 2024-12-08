@@ -1720,6 +1720,10 @@ impl<'a> EntityCommands<'a> {
 
     /// Clones an entity and returns the [`EntityCommands`] of the clone.
     ///
+    /// The clone will have all the components of the original entity that
+    /// can be cloned. A component must implement either `Clone` or `Reflect`
+    /// to be cloned.
+    ///
     /// # Panics
     ///
     /// The command will panic when applied if the original entity does not exist.
@@ -1739,15 +1743,19 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity
-    ///     let entity_clone = entity.clone();
+    ///     let mut entity_clone = entity.spawn_clone();
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone(&mut self) -> EntityCommands<'_> {
-        self.clone_with(|_| {})
+    pub fn spawn_clone(&mut self) -> EntityCommands<'_> {
+        self.spawn_clone_with(|_| {})
     }
 
     /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`],
     /// returning the [`EntityCommands`] of the clone.
+    ///
+    /// The clone will have all the components of the original entity that
+    /// can be cloned. A component must implement either `Clone` or `Reflect`
+    /// to be cloned.
     ///
     /// # Panics
     ///
@@ -1768,17 +1776,17 @@ impl<'a> EntityCommands<'a> {
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity, but without ComponentB
-    ///     let entity_clone = entity.clone_with(|builder| {
+    ///     let mut entity_clone = entity.spawn_clone_with(|builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_with(
+    pub fn spawn_clone_with(
         &mut self,
         f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.queue(clone_entity_with(entity_clone, f));
+        self.queue(spawn_clone_with(entity_clone, f));
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
@@ -2258,7 +2266,7 @@ fn observe<E: Event, B: Bundle, M>(
     }
 }
 
-fn clone_entity_with(
+fn spawn_clone_with(
     entity_clone: Entity,
     f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
 ) -> impl EntityCommand {
