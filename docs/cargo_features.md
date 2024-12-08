@@ -62,6 +62,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
