@@ -284,7 +284,7 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.entity()).unwrap()[0];
+        let entity = children.get(trigger.target()).unwrap()[0];
         let entity = children.get(entity).unwrap()[0];
 
         let (entity, mut player) = players.get_mut(entity).unwrap();

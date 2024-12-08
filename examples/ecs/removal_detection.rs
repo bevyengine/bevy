@@ -50,7 +50,7 @@ fn remove_component(
 
 fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
     // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
-    let entity = trigger.entity();
+    let entity = trigger.target();
     if let Ok(mut sprite) = query.get_mut(entity) {
         sprite.color = Color::srgb(0.5, 1., 1.);
     }

@@ -594,7 +594,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.entity(),
+                    trigger.target(),
                     scene_entity,
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
