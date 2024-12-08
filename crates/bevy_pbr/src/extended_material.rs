@@ -155,14 +155,32 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
+        mut force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+        // Only allow bindless mode if both the base material and the extension
+        // support it.
+        force_no_bindless = force_no_bindless
+            || B::BINDLESS_SLOT_COUNT.is_none()
+            || E::BINDLESS_SLOT_COUNT.is_none();
+
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param)?;
-        let extended_bindgroup =
-            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
+        } = B::unprepared_bind_group(
+            &self.base,
+            layout,
+            render_device,
+            base_param,
+            force_no_bindless,
+        )?;
+        let extended_bindgroup = E::unprepared_bind_group(
+            &self.extension,
+            layout,
+            render_device,
+            extended_param,
+            force_no_bindless,
+        )?;
 
         bindings.extend(extended_bindgroup.bindings.0);
 
@@ -174,13 +192,23 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
+        mut force_no_bindless: bool,
     ) -> Vec<bevy_render::render_resource::BindGroupLayoutEntry>
     where
         Self: Sized,
     {
+        // Only allow bindless mode if both the base material and the extension
+        // support it.
+        force_no_bindless = force_no_bindless
+            || B::BINDLESS_SLOT_COUNT.is_none()
+            || E::BINDLESS_SLOT_COUNT.is_none();
+
         // add together the bindings of the standard material and the user material
-        let mut entries = B::bind_group_layout_entries(render_device);
-        entries.extend(E::bind_group_layout_entries(render_device));
+        let mut entries = B::bind_group_layout_entries(render_device, force_no_bindless);
+        entries.extend(E::bind_group_layout_entries(
+            render_device,
+            force_no_bindless,
+        ));
         entries
     }
 }
