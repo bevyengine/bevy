@@ -163,7 +163,9 @@ fn apply_wireframe_material(
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
-            commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
+            commands
+                .ignore_if_missing()
+                .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
 
@@ -213,6 +215,7 @@ fn apply_global_wireframe_material(
         for e in &meshes_with_global_material {
             commands
                 .entity(e)
+                .ignore_if_missing()
                 .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }

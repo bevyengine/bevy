@@ -543,7 +543,9 @@ fn extract_ssao_settings(
         if camera.is_active {
             entity_commands.insert(ssao_settings.clone());
         } else {
-            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
+            entity_commands
+                .ignore_if_missing()
+                .remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }

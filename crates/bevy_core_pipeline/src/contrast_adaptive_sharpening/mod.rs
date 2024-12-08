@@ -250,7 +250,10 @@ fn prepare_cas_pipelines(
     mut removals: RemovedComponents<CasUniform>,
 ) {
     for entity in removals.read() {
-        commands.entity(entity).remove::<ViewCasPipeline>();
+        commands
+            .entity(entity)
+            .ignore_if_missing()
+            .remove::<ViewCasPipeline>();
     }
 
     for (entity, view, denoise_cas) in &views {
