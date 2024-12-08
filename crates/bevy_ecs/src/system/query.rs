@@ -1431,7 +1431,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct V;
     /// #
-    /// // `&mut T` and `Mut<T>` are equivalent, `&T` and `Ref<T>` are equivalent,
+    /// // `&mut T` and `Mut<T>` access the same data and can be transmuted to each other,
+    /// // `&T` and `Ref<T>` access the same data and can be transmuted to each other,
     /// // and mutable versions can be transmuted to read-only versions
     /// is_valid_transmute::<&mut T, &T>();
     /// is_valid_transmute::<&mut T, Mut<T>>();
