@@ -23,7 +23,7 @@ use thiserror::Error;
 pub struct ComputedNode {
     /// The Node is hidden and should be ignored by all interaction and rendering systems.
     ///
-    /// managed automatically by [`super::layout::ui_layout_system`]
+    /// Managed automatically by [`super::layout::ui_layout_system`]
     pub(crate) hidden: bool,
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -212,6 +212,14 @@ impl ComputedNode {
     #[inline]
     pub const fn inverse_scale_factor(&self) -> f32 {
         self.inverse_scale_factor
+    }
+
+    /// The Node is hidden and should be ignored.
+    ///
+    /// Managed automatically by [`super::layout::ui_layout_system`]
+    #[inline]
+    pub const fn is_hidden(&self) -> bool {
+        self.hidden
     }
 }
 
