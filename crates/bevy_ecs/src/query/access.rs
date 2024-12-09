@@ -1,49 +1,12 @@
 use crate::component::ComponentId;
+use crate::storage::SortedSmallVec;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
-use fixedbitset::FixedBitSet;
 
-/// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
-/// to read, when used to store [`SparseSetIndex`].
-///
-/// Instead of the raw integer representation of the `FixedBitSet`, the list of
-/// `T` valid for [`SparseSetIndex`] is shown.
-///
-/// Normal `FixedBitSet` `Debug` output:
-/// ```text
-/// read_and_writes: FixedBitSet { data: [ 160 ], length: 8 }
-/// ```
-///
-/// Which, unless you are a computer, doesn't help much understand what's in
-/// the set. With `FormattedBitSet`, we convert the present set entries into
-/// what they stand for, it is much clearer what is going on:
-/// ```text
-/// read_and_writes: [ ComponentId(5), ComponentId(7) ]
-/// ```
-struct FormattedBitSet<'a, T: SparseSetIndex> {
-    bit_set: &'a FixedBitSet,
-    _marker: PhantomData<T>,
-}
-
-impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
-    fn new(bit_set: &'a FixedBitSet) -> Self {
-        Self {
-            bit_set,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.bit_set.ones().map(T::get_sparse_set_index))
-            .finish()
-    }
-}
+const ACCESS_SMALL_VEC_SIZE: usize = 8;
 
 /// Tracks read and write access to specific elements in a collection.
 ///
@@ -53,14 +16,14 @@ impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
 pub struct Access<T: SparseSetIndex> {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
-    component_read_and_writes: FixedBitSet,
+    component_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::component_writes_inverted` is set.
-    component_writes: FixedBitSet,
+    component_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// All accessed resources.
-    resource_read_and_writes: FixedBitSet,
+    resource_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// The exclusively-accessed resources.
-    resource_writes: FixedBitSet,
+    resource_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::component_read_and_writes`.
     component_read_and_writes_inverted: bool,
@@ -74,7 +37,7 @@ pub struct Access<T: SparseSetIndex> {
     /// If this is true, then `reads_all` must also be true.
     writes_all_resources: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
-    archetypal: FixedBitSet,
+    archetypal: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     marker: PhantomData<T>,
 }
 
@@ -113,22 +76,10 @@ impl<T: SparseSetIndex> Clone for Access<T> {
 impl<T: SparseSetIndex + Debug> Debug for Access<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Access")
-            .field(
-                "component_read_and_writes",
-                &FormattedBitSet::<T>::new(&self.component_read_and_writes),
-            )
-            .field(
-                "component_writes",
-                &FormattedBitSet::<T>::new(&self.component_writes),
-            )
-            .field(
-                "resource_read_and_writes",
-                &FormattedBitSet::<T>::new(&self.resource_read_and_writes),
-            )
-            .field(
-                "resource_writes",
-                &FormattedBitSet::<T>::new(&self.resource_writes),
-            )
+            .field("component_read_and_writes", &self.component_read_and_writes)
+            .field("component_writes", &self.component_writes)
+            .field("resource_read_and_writes", &self.resource_read_and_writes)
+            .field("resource_writes", &self.resource_writes)
             .field(
                 "component_read_and_writes_inverted",
                 &self.component_read_and_writes_inverted,
@@ -136,7 +87,7 @@ impl<T: SparseSetIndex + Debug> Debug for Access<T> {
             .field("component_writes_inverted", &self.component_writes_inverted)
             .field("reads_all_resources", &self.reads_all_resources)
             .field("writes_all_resources", &self.writes_all_resources)
-            .field("archetypal", &FormattedBitSet::<T>::new(&self.archetypal))
+            .field("archetypal", &self.archetypal)
             .finish()
     }
 }
@@ -155,18 +106,18 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all_resources: false,
             component_read_and_writes_inverted: false,
             component_writes_inverted: false,
-            component_read_and_writes: FixedBitSet::new(),
-            component_writes: FixedBitSet::new(),
-            resource_read_and_writes: FixedBitSet::new(),
-            resource_writes: FixedBitSet::new(),
-            archetypal: FixedBitSet::new(),
+            component_read_and_writes: SortedSmallVec::new_const(),
+            component_writes: SortedSmallVec::new_const(),
+            resource_read_and_writes: SortedSmallVec::new_const(),
+            resource_writes: SortedSmallVec::new_const(),
+            archetypal: SortedSmallVec::new_const(),
             marker: PhantomData,
         }
     }
 
     fn add_component_sparse_set_index_read(&mut self, index: usize) {
         if !self.component_read_and_writes_inverted {
-            self.component_read_and_writes.grow_and_insert(index);
+            self.component_read_and_writes.insert(index);
         } else if index < self.component_read_and_writes.len() {
             self.component_read_and_writes.remove(index);
         }
@@ -174,7 +125,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     fn add_component_sparse_set_index_write(&mut self, index: usize) {
         if !self.component_writes_inverted {
-            self.component_writes.grow_and_insert(index);
+            self.component_writes.insert(index);
         } else if index < self.component_writes.len() {
             self.component_writes.remove(index);
         }
@@ -196,20 +147,19 @@ impl<T: SparseSetIndex> Access<T> {
     /// Adds access to the resource given by `index`.
     pub fn add_resource_read(&mut self, index: T) {
         self.resource_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the resource given by `index`.
     pub fn add_resource_write(&mut self, index: T) {
         self.resource_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
-        self.resource_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
+        self.resource_writes.insert(index.sparse_set_index());
     }
 
     fn remove_component_sparse_set_index_read(&mut self, index: usize) {
         if self.component_read_and_writes_inverted {
-            self.component_read_and_writes.grow_and_insert(index);
+            self.component_read_and_writes.insert(index);
         } else if index < self.component_read_and_writes.len() {
             self.component_read_and_writes.remove(index);
         }
@@ -217,7 +167,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     fn remove_component_sparse_set_index_write(&mut self, index: usize) {
         if self.component_writes_inverted {
-            self.component_writes.grow_and_insert(index);
+            self.component_writes.insert(index);
         } else if index < self.component_writes.len() {
             self.component_writes.remove(index);
         }
@@ -259,7 +209,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn add_archetypal(&mut self, index: T) {
-        self.archetypal.grow_and_insert(index.sparse_set_index());
+        self.archetypal.insert(index.sparse_set_index());
     }
 
     /// Returns `true` if this can access the component given by `index`.
@@ -272,7 +222,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access any component.
     pub fn has_any_component_read(&self) -> bool {
-        self.component_read_and_writes_inverted || !self.component_read_and_writes.is_clear()
+        self.component_read_and_writes_inverted || !self.component_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
@@ -282,7 +232,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_component_write(&self) -> bool {
-        self.component_writes_inverted || !self.component_writes.is_clear()
+        self.component_writes_inverted || !self.component_writes.is_empty()
     }
 
     /// Returns `true` if this can access the resource given by `index`.
@@ -295,7 +245,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access any resource.
     pub fn has_any_resource_read(&self) -> bool {
-        self.reads_all_resources || !self.resource_read_and_writes.is_clear()
+        self.reads_all_resources || !self.resource_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the resource given by `index`.
@@ -305,7 +255,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this accesses any resource mutably.
     pub fn has_any_resource_write(&self) -> bool {
-        self.writes_all_resources || !self.resource_writes.is_clear()
+        self.writes_all_resources || !self.resource_writes.is_empty()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -365,13 +315,13 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if this has access to all components (i.e. `EntityRef`).
     #[inline]
     pub fn has_read_all_components(&self) -> bool {
-        self.component_read_and_writes_inverted && self.component_read_and_writes.is_clear()
+        self.component_read_and_writes_inverted && self.component_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut`).
     #[inline]
     pub fn has_write_all_components(&self) -> bool {
-        self.component_writes_inverted && self.component_writes.is_clear()
+        self.component_writes_inverted && self.component_writes.is_empty()
     }
 
     /// Returns `true` if this has access to all resources (i.e. `EntityRef`).
@@ -428,23 +378,22 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_read_and_writes_inverted,
         ) {
             (true, true) => {
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
+                self.component_read_and_writes = self
+                    .component_read_and_writes
+                    .intersection(&other.component_read_and_writes)
+                    .into();
             }
             (true, false) => {
-                self.component_read_and_writes
-                    .difference_with(&other.component_read_and_writes);
+                self.component_read_and_writes = self
+                    .component_read_and_writes
+                    .difference(&other.component_read_and_writes)
+                    .into();
             }
             (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_read_and_writes.grow(
-                    self.component_read_and_writes
-                        .len()
-                        .max(other.component_read_and_writes.len()),
-                );
-                self.component_read_and_writes.toggle_range(..);
-                self.component_read_and_writes
-                    .intersect_with(&other.component_read_and_writes);
+                self.component_read_and_writes = other
+                    .component_read_and_writes
+                    .difference(&self.component_read_and_writes)
+                    .into();
             }
             (false, false) => {
                 self.component_read_and_writes
@@ -457,23 +406,22 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_writes_inverted,
         ) {
             (true, true) => {
-                self.component_writes
-                    .intersect_with(&other.component_writes);
+                self.component_writes = self
+                    .component_writes
+                    .intersection(&other.component_writes)
+                    .into();
             }
             (true, false) => {
-                self.component_writes
-                    .difference_with(&other.component_writes);
+                self.component_writes = self
+                    .component_writes
+                    .difference(&other.component_writes)
+                    .into();
             }
             (false, true) => {
-                // We have to grow here because the new bits are going to get flipped to 1.
-                self.component_writes.grow(
-                    self.component_writes
-                        .len()
-                        .max(other.component_writes.len()),
-                );
-                self.component_writes.toggle_range(..);
-                self.component_writes
-                    .intersect_with(&other.component_writes);
+                self.component_writes = other
+                    .component_writes
+                    .difference(&self.component_read_and_writes)
+                    .into();
             }
             (false, false) => {
                 self.component_writes.union_with(&other.component_writes);
@@ -654,7 +602,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     fn get_component_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = FixedBitSet::new();
+        let mut conflicts = SortedSmallVec::new_const();
 
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
@@ -679,12 +627,12 @@ impl<T: SparseSetIndex> Access<T> {
         ] {
             // There's no way that I can see to do this without a temporary.
             // Neither CNF nor DNF allows us to avoid one.
-            let temp_conflicts: FixedBitSet =
+            let temp_conflicts =
                 match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
                     (true, true) => return AccessConflicts::All,
-                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
-                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
-                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).collect(),
+                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).into(),
+                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).into(),
+                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).into(),
                 };
             conflicts.union_with(&temp_conflicts);
         }
@@ -820,7 +768,7 @@ impl<T: SparseSetIndex> Access<T> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     pub(crate) access: Access<T>,
-    pub(crate) required: FixedBitSet,
+    pub(crate) required: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters<T>>,
@@ -863,7 +811,7 @@ pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
     /// There is a conflict for a subset of indices
-    Individual(FixedBitSet),
+    Individual(SortedSmallVec<ACCESS_SMALL_VEC_SIZE>),
 }
 
 impl AccessConflicts {
@@ -910,7 +858,7 @@ impl AccessConflicts {
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
-        Self::Individual(FixedBitSet::new())
+        Self::Individual(SortedSmallVec::const_new())
     }
 }
 
