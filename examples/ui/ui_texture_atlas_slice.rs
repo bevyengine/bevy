@@ -31,7 +31,7 @@ fn button_system(
             Interaction::Pressed => {
                 **text = "Press".to_string();
                 if let Some(atlas) = &mut image.texture_atlas {
-                    atlas.index = (atlas.index + 1) % 30;
+                    atlas.advance_index();
                 }
                 image.color = GOLD.into();
             }
@@ -87,6 +87,7 @@ fn setup(
                             TextureAtlas {
                                 index: idx,
                                 layout: atlas_layout_handle.clone(),
+                                index_range: (idx, 30)
                             },
                         )
                         .with_mode(NodeImageMode::Sliced(slicer.clone())),
