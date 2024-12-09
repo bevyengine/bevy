@@ -45,7 +45,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
-            #[allow(unsafe_code)]
+            #[expect(unsafe_code)]
             // SAFETY: All components have a u8 layout
             let value: u8 = unsafe { *ptr.deref::<u8>() };
 
@@ -62,7 +62,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // we assign this value to all the components we can write to
         for component_id in &access_components.0 {
             if let Some(ptr) = filtered_entity.get_mut_by_id(*component_id) {
-                #[allow(unsafe_code)]
+                #[expect(unsafe_code)]
                 // SAFETY: All components have a u8 layout
                 unsafe {
                     let mut value = ptr.with_type::<u8>();
@@ -153,11 +153,11 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     app.run();
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub fn main() {
-    let default_num_entities = 50000;
-    let default_num_components = 1000;
-    let default_num_systems = 800;
+    const DEFAULT_NUM_ENTITIES: u32 = 50000;
+    const DEFAULT_NUM_COMPONENTS: u32 = 1000;
+    const DEFAULT_NUM_SYSTEMS: u32 = 800;
 
     // take input
     let num_entities = std::env::args()
