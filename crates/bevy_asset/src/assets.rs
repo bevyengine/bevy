@@ -14,6 +14,7 @@ use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+use crate::asset_changed::AssetChanges;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
@@ -570,7 +571,7 @@ impl<A: Asset> Assets<A> {
         if let Some(mut asset_changes) = asset_changes {
             for new_event in &assets.queued_events {
                 match new_event {
-                    Removed { id } => asset_changes.remove(id),
+                    Removed { id } | AssetEvent::Unused { id } => asset_changes.remove(id),
                     Added { id } | Modified { id } | LoadedWithDependencies { id } => {
                         asset_changes.insert(*id, ticks.this_run());
                     }

@@ -2,16 +2,17 @@
 //!
 //! Like [`Changed`], but for [`Asset`]s.
 use std::marker::PhantomData;
-
+use disqualified::ShortName;
 use bevy_ecs::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{ComponentId, Tick},
     prelude::{Changed, Entity, Or, Resource, World},
-    query::{Access, FilteredAccess, QueryItem, ReadFetch, WorldQuery, WorldQueryFilter},
+    query::{Access, FilteredAccess, QueryItem, ReadFetch, WorldQuery, QueryFilter},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::{get_short_name, HashMap};
+use bevy_ecs::component::Components;
+use bevy_utils::HashMap;
 
 use crate::{Asset, AssetId, Handle};
 
@@ -158,29 +159,15 @@ pub struct AssetChangedState<A: Asset> {
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
-    type Fetch<'w> = AssetChangedFetch<'w, A>;
-    type State = AssetChangedState<A>;
-
     type Item<'w> = ();
+    type Fetch<'w> = AssetChangedFetch<'w, A>;
+
+    type State = AssetChangedState<A>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {}
 
-    fn init_state(world: &mut World) -> AssetChangedState<A> {
-        let resource_id = world.init_resource::<AssetChanges<A>>();
-        let archetype_id = world.storages().resources.get(resource_id).unwrap().id();
-        AssetChangedState {
-            asset_id: world.init_component::<Handle<A>>(),
-            resource_id,
-            archetype_id,
-            _asset: PhantomData,
-        }
-    }
-
-    fn matches_component_set(
-        state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
-    ) -> bool {
-        set_contains_id(state.asset_id)
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
     }
 
     unsafe fn init_fetch<'w>(
@@ -193,7 +180,7 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
             panic!(
                 "AssetChanges<{ty}> resource was removed, please do not remove \
                 AssetChanges<{ty}> when using the AssetChanged<{ty}> world query",
-                ty = get_short_name(std::any::type_name::<A>())
+                ty = ShortName::of::<A>()
             )
         };
         let changes: &AssetChanges<_> = world.get_resource().unwrap_or_else(err_msg);
@@ -207,12 +194,6 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
 
     const IS_DENSE: bool = <&Handle<A>>::IS_DENSE;
 
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        if let Some(inner) = &mut fetch.inner {
-            <&Handle<A>>::set_table(inner, &state.asset_id, table);
-        }
-    }
-
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
@@ -224,6 +205,12 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         }
     }
 
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        if let Some(inner) = &mut fetch.inner {
+            <&Handle<A>>::set_table(inner, &state.asset_id, table);
+        }
+    }
+
     unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {}
 
     #[inline]
@@ -232,19 +219,31 @@ unsafe impl<A: Asset> WorldQuery for AssetChanged<A> {
         access.add_read(state.resource_id);
     }
 
-    #[inline]
-    fn update_archetype_component_access(
+    fn init_state(world: &mut World) -> AssetChangedState<A> {
+        let resource_id = world.init_resource::<AssetChanges<A>>();
+        let archetype_id = world.storages().resources.get(resource_id).unwrap().id();
+        AssetChangedState {
+            asset_id: world.init_component::<Handle<A>>(),
+            resource_id,
+            archetype_id,
+            _asset: PhantomData,
+        }
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        todo!()
+    }
+
+    fn matches_component_set(
         state: &Self::State,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        access.add_read(state.archetype_id);
-        <&Handle<A>>::update_archetype_component_access(&state.asset_id, archetype, access);
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(state.asset_id)
     }
 }
 
 /// SAFETY: read-only access
-impl<A: Asset> WorldQueryFilter for AssetChanged<A> {
+unsafe impl<A: Asset> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline]
@@ -262,6 +261,7 @@ impl<A: Asset> WorldQueryFilter for AssetChanged<A> {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZero;
     use crate::{self as bevy_asset, AssetPlugin};
 
     use crate::{AssetApp, Assets};
@@ -294,7 +294,7 @@ mod tests {
             _query: Query<&mut Handle<MyAsset>, AssetChanged<MyAsset>>,
             mut exit: EventWriter<AppExit>,
         ) {
-            exit.send(AppExit);
+            exit.send(AppExit::Error(NonZero::<u8>::MIN));
         }
         run_app(compatible_filter);
     }
@@ -358,7 +358,7 @@ mod tests {
 
     #[track_caller]
     fn assert_counter(app: &App, assert: Counter) {
-        assert_eq!(&assert, app.world.resource::<Counter>());
+        assert_eq!(&assert, app.world().resource::<Counter>());
     }
 
     #[test]
