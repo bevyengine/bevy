@@ -302,6 +302,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 Vec2::ZERO,
                 Vec2::ZERO,
                 None,
+                Vec2::ZERO,
             );
         }
 
@@ -329,6 +330,7 @@ with UI components as a child of an entity without UI components, your UI layout
         parent_size: Vec2,
         parent_scroll_position: Vec2,
         mut maybe_inherited_clip: Option<Rect>,
+        mut global_position: Vec2,
     ) {
         if let Ok((
             mut node,
@@ -356,6 +358,8 @@ with UI components as a child of an entity without UI components, your UI layout
             // The position of the center of the node, stored in the node's transform
             let node_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+
+            global_position += node_center;
 
             // only trigger change detection when the new values are different
             if node.size != layout_size
@@ -481,7 +485,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 // of nested `Overflow::Hidden` nodes. If parent `clip` is not
                 // defined, use the current node's clip.
 
-                let mut clip_rect = Rect::from_center_size(node_center, node.size());
+                let mut clip_rect = Rect::from_center_size(global_position, node.size());
 
                 // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
                 //
@@ -524,6 +528,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     layout_size,
                     clamped_scroll_position,
                     children_clip,
+                    global_position,
                 );
             }
         }
