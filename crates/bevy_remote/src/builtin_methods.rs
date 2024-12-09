@@ -824,10 +824,7 @@ fn get_component_ids(
     for component_path in component_paths {
         let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
         let Some(component_id) = world.components().get_id(type_id) else {
-            return Err(anyhow!(
-                "Component `{}` isn't used in the world",
-                component_path
-            ));
+            continue;
         };
 
         component_ids.push((type_id, component_id));
