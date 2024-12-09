@@ -965,7 +965,7 @@ mod tests {
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system_cached(system);
+        let id = world.register_system(system.param_warn_once());
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
