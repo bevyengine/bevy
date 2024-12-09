@@ -58,7 +58,7 @@ pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
 /// ID.
 ///
 /// The server responds with a [`BrpGetResponse`].
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpGetParams {
     /// The ID of the entity from which components are to be requested.
     pub entity: Entity,
@@ -83,7 +83,7 @@ pub struct BrpGetParams {
 /// and component values that match.
 ///
 /// The server responds with a [`BrpQueryResponse`].
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpQueryParams {
     /// The components to select.
     pub data: BrpQuery,
@@ -98,7 +98,7 @@ pub struct BrpQueryParams {
 /// with its ID.
 ///
 /// The server responds with a [`BrpSpawnResponse`].
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSpawnParams {
     /// A map from each component's full path to its serialized value.
     ///
@@ -115,7 +115,7 @@ pub struct BrpSpawnParams {
 /// `bevy/destroy`: Given an ID, despawns the entity with that ID.
 ///
 /// The server responds with an okay.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpDestroyParams {
     /// The ID of the entity to despawn.
     pub entity: Entity,
@@ -124,7 +124,7 @@ pub struct BrpDestroyParams {
 /// `bevy/remove`: Deletes one or more components from an entity.
 ///
 /// The server responds with a null.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpRemoveParams {
     /// The ID of the entity from which components are to be removed.
     pub entity: Entity,
@@ -143,7 +143,7 @@ pub struct BrpRemoveParams {
 /// `bevy/insert`: Adds one or more components to an entity.
 ///
 /// The server responds with a null.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpInsertParams {
     /// The ID of the entity that components are to be added to.
     pub entity: Entity,
@@ -163,7 +163,7 @@ pub struct BrpInsertParams {
 /// `bevy/reparent`: Assign a new parent to one or more entities.
 ///
 /// The server responds with a null.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpReparentParams {
     /// The IDs of the entities that are to become the new children of the
     /// `parent`.
@@ -181,14 +181,14 @@ pub struct BrpReparentParams {
 /// system (no params provided), or those on an entity (params provided).
 ///
 /// The server responds with a [`BrpListResponse`]
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
 }
 
 /// Describes the data that is to be fetched in a query.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
     /// The [full path] of the type name of each component that is to be
     /// fetched.
@@ -214,7 +214,7 @@ pub struct BrpQuery {
 
 /// Additional constraints that can be placed on a query to include or exclude
 /// certain entities.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQueryFilter {
     /// The [full path] of the type name of each component that must not be
     /// present on the entity for it to be included in the results.
@@ -234,14 +234,14 @@ pub struct BrpQueryFilter {
 /// A response from the world to the client that specifies a single entity.
 ///
 /// This is sent in response to `bevy/spawn`.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpSpawnResponse {
     /// The ID of the entity in question.
     pub entity: Entity,
 }
 
 /// The response to a `bevy/get` request.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum BrpGetResponse {
     /// The non-strict response that reports errors separately without failing the entire request.
@@ -257,7 +257,7 @@ pub enum BrpGetResponse {
 }
 
 /// A single response from a `bevy/get+watch` request.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum BrpGetWatchingResponse {
     /// The non-strict response that reports errors separately without failing the entire request.
@@ -285,7 +285,7 @@ pub enum BrpGetWatchingResponse {
 pub type BrpListResponse = Vec<String>;
 
 /// A single response from a `bevy/list+watch` request.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpListWatchingResponse {
     added: Vec<String>,
     removed: Vec<String>,
@@ -295,7 +295,7 @@ pub struct BrpListWatchingResponse {
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// One query match result: a single entity paired with the requested components.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpQueryRow {
     /// The ID of the entity that matched.
     pub entity: Entity,
@@ -968,4 +968,41 @@ fn get_component_type_registration<'r>(
     type_registry
         .get_with_type_path(component_path)
         .ok_or_else(|| anyhow!("Unknown component type: `{}`", component_path))
+}
+
+#[cfg(test)]
+mod tests {
+    /// A generic function that tests serialization and deserialization of any type
+    /// implementing Serialize and Deserialize traits.
+    fn test_serialize_deserialize<T>(value: T)
+    where
+        T: Serialize + for<'a> Deserialize<'a> + PartialEq + std::fmt::Debug,
+    {
+        // Serialize the value to JSON string
+        let serialized = serde_json::to_string(&value).expect("Failed to serialize");
+
+        // Deserialize the JSON string back into the original type
+        let deserialized: T = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        // Assert that the deserialized value is the same as the original
+        assert_eq!(
+            &value, &deserialized,
+            "Deserialized value does not match original"
+        );
+    }
+    use super::*;
+
+    #[test]
+    fn serialization_tests() {
+        test_serialize_deserialize(BrpQueryRow {
+            components: Default::default(),
+            entity: Entity::from_raw(0),
+            has: Default::default(),
+        });
+        test_serialize_deserialize(BrpListWatchingResponse::default());
+        test_serialize_deserialize(BrpQuery::default());
+        test_serialize_deserialize(BrpListParams {
+            entity: Entity::from_raw(0),
+        });
+    }
 }
