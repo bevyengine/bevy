@@ -340,6 +340,11 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_calculated_clip,
         )) = node_transform_query.get_mut(entity)
         {
+            if style.display == Display::None {
+                hide_uinodes_recursive(entity, node_transform_query, ui_children);
+                return;
+            }
+
             let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
@@ -521,6 +526,31 @@ with UI components as a child of an entity without UI components, your UI layout
                     children_clip,
                 );
             }
+        }
+    }
+
+    fn hide_uinodes_recursive(
+        entity: Entity,
+        node_query: &mut Query<(
+            &mut ComputedNode,
+            &mut Transform,
+            &Node,
+            Option<&BorderRadius>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+            Option<&mut CalculatedClip>,
+        )>,
+        ui_children: &UiChildren,
+    ) {
+        if let Ok((mut computed_node, ..)) = node_query.get_mut(entity) {
+            if !computed_node.hidden {
+                computed_node.hidden = true;
+                computed_node.size = Vec2::ZERO;
+            }
+        }
+
+        for child_uinode in ui_children.iter_ui_children(entity) {
+            hide_uinodes_recursive(child_uinode, node_query, ui_children);
         }
     }
 }
