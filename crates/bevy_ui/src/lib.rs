@@ -14,7 +14,7 @@
 pub mod measurement;
 pub mod node_bundles;
 pub mod ui_material;
-pub mod update;
+pub mod update_target_cameras;
 pub mod widget;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
@@ -78,7 +78,7 @@ use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_target_camera_system};
+use update_target_cameras::update_target_camera_system;
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
@@ -205,10 +205,8 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
-                    .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
-                update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`

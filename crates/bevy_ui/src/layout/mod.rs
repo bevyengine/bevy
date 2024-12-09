@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale, Val,
+    BorderRadius, CalculatedClip, ComputedNode, ContentSize, DefaultUiCamera, Display, Node,
+    Outline, OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -13,7 +13,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{Rect, UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -123,6 +123,7 @@ pub fn ui_layout_system(
         Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
+        Option<&mut CalculatedClip>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -300,6 +301,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
+                None,
             );
         }
 
@@ -320,11 +322,13 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
+            Option<&mut CalculatedClip>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        mut maybe_inherited_clip: Option<Rect>,
     ) {
         if let Ok((
             mut node,
@@ -333,6 +337,7 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
+            maybe_calculated_clip,
         )) = node_transform_query.get_mut(entity)
         {
             let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
@@ -433,6 +438,75 @@ with UI components as a child of an entity without UI components, your UI layout
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
+            // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+            if style.display == Display::None {
+                maybe_inherited_clip = Some(Rect::default());
+            }
+
+            // Update this node's CalculatedClip component
+            if let Some(mut calculated_clip) = maybe_calculated_clip {
+                if let Some(inherited_clip) = maybe_inherited_clip {
+                    // Replace the previous calculated clip with the inherited clipping rect
+                    if calculated_clip.clip != inherited_clip {
+                        *calculated_clip = CalculatedClip {
+                            clip: inherited_clip,
+                        };
+                    }
+                } else {
+                    // No inherited clipping rect, remove the component
+                    commands.entity(entity).remove::<CalculatedClip>();
+                }
+            } else if let Some(inherited_clip) = maybe_inherited_clip {
+                // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
+                commands.entity(entity).try_insert(CalculatedClip {
+                    clip: inherited_clip,
+                });
+            }
+
+            // Calculate new clip rectangle for children nodes
+            let children_clip = if style.overflow.is_visible() {
+                // When `Visible`, children might be visible even when they are outside
+                // the current node's boundaries. In this case they inherit the current
+                // node's parent clip. If an ancestor is set as `Hidden`, that clip will
+                // be used; otherwise this will be `None`.
+                maybe_inherited_clip
+            } else {
+                // If `maybe_inherited_clip` is `Some`, use the intersection between
+                // current node's clip and the inherited clip. This handles the case
+                // of nested `Overflow::Hidden` nodes. If parent `clip` is not
+                // defined, use the current node's clip.
+
+                let mut clip_rect = Rect::from_center_size(node_center, node.size());
+
+                // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
+                //
+                // `clip_inset` should always fit inside `node_rect`.
+                // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
+                let clip_inset = match style.overflow_clip_margin.visual_box {
+                    crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
+                    crate::OverflowClipBox::ContentBox => node.content_inset(),
+                    crate::OverflowClipBox::PaddingBox => node.border(),
+                };
+
+                clip_rect.min.x += clip_inset.left;
+                clip_rect.min.y += clip_inset.top;
+                clip_rect.max.x -= clip_inset.right;
+                clip_rect.max.y -= clip_inset.bottom;
+
+                clip_rect = clip_rect
+                    .inflate(style.overflow_clip_margin.margin.max(0.) / node.inverse_scale_factor);
+
+                if style.overflow.x == OverflowAxis::Visible {
+                    clip_rect.min.x = -f32::INFINITY;
+                    clip_rect.max.x = f32::INFINITY;
+                }
+                if style.overflow.y == OverflowAxis::Visible {
+                    clip_rect.min.y = -f32::INFINITY;
+                    clip_rect.max.y = f32::INFINITY;
+                }
+                Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
+            };
+
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
@@ -444,6 +518,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
+                    children_clip,
                 );
             }
         }
@@ -486,7 +561,7 @@ mod tests {
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_target_camera_system, ContentSize, LayoutContext,
+        update_target_cameras::update_target_camera_system, ContentSize, LayoutContext,
     };
 
     // these window dimensions are easy to convert to and from percentage values
