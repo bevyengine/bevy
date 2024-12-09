@@ -1233,6 +1233,8 @@ pub fn animate_targets(
         });
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_animation` feature is enabled.
+///
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;

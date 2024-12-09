@@ -108,7 +108,8 @@ pub enum AccessibilitySystem {
     /// Update the accessibility tree
     Update,
 }
-
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_window` feature is enabled.
+///
 /// Plugin managing non-GUI aspects of integrating with accessibility APIs.
 #[derive(Default)]
 pub struct AccessibilityPlugin;

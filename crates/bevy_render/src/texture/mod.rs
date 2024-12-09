@@ -21,6 +21,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_render` feature is enabled.
+///
 /// A handle to a 1 x 1 transparent white image.
 ///
 /// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.

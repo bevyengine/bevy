@@ -135,11 +135,20 @@ macro_rules! plugin_group {
         $(#[doc = concat!(
             " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
+            $(, " - `", stringify!($plugin_meta), "`")*
         )])*
        $($(#[doc = concat!(
             " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
-        )]),+)?
+            $(, " - `", stringify!($plugin_group_meta), "`")*
+        )])+)?
+        $($(
+            #[doc = concat!(
+                " - [`", stringify!($hidden_plugin_name), "`](" $(, stringify!($hidden_plugin_path), "::")*, stringify!($hidden_plugin_name), ")"
+                $(, " - with feature `", $hidden_plugin_feature, "`")?
+                $(, " - ", stringify!($hidden_plugin_meta))*
+            )]
+        )+)?
         $(
             ///
             $(#[doc = $post_doc])+

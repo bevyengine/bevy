@@ -39,6 +39,9 @@ use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
 
+/// - Is part of the [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Adds time functionality to Apps.
 #[derive(Default)]
 pub struct TimePlugin;

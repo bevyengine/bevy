@@ -35,7 +35,9 @@ use core::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-
+/// - Is part of the [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
 #[derive(Default)]
 pub struct TypeRegistrationPlugin;
@@ -47,7 +49,9 @@ impl Plugin for TypeRegistrationPlugin {
         app.register_type::<Name>();
     }
 }
-
+/// - Is part of the [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
 /// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
 #[derive(Default)]
@@ -90,6 +94,9 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 #[derive(Debug, Default, Resource, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameCount(pub u32);
 
+/// - Is part of the [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Adds frame counting functionality to Apps.
 #[derive(Default)]
 pub struct FrameCountPlugin;

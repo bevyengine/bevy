@@ -66,6 +66,8 @@ use audio_output::*;
 #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 struct AudioPlaySet;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_audio` feature is enabled.
+///
 /// Adds support for audio playback to a Bevy Application
 ///
 /// Insert an [`AudioPlayer`] onto your entities to play audio.

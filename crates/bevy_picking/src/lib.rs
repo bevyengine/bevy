@@ -267,6 +267,8 @@ pub enum PickSet {
     Last,
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_picking` feature is enabled.
+///
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
 ///

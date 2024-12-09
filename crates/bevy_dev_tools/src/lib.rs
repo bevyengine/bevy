@@ -20,6 +20,8 @@ pub mod ui_debug_overlay;
 
 pub mod states;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_dev_tools` feature is enabled.
+///
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
 ///
