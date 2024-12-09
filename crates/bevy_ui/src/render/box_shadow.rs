@@ -262,7 +262,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        // Skip if no visable shadows
+        // Skip if no visible shadows
         if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
