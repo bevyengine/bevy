@@ -164,7 +164,7 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
             .get_name(component_id)

@@ -229,7 +229,7 @@ mod test {
 
         let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
 
-        // NOTE: Fails if `is_srbg = false` or the dynamic image is of the type rgb8.
+        // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
     }
 }

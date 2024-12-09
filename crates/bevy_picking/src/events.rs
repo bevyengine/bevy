@@ -322,7 +322,7 @@ impl PointerState {
             .or_default()
     }
 
-    /// Clears all the data assoceated with all of the buttons on a pointer. Does not free the underlying memory.
+    /// Clears all the data associated with all of the buttons on a pointer. Does not free the underlying memory.
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
