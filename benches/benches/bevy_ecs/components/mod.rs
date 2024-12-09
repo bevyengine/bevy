@@ -13,7 +13,7 @@ mod insert_simple_unbatched;
 use archetype_updates::*;
 
 criterion_group!(
-    components_benches,
+    benches,
     add_remove,
     add_remove_big,
     add_remove_very_big,

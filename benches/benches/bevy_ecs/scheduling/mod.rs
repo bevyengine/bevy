@@ -9,7 +9,7 @@ use running_systems::*;
 use schedule::*;
 
 criterion_group!(
-    scheduling_benches,
+    benches,
     run_condition_yes,
     run_condition_no,
     run_condition_yes_with_query,

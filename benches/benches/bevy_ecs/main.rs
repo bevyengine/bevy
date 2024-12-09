@@ -18,14 +18,14 @@ mod scheduling;
 mod world;
 
 criterion_main!(
-    change_detection::change_detection_benches,
-    components::components_benches,
-    empty_archetypes::empty_archetypes_benches,
-    events::event_benches,
-    iteration::iterations_benches,
-    fragmentation::fragmentation_benches,
-    observers::observer_benches,
-    scheduling::scheduling_benches,
-    world::world_benches,
-    param::param_benches,
+    change_detection::benches,
+    components::benches,
+    empty_archetypes::benches,
+    events::benches,
+    iteration::benches,
+    fragmentation::benches,
+    observers::benches,
+    scheduling::benches,
+    world::benches,
+    param::benches,
 );

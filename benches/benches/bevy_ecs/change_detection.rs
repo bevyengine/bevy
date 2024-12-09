@@ -10,7 +10,7 @@ use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(
-    change_detection_benches,
+    benches,
     all_added_detection,
     all_changed_detection,
     few_changed_detection,
@@ -297,7 +297,9 @@ fn add_archetypes_entities<T: Component<Mutability = Mutable> + Default>(
         }
     }
 }
-fn multiple_archetype_none_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
+fn multiple_archetype_none_changed_detection_generic<
+    T: Component<Mutability = Mutable> + Default + BenchModify,
+>(
     group: &mut BenchGroup,
     archetype_count: u16,
     entity_count: u32,

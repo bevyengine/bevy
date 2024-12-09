@@ -25,7 +25,7 @@ mod par_iter_simple_foreach_hybrid;
 use heavy_compute::*;
 
 criterion_group!(
-    iterations_benches,
+    benches,
     iter_frag,
     iter_frag_sparse,
     iter_simple,

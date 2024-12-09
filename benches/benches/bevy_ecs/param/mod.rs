@@ -8,4 +8,4 @@ use combinator_system::*;
 use dyn_param::*;
 use param_set::*;
 
-criterion_group!(param_benches, combinator_system, dyn_param, param_set);
+criterion_group!(benches, combinator_system, dyn_param, param_set);

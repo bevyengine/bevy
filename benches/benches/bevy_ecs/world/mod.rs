@@ -19,7 +19,7 @@ mod entity_hash;
 use entity_hash::*;
 
 criterion_group!(
-    world_benches,
+    benches,
     empty_commands,
     spawn_commands,
     insert_commands,

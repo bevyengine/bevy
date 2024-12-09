@@ -4,7 +4,7 @@ use core::hint::black_box;
 use criterion::*;
 use glam::*;
 
-criterion_group!(fragmentation_benches, iter_frag_empty);
+criterion_group!(benches, iter_frag_empty);
 
 #[derive(Component, Default)]
 struct Table<const X: usize = 0>(usize);

@@ -1,7 +1,7 @@
 use bevy_ecs::{component::Component, prelude::*, world::World};
 use criterion::{black_box, criterion_group, BenchmarkId, Criterion};
 
-criterion_group!(empty_archetypes_benches, empty_archetypes);
+criterion_group!(benches, empty_archetypes);
 
 #[derive(Component)]
 struct A<const N: u16>(f32);
