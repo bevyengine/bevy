@@ -349,8 +349,6 @@ with UI components as a child of an entity without UI components, your UI layout
                 return;
             };
 
-            node.bypass_change_detection().hidden = false;
-
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
@@ -545,11 +543,7 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_children: &UiChildren,
     ) {
         if let Ok((mut computed_node, ..)) = node_query.get_mut(entity) {
-            if !computed_node.hidden {
-                computed_node.hidden = true;
-            }
-
-            if computed_node.size.cmpgt(Vec2::ZERO).any() {
+            if computed_node.size != Vec2::ZERO {
                 computed_node.size = Vec2::ZERO;
                 computed_node.unrounded_size = Vec2::ZERO;
             }

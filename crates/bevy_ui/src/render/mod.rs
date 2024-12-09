@@ -41,6 +41,8 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+
+use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -399,6 +401,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
+            &Node,
             &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
@@ -415,6 +418,7 @@ pub fn extract_uinode_borders(
 
     for (
         entity,
+        node,
         computed_node,
         global_transform,
         view_visibility,
@@ -435,7 +439,7 @@ pub fn extract_uinode_borders(
         };
 
         // Skip invisible borders and removed nodes
-        if !view_visibility.get() || computed_node.is_hidden() {
+        if !view_visibility.get() || node.display == Display::None {
             continue;
         }
 
