@@ -1383,7 +1383,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` and [`Mut<T>`](crate::change_detection::Mut) have read, write, and required access to `T`
     /// * `&T` and [`Ref<T>`](crate::change_detection::Ref) have read and required access to `T`
     /// * [`Option<D>`] and [`AnyOf<(D, ...)>`](crate::query::AnyOf) have the read and write access of the subqueries, but no required access
-    /// * Tuples and `#[derive(QueryData)]` structs have the union of the access of their subqueries
+    /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
     /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
     /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
     /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
@@ -1395,7 +1395,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
     /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
     ///   so can be added to any query
-    /// * Tuples and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
+    /// * Tuples of query filters and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
     /// * [`Or<(F, ...)>`](crate::query::Or) filters have the read access of the subqueries, but no required access
     ///
     /// ### Examples of valid transmutes
