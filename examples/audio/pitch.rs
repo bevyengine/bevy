@@ -1,6 +1,6 @@
 //! This example illustrates how to play a single-frequency sound (aka a pitch)
 
-use bevy::prelude::*;
+use bevy::{audio::PlaybackMode, prelude::*};
 use std::time::Duration;
 
 fn main() {
@@ -30,9 +30,9 @@ fn play_pitch(
 ) {
     for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
-        commands.spawn((
-            AudioPlayer(pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0)))),
-            PlaybackSettings::DESPAWN,
+        commands.spawn(AudioPlayer(
+            pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0))),
+            PlaybackMode::Despawn,
         ));
         info!("number of pitch assets: {}", pitch_assets.len());
     }

@@ -33,7 +33,7 @@ impl Volume {
 }
 
 /// The way Bevy manages the sound playback.
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect, Default)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     Once,
@@ -42,6 +42,7 @@ pub enum PlaybackMode {
     /// Despawn the entity and its children when the sound finishes playing.
     Despawn,
     /// Remove the audio components from the entity, when the sound finishes playing.
+    #[default]
     Remove,
 }
 
@@ -53,8 +54,6 @@ pub enum PlaybackMode {
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 #[reflect(Default, Component, Debug)]
 pub struct PlaybackSettings {
-    /// The desired playback behavior.
-    pub mode: PlaybackMode,
     /// Volume to play at.
     pub volume: Volume,
     /// Speed to play at.
@@ -77,40 +76,17 @@ pub struct PlaybackSettings {
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
-        // TODO: what should the default be: ONCE/DESPAWN/REMOVE?
-        Self::ONCE
+        Self {
+            volume: Volume(1.0),
+            speed: 1.0,
+            paused: false,
+            spatial: false,
+            spatial_scale: None,
+        }
     }
 }
 
 impl PlaybackSettings {
-    /// Will play the associated audio source once.
-    pub const ONCE: PlaybackSettings = PlaybackSettings {
-        mode: PlaybackMode::Once,
-        volume: Volume(1.0),
-        speed: 1.0,
-        paused: false,
-        spatial: false,
-        spatial_scale: None,
-    };
-
-    /// Will play the associated audio source in a loop.
-    pub const LOOP: PlaybackSettings = PlaybackSettings {
-        mode: PlaybackMode::Loop,
-        ..PlaybackSettings::ONCE
-    };
-
-    /// Will play the associated audio source once and despawn the entity afterwards.
-    pub const DESPAWN: PlaybackSettings = PlaybackSettings {
-        mode: PlaybackMode::Despawn,
-        ..PlaybackSettings::ONCE
-    };
-
-    /// Will play the associated audio source once and remove the audio components afterwards.
-    pub const REMOVE: PlaybackSettings = PlaybackSettings {
-        mode: PlaybackMode::Remove,
-        ..PlaybackSettings::ONCE
-    };
-
     /// Helper to start in a paused state.
     pub const fn paused(mut self) -> Self {
         self.paused = true;
@@ -251,7 +227,7 @@ pub type AudioBundle = AudioSourceBundle<AudioSource>;
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 #[require(PlaybackSettings)]
-pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
+pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>, pub PlaybackMode)
 where
     Source: Asset + Decodable;
 
@@ -260,7 +236,7 @@ where
     Source: Asset + Decodable,
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0.clone(), self.1)
     }
 }
 
@@ -271,7 +247,27 @@ impl AudioPlayer<AudioSource> {
     /// initialize an [`AudioPlayer`] with a different type, just initialize it directly using normal
     /// tuple struct syntax.
     pub fn new(source: Handle<AudioSource>) -> Self {
-        Self(source)
+        Self(source, PlaybackMode::default())
+    }
+
+    /// Creates a new [`AudioPlayer`] that plays the sound once.
+    pub fn with_once(source: Handle<AudioSource>) -> Self {
+        Self(source, PlaybackMode::Once)
+    }
+
+    /// Creates a new [`AudioPlayer`] that loops the sound forever.
+    pub fn with_loop(source: Handle<AudioSource>) -> Self {
+        Self(source, PlaybackMode::Loop)
+    }
+
+    /// Creates a new [`AudioPlayer`] that despawns the entity when the sound finishes playing.
+    pub fn with_despawn(source: Handle<AudioSource>) -> Self {
+        Self(source, PlaybackMode::Despawn)
+    }
+
+    /// Creates a new [`AudioPlayer`] that removes the audio component from the entity when the sound finishes playing.
+    pub fn with_remove(source: Handle<AudioSource>) -> Self {
+        Self(source, PlaybackMode::Remove)
     }
 }
 
@@ -314,7 +310,7 @@ impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {
-            source: AudioPlayer(Handle::default()),
+            source: AudioPlayer(Handle::default(), PlaybackMode::Once),
             settings: Default::default(),
         }
     }
