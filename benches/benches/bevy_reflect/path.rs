@@ -1,14 +1,11 @@
 use core::{fmt::Write, str, time::Duration};
 
 use bevy_reflect::ParsedPath;
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::{distributions::Uniform, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(benches, parse_reflect_path);
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(2);
@@ -20,7 +17,7 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 fn random_ident(rng: &mut ChaCha8Rng, f: &mut dyn Write) {
-    let between = Uniform::try_from(b'a'..=b'z').unwrap();
+    let between = Uniform::from(b'a'..=b'z');
     let ident_size = rng.gen_range(1..128);
     let ident: Vec<u8> = rng.sample_iter(between).take(ident_size).collect();
     let ident = str::from_utf8(&ident).unwrap();
@@ -82,9 +79,9 @@ fn parse_reflect_path(criterion: &mut Criterion) {
             BenchmarkId::new("parse_reflect_path", size),
             &size,
             |bencher, &size| {
-                let mut mk_paths = mk_paths(size);
+                let mk_paths = mk_paths(size);
                 bencher.iter_batched(
-                    || mk_paths(),
+                    mk_paths,
                     |path| assert!(ParsedPath::parse(black_box(&path)).is_ok()),
                     BatchSize::SmallInput,
                 );

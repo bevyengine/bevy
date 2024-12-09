@@ -306,7 +306,7 @@ pub fn query_get(criterion: &mut Criterion) {
 }
 
 pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group(&format!("query_get_many_{N}"));
+    let mut group = criterion.benchmark_group(format!("query_get_many_{N}"));
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(2 * N as u64));
 

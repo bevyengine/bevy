@@ -2,8 +2,8 @@ use core::{iter, time::Duration};
 
 use bevy_reflect::{DynamicList, List};
 use criterion::{
-    black_box, criterion_group, criterion_main, measurement::Measurement, BatchSize,
-    BenchmarkGroup, BenchmarkId, Criterion, Throughput,
+    black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, Throughput,
 };
 
 criterion_group!(
@@ -13,7 +13,6 @@ criterion_group!(
     dynamic_list_apply,
     dynamic_list_push
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);

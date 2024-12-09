@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -17,7 +17,6 @@ criterion_group!(
     none_changed_detection,
     multiple_archetype_none_changed_detection
 );
-criterion_main!(benches);
 
 macro_rules! modify {
     ($components:ident;$($index:tt),*) => {
@@ -96,7 +95,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -144,7 +143,7 @@ fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -196,7 +195,7 @@ fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                     }
                 },
@@ -238,7 +237,7 @@ fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
@@ -298,7 +297,9 @@ fn add_archetypes_entities<T: Component<Mutability = Mutable> + Default>(
         }
     }
 }
-fn multiple_archetype_none_changed_detection_generic<T: Component<Mutability = Mutable> + Default + BenchModify>(
+fn multiple_archetype_none_changed_detection_generic<
+    T: Component<Mutability = Mutable> + Default + BenchModify,
+>(
     group: &mut BenchGroup,
     archetype_count: u16,
     entity_count: u32,
@@ -342,7 +343,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component<Mutability = M
                 },
                 |(ref mut world, ref mut query)| {
                     let mut count = 0;
-                    for entity in query.iter(&world) {
+                    for entity in query.iter(world) {
                         black_box(entity);
                         count += 1;
                     }
