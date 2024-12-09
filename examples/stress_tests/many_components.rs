@@ -166,9 +166,9 @@ pub fn main() {
         .unwrap_or_else(|| {
             println!(
                 "No valid number of entities provided, using default {}",
-                default_num_entities
+                DEFAULT_NUM_ENTITIES
             );
-            default_num_entities
+            DEFAULT_NUM_ENTITIES
         });
     let num_components = std::env::args()
         .nth(2)
@@ -177,9 +177,9 @@ pub fn main() {
         .unwrap_or_else(|| {
             println!(
                 "No valid number of components provided (>= 10), using default {}",
-                default_num_components
+                DEFAULT_NUM_COMPONENTS
             );
-            default_num_components
+            DEFAULT_NUM_COMPONENTS
         });
     let num_systems = std::env::args()
         .nth(3)
@@ -187,9 +187,9 @@ pub fn main() {
         .unwrap_or_else(|| {
             println!(
                 "No valid number of systems provided, using default {}",
-                default_num_systems
+                DEFAULT_NUM_SYSTEMS
             );
-            default_num_systems
+            DEFAULT_NUM_SYSTEMS
         });
 
     stress_test(num_entities, num_components, num_systems);
