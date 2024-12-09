@@ -6,7 +6,7 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
@@ -1098,9 +1098,7 @@ pub fn extract_cameras(
                                     .get(*entity)
                                     .cloned()
                                     .map(|entity| entity.id())
-                                    .unwrap_or_else(|_e| {
-                                        commands.spawn(TemporaryRenderEntity).id()
-                                    });
+                                    .unwrap_or(Entity::PLACEHOLDER);
                                 (render_entity, (*entity).into())
                             })
                             .collect();
