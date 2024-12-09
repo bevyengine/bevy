@@ -1,22 +1,17 @@
-use criterion::criterion_group;
-
 mod commands;
-use commands::*;
-
 mod despawn;
-use despawn::*;
-
 mod despawn_recursive;
-use despawn_recursive::*;
-
-mod spawn;
-use spawn::*;
-
-mod world_get;
-use world_get::*;
-
 mod entity_hash;
+mod spawn;
+mod world_get;
+
+use commands::*;
+use criterion::criterion_group;
+use despawn::*;
+use despawn_recursive::*;
 use entity_hash::*;
+use spawn::*;
+use world_get::*;
 
 criterion_group!(
     benches,

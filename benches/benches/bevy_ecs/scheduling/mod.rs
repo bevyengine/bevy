@@ -1,9 +1,8 @@
-use criterion::criterion_group;
-
 mod run_condition;
 mod running_systems;
 mod schedule;
 
+use criterion::criterion_group;
 use run_condition::*;
 use running_systems::*;
 use schedule::*;

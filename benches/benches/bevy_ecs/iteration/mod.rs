@@ -1,5 +1,3 @@
-use criterion::*;
-
 mod heavy_compute;
 mod iter_frag;
 mod iter_frag_foreach;
@@ -22,6 +20,7 @@ mod iter_simple_wide_sparse_set;
 mod par_iter_simple;
 mod par_iter_simple_foreach_hybrid;
 
+use criterion::{criterion_group, Criterion};
 use heavy_compute::*;
 
 criterion_group!(

@@ -1,7 +1,7 @@
-use criterion::criterion_group;
-
 mod propagation;
 mod simple;
+
+use criterion::criterion_group;
 use propagation::*;
 use simple::*;
 
