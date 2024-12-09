@@ -976,7 +976,7 @@ mod tests {
     /// implementing Serialize and Deserialize traits.
     fn test_serialize_deserialize<T>(value: T)
     where
-        T: Serialize + for<'a> Deserialize<'a> + PartialEq + std::fmt::Debug,
+        T: Serialize + for<'a> Deserialize<'a> + PartialEq + core::fmt::Debug,
     {
         // Serialize the value to JSON string
         let serialized = serde_json::to_string(&value).expect("Failed to serialize");
