@@ -1410,11 +1410,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # };
     /// # use std::marker::PhantomData;
     /// #
-    /// # fn is_valid_transmute<OldD: QueryData, NewD: QueryData>() {
-    /// #     is_valid_transmute_filtered::<OldD, (), NewD, ()>();
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
     /// # }
     /// #
-    /// # fn is_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
     /// #     let mut world = World::new();
     /// #     // Make sure all components in the new query are initialized
     /// #     let state = world.query_filtered::<NewD, NewF>();
@@ -1434,42 +1434,45 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // `&mut T` and `Mut<T>` access the same data and can be transmuted to each other,
     /// // `&T` and `Ref<T>` access the same data and can be transmuted to each other,
     /// // and mutable versions can be transmuted to read-only versions
-    /// is_valid_transmute::<&mut T, &T>();
-    /// is_valid_transmute::<&mut T, Mut<T>>();
-    /// is_valid_transmute::<Mut<T>, &mut T>();
-    /// is_valid_transmute::<&T, Ref<T>>();
-    /// is_valid_transmute::<Ref<T>, &T>();
+    /// assert_valid_transmute::<&mut T, &T>();
+    /// assert_valid_transmute::<&mut T, Mut<T>>();
+    /// assert_valid_transmute::<Mut<T>, &mut T>();
+    /// assert_valid_transmute::<&T, Ref<T>>();
+    /// assert_valid_transmute::<Ref<T>, &T>();
     ///
     /// // The structure can be rearranged, or subqueries dropped
-    /// is_valid_transmute::<(&T, &U), &T>();
-    /// is_valid_transmute::<((&T, &U), &V), (&T, (&U, &V))>();
-    /// is_valid_transmute::<Option<(&T, &U)>, (Option<&T>, Option<&U>)>();
+    /// assert_valid_transmute::<(&T, &U), &T>();
+    /// assert_valid_transmute::<((&T, &U), &V), (&T, (&U, &V))>();
+    /// assert_valid_transmute::<Option<(&T, &U)>, (Option<&T>, Option<&U>)>();
     ///
     /// // Queries with no access can be freely added
-    /// is_valid_transmute::<&T, (&T, Entity, EntityLocation, &Archetype, Has<U>, PhantomData<T>)>();
+    /// assert_valid_transmute::<
+    ///     &T,
+    ///     (&T, Entity, EntityLocation, &Archetype, Has<U>, PhantomData<T>),
+    /// >();
     ///
     /// // Required access can be transmuted to optional,
     /// // and optional access can be transmuted to other optional access
-    /// is_valid_transmute::<&T, Option<&T>>();
-    /// is_valid_transmute::<AnyOf<(&mut T, &mut U)>, Option<&T>>();
+    /// assert_valid_transmute::<&T, Option<&T>>();
+    /// assert_valid_transmute::<AnyOf<(&mut T, &mut U)>, Option<&T>>();
     /// // Note that removing subqueries from `AnyOf` will result
     /// // in an `AnyOf` where all subqueries can yield `None`!
-    /// is_valid_transmute::<AnyOf<(&T, &U, &V)>, AnyOf<(&T, &U)>>();
-    /// is_valid_transmute::<EntityMut, Option<&mut T>>();
+    /// assert_valid_transmute::<AnyOf<(&T, &U, &V)>, AnyOf<(&T, &U)>>();
+    /// assert_valid_transmute::<EntityMut, Option<&mut T>>();
     ///
     /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
     /// // This will create a `FilteredEntityMut` that only has read access to `T`
-    /// is_valid_transmute::<&T, FilteredEntityMut>();
+    /// assert_valid_transmute::<&T, FilteredEntityMut>();
     /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
     /// // It must be the top-level query to be given access, but here it is nested in a tuple.
-    /// is_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
     ///
     /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
     /// // Remember that they are only evaluated on the transmuted query, not the original query!
-    /// is_valid_transmute_filtered::<Entity, Changed<T>, &T, ()>();
-    /// is_valid_transmute_filtered::<&mut T, (), &T, Added<T>>();
+    /// assert_valid_transmute_filtered::<Entity, Changed<T>, &T, ()>();
+    /// assert_valid_transmute_filtered::<&mut T, (), &T, Added<T>>();
     /// // Nested inside of an `Or` filter, they have the same access as `Option<&T>`.
-    /// is_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
+    /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
     /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
