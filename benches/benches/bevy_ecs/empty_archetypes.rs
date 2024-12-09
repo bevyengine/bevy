@@ -1,4 +1,4 @@
-use bevy_ecs::{component::Component, prelude::*, world::World};
+use bevy_ecs::{component::Component, prelude::*, schedule::ExecutorKind, world::World};
 use criterion::{black_box, criterion_group, BenchmarkId, Criterion};
 
 criterion_group!(benches, empty_archetypes);
@@ -72,14 +72,17 @@ fn par_for_each(
     });
 }
 
-#[expect(
-    unused_variables,
-    reason = "`parallel` has no effect, it needs to be removed or parallel support needs to be re-added."
-)]
 fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
     let world = World::new();
     let mut schedule = Schedule::default();
+
+    schedule.set_executor_kind(match parallel {
+        true => ExecutorKind::MultiThreaded,
+        false => ExecutorKind::SingleThreaded,
+    });
+
     setup(&mut schedule);
+
     (world, schedule)
 }
 
