@@ -822,7 +822,8 @@ fn get_component_ids(
     let mut component_ids = vec![];
 
     for component_path in component_paths {
-        let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
+        let Ok(t) = get_component_type_registration(type_registry, &component_path) else {continue;};
+        let type_id = t.type_id();
         let Some(component_id) = world.components().get_id(type_id) else {
             continue;
         };
