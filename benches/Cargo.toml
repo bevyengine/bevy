@@ -8,10 +8,7 @@ license = "MIT OR Apache-2.0"
 autobenches = false
 
 [dev-dependencies]
-glam = "0.29"
-rand = "0.8"
-rand_chacha = "0.3"
-criterion = { version = "0.3", features = ["html_reports"] }
+# Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
@@ -24,7 +21,14 @@ bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
-# make bevy_render compile on linux. x11 vs wayland does not matter here as the benches do not actually use a window
+# Other crates
+criterion = { version = "0.5.1", features = ["html_reports"] }
+glam = "0.29"
+rand = "0.8"
+rand_chacha = "0.3"
+
+# Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
+# because the benches do not actually open any windows.
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 bevy_winit = { path = "../crates/bevy_winit", features = ["x11"] }
 
