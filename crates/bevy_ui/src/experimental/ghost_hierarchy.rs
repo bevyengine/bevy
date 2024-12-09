@@ -1,6 +1,6 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{prelude::*, query::QueryEntityError, system::SystemParam};
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
@@ -49,6 +49,8 @@ pub struct UiRootNodes<'w, 's> {
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
+    demoted_root_nodes_query:
+        Query<'w, 's, (Entity, Ref<'static, Parent>), (With<Node>, Added<Parent>)>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -59,6 +61,25 @@ impl<'w, 's> UiRootNodes<'w, 's> {
                 self.all_nodes_query
                     .iter_many(self.ui_children.iter_ui_children(root_ghost))
             }))
+    }
+
+    /// Gets ui root node [`Node`] by [`Entity`] if it exists.
+    pub fn get(&'s self, entity: Entity) -> Result<Entity, QueryEntityError<'s>> {
+        self.root_node_query.get(entity)
+    }
+
+    /// Returns `true` if the given entity is either a Root UI [`Node`].
+    pub fn is_root_node(&'s self, entity: Entity) -> bool {
+        self.get(entity).is_ok()
+    }
+
+    /// Iterates [`Node`] with newly added [`Parent`] (demotion from root to child ui node).
+    pub fn iter_demoted_root_nodes(
+        &'s self,
+    ) -> impl Iterator<Item = (Entity, Ref<'s, Parent>)> + 's {
+        self.demoted_root_nodes_query
+            .iter()
+            .filter(|(_, parent_ref)| parent_ref.is_added())
     }
 }
 
