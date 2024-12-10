@@ -2014,12 +2014,12 @@ impl RequiredComponents {
                 dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
 
             #[cfg(feature = "portable-atomic")]
-            type BoxedRequiredComponentConstructor = Box<Constructor>;
+            type Intermediate<T> = Box<T>;
 
             #[cfg(not(feature = "portable-atomic"))]
-            type BoxedRequiredComponentConstructor = Arc<Constructor>;
+            type Intermediate<T> = Arc<T>;
 
-            let boxed: BoxedRequiredComponentConstructor = Box::new(
+            let boxed: Intermediate<Constructor> = Intermediate::new(
                 move |table,
                       sparse_sets,
                       change_tick,
