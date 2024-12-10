@@ -174,13 +174,19 @@ pub fn document_required_components(attr: TokenStream, item: TokenStream) -> Tok
         .collect::<Vec<_>>()
         .join(", ");
 
+    let bevy_ecs_path = crate::bevy_ecs_path()
+        .to_token_stream()
+        .to_string()
+        .replace(' ', "");
+    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
+
     // Insert information about required components after any existing doc comments
     let mut out = TokenStream::new();
     let mut end_of_attributes_reached = false;
     for tt in item {
         if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
             end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's required components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
+            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's [required components]({required_components_path}) are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
             out.extend(doc);
         }
         out.extend(Some(tt));

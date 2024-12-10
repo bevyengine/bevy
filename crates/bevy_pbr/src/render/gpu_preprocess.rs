@@ -402,8 +402,8 @@ pub fn prepare_preprocess_bind_groups(
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
-        current_input_buffer_vec.buffer.buffer(),
-        previous_input_buffer_vec.buffer.buffer(),
+        current_input_buffer_vec.buffer().buffer(),
+        previous_input_buffer_vec.buffer().buffer(),
         data_buffer_vec.buffer(),
     ) else {
         return;

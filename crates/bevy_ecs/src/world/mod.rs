@@ -2874,21 +2874,34 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        self.try_resource_scope(f)
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()))
+    }
+
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// See also [`resource_scope`](Self::resource_scope).
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self
-            .components
-            .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(ResourceData::remove)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+            .and_then(ResourceData::remove)?;
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
@@ -2912,27 +2925,18 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
             unsafe {
-                self.storages
-                    .resources
-                    .get_mut(component_id)
-                    .map(|info| {
-                        info.insert_with_ticks(
-                            ptr,
-                            ticks,
-                            #[cfg(feature = "track_change_detection")]
-                            _caller,
-                        );
-                    })
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No resource of type {} exists in the World.",
-                            core::any::type_name::<R>()
-                        )
-                    });
+                self.storages.resources.get_mut(component_id).map(|info| {
+                    info.insert_with_ticks(
+                        ptr,
+                        ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        _caller,
+                    );
+                })
             }
-        });
+        })?;
 
-        result
+        Some(result)
     }
 
     /// Sends an [`Event`].

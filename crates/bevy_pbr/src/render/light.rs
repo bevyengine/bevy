@@ -31,7 +31,7 @@ use bevy_render::{
 };
 use bevy_render::{
     mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -286,7 +286,7 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                .map(|v| create_render_visible_mesh_entities(&mapper, v))
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -343,7 +343,7 @@ pub fn extract_lights(
                 continue;
             }
             let render_visible_entities =
-                create_render_visible_mesh_entities(&mut commands, &mapper, visible_entities);
+                create_render_visible_mesh_entities(&mapper, visible_entities);
 
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -430,7 +430,7 @@ pub fn extract_lights(
                 cascade_visible_entities.insert(
                     entity,
                     v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
                         .collect(),
                 );
             } else {
@@ -469,7 +469,6 @@ pub fn extract_lights(
 }
 
 fn create_render_visible_mesh_entities(
-    commands: &mut Commands,
     mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
@@ -477,9 +476,7 @@ fn create_render_visible_mesh_entities(
         entities: visible_entities
             .iter()
             .map(|e| {
-                let render_entity = mapper
-                    .get(*e)
-                    .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
+                let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
                 (render_entity, MainEntity::from(*e))
             })
             .collect(),
@@ -496,7 +493,7 @@ pub(crate) fn add_light_view_entities(
     trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Some(mut v) = commands.get_entity(trigger.entity()) {
+    if let Some(mut v) = commands.get_entity(trigger.target()) {
         v.insert(LightViewEntities::default());
     }
 }
@@ -506,7 +503,7 @@ pub(crate) fn extracted_light_removed(
     trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Some(mut v) = commands.get_entity(trigger.entity()) {
+    if let Some(mut v) = commands.get_entity(trigger.target()) {
         v.remove::<LightViewEntities>();
     }
 }
@@ -516,7 +513,7 @@ pub(crate) fn remove_light_view_entities(
     query: Query<&LightViewEntities>,
     mut commands: Commands,
 ) {
-    if let Ok(entities) = query.get(trigger.entity()) {
+    if let Ok(entities) = query.get(trigger.target()) {
         for v in entities.0.values() {
             for e in v.iter().copied() {
                 if let Some(mut v) = commands.get_entity(e) {
