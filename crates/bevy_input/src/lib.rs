@@ -64,6 +64,8 @@ use gamepad::{
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
 pub struct InputPlugin;

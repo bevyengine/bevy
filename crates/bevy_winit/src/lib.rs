@@ -51,6 +51,8 @@ mod winit_config;
 mod winit_monitors;
 mod winit_windows;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_winit` feature is enabled.
+///
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
 ///

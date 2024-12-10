@@ -8,7 +8,9 @@
 
 use crate::{App, Plugin};
 
-/// Adds sensible panic handlers to Apps. This plugin is part of the `DefaultPlugins`. Adding
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
+/// Adds sensible panic handlers to Apps. Adding
 /// this plugin will setup a panic hook appropriate to your target platform:
 /// * On Wasm, uses [`console_error_panic_hook`](https://crates.io/crates/console_error_panic_hook), logging
 ///     to the browser console.

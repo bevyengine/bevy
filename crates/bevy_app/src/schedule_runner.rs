@@ -32,12 +32,11 @@ impl Default for RunMode {
         RunMode::Loop { wait: None }
     }
 }
-
+/// - Is part of the [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_window` feature is **not** enabled.
+///
 /// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
 /// [`RunMode`].
-///
-/// [`ScheduleRunnerPlugin`] is included in the
-/// [`MinimalPlugins`](https://docs.rs/bevy/latest/bevy/struct.MinimalPlugins.html) plugin group.
 ///
 /// [`ScheduleRunnerPlugin`] is *not* included in the
 /// [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group

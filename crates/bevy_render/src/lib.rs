@@ -101,6 +101,8 @@ use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_render` feature is enabled.
+///
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
 /// Rendering is done in a [`SubApp`], which exchanges data with the main app

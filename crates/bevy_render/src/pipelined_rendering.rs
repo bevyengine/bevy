@@ -65,6 +65,8 @@ impl Drop for RenderAppChannels {
     }
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_render` & `multi_threaded` features are enabled and target is not `wasm32`.
+///
 /// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
 ///
 /// This moves rendering into a different thread, so that the Nth frame's rendering can

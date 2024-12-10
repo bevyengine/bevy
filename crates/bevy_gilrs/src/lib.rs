@@ -47,6 +47,8 @@ impl GilrsGamepads {
     }
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_gilrs` feature is enabled.
+///
 /// Plugin that provides gamepad handling to an [`App`].
 #[derive(Default)]
 pub struct GilrsPlugin;

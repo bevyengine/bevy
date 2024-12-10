@@ -297,6 +297,8 @@ impl AppExtStates for App {
     }
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_state` feature is enabled.
+///
 /// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
 #[derive(Default)]
 pub struct StatesPlugin;

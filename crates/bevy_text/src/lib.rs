@@ -85,6 +85,8 @@ use bevy_sprite::SpriteSystem;
 #[cfg(feature = "default_font")]
 pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_text` feature is enabled.
+///
 /// Adds text rendering support to an app.
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this

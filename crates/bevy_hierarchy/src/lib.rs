@@ -86,6 +86,8 @@ pub mod prelude {
 #[cfg(feature = "bevy_app")]
 use bevy_app::prelude::*;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Provides hierarchy functionality to a Bevy app.
 ///
 /// Check the [crate-level documentation] for all the features.
