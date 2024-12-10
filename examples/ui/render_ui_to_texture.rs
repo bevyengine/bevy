@@ -1,4 +1,7 @@
 //! Shows how to render UI to a texture. Useful for displaying UI in 3D space.
+//!
+//! You can also change the scale factor of the render target by pressing the up
+//! or down arrow keys. This will change the size at which the UI renders.
 
 use std::f32::consts::PI;
 
@@ -16,13 +19,17 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, rotator_system)
+        .add_systems(Update, (rotator_system, change_scale_factor))
         .run();
 }
 
 // Marks the cube, to which the UI texture is applied.
 #[derive(Component)]
 struct Cube;
+
+// Marker component for the camera which renders into the UI texture.
+#[derive(Component)]
+struct TextureCamera;
 
 fn setup(
     mut commands: Commands,
@@ -57,9 +64,10 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
-                target: RenderTarget::Image(image_handle.clone()),
+                target: RenderTarget::from(image_handle.clone()),
                 ..default()
             },
+            TextureCamera,
         ))
         .id();
 
@@ -121,5 +129,29 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>)
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
         transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
+    }
+}
+
+const UI_SCALE_CHANGE_STEP: f32 = 0.25;
+
+fn change_scale_factor(
+    input: Res<ButtonInput<KeyCode>>,
+    mut texture_camera: Single<&mut Camera, With<TextureCamera>>,
+) {
+    let mut scale_factor_change = 0.0;
+    if input.just_pressed(KeyCode::ArrowUp) {
+        scale_factor_change += UI_SCALE_CHANGE_STEP;
+    }
+    if input.just_pressed(KeyCode::ArrowDown) {
+        scale_factor_change -= UI_SCALE_CHANGE_STEP;
+    }
+
+    if scale_factor_change != 0.0 {
+        let RenderTarget::Image { scale_factor, .. } = &mut texture_camera.target else {
+            panic!("render target should be an image");
+        };
+
+        *scale_factor = (*scale_factor + scale_factor_change).clamp(UI_SCALE_CHANGE_STEP, 4.0);
+        info!("New render target scale factor: {scale_factor}");
     }
 }
