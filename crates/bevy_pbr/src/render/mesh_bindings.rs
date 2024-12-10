@@ -22,10 +22,13 @@ pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 /// Individual layout entries.
 mod layout_entry {
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
-    use crate::MeshUniform;
+    use crate::{render::skin, MeshUniform};
     use bevy_render::{
         render_resource::{
-            binding_types::{sampler, texture_2d, texture_3d, uniform_buffer_sized},
+            binding_types::{
+                sampler, storage_buffer_read_only_sized, texture_2d, texture_3d,
+                uniform_buffer_sized,
+            },
             BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
             ShaderStages, TextureSampleType,
         },
@@ -36,8 +39,15 @@ mod layout_entry {
         GpuArrayBuffer::<MeshUniform>::binding_layout(render_device)
             .visibility(ShaderStages::VERTEX_FRAGMENT)
     }
-    pub(super) fn skinning() -> BindGroupLayoutEntryBuilder {
-        uniform_buffer_sized(true, BufferSize::new(JOINT_BUFFER_SIZE as u64))
+    pub(super) fn skinning(render_device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
+        // If we can use storage buffers, do so. Otherwise, fall back to uniform
+        // buffers.
+        let size = BufferSize::new(JOINT_BUFFER_SIZE as u64);
+        if skin::skins_use_uniform_buffers(render_device) {
+            uniform_buffer_sized(true, size)
+        } else {
+            storage_buffer_read_only_sized(false, size)
+        }
     }
     pub(super) fn weights() -> BindGroupLayoutEntryBuilder {
         uniform_buffer_sized(true, BufferSize::new(MORPH_BUFFER_SIZE as u64))
@@ -56,29 +66,44 @@ mod layout_entry {
 /// Individual [`BindGroupEntry`]
 /// for bind groups.
 mod entry {
+    use crate::render::skin;
+
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
-    use bevy_render::render_resource::{
-        BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
+    use bevy_render::{
+        render_resource::{
+            BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler,
+            TextureView,
+        },
+        renderer::RenderDevice,
     };
 
-    fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
+    fn entry(binding: u32, size: Option<u64>, buffer: &Buffer) -> BindGroupEntry {
         BindGroupEntry {
             binding,
             resource: BindingResource::Buffer(BufferBinding {
                 buffer,
                 offset: 0,
-                size: Some(BufferSize::new(size).unwrap()),
+                size: size.map(|size| BufferSize::new(size).unwrap()),
             }),
         }
     }
     pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
         BindGroupEntry { binding, resource }
     }
-    pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
+    pub(super) fn skinning<'a>(
+        render_device: &RenderDevice,
+        binding: u32,
+        buffer: &'a Buffer,
+    ) -> BindGroupEntry<'a> {
+        let size = if skin::skins_use_uniform_buffers(render_device) {
+            Some(JOINT_BUFFER_SIZE as u64)
+        } else {
+            None
+        };
+        entry(binding, size, buffer)
     }
     pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
-        entry(binding, MORPH_BUFFER_SIZE as u64, buffer)
+        entry(binding, Some(MORPH_BUFFER_SIZE as u64), buffer)
     }
     pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry {
         BindGroupEntry {
@@ -175,7 +200,7 @@ impl MeshLayouts {
                 (
                     (0, layout_entry::model(render_device)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                 ),
             ),
         )
@@ -191,9 +216,9 @@ impl MeshLayouts {
                 (
                     (0, layout_entry::model(render_device)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                     // The previous frame's joint matrix buffer.
-                    (6, layout_entry::skinning()),
+                    (6, layout_entry::skinning(render_device)),
                 ),
             ),
         )
@@ -244,7 +269,7 @@ impl MeshLayouts {
                 (
                     (0, layout_entry::model(render_device)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                     // The current frame's morph weight buffer.
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
@@ -263,12 +288,12 @@ impl MeshLayouts {
                 (
                     (0, layout_entry::model(render_device)),
                     // The current frame's joint matrix buffer.
-                    (1, layout_entry::skinning()),
+                    (1, layout_entry::skinning(render_device)),
                     // The current frame's morph weight buffer.
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
                     // The previous frame's joint matrix buffer.
-                    (6, layout_entry::skinning()),
+                    (6, layout_entry::skinning(render_device)),
                     // The previous frame's morph weight buffer.
                     (7, layout_entry::weights()),
                 ),
@@ -329,7 +354,7 @@ impl MeshLayouts {
             &self.skinned,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, current_skin),
+                entry::skinning(render_device, 1, current_skin),
             ],
         )
     }
@@ -353,8 +378,8 @@ impl MeshLayouts {
             &self.skinned_motion,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, current_skin),
-                entry::skinning(6, prev_skin),
+                entry::skinning(render_device, 1, current_skin),
+                entry::skinning(render_device, 6, prev_skin),
             ],
         )
     }
@@ -420,7 +445,7 @@ impl MeshLayouts {
             &self.morphed_skinned,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, current_skin),
+                entry::skinning(render_device, 1, current_skin),
                 entry::weights(2, current_weights),
                 entry::targets(3, targets),
             ],
@@ -450,10 +475,10 @@ impl MeshLayouts {
             &self.morphed_skinned_motion,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, current_skin),
+                entry::skinning(render_device, 1, current_skin),
                 entry::weights(2, current_weights),
                 entry::targets(3, targets),
-                entry::skinning(6, prev_skin),
+                entry::skinning(render_device, 6, prev_skin),
                 entry::weights(7, prev_weights),
             ],
         )

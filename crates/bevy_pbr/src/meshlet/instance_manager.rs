@@ -120,7 +120,14 @@ impl InstanceManager {
             return;
         };
 
-        let mesh_uniform = MeshUniform::new(&transforms, 0, mesh_material_binding_id.slot, None);
+        let mesh_uniform = MeshUniform::new(
+            &transforms,
+            0,
+            mesh_material_binding_id.slot,
+            None,
+            None,
+            None,
+        );
 
         // Append instance data
         self.instances.push((
