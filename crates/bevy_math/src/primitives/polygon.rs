@@ -1,5 +1,6 @@
-extern crate alloc;
-use alloc::collections::BTreeMap;
+#[cfg(feature = "alloc")]
+use alloc::{collections::BTreeMap, vec::Vec};
+
 use core::cmp::Ordering;
 
 use crate::Vec2;
@@ -58,10 +59,12 @@ fn xy_order(a: Vec2, b: Vec2) -> Ordering {
 }
 
 /// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 struct EventQueue {
     events: Vec<SweepLineEvent>,
 }
+#[cfg(feature = "alloc")]
 impl EventQueue {
     /// Initialize a new `EventQueue` with all events from the polygon represented by `vertices`.
     ///
@@ -143,11 +146,13 @@ struct SegmentOrder {
 ///
 /// It can be thought of as a vertical line sweeping from -X to +X across the polygon that keeps track of the order of the segments
 /// the sweep line is intersecting at any given moment.
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 struct SweepLine<'a> {
     vertices: &'a [Vec2],
     tree: BTreeMap<Segment, SegmentOrder>,
 }
+#[cfg(feature = "alloc")]
 impl<'a> SweepLine<'a> {
     fn new(vertices: &'a [Vec2]) -> Self {
         Self {
@@ -253,6 +258,7 @@ fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
 ///
 /// The algorithm used is the Shamos-Hoey algorithm, a version of the Bentley-Ottman algorithm adapted to only detect whether any intersections exist.
 /// This function will run in O(n * log n)
+#[cfg(feature = "alloc")]
 pub fn is_polygon_simple(vertices: &[Vec2]) -> bool {
     if vertices.len() < 3 {
         return true;

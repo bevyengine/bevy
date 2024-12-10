@@ -2,11 +2,14 @@ use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
 use thiserror::Error;
 
-use super::{polygon::is_polygon_simple, Measured2d, Primitive2d, WindingOrder};
+use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
     Dir2, Vec2,
 };
+
+#[cfg(feature = "alloc")]
+use super::polygon::is_polygon_simple;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -1634,6 +1637,7 @@ impl<const N: usize> Polygon<N> {
     ///
     /// A polygon is simple if it is not self intersecting and not self tangent.
     /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    #[cfg(feature = "alloc")]
     pub fn is_simple(&self) -> bool {
         is_polygon_simple(&self.vertices)
     }
