@@ -273,7 +273,7 @@ fn find_connected_meshlets(
     }
 
     // For each meshlet pair, count how many vertices they share
-    let mut meshlet_pair_to_shared_vertex_count = HashMap::new();
+    let mut meshlet_pair_to_shared_vertex_count = <HashMap<_, _>>::default();
     for vertex_meshlet_ids in vertices_to_meshlets {
         for (meshlet_queue_id1, meshlet_queue_id2) in
             vertex_meshlet_ids.into_iter().tuple_combinations()

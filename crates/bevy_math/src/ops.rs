@@ -143,7 +143,7 @@ mod std_ops {
         f32::atan(x)
     }
 
-    /// Computes the four quadrant arctangent of `self` (`y`) and `other` (`x`) in radians.
+    /// Computes the four-quadrant arctangent of `y` and `x` in radians.
     ///
     /// * `x = 0`, `y = 0`: `0`
     /// * `x >= 0`: `arctan(y/x)` -> `[-pi/2, pi/2]`
@@ -152,8 +152,8 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
-    pub fn atan2(x: f32, y: f32) -> f32 {
-        f32::atan2(x, y)
+    pub fn atan2(y: f32, x: f32) -> f32 {
+        f32::atan2(y, x)
     }
 
     /// Simultaneously computes the sine and cosine of the number, `x`. Returns
@@ -358,7 +358,7 @@ mod libm_ops {
         libm::atanf(x)
     }
 
-    /// Computes the four quadrant arctangent of `self` (`y`) and `other` (`x`) in radians.
+    /// Computes the four-quadrant arctangent of `y` and `x` in radians.
     ///
     /// * `x = 0`, `y = 0`: `0`
     /// * `x >= 0`: `arctan(y/x)` -> `[-pi/2, pi/2]`
@@ -367,8 +367,8 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
-    pub fn atan2(x: f32, y: f32) -> f32 {
-        libm::atan2f(x, y)
+    pub fn atan2(y: f32, x: f32) -> f32 {
+        libm::atan2f(y, x)
     }
 
     /// Simultaneously computes the sine and cosine of the number, `x`. Returns
