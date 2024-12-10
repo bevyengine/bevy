@@ -7,9 +7,9 @@ use alloc::borrow::Cow;
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::AHasher;
+use bevy_utils::FixedHasher;
 use core::{
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
 };
 
@@ -80,9 +80,7 @@ impl Name {
     }
 
     fn update_hash(&mut self) {
-        let mut hasher = AHasher::default();
-        self.name.hash(&mut hasher);
-        self.hash = hasher.finish();
+        self.hash = FixedHasher.hash_one(&self.name);
     }
 }
 

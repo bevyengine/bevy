@@ -15,6 +15,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
     mesh::allocator::MeshAllocator,
+    view::GpuCulling,
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -31,7 +32,7 @@ use bevy_render::{
 };
 use bevy_render::{
     mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -286,7 +287,7 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                .map(|v| create_render_visible_mesh_entities(&mapper, v))
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -343,7 +344,7 @@ pub fn extract_lights(
                 continue;
             }
             let render_visible_entities =
-                create_render_visible_mesh_entities(&mut commands, &mapper, visible_entities);
+                create_render_visible_mesh_entities(&mapper, visible_entities);
 
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -430,7 +431,7 @@ pub fn extract_lights(
                 cascade_visible_entities.insert(
                     entity,
                     v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
                         .collect(),
                 );
             } else {
@@ -469,7 +470,6 @@ pub fn extract_lights(
 }
 
 fn create_render_visible_mesh_entities(
-    commands: &mut Commands,
     mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
@@ -477,9 +477,7 @@ fn create_render_visible_mesh_entities(
         entities: visible_entities
             .iter()
             .map(|e| {
-                let render_entity = mapper
-                    .get(*e)
-                    .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
+                let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
                 (render_entity, MainEntity::from(*e))
             })
             .collect(),
@@ -689,6 +687,7 @@ pub fn prepare_lights(
             &ExtractedView,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
+            Has<GpuCulling>,
         ),
         With<Camera3d>,
     >,
@@ -1097,13 +1096,19 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity_and_hasher(views_count, EntityHash);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers) in sorted_cameras
+    for (entity, extracted_view, clusters, maybe_layers, has_gpu_culling) in sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
     {
         live_views.insert(entity);
         let mut view_lights = Vec::new();
+
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
+            GpuPreprocessingMode::Culling
+        } else {
+            GpuPreprocessingMode::PreprocessingOnly
+        });
 
         let is_orthographic = extracted_view.clip_from_view.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
@@ -1232,15 +1237,15 @@ pub fn prepare_lights(
                     },
                 ));
 
+                if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(GpuCulling);
+                }
+
                 view_lights.push(view_light_entity);
 
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
-                    // TODO: Implement GPU culling for shadow passes.
-                    shadow_render_phases.insert_or_clear(
-                        view_light_entity,
-                        gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                    );
+                    shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                     live_shadow_mapping_lights.insert(view_light_entity);
                 }
             }
@@ -1324,14 +1329,15 @@ pub fn prepare_lights(
                 LightEntity::Spot { light_entity },
             ));
 
+            if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                commands.entity(view_light_entity).insert(GpuCulling);
+            }
+
             view_lights.push(view_light_entity);
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(
-                    view_light_entity,
-                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                );
+                shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
@@ -1457,15 +1463,17 @@ pub fn prepare_lights(
                         cascade_index,
                     },
                 ));
+
+                if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(GpuCulling);
+                }
+
                 view_lights.push(view_light_entity);
 
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases.insert_or_clear(
-                    view_light_entity,
-                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                );
+                shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
