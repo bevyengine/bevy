@@ -20,12 +20,11 @@ use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
-            self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
-            InstanceInputUniformBuffer,
+            self, GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParameters,
+            IndirectParametersBuffer, InstanceInputUniformBuffer,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
-    camera::Camera,
     mesh::*,
     primitives::Aabb,
     render_asset::{ExtractAssetsSet, RenderAssets},
@@ -37,7 +36,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        prepare_view_targets, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
     },
     Extract,
@@ -1127,6 +1126,7 @@ pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     mesh_material_ids: Res<RenderMeshMaterialIds>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     changed_meshes_query: Extract<
         Query<
@@ -1162,15 +1162,16 @@ pub fn extract_meshes_for_gpu_building(
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
 ) {
-    let any_gpu_culling = !cameras_query.is_empty();
+    let gpu_culling = matches!(
+        gpu_preprocessing_support.max_supported_mode,
+        GpuPreprocessingMode::Culling
+    );
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
-        render_mesh_instance_queue.init(any_gpu_culling);
+        render_mesh_instance_queue.init(gpu_culling);
     }
 
     // Collect render mesh instances. Build up the uniform buffer.
-
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
     else {
         panic!(
@@ -1199,7 +1200,7 @@ pub fn extract_meshes_for_gpu_building(
             visibility_range,
         )| {
             if !view_visibility.get() {
-                queue.remove(entity.into(), any_gpu_culling);
+                queue.remove(entity.into(), gpu_culling);
                 return;
             }
 
@@ -1228,7 +1229,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
-            let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
+            let gpu_mesh_culling_data = gpu_culling.then(|| MeshCullingData::new(aabb));
 
             let previous_input_index = if shared
                 .flags
@@ -1268,7 +1269,7 @@ pub fn extract_meshes_for_gpu_building(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            queue.remove(entity.into(), any_gpu_culling);
+            queue.remove(entity.into(), gpu_culling);
         }
     }
 }
