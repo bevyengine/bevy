@@ -30,9 +30,9 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let h0y = h0_approx(fuv.y);
     let h1y = h1_approx(fuv.y);
     let p0 = (vec2(iuv.x + h0x, iuv.y + h0y) - 0.5) * texel_size;
-	let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
-	let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
-	let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
+    let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
+    let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
+    let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
     let filtered_sample = g0(fuv.y) * (g0x * sample(p0) + g1x * sample(p1)) +
                           g1(fuv.y) * (g0x * sample(p2) + g1x * sample(p3));
 
