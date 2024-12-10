@@ -34,8 +34,9 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
+        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -1470,7 +1471,10 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -2870,21 +2874,34 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        self.try_resource_scope(f)
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()))
+    }
+
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// See also [`resource_scope`](Self::resource_scope).
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self
-            .components
-            .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(ResourceData::remove)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+            .and_then(ResourceData::remove)?;
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
@@ -2908,27 +2925,18 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
             unsafe {
-                self.storages
-                    .resources
-                    .get_mut(component_id)
-                    .map(|info| {
-                        info.insert_with_ticks(
-                            ptr,
-                            ticks,
-                            #[cfg(feature = "track_change_detection")]
-                            _caller,
-                        );
-                    })
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No resource of type {} exists in the World.",
-                            core::any::type_name::<R>()
-                        )
-                    });
+                self.storages.resources.get_mut(component_id).map(|info| {
+                    info.insert_with_ticks(
+                        ptr,
+                        ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        _caller,
+                    );
+                })
             }
-        });
+        })?;
 
-        result
+        Some(result)
     }
 
     /// Sends an [`Event`].
@@ -3338,6 +3346,35 @@ impl World {
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
+
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
+    /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::world::DeferredWorld;
+    ///
+    /// fn custom_clone_handler(
+    ///     _world: &mut DeferredWorld,
+    ///     _entity_cloner: &EntityCloner,
+    /// ) {
+    ///     // Custom cloning logic for component
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let component_id = world.register_component::<ComponentA>();
+    ///
+    /// world.get_component_clone_handlers_mut()
+    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    /// ```
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        self.components.get_component_clone_handlers_mut()
+    }
 }
 
 impl World {
@@ -3688,6 +3725,7 @@ impl World {
             self.as_unsafe_world_cell()
                 .get_entity(entity)?
                 .get_mut_by_id(component_id)
+                .ok()
         }
     }
 }
@@ -4161,6 +4199,7 @@ mod tests {
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
+                true,
             )
         };
 
