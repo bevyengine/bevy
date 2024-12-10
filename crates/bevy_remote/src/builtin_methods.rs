@@ -92,6 +92,11 @@ pub struct BrpQueryParams {
     /// exclude from the results.
     #[serde(default)]
     pub filter: BrpQueryFilter,
+
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
+    pub strict: bool,
 }
 
 /// `bevy/spawn`: Creates a new entity with the given components and responds
@@ -527,19 +532,22 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             has,
         },
         filter: BrpQueryFilter { without, with },
+        strict,
     } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let components =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
-    let option =
-        get_component_ids(&type_registry, world, option).map_err(BrpError::component_error)?;
-    let has = get_component_ids(&type_registry, world, has).map_err(BrpError::component_error)?;
-    let without =
-        get_component_ids(&type_registry, world, without).map_err(BrpError::component_error)?;
-    let with = get_component_ids(&type_registry, world, with).map_err(BrpError::component_error)?;
+    let components = get_component_ids(&type_registry, world, components, strict)
+        .map_err(BrpError::component_error)?;
+    let option = get_component_ids(&type_registry, world, option, strict)
+        .map_err(BrpError::component_error)?;
+    let has =
+        get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
+    let without = get_component_ids(&type_registry, world, without, strict)
+        .map_err(BrpError::component_error)?;
+    let with = get_component_ids(&type_registry, world, with, strict)
+        .map_err(BrpError::component_error)?;
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &components {
@@ -659,8 +667,8 @@ pub fn process_remote_remove_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let component_ids =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
+    let component_ids = get_component_ids(&type_registry, world, components, true)
+        .map_err(BrpError::component_error)?;
 
     // Remove the components.
     let mut entity_world_mut = get_entity_mut(world, entity)?;
@@ -818,16 +826,20 @@ fn get_component_ids(
     type_registry: &TypeRegistry,
     world: &World,
     component_paths: Vec<String>,
+    strict: bool,
 ) -> AnyhowResult<Vec<(TypeId, ComponentId)>> {
     let mut component_ids = vec![];
 
     for component_path in component_paths {
         let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
         let Some(component_id) = world.components().get_id(type_id) else {
-            return Err(anyhow!(
-                "Component `{}` isn't used in the world",
-                component_path
-            ));
+            if strict {
+                return Err(anyhow!(
+                    "Component `{}` isn't used in the world",
+                    component_path
+                ));
+            }
+            continue;
         };
 
         component_ids.push((type_id, component_id));
