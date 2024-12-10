@@ -299,6 +299,8 @@ impl EntityCloner {
             panic!("Target entity does not exist");
         }
 
+        debug_assert_eq!(component_data_ptrs.len(), component_ids.len());
+
         // SAFETY:
         // - All `component_ids` are from the same world as `target` entity
         // - All `component_data_ptrs` are valid types represented by `component_ids`
@@ -562,7 +564,10 @@ impl<'w> EntityCloneBuilder<'w> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, component::Component, entity::EntityCloneBuilder, world::World};
+    use crate::{
+        self as bevy_ecs, component::Component, component::ComponentCloneHandler,
+        entity::EntityCloneBuilder, world::World,
+    };
 
     #[cfg(feature = "bevy_reflect")]
     #[test]
@@ -580,6 +585,12 @@ mod tests {
         world.init_resource::<AppTypeRegistry>();
         let registry = world.get_resource::<AppTypeRegistry>().unwrap();
         registry.write().register::<A>();
+
+        world.register_component::<A>();
+        let id = world.component_id::<A>().unwrap();
+        world
+            .get_component_clone_handlers_mut()
+            .set_component_handler(id, ComponentCloneHandler::reflect_handler());
 
         let component = A { field: 5 };
 
@@ -609,6 +620,12 @@ mod tests {
         world.init_resource::<AppTypeRegistry>();
         let registry = world.get_resource::<AppTypeRegistry>().unwrap();
         registry.write().register::<A>();
+
+        world.register_component::<A>();
+        let id = world.component_id::<A>().unwrap();
+        world
+            .get_component_clone_handlers_mut()
+            .set_component_handler(id, ComponentCloneHandler::reflect_handler());
 
         let component = A {
             field: 5,
