@@ -73,6 +73,8 @@ pub struct LightmapPlugin;
 #[reflect(Component, Default)]
 pub struct Lightmap {
     /// The lightmap texture.
+    ///
+    /// The texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
     pub image: Handle<Image>,
 
     /// The rectangle within the lightmap texture that the UVs are relative to.
