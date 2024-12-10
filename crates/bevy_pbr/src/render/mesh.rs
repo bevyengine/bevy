@@ -2603,7 +2603,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation. If
             // there isn't one, just use zero as the shader will ignore it.
-            if current_skin_index.is_some() {
+            if current_skin_index.is_some() && skin::skins_use_uniform_buffers(&render_device) {
                 match prev_skin_index {
                     Some(prev_skin_index) => {
                         dynamic_offsets[offset_count] = prev_skin_index.byte_offset;
