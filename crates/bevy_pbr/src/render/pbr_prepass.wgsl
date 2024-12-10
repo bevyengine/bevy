@@ -76,12 +76,27 @@ fn fragment(
         bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
-        let Nt = pbr_functions::sample_texture(
-            pbr_bindings::normal_map_texture,
-            pbr_bindings::normal_map_sampler,
-            uv,
-            bias,
-        ).rgb;
+        let Nt =
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            textureSampleGrad(
+#else   // MESHLET_MESH_MATERIAL_PASS
+            textureSampleBias(
+#endif  // MESHLET_MESH_MATERIAL_PASS
+#ifdef BINDLESS
+                pbr_bindings::normal_map_texture[slot],
+                pbr_bindings::normal_map_sampler[slot],
+#else   // BINDLESS
+                pbr_bindings::normal_map_texture,
+                pbr_bindings::normal_map_sampler,
+#endif  // BINDLESS
+                uv,
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                bias.ddx_uv,
+                bias.ddy_uv,
+#else   // MESHLET_MESH_MATERIAL_PASS
+                bias.mip_bias,
+#endif  // MESHLET_MESH_MATERIAL_PASS
+            ).rgb;
         let TBN = pbr_functions::calculate_tbn_mikktspace(normal, in.world_tangent);
 
         normal = pbr_functions::apply_normal_mapping(
