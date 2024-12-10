@@ -277,7 +277,10 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = Param::init_state(world, &mut meta);
+        let param_state = Param::init_state(world);
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, world);
         Self {
             meta,
             param_state,
@@ -289,7 +292,10 @@ impl<Param: SystemParam> SystemState<Param> {
     pub(crate) fn from_builder(world: &mut World, builder: impl SystemParamBuilder<Param>) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let param_state = builder.build(world, &mut meta);
+        let param_state = builder.build(world);
+        // We need to call `init_access` to ensure there are no panics from conflicts within `Param`,
+        // even though we don't use the calculated access.
+        Param::init_access(&param_state, &mut meta, world);
         Self {
             meta,
             param_state,
@@ -693,8 +699,10 @@ where
                 "System built with a different world than the one it was added to.",
             );
         } else {
+            let param = F::Param::init_state(world);
+            F::Param::init_access(&param, &mut self.system_meta, world);
             self.state = Some(FunctionSystemState {
-                param: F::Param::init_state(world, &mut self.system_meta),
+                param,
                 world_id: world.id(),
             });
         }

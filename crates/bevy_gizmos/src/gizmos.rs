@@ -199,10 +199,14 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::init_state(world),
         }
+    }
+
+    fn init_access(state: &Self::State, system_meta: &mut SystemMeta, world: &mut World) {
+        GizmosState::<Config, Clear>::init_access(&state.state, system_meta, world);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
