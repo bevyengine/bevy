@@ -494,6 +494,11 @@ where
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        // If bindless mode is on, add a `BINDLESS` define.
+        if self.material_pipeline.bindless {
+            shader_defs.push("BINDLESS".into());
+        }
+
         if key
             .mesh_key
             .contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER)
