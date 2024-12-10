@@ -37,7 +37,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    query::{Changed, Or},
     reflect::ReflectComponent,
+    removal_detection::RemovedComponents,
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -46,18 +48,19 @@ use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::{Mesh, RenderMesh},
     render_asset::RenderAssets,
     render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::default;
+use bevy_utils::{default, hashbrown::HashSet, tracing::error};
+use fixedbitset::FixedBitSet;
 use nonmax::NonMaxU32;
 
-use crate::{binding_arrays_are_usable, ExtractMeshesSet, RenderMeshInstances};
+use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -138,6 +141,10 @@ pub struct RenderLightmaps {
     /// The slabs (binding arrays) containing the lightmaps.
     pub(crate) slabs: Vec<LightmapSlab>,
 
+    free_slabs: FixedBitSet,
+
+    pending_lightmaps: HashSet<(LightmapSlabIndex, LightmapSlotIndex)>,
+
     /// Whether bindless textures are supported on this platform.
     pub(crate) bindless_supported: bool,
 }
@@ -145,10 +152,16 @@ pub struct RenderLightmaps {
 /// A binding array that contains lightmaps.
 ///
 /// This will have a single binding if bindless lightmaps aren't in use.
-#[derive(Default)]
 pub struct LightmapSlab {
     /// The GPU images in this slab.
-    gpu_images: Vec<GpuImage>,
+    lightmaps: Vec<AllocatedLightmap>,
+    free_slots_bitmask: u32,
+}
+
+struct AllocatedLightmap {
+    gpu_image: GpuImage,
+    // This will only be present if the lightmap is allocated but not loaded.
+    asset_id: Option<AssetId<Image>>,
 }
 
 /// The index of the slab (binding array) in which a lightmap is located.
@@ -186,43 +199,35 @@ impl Plugin for LightmapPlugin {
 /// Extracts all lightmaps from the scene and populates the [`RenderLightmaps`]
 /// resource.
 fn extract_lightmaps(
-    mut render_lightmaps: ResMut<RenderLightmaps>,
-    lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    render_lightmaps: ResMut<RenderLightmaps>,
+    changed_lightmaps_query: Extract<
+        Query<
+            (Entity, &ViewVisibility, &Lightmap),
+            Or<(Changed<ViewVisibility>, Changed<Lightmap>)>,
+        >,
+    >,
+    mut removed_lightmaps_query: Extract<RemovedComponents<Lightmap>>,
     images: Res<RenderAssets<GpuImage>>,
-    meshes: Res<RenderAssets<RenderMesh>>,
+    fallback_images: Res<FallbackImage>,
 ) {
-    // Clear out the old frame's data.
-    // TODO: Should we retain slabs from frame to frame, to avoid having to do
-    // this?
-    render_lightmaps.render_lightmaps.clear();
-    render_lightmaps.slabs.clear();
+    let render_lightmaps = render_lightmaps.into_inner();
 
     // Loop over each entity.
-    for (entity, view_visibility, lightmap) in lightmaps.iter() {
+    for (entity, view_visibility, lightmap) in changed_lightmaps_query.iter() {
+        if render_lightmaps
+            .render_lightmaps
+            .contains_key(&MainEntity::from(entity))
+        {
+            continue;
+        }
+
         // Only process visible entities.
         if !view_visibility.get() {
             continue;
         }
 
-        // Make sure the lightmap is loaded.
-        let Some(gpu_image) = images.get(&lightmap.image) else {
-            continue;
-        };
-
-        // Make sure the mesh is located and that it contains a lightmap UV map.
-        if !render_mesh_instances
-            .mesh_asset_id(entity.into())
-            .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
-            .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
-        {
-            continue;
-        }
-
-        // Add the lightmap to a slab.
-        let (slab_index, slot_index) = render_lightmaps.add((*gpu_image).clone());
-
-        // Store information about the lightmap in the render world.
+        let (slab_index, slot_index) =
+            render_lightmaps.allocate(&fallback_images, lightmap.image.id());
         render_lightmaps.render_lightmaps.insert(
             entity.into(),
             RenderLightmap::new(
@@ -232,7 +237,53 @@ fn extract_lightmaps(
                 slot_index,
             ),
         );
+
+        render_lightmaps
+            .pending_lightmaps
+            .insert((slab_index, slot_index));
     }
+
+    for entity in removed_lightmaps_query.read() {
+        if changed_lightmaps_query.contains(entity) {
+            continue;
+        }
+
+        let Some(RenderLightmap {
+            slab_index,
+            slot_index,
+            ..
+        }) = render_lightmaps
+            .render_lightmaps
+            .remove(&MainEntity::from(entity))
+        else {
+            continue;
+        };
+
+        render_lightmaps.remove(&fallback_images, slab_index, slot_index);
+        render_lightmaps
+            .pending_lightmaps
+            .remove(&(slab_index, slot_index));
+    }
+
+    render_lightmaps
+        .pending_lightmaps
+        .retain(|&(slab_index, slot_index)| {
+            let Some(asset_id) = render_lightmaps.slabs[usize::from(slab_index)].lightmaps
+                [usize::from(slot_index)]
+            .asset_id
+            else {
+                error!(
+                    "Allocated lightmap should have been removed from `pending_lightmaps` by now"
+                );
+                return false;
+            };
+
+            let Some(gpu_image) = images.get(asset_id) else {
+                return true;
+            };
+            render_lightmaps.slabs[usize::from(slab_index)].insert(slot_index, gpu_image.clone());
+            false
+        });
 }
 
 impl RenderLightmap {
@@ -286,56 +337,101 @@ impl FromWorld for RenderLightmaps {
         RenderLightmaps {
             render_lightmaps: default(),
             slabs: vec![],
+            free_slabs: FixedBitSet::new(),
+            pending_lightmaps: HashSet::new(),
             bindless_supported,
         }
     }
 }
 
 impl RenderLightmaps {
-    /// Returns true if the slab with the given index is full or false otherwise.
-    ///
-    /// The slab must exist.
-    fn slab_is_full(&self, slab_index: LightmapSlabIndex) -> bool {
-        let size = self.slabs[u32::from(slab_index.0) as usize]
-            .gpu_images
-            .len();
-        if self.bindless_supported {
-            size >= LIGHTMAPS_PER_SLAB
-        } else {
-            size >= 1
-        }
-    }
-
     /// Creates a new slab, appends it to the end of the list, and returns its
     /// slab index.
-    fn create_slab(&mut self) -> LightmapSlabIndex {
-        let slab_index = LightmapSlabIndex(NonMaxU32::new(self.slabs.len() as u32).unwrap());
-        self.slabs.push(default());
+    fn create_slab(&mut self, fallback_images: &FallbackImage) -> LightmapSlabIndex {
+        let slab_index = LightmapSlabIndex::from(self.slabs.len());
+        self.free_slabs.grow_and_insert(slab_index.into());
+        self.slabs
+            .push(LightmapSlab::new(fallback_images, self.bindless_supported));
         slab_index
     }
 
-    /// Adds a lightmap to a slab and returns the index of that slab as well as
-    /// the index of the slot that the lightmap now occupies.
-    ///
-    /// This creates a new slab if there are no slabs or all slabs are full.
-    fn add(&mut self, gpu_image: GpuImage) -> (LightmapSlabIndex, LightmapSlotIndex) {
-        let mut slab_index = LightmapSlabIndex(NonMaxU32::new(self.slabs.len() as u32).unwrap());
-        if (u32::from(*slab_index) as usize) >= self.slabs.len() || self.slab_is_full(slab_index) {
-            slab_index = self.create_slab();
+    fn allocate(
+        &mut self,
+        fallback_images: &FallbackImage,
+        image_id: AssetId<Image>,
+    ) -> (LightmapSlabIndex, LightmapSlotIndex) {
+        let slab_index = match self.free_slabs.minimum() {
+            None => self.create_slab(fallback_images),
+            Some(slab_index) => slab_index.into(),
+        };
+
+        let slab = &mut self.slabs[usize::from(slab_index)];
+        let slot_index = slab.allocate(image_id);
+        if slab.is_full() {
+            self.free_slabs.remove(slab_index.into());
         }
 
-        let slot_index = self.slabs[u32::from(*slab_index) as usize].insert(gpu_image);
-
         (slab_index, slot_index)
+    }
+
+    fn remove(
+        &mut self,
+        fallback_images: &FallbackImage,
+        slab_index: LightmapSlabIndex,
+        slot_index: LightmapSlotIndex,
+    ) {
+        let slab = &mut self.slabs[usize::from(slab_index)];
+        slab.remove(fallback_images, slot_index);
+
+        if !slab.is_full() {
+            self.free_slabs.grow_and_insert(slot_index.into());
+        }
     }
 }
 
 impl LightmapSlab {
-    /// Inserts a lightmap into this slab and returns the index of its slot.
-    fn insert(&mut self, gpu_image: GpuImage) -> LightmapSlotIndex {
-        let slot_index = LightmapSlotIndex(NonMaxU32::new(self.gpu_images.len() as u32).unwrap());
-        self.gpu_images.push(gpu_image);
-        slot_index
+    fn new(fallback_images: &FallbackImage, bindless_supported: bool) -> LightmapSlab {
+        let count = if bindless_supported {
+            LIGHTMAPS_PER_SLAB
+        } else {
+            1
+        };
+
+        LightmapSlab {
+            lightmaps: (0..count)
+                .map(|_| AllocatedLightmap {
+                    gpu_image: fallback_images.d2.clone(),
+                    asset_id: None,
+                })
+                .collect(),
+            free_slots_bitmask: (1 << count) - 1,
+        }
+    }
+
+    fn is_full(&self) -> bool {
+        self.free_slots_bitmask == 0
+    }
+
+    fn allocate(&mut self, image_id: AssetId<Image>) -> LightmapSlotIndex {
+        let index = LightmapSlotIndex::from(self.free_slots_bitmask.trailing_zeros());
+        self.free_slots_bitmask &= !(1 << u32::from(index));
+        self.lightmaps[usize::from(index)].asset_id = Some(image_id);
+        index
+    }
+
+    fn insert(&mut self, index: LightmapSlotIndex, gpu_image: GpuImage) {
+        self.lightmaps[usize::from(index)] = AllocatedLightmap {
+            gpu_image,
+            asset_id: None,
+        }
+    }
+
+    fn remove(&mut self, fallback_images: &FallbackImage, index: LightmapSlotIndex) {
+        self.lightmaps[usize::from(index)] = AllocatedLightmap {
+            gpu_image: fallback_images.d2.clone(),
+            asset_id: None,
+        };
+        self.free_slots_bitmask |= 1 << u32::from(index);
     }
 
     /// Returns the texture views and samplers for the lightmaps in this slab,
@@ -345,21 +441,15 @@ impl LightmapSlab {
     /// returning, this function pads out the arrays with fallback images in
     /// order to fulfill requirements of platforms that require full binding
     /// arrays (e.g. DX12).
-    pub(crate) fn build_binding_arrays(
-        &mut self,
-        fallback_images: &FallbackImage,
-    ) -> (Vec<&WgpuTextureView>, Vec<&WgpuSampler>) {
-        while self.gpu_images.len() < LIGHTMAPS_PER_SLAB {
-            self.gpu_images.push(fallback_images.d2.clone());
-        }
+    pub(crate) fn build_binding_arrays(&self) -> (Vec<&WgpuTextureView>, Vec<&WgpuSampler>) {
         (
-            self.gpu_images
+            self.lightmaps
                 .iter()
-                .map(|gpu_image| &*gpu_image.texture_view)
+                .map(|allocated_lightmap| &*allocated_lightmap.gpu_image.texture_view)
                 .collect(),
-            self.gpu_images
+            self.lightmaps
                 .iter()
-                .map(|gpu_image| &*gpu_image.sampler)
+                .map(|allocated_lightmap| &*allocated_lightmap.gpu_image.sampler)
                 .collect(),
         )
     }
@@ -370,8 +460,50 @@ impl LightmapSlab {
     /// This is used when constructing bind groups in non-bindless mode.
     pub(crate) fn bindings_for_first_lightmap(&self) -> (&TextureView, &Sampler) {
         (
-            &self.gpu_images[0].texture_view,
-            &self.gpu_images[0].sampler,
+            &self.lightmaps[0].gpu_image.texture_view,
+            &self.lightmaps[0].gpu_image.sampler,
         )
+    }
+}
+
+impl From<u32> for LightmapSlabIndex {
+    fn from(value: u32) -> Self {
+        Self(NonMaxU32::new(value).unwrap())
+    }
+}
+
+impl From<usize> for LightmapSlabIndex {
+    fn from(value: usize) -> Self {
+        Self::from(value as u32)
+    }
+}
+
+impl From<u32> for LightmapSlotIndex {
+    fn from(value: u32) -> Self {
+        Self(NonMaxU32::new(value).unwrap())
+    }
+}
+
+impl From<usize> for LightmapSlotIndex {
+    fn from(value: usize) -> Self {
+        Self::from(value as u32)
+    }
+}
+
+impl From<LightmapSlabIndex> for usize {
+    fn from(value: LightmapSlabIndex) -> Self {
+        value.0.get() as usize
+    }
+}
+
+impl From<LightmapSlotIndex> for usize {
+    fn from(value: LightmapSlotIndex) -> Self {
+        value.0.get() as usize
+    }
+}
+
+impl From<LightmapSlotIndex> for u32 {
+    fn from(value: LightmapSlotIndex) -> Self {
+        value.0.get()
     }
 }

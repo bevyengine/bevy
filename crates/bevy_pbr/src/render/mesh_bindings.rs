@@ -345,11 +345,11 @@ impl MeshLayouts {
         render_device: &RenderDevice,
         fallback_images: &FallbackImage,
         model: &BindingResource,
-        lightmap_slab: &mut LightmapSlab,
+        lightmap_slab: &LightmapSlab,
         bindless_lightmaps: bool,
     ) -> BindGroup {
         if bindless_lightmaps {
-            let (texture_views, samplers) = lightmap_slab.build_binding_arrays(fallback_images);
+            let (texture_views, samplers) = lightmap_slab.build_binding_arrays();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
                 &self.lightmapped,
