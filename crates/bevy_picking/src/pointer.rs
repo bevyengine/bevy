@@ -108,7 +108,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 }
 
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
-#[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct PointerPress {
     primary: bool,
