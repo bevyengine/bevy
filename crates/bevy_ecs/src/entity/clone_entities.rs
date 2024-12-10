@@ -171,6 +171,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
                 target_component_data_ptr.as_ptr(),
                 component_layout.size(),
             );
+            self.target_components_ptrs
+                .push(PtrMut::new(target_component_data_ptr));
             alloc::alloc::dealloc(component_data_ptr, component_layout);
         }
 
