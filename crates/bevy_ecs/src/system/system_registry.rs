@@ -8,6 +8,7 @@ use crate::{
     system::{input::SystemInput, BoxedSystem, IntoSystem, System},
     world::{Command, World},
 };
+use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;

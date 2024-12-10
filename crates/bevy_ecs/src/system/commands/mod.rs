@@ -1,5 +1,7 @@
+#[cfg(feature = "std")]
 mod parallel_scope;
 
+use alloc::vec::Vec;
 use core::{marker::PhantomData, panic::Location};
 
 use super::{
@@ -22,7 +24,9 @@ use crate::{
     },
 };
 use bevy_ptr::OwningPtr;
-use bevy_utils::tracing::{error, info};
+use log::{error, info};
+
+#[cfg(feature = "std")]
 pub use parallel_scope::*;
 
 /// A [`Command`] queue to perform structural changes to the [`World`].

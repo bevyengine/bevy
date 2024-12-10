@@ -4,6 +4,7 @@ use core::any::TypeId;
 
 use thiserror::Error;
 
+use alloc::string::String;
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
 use crate::{prelude::*, world::ComponentId};

@@ -12,6 +12,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};

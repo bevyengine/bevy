@@ -6,6 +6,7 @@
 //!
 //! Same as [`super::component`], but for [`FromWorld`].
 
+use alloc::boxed::Box;
 use bevy_reflect::{FromType, Reflect};
 
 use crate::world::{FromWorld, World};

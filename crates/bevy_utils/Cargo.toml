@@ -9,22 +9,23 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "serde"]
+default = ["std", "serde", "tracing"]
 std = [
   "alloc",
-  "tracing/std",
+  "tracing?/std",
   "ahash/std",
   "dep:thread_local",
   "ahash/runtime-rng",
 ]
 alloc = ["hashbrown/default"]
 serde = ["hashbrown/serde"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 ahash = { version = "0.8.7", default-features = false, features = [
   "compile-time-rng",
 ] }
-tracing = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false, optional = true }
 hashbrown = { version = "0.14.2", default-features = false }
 thread_local = { version = "1.0", optional = true }
 
