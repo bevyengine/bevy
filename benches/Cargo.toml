@@ -36,6 +36,11 @@ path = "benches/bevy_ecs/change_detection.rs"
 harness = false
 
 [[bench]]
+name = "entity_cloning"
+path = "benches/bevy_ecs/entity_cloning.rs"
+harness = false
+
+[[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"
 harness = false

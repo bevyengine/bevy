@@ -5,7 +5,7 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
-    entity::{Entity, EntityCloner},
+    entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
@@ -973,18 +973,44 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut DeferredWorld, &EntityCloner);
+pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
-/// An enum instructing how to clone a component.
+/// A struct instructing which clone handler to use when cloning a component.
 #[derive(Debug, Default)]
-pub enum ComponentCloneHandler {
-    #[default]
+pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
+
+impl ComponentCloneHandler {
     /// Use the global default function to clone the component with this handler.
-    Default,
+    pub fn default_handler() -> Self {
+        Self(None)
+    }
+
     /// Do not clone the component. When a command to clone an entity is issued, component with this handler will be skipped.
-    Ignore,
+    pub fn ignore() -> Self {
+        Self(Some(component_clone_ignore))
+    }
+
+    /// Set clone handler based on `Clone` trait.
+    ///
+    /// If set as a handler for a component that is not the same as the one used to create this handler, it will panic.
+    pub fn clone_handler<C: Component + Clone>() -> Self {
+        Self(Some(component_clone_via_clone::<C>))
+    }
+
+    /// Set clone handler based on `Reflect` trait.
+    pub fn reflect_handler() -> Self {
+        Self(Some(component_clone_via_reflect))
+    }
+
     /// Set a custom handler for the component.
-    Custom(ComponentCloneFn),
+    pub fn custom_handler(handler: ComponentCloneFn) -> Self {
+        Self(Some(handler))
+    }
+
+    /// Get [`ComponentCloneFn`] representing this handler or `None` if set to default handler.
+    pub fn get_handler(&self) -> Option<ComponentCloneFn> {
+        self.0
+    }
 }
 
 /// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
@@ -995,7 +1021,7 @@ pub struct ComponentCloneHandlers {
 }
 
 impl ComponentCloneHandlers {
-    /// Sets the default handler for this registry. All components with [`Default`](ComponentCloneHandler::Default) handler, as well as any component that does not have an
+    /// Sets the default handler for this registry. All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
     /// explicitly registered clone function will use this handler.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
@@ -1015,11 +1041,7 @@ impl ComponentCloneHandlers {
         if id.0 >= self.handlers.len() {
             self.handlers.resize(id.0 + 1, None);
         }
-        match handler {
-            ComponentCloneHandler::Default => self.handlers[id.0] = None,
-            ComponentCloneHandler::Ignore => self.handlers[id.0] = Some(component_clone_ignore),
-            ComponentCloneHandler::Custom(handler) => self.handlers[id.0] = Some(handler),
-        };
+        self.handlers[id.0] = handler.0;
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
@@ -2050,18 +2072,12 @@ impl RequiredComponents {
 ///
 /// See [`ComponentCloneHandlers`] for more details.
 pub fn component_clone_via_clone<C: Clone + Component>(
-    world: &mut DeferredWorld,
-    entity_cloner: &EntityCloner,
+    _world: &mut DeferredWorld,
+    ctx: &mut ComponentCloneCtx,
 ) {
-    let component = world
-        .entity(entity_cloner.source())
-        .get::<C>()
-        .expect("Component must exists on source entity")
-        .clone();
-    world
-        .commands()
-        .entity(entity_cloner.target())
-        .insert(component);
+    if let Some(component) = ctx.read_source_component::<C>() {
+        ctx.write_target_component(component.clone());
+    }
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
@@ -2070,34 +2086,57 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// See [`ComponentCloneHandlers`] for more details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
-    let component_id = entity_cloner.component_id();
-    let source = entity_cloner.source();
-    let target = entity_cloner.target();
-    world.commands().queue(move |world: &mut World| {
-        world.resource_scope::<crate::reflect::AppTypeRegistry, ()>(|world, registry| {
+pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    fn clone_fast(ctx: &mut ComponentCloneCtx) -> Option<()> {
+        let registry = ctx.type_registry()?;
+        let component = {
+            let source_component_reflect = ctx.read_source_component_reflect()?;
             let registry = registry.read();
+            let component_info = ctx.components().get_info(ctx.component_id())?;
+            let type_id = component_info.type_id()?;
+            let reflect_default =
+                registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)?;
+            let mut component = reflect_default.default();
+            component.apply(source_component_reflect.as_partial_reflect());
+            component
+        };
+        ctx.write_target_component_reflect(component);
 
-            let component_info = world
-                .components()
-                .get_info(component_id)
-                .expect("Component must be registered");
-            let Some(type_id) = component_info.type_id() else {
-                return;
-            };
-            let Some(reflect_component) =
-                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-            else {
-                return;
-            };
-            let source_component = reflect_component
-                .reflect(world.get_entity(source).expect("Source entity must exist"))
-                .expect("Source entity must have reflected component")
-                .clone_value();
-            let mut target = world
-                .get_entity_mut(target)
-                .expect("Target entity must exist");
-            reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
+        Some(())
+    }
+
+    fn clone_slow(
+        component_id: ComponentId,
+        source: Entity,
+        target: Entity,
+        registry: &crate::reflect::AppTypeRegistry,
+        world: &mut World,
+    ) -> Option<()> {
+        let registry = registry.read();
+
+        let component_info = world.components().get_info(component_id)?;
+        let type_id = component_info.type_id()?;
+        let reflect_component =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)?;
+        let source_component = reflect_component
+            .reflect(world.get_entity(source).ok()?)?
+            .clone_value();
+        let mut target = world.get_entity_mut(target).ok()?;
+        reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
+        Some(())
+    }
+
+    // Try to clone fast first, if it doesn't work use the slow path
+    if clone_fast(ctx).is_some() {
+        return;
+    };
+
+    let component_id = ctx.component_id();
+    let source = ctx.source();
+    let target = ctx.target();
+    world.commands().queue(move |world: &mut World| {
+        world.resource_scope(|world, registry| {
+            clone_slow(component_id, source, target, &registry, world);
         });
     });
 }
@@ -2105,7 +2144,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, entity_cloner: &En
 /// Noop implementation of component clone handler function.
 ///
 /// See [`ComponentCloneHandlers`] for more details.
-pub fn component_clone_ignore(_world: &mut DeferredWorld, _entity_cloner: &EntityCloner) {}
+pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
@@ -2135,6 +2174,6 @@ pub trait ComponentCloneViaClone {
 }
 impl<C: Clone + Component> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<C> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::Custom(component_clone_via_clone::<C>)
+        ComponentCloneHandler::clone_handler::<C>()
     }
 }

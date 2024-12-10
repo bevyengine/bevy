@@ -45,7 +45,7 @@ impl Component for Children {
     type Mutability = Mutable;
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::Ignore
+        ComponentCloneHandler::ignore()
     }
 }
 
