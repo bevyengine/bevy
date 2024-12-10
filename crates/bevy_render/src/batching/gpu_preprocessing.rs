@@ -24,7 +24,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, GpuCulling, ViewTarget},
+    view::{ExtractedView, NoIndirectDrawing, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
@@ -247,8 +247,8 @@ where
 pub struct PreprocessWorkItemBuffer {
     /// The buffer of work items.
     pub buffer: BufferVec<PreprocessWorkItem>,
-    /// True if we're using GPU culling.
-    pub gpu_culling: bool,
+    /// True if we're drawing directly instead of indirectly.
+    pub no_indirect_drawing: bool,
 }
 
 /// One invocation of the preprocessing shader: i.e. one mesh instance in a
@@ -529,7 +529,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -542,7 +542,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for (view, no_indirect_drawing) in &mut views {
         let Some(phase) = sorted_render_phases.get_mut(&view) else {
             continue;
         };
@@ -553,7 +553,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
+                    no_indirect_drawing,
                 });
 
         // Walk through the list of phase items, building up batches as we go.
@@ -604,7 +604,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 }
 
                 // Start a new batch.
-                let indirect_parameters_index = if gpu_culling {
+                let indirect_parameters_index = if !no_indirect_drawing {
                     GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
@@ -647,7 +647,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -661,7 +661,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for (view, no_indirect_drawing) in &mut views {
         let Some(phase) = binned_render_phases.get_mut(&view) else {
             continue;
         };
@@ -673,7 +673,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
+                    no_indirect_drawing,
                 });
 
         // Prepare batchables.
@@ -697,6 +697,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
                 match batch {
                     Some(ref mut batch) => {
+                        // Append to the current batch.
                         batch.instance_range.end = output_index + 1;
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
@@ -710,7 +711,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         });
                     }
 
-                    None if gpu_culling => {
+                    None if !no_indirect_drawing => {
+                        // Start a new batch, in indirect mode.
                         let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                             &system_param_item,
                             &mut indirect_parameters_buffer,
@@ -731,6 +733,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     }
 
                     None => {
+                        // Start a new batch, in direct mode.
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
                             output_index,
@@ -779,7 +782,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                if gpu_culling {
+                if !no_indirect_drawing {
+                    // We're in indirect mode, so add an indirect parameters
+                    // index.
                     let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
