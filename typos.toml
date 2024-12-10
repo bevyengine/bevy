@@ -16,17 +16,17 @@ TOI = "TOI" # Time of impact
 locale = "en-us"
 # Ignored typos regexes
 extend-ignore-identifiers-re = [
-  "Ba",               # Bitangent for Anisotropy
-  "ba",               # Part of an accessor in WGSL - color.ba
-  "ser",              # ron::ser - Serializer
-  "SME",              # Subject Matter Expert
-  "Sur",              # macOS Big Sur - South
-  "NDK",              # NDK - Native  Development Kit
-  "PNG",              # PNG - Portable Network Graphics file format
-  "Masia",            # The surname of one of the authors of SMAA
-  "metalness",        # Rendering term (metallicity)
-  "inventario",       # Inventory in Portuguese
-  "[Rr]eparametrize", # Mathematical term in curve context (reparameterize)
+  "Ba",                   # Bitangent for Anisotropy
+  "ba",                   # Part of an accessor in WGSL - color.ba
+  "ser",                  # ron::ser - Serializer
+  "SME",                  # Subject Matter Expert
+  "Sur",                  # macOS Big Sur - South
+  "NDK",                  # NDK - Native  Development Kit
+  "PNG",                  # PNG - Portable Network Graphics file format
+  "Masia",                # The surname of one of the authors of SMAA
+  "metalness",            # Rendering term (metallicity)
+  "inventario",           # Inventory in Portuguese
+  "[Rr]eparametrize",     # Mathematical term in curve context (reparameterize)
   "[Rr]eparametrization",
   # Used in bevy_mikktspace
   "iFO",
