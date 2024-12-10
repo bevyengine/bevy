@@ -24,7 +24,7 @@ use bevy_utils::Duration;
 /// assert!(stopwatch.is_paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 /// ```
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct Stopwatch {

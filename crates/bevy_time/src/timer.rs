@@ -12,7 +12,7 @@ use bevy_utils::Duration;
 /// Paused timers will not have elapsed time increased.
 ///
 /// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct Timer {
