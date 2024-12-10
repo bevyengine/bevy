@@ -149,6 +149,11 @@ pub struct Opaque3dPrepass {
     pub extra_index: PhaseItemExtraIndex,
 }
 
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set* in the prepass and deferred pass.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpaqueNoLightmap3dBatchSetKey {
     /// The ID of the GPU pipeline.
@@ -167,6 +172,10 @@ pub struct OpaqueNoLightmap3dBatchSetKey {
 /// The data used to bin each opaque 3D object in the prepass and deferred pass.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpaqueNoLightmap3dBinKey {
+    /// The key of the *batch set*.
+    ///
+    /// As batches belong to a batch set, meshes in a batch must obviously be
+    /// able to be placed in a single batch set.
     pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
 
     /// The ID of the asset.
