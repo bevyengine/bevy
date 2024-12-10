@@ -65,14 +65,6 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check -p bevy_mikktspace --no-default-features --features libm --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_mikktspace no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
                 "cargo check -p bevy_reflect --no-default-features --target {target}"
             ),
             "Please fix compiler errors in output above for bevy_reflect no_std compatibility.",
@@ -84,6 +76,22 @@ impl Prepare for CompileCheckNoStdCommand {
                 "cargo check -p bevy_math --no-default-features --features libm --target {target}"
             ),
             "Please fix compiler errors in output above for bevy_math no_std compatibility.",
+        ));
+
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_color --no-default-features --features libm --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_color no_std compatibility.",
+        ));
+
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_tasks --no-default-features --features edge_executor,critical-section --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_tasks no_std compatibility.",
         ));
 
         commands

@@ -9,39 +9,39 @@ use core::{
     fmt::Debug,
 };
 
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use crate::utility::NonGenericTypeInfoCell;
 
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum ApplyError {
-    #[display("attempted to apply `{from_kind}` to `{to_kind}`")]
+    #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
     /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
     MismatchedKinds {
         from_kind: ReflectKind,
         to_kind: ReflectKind,
     },
 
-    #[display("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
+    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
     /// Enum variant that we tried to apply to was missing a field.
     MissingEnumField {
         variant_name: Box<str>,
         field_name: Box<str>,
     },
 
-    #[display("`{from_type}` is not `{to_type}`")]
+    #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.
     MismatchedTypes {
         from_type: Box<str>,
         to_type: Box<str>,
     },
 
-    #[display("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
     DifferentSize { from_size: usize, to_size: usize },
 
-    #[display("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
+    #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
     /// The enum we tried to apply to didn't contain a variant with the give name.
     UnknownVariant {
         enum_name: Box<str>,

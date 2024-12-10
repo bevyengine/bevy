@@ -36,11 +36,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 taffy = { version = "0.6" }
 serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 nonmax = "0.5"
 smallvec = "1.11"
 accesskit = "0.17"

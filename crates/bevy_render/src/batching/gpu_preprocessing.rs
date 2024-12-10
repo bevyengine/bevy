@@ -10,20 +10,20 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
+use bevy_utils::{default, tracing::error};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
-use smallvec::smallvec;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
+        CachedRenderPipelinePhaseItem, PhaseItemBinKey as _, PhaseItemExtraIndex, SortedPhaseItem,
+        SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
+        ViewSortedRenderPhases,
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::MainEntity,
     view::{ExtractedView, GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -64,12 +64,49 @@ impl Plugin for BatchingPlugin {
 ///
 /// [a `wgpu` limitation]: https://github.com/gfx-rs/wgpu/issues/2471
 #[derive(Clone, Copy, PartialEq, Resource)]
-pub enum GpuPreprocessingSupport {
-    /// No GPU preprocessing support is available at all.
+pub struct GpuPreprocessingSupport {
+    /// The maximum amount of GPU preprocessing available on this platform.
+    pub max_supported_mode: GpuPreprocessingMode,
+}
+
+impl GpuPreprocessingSupport {
+    /// Returns true if this GPU preprocessing support level isn't `None`.
+    #[inline]
+    pub fn is_available(&self) -> bool {
+        self.max_supported_mode != GpuPreprocessingMode::None
+    }
+
+    /// Returns the given GPU preprocessing mode, capped to the current
+    /// preprocessing mode.
+    pub fn min(&self, mode: GpuPreprocessingMode) -> GpuPreprocessingMode {
+        match (self.max_supported_mode, mode) {
+            (GpuPreprocessingMode::None, _) | (_, GpuPreprocessingMode::None) => {
+                GpuPreprocessingMode::None
+            }
+            (mode, GpuPreprocessingMode::Culling) | (GpuPreprocessingMode::Culling, mode) => mode,
+            (GpuPreprocessingMode::PreprocessingOnly, GpuPreprocessingMode::PreprocessingOnly) => {
+                GpuPreprocessingMode::PreprocessingOnly
+            }
+        }
+    }
+}
+
+/// The amount of GPU preprocessing (compute and indirect draw) that we do.
+#[derive(Clone, Copy, PartialEq)]
+pub enum GpuPreprocessingMode {
+    /// No GPU preprocessing is in use at all.
+    ///
+    /// This is used when GPU compute isn't available.
     None,
-    /// GPU preprocessing is available, but GPU culling isn't.
+
+    /// GPU preprocessing is in use, but GPU culling isn't.
+    ///
+    /// This is used by default.
     PreprocessingOnly,
-    /// Both GPU preprocessing and GPU culling are available.
+
+    /// Both GPU preprocessing and GPU culling are in use.
+    ///
+    /// This is used when the [`GpuCulling`] component is present on the camera.
     Culling,
 }
 
@@ -87,7 +124,7 @@ pub enum GpuPreprocessingSupport {
 pub struct BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// A storage area for the buffer data that the GPU compute shader is
     /// expected to write to.
@@ -123,44 +160,83 @@ where
 /// shader is expected to expand to the full *buffer data* type.
 pub struct InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// The buffer containing the data that will be uploaded to the GPU.
-    pub buffer: RawBufferVec<BDI>,
+    buffer: RawBufferVec<BDI>,
 
-    /// The main-world entity that each item in
-    /// [`InstanceInputUniformBuffer::buffer`] corresponds to.
+    /// Indices of slots that are free within the buffer.
     ///
-    /// This array must have the same length as
-    /// [`InstanceInputUniformBuffer::buffer`]. This bookkeeping is needed when
-    /// moving the data for an entity in the buffer (which happens when an
-    /// entity is removed), so that we can update other data structures with the
-    /// new buffer index of that entity.
-    pub main_entities: Vec<MainEntity>,
+    /// When adding data, we preferentially overwrite these slots first before
+    /// growing the buffer itself.
+    free_uniform_indices: Vec<u32>,
 }
 
 impl<BDI> InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// Creates a new, empty buffer.
     pub fn new() -> InstanceInputUniformBuffer<BDI> {
         InstanceInputUniformBuffer {
             buffer: RawBufferVec::new(BufferUsages::STORAGE),
-            main_entities: vec![],
+            free_uniform_indices: vec![],
         }
     }
 
     /// Clears the buffer and entity list out.
     pub fn clear(&mut self) {
         self.buffer.clear();
-        self.main_entities.clear();
+        self.free_uniform_indices.clear();
+    }
+
+    /// Returns the [`RawBufferVec`] corresponding to this input uniform buffer.
+    #[inline]
+    pub fn buffer(&self) -> &RawBufferVec<BDI> {
+        &self.buffer
+    }
+
+    /// Adds a new piece of buffered data to the uniform buffer and returns its
+    /// index.
+    pub fn add(&mut self, element: BDI) -> u32 {
+        match self.free_uniform_indices.pop() {
+            Some(uniform_index) => {
+                self.buffer.values_mut()[uniform_index as usize] = element;
+                uniform_index
+            }
+            None => self.buffer.push(element) as u32,
+        }
+    }
+
+    /// Removes a piece of buffered data from the uniform buffer.
+    ///
+    /// This simply marks the data as free.
+    pub fn remove(&mut self, uniform_index: u32) {
+        self.free_uniform_indices.push(uniform_index);
+    }
+
+    /// Returns the piece of buffered data at the given index.
+    pub fn get(&self, uniform_index: u32) -> BDI {
+        self.buffer.values()[uniform_index as usize]
+    }
+
+    /// Stores a piece of buffered data at the given index.
+    pub fn set(&mut self, uniform_index: u32, element: BDI) {
+        self.buffer.values_mut()[uniform_index as usize] = element;
+    }
+
+    // Ensures that the buffers are nonempty, which the GPU requires before an
+    // upload can take place.
+    pub fn ensure_nonempty(&mut self) {
+        if self.buffer.is_empty() {
+            self.buffer.push(default());
+        }
     }
 }
 
 impl<BDI> Default for InstanceInputUniformBuffer<BDI>
 where
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     fn default() -> Self {
         Self::new()
@@ -301,26 +377,28 @@ impl FromWorld for GpuPreprocessingSupport {
             }
         }
 
-        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
         {
-            GpuPreprocessingSupport::None
+            GpuPreprocessingMode::None
         } else if !device
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE) ||
             !adapter.get_downlevel_capabilities().flags.contains(
         DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
         {
-            GpuPreprocessingSupport::PreprocessingOnly
+            GpuPreprocessingMode::PreprocessingOnly
         } else {
-            GpuPreprocessingSupport::Culling
-        }
+            GpuPreprocessingMode::Culling
+        };
+
+        GpuPreprocessingSupport { max_supported_mode }
     }
 }
 
 impl<BD, BDI> BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     /// Creates new buffers.
     pub fn new() -> Self {
@@ -353,7 +431,7 @@ where
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
-    BDI: Pod,
+    BDI: Pod + Default,
 {
     fn default() -> Self {
         Self::new()
@@ -600,6 +678,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
+        // If multi-draw is in use, as we step through the list of batchables,
+        // we gather adjacent batches that have the same *batch set* key into
+        // batch sets. This variable stores the last batch set key that we've
+        // seen. If our current batch set key is identical to this one, we can
+        // merge the current batch into the last batch set.
+        let mut last_multidraw_key = None;
+
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
@@ -615,10 +700,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         batch.instance_range.end = output_index + 1;
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
-                            output_index: batch
-                                .extra_index
-                                .as_indirect_parameters_index()
-                                .unwrap_or(output_index),
+                            output_index: match batch.extra_index {
+                                PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                                    range.start
+                                }
+                                PhaseItemExtraIndex::DynamicOffset(_)
+                                | PhaseItemExtraIndex::None => output_index,
+                            },
                         });
                     }
 
@@ -650,14 +738,33 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                     }
                 }
             }
 
             if let Some(batch) = batch {
-                phase.batch_sets.push(smallvec![batch]);
+                match phase.batch_sets {
+                    BinnedRenderPhaseBatchSets::DynamicUniforms(_) => {
+                        error!("Dynamic uniform batch sets shouldn't be used here");
+                    }
+                    BinnedRenderPhaseBatchSets::Direct(ref mut vec) => {
+                        vec.push(batch);
+                    }
+                    BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets) => {
+                        // We're in multi-draw mode. Check to see whether our
+                        // batch set key is the same as the last one. If so,
+                        // merge this batch into the preceding batch set.
+                        let this_multidraw_key = key.get_batch_set_key();
+                        if last_multidraw_key.as_ref() == Some(&this_multidraw_key) {
+                            batch_sets.last_mut().unwrap().push(batch);
+                        } else {
+                            last_multidraw_key = Some(this_multidraw_key);
+                            batch_sets.push(vec![batch]);
+                        }
+                    }
+                }
             }
         }
 
@@ -688,8 +795,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
                             instance_index: indirect_parameters_index.into(),
-                            extra_index: PhaseItemExtraIndex::indirect_parameters_index(
-                                indirect_parameters_index.into(),
+                            extra_index: PhaseItemExtraIndex::IndirectParametersIndex(
+                                u32::from(indirect_parameters_index)
+                                    ..(u32::from(indirect_parameters_index) + 1),
                             ),
                         });
                 } else {
@@ -701,7 +809,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
                             instance_index: output_index,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                 }
             }

@@ -33,6 +33,8 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+use bevy_render::batching::gpu_preprocessing::GpuPreprocessingMode;
+use bevy_render::render_phase::PhaseItemBinKey;
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -153,6 +155,14 @@ pub struct Opaque2dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
+impl PhaseItemBinKey for Opaque2dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
+    }
+}
+
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
@@ -179,7 +189,7 @@ impl PhaseItem for Opaque2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -269,7 +279,7 @@ impl PhaseItem for AlphaMask2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -292,6 +302,14 @@ impl BinnedPhaseItem for AlphaMask2d {
             batch_range,
             extra_index,
         }
+    }
+}
+
+impl PhaseItemBinKey for AlphaMask2dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
     }
 }
 
@@ -340,7 +358,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -385,8 +403,8 @@ pub fn extract_core_2d_camera_phases(
             continue;
         }
         transparent_2d_phases.insert_or_clear(entity);
-        opaque_2d_phases.insert_or_clear(entity);
-        alpha_mask_2d_phases.insert_or_clear(entity);
+        opaque_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
 
         live_entities.insert(entity);
     }
