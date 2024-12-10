@@ -20,7 +20,7 @@
 #ifdef SKINS_USE_UNIFORM_BUFFERS
 @group(1) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
 #else   // SKINS_USE_UNIFORM_BUFFERS
-@group(1) @binding(6) var<storage> prev_joint_matrices: array<SkinnedMesh>;
+@group(1) @binding(6) var<storage> prev_joint_matrices: array<mat4x4<f32>>;
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 
 fn skin_model(
@@ -52,16 +52,16 @@ fn skin_prev_model(
     instance_index: u32,
 ) -> mat4x4<f32> {
 #ifdef SKINS_USE_UNIFORM_BUFFERS
-    return weights.x * joint_matrices.data[indexes.x]
-        + weights.y * joint_matrices.data[indexes.y]
-        + weights.z * joint_matrices.data[indexes.z]
-        + weights.w * joint_matrices.data[indexes.w];
+    return weights.x * prev_joint_matrices.data[indexes.x]
+        + weights.y * prev_joint_matrices.data[indexes.y]
+        + weights.z * prev_joint_matrices.data[indexes.z]
+        + weights.w * prev_joint_matrices.data[indexes.w];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let skin_index = mesh[instance_index].current_skin_index;
-    return weights.x * joint_matrices[skin_index + indexes.x]
-        + weights.y * joint_matrices[skin_index + indexes.y]
-        + weights.z * joint_matrices[skin_index + indexes.z]
-        + weights.w * joint_matrices[skin_index + indexes.w];
+    let skin_index = mesh[instance_index].previous_skin_index;
+    return weights.x * prev_joint_matrices[skin_index + indexes.x]
+        + weights.y * prev_joint_matrices[skin_index + indexes.y]
+        + weights.z * prev_joint_matrices[skin_index + indexes.z]
+        + weights.w * prev_joint_matrices[skin_index + indexes.w];
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 }
 
