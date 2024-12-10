@@ -121,21 +121,6 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     return color;
 }
 
-// Samples a texture using the appropriate biasing metric for the type of mesh
-// in use (mesh vs. meshlet).
-fn sample_texture(
-    texture: texture_2d<f32>,
-    samp: sampler,
-    uv: vec2<f32>,
-    bias: SampleBias,
-) -> vec4<f32> {
-#ifdef MESHLET_MESH_MATERIAL_PASS
-    return textureSampleGrad(texture, samp, uv, bias.ddx_uv, bias.ddy_uv);
-#else
-    return textureSampleBias(texture, samp, uv, bias.mip_bias);
-#endif
-}
-
 fn prepare_world_normal(
     world_normal: vec3<f32>,
     double_sided: bool,
