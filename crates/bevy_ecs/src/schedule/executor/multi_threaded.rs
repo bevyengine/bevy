@@ -298,7 +298,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
 
     fn tick_executor(&self) {
         // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
-        // If this thread acquires the lock, the exector runs after the push() and they are processed.
+        // If this thread acquires the lock, the executor runs after the push() and they are processed.
         // If this thread does not acquire the lock, then the is_empty() check on the other thread runs
         // after the lock is released, which is after try_lock() failed, which is after the push()
         // on this thread, so the is_empty() check will see the new events and loop.

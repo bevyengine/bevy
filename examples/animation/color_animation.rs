@@ -60,7 +60,7 @@ fn setup(mut commands: Commands) {
     // As such, we cannot use curves in these spaces.
     // However, we can still mix these colors and animate that way. In fact, mixing colors works in any color space.
 
-    // Spawn a spritre using the provided colors for mixing.
+    // Spawn a sprite using the provided colors for mixing.
     spawn_mixed_sprite(&mut commands, -75., colors.map(Hsla::from));
 
     spawn_mixed_sprite(&mut commands, -175., colors.map(Srgba::from));
@@ -110,7 +110,7 @@ fn animate_mixed<T: MixedColor>(
             // For four colors, there are three intervals between those colors;
             let intervals = (mixed.0.len() - 1) as f32;
 
-            // Next we determine the index of the first of the two colorts to mix.
+            // Next we determine the index of the first of the two colors to mix.
             let start_i = (t * intervals).floor().min(intervals - 1.);
 
             // Lastly we determine the 'local' value of t in this interval.

@@ -4703,7 +4703,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.entity()).insert(TestComponent(0));
+                commands.entity(trigger.target()).insert(TestComponent(0));
             })
             .id();
 
@@ -4725,7 +4725,7 @@ mod tests {
         let mut world = World::new();
         world.add_observer(
             |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
-                commands.entity(trigger.entity()).despawn();
+                commands.entity(trigger.target()).despawn();
             },
         );
         let entity = world.spawn_empty().id();

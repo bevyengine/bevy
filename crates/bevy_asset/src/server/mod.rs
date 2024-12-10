@@ -1384,7 +1384,7 @@ impl AssetServer {
     /// asset from being dropped.
     /// If you have access to an asset's strong [`Handle`], you should prefer to call
     /// [`AssetServer::wait_for_asset`]
-    /// or [`wait_for_assest_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes
+    /// or [`wait_for_asset_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes
     /// loading.
     ///
     /// # Errors

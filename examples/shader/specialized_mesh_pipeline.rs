@@ -154,7 +154,7 @@ type DrawSpecializedPipelineCommands = (
 /// rendered entity.
 type WithCustomRenderedEntity = With<CustomRenderedEntity>;
 
-// This contains the state needed to speciazlize a mesh pipeline
+// This contains the state needed to specialize a mesh pipeline
 #[derive(Resource)]
 struct CustomMeshPipeline {
     /// The base mesh pipeline defined by bevy

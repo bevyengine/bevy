@@ -1,10 +1,7 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice,
-    texture::FallbackImage,
-};
+use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
 
 use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, LightmapSlab};
 
@@ -343,7 +340,6 @@ impl MeshLayouts {
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
-        fallback_images: &FallbackImage,
         model: &BindingResource,
         lightmap_slab: &LightmapSlab,
         bindless_lightmaps: bool,
