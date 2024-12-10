@@ -992,3 +992,21 @@ macro_rules! animated_field {
         })
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_animated_field_tuple_struct_simple_uses() {
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct A(f32);
+        let _ = AnimatedField::new_unchecked("0", |a: &mut A| &mut a.0);
+
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct B(f32, f64, f32);
+        let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
+        let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
+        let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
+}
