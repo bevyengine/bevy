@@ -333,7 +333,7 @@ pub struct PickingEventWriters<'w> {
 /// + When a pointer moves over the target:
 ///   [`Over`], [`Move`], [`Out`].
 /// + When a pointer presses buttons on the target:
-///   [`Down`], [`Click`], [`Up`].
+///   [`Pressed`], [`Click`], [`Released`].
 /// + When a pointer drags the target:
 ///   [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target:
@@ -355,7 +355,7 @@ pub struct PickingEventWriters<'w> {
 /// In the context of UI, this is especially problematic. Additional hierarchy-aware
 /// events will be added in a future release.
 ///
-/// Both [`Click`] and [`Up`] target the entity hovered in the *previous frame*,
+/// Both [`Click`] and [`Released`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
 /// on the frame they are released. The end effect is that these two events can
 /// be received sequentally after an [`Out`] event (but always on the same frame
