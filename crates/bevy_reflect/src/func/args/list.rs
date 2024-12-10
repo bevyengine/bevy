@@ -5,7 +5,10 @@ use crate::{
     },
     PartialReflect, Reflect, TypePath,
 };
-use alloc::{boxed::Box, collections::VecDeque};
+use alloc::{
+    boxed::Box,
+    collections::vec_deque::{Iter, VecDeque},
+};
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
@@ -284,6 +287,11 @@ impl<'a> ArgList<'a> {
     /// ```
     pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.pop_arg()?.take_mut()
+    }
+
+    /// Returns an iterator over the arguments in the list.
+    pub fn iter(&self) -> Iter<'_, Arg<'a>> {
+        self.list.iter()
     }
 
     /// Returns the number of arguments in the list.
