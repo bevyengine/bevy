@@ -578,6 +578,7 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod foldhash;
     mod std;
 
     #[cfg(feature = "glam")]
@@ -1158,11 +1159,11 @@ mod tests {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct Baz(String);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 0 });
 
         let mut foo = Foo {
@@ -1227,12 +1228,12 @@ mod tests {
 
         foo.apply(&foo_patch);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 7 });
 
         let expected_foo = Foo {
@@ -1251,7 +1252,7 @@ mod tests {
         let new_foo = Foo::from_reflect(&foo_patch)
             .expect("error while creating a concrete type from a dynamic type");
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -1408,7 +1409,7 @@ mod tests {
             x: u32,
         }
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
         let foo = Foo {
@@ -1497,7 +1498,8 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let mut map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let mut map_value: Box<dyn Map> =
+            Box::new([(123_i32, 321_i32)].into_iter().collect::<HashMap<_, _>>());
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1861,7 +1863,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.key_ty().path());
         assert_eq!(f32::type_path(), info.value_ty().path());
 
-        let value: &dyn Reflect = &MyMap::new();
+        let value: &dyn Reflect = &MyMap::default();
         let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
@@ -2160,7 +2162,7 @@ mod tests {
             }
         }
 
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(123, 1.23);
 
         let test = Test {
@@ -2474,7 +2476,7 @@ bevy_reflect::tests::Test {
             // test reflected value
             value: u32,
         }
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(9, 10);
         let mut test_struct: DynamicStruct = TestStruct {
             tuple: (0, 1),

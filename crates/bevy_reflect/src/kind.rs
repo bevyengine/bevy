@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn should_cast_mut() {
-        let mut value: HashSet<i32> = HashSet::new();
+        let mut value: HashSet<i32> = HashSet::default();
 
         let result = value.reflect_mut().as_set();
         assert!(result.is_ok());

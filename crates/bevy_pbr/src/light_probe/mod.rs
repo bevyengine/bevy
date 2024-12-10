@@ -631,7 +631,7 @@ where
     fn new() -> RenderViewLightProbes<C> {
         RenderViewLightProbes {
             binding_index_to_textures: vec![],
-            cubemap_to_binding_index: HashMap::new(),
+            cubemap_to_binding_index: HashMap::default(),
             render_light_probes: vec![],
             view_light_probe_info: C::ViewLightProbeInfo::default(),
         }

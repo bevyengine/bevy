@@ -43,7 +43,7 @@ fn prepare_view_upscaling_pipelines(
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
-    let mut output_textures = HashSet::new();
+    let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
         let blend_state = if let Some(extracted_camera) = camera {

@@ -395,10 +395,10 @@ impl AssetInfos {
 
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
-        let mut failed_deps = HashSet::new();
+        let mut failed_deps = <HashSet<_>>::default();
         let mut dep_error = None;
         let mut loading_rec_deps = loading_deps.clone();
-        let mut failed_rec_deps = HashSet::new();
+        let mut failed_rec_deps = <HashSet<_>>::default();
         let mut rec_dep_error = None;
         loading_deps.retain(|dep_id| {
             if let Some(dep_info) = self.get_mut(*dep_id) {

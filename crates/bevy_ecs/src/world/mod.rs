@@ -1235,8 +1235,7 @@ impl World {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::entity::EntityHash;
     /// # use bevy_ecs::entity::EntityHashSet;
-    /// # use bevy_utils::hashbrown::HashSet;
-    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
+    /// # use bevy_utils::HashSet;
     /// # let mut world = World::new();
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
@@ -3462,7 +3461,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the closures for each resource type
-    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::new();
+    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::default();
     ///
     /// // Add closure for `A`
     /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
@@ -3539,7 +3538,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the mutator closures for each resource type
-    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::new();
+    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::default();
     ///
     /// // Add mutator closure for `A`
     /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
@@ -4299,38 +4298,46 @@ mod tests {
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
             to_type_ids(world.inspect_entity(ent0).collect()),
-            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+            [Some(foo_id), Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent1).collect()),
-            [Some(foo_id), Some(bar_id)].into()
+            [Some(foo_id), Some(bar_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent2).collect()),
-            [Some(bar_id), Some(baz_id)].into()
+            [Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent3).collect()),
-            [Some(foo_id), Some(baz_id)].into()
+            [Some(foo_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent4).collect()),
-            [Some(foo_id)].into()
+            [Some(foo_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent5).collect()),
-            [Some(bar_id)].into()
+            [Some(bar_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent6).collect()),
-            [Some(baz_id)].into()
+            [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
     }
 
     #[test]
     fn iterate_entities() {
         let mut world = World::new();
-        let mut entity_counters = HashMap::new();
+        let mut entity_counters = <HashMap<_, _>>::default();
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();

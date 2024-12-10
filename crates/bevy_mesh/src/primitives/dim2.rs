@@ -1059,7 +1059,7 @@ mod tests {
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 
     fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
-        let mut map = HashSet::new();
+        let mut map = <HashSet<_>>::default();
         for point in points {
             map.insert(point.map(FloatOrd));
         }
