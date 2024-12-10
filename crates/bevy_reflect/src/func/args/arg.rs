@@ -183,6 +183,14 @@ impl<'a> Arg<'a> {
             }
         }
     }
+
+    /// Returns `true` if the argument is of type `T`.
+    pub fn is<T: TypePath>(&self) -> bool {
+        self.value
+            .try_as_reflect()
+            .map(<dyn Reflect>::is::<T>)
+            .unwrap_or_default()
+    }
 }
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
