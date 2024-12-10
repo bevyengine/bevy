@@ -403,7 +403,7 @@ impl Archetype {
             // component in the `table_components` vector
             component_index
                 .entry(component_id)
-                .or_insert_with(HashMap::new)
+                .or_default()
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
@@ -421,7 +421,7 @@ impl Archetype {
             );
             component_index
                 .entry(component_id)
-                .or_insert_with(HashMap::new)
+                .or_default()
                 .insert(id, ArchetypeRecord { column: None });
         }
         Self {

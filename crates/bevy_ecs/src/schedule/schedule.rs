@@ -1,9 +1,8 @@
 use alloc::{
     boxed::Box, collections::BTreeSet, format, string::String, string::ToString, vec, vec::Vec,
 };
-use bevy_utils::{default, AHasher, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use core::fmt::{Debug, Write};
-use core::hash::BuildHasherDefault;
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -37,7 +36,7 @@ impl Schedules {
     /// Constructs an empty `Schedules` with zero initial capacity.
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            inner: HashMap::default(),
             ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
@@ -515,7 +514,7 @@ impl Schedule {
 #[derive(Default)]
 pub struct Dag {
     /// A directed graph.
-    graph: DiGraph<BuildHasherDefault<AHasher>>,
+    graph: DiGraph,
     /// A cached topological ordering of the graph.
     topsort: Vec<NodeId>,
 }
@@ -523,7 +522,7 @@ pub struct Dag {
 impl Dag {
     fn new() -> Self {
         Self {
-            graph: DiGraph::new(),
+            graph: DiGraph::default(),
             topsort: Vec::new(),
         }
     }
@@ -608,7 +607,7 @@ pub struct ScheduleGraph {
     hierarchy: Dag,
     /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
-    ambiguous_with: UnGraph<BuildHasherDefault<AHasher>>,
+    ambiguous_with: UnGraph,
     ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     anonymous_sets: usize,
@@ -627,18 +626,18 @@ impl ScheduleGraph {
             system_conditions: Vec::new(),
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
-            system_set_ids: HashMap::new(),
+            system_set_ids: HashMap::default(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
-            ambiguous_with: UnGraph::new(),
-            ambiguous_with_all: HashSet::new(),
+            ambiguous_with: UnGraph::default(),
+            ambiguous_with_all: HashSet::default(),
             conflicting_systems: Vec::new(),
             anonymous_sets: 0,
             changed: false,
             settings: default(),
             no_sync_edges: BTreeSet::new(),
-            auto_sync_node_ids: HashMap::new(),
+            auto_sync_node_ids: HashMap::default(),
         }
     }
 
@@ -1153,7 +1152,8 @@ impl ScheduleGraph {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
+        let mut distances: HashMap<usize, Option<u32>> =
+            HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
             let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
@@ -1230,8 +1230,9 @@ impl ScheduleGraph {
         hierarchy_graph: &DiGraph,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
-            HashMap::with_capacity(self.system_sets.len());
-        let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
+            HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
+        let mut set_system_bitsets =
+            HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
         for &id in hierarchy_topsort.iter().rev() {
             if id.is_system() {
                 continue;
@@ -1310,7 +1311,7 @@ impl ScheduleGraph {
     }
 
     fn get_ambiguous_with_flattened(&self, set_systems: &HashMap<NodeId, Vec<NodeId>>) -> UnGraph {
-        let mut ambiguous_with_flattened = UnGraph::new();
+        let mut ambiguous_with_flattened = UnGraph::default();
         for (lhs, rhs) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
                 (NodeId::System(_), NodeId::System(_)) => {
@@ -1918,7 +1919,7 @@ impl ScheduleGraph {
     }
 
     fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
-        let mut sets = HashSet::new();
+        let mut sets = <HashSet<_>>::default();
         self.traverse_sets_containing_node(*id, &mut |set_id| {
             !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
         });
