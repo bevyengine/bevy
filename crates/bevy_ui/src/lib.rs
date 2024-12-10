@@ -166,6 +166,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
             .register_type::<BorderRadius>()
+            .register_type::<BoxShadow>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
