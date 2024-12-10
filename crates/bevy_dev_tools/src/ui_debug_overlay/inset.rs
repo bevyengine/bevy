@@ -52,7 +52,7 @@ struct DrawnLines {
 impl DrawnLines {
     fn new(width: f32) -> Self {
         DrawnLines {
-            lines: HashMap::new(),
+            lines: HashMap::default(),
             width,
         }
     }

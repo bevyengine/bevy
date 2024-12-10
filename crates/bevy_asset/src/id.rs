@@ -418,11 +418,9 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        use core::hash::Hasher;
+        use core::hash::BuildHasher;
 
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        bevy_utils::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves
