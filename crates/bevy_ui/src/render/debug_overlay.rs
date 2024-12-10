@@ -23,9 +23,12 @@ use super::ExtractedUiNode;
 use super::ExtractedUiNodes;
 use super::NodeType;
 
+/// Configuration for the UI debug overlay
 #[derive(Resource)]
 pub struct UiDebugOptions {
+    /// Set to true to enable the UI debug overlay
     pub enabled: bool,
+    /// Width of the overlay's lines in logical pixels
     pub line_width: f32,
 }
 
