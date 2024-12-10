@@ -923,7 +923,7 @@ fn deserialize_components(
         let reflected: Box<dyn PartialReflect> =
             TypedReflectDeserializer::new(component_type, type_registry)
                 .deserialize(&component)
-                .unwrap();
+                .map_err(|err| anyhow!("{component_path} is invalid: {err}"))?;
         reflect_components.push(reflected);
     }
 
