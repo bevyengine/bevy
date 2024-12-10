@@ -27,6 +27,7 @@ extend-ignore-identifiers-re = [
   "metalness",        # Rendering term (metallicity)
   "inventario",       # Inventory in Portuguese
   "[Rr]eparametrize", # Mathematical term in curve context (reparameterize)
+  "[Rr]eparametrization",
   # Used in bevy_mikktspace
   "iFO",
   "vOt",
