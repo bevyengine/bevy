@@ -146,6 +146,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Passed component's [`TypeId`] does not match source component [`TypeId`]
     #[cfg(feature = "bevy_reflect")]
     pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
+        if self.target_component_written {
+            panic!("Trying to write component multiple times")
+        }
         let source_type_id = self
             .components
             .get_info(self.component_id)
@@ -567,8 +570,10 @@ impl<'w> EntityCloneBuilder<'w> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs, component::Component, component::ComponentCloneHandler,
-        entity::EntityCloneBuilder, world::World,
+        self as bevy_ecs,
+        component::{Component, ComponentCloneHandler},
+        entity::EntityCloneBuilder,
+        world::World,
     };
 
     #[cfg(feature = "bevy_reflect")]
