@@ -23,10 +23,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
-use core::any;
-use core::iter;
-use core::marker::PhantomData;
-use core::num::NonZero;
+use core::{any, iter, marker::PhantomData, num::NonZero};
 
 /// An object that creates and stores bind groups for a single material type.
 ///
@@ -818,7 +815,7 @@ impl MaterialFallbackBuffers {
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
     ) -> MaterialFallbackBuffers {
-        let mut fallback_buffers = HashMap::new();
+        let mut fallback_buffers = HashMap::default();
         for bind_group_layout_entry in bind_group_layout_entries {
             // Create a dummy buffer of the appropriate size.
             let BindingType::Buffer {

@@ -160,7 +160,7 @@ fn configure_depth_texture_usages(
 
     // Find all the render target that potentially uses OIT
     let primary_window = p.get_single().ok();
-    let mut render_target_has_oit = HashSet::new();
+    let mut render_target_has_oit = <HashSet<_>>::default();
     for (camera, has_oit) in &cameras {
         if has_oit {
             render_target_has_oit.insert(camera.target.normalize(primary_window));
