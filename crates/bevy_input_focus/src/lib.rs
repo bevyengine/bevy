@@ -168,7 +168,7 @@ pub trait IsFocused {
 
 /// System param that helps get information about the current focused entity.
 #[derive(SystemParam)]
-struct IsFocusedHelper<'w, 's> {
+pub struct IsFocusedHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static Parent>,
     input_focus: Option<Res<'w, InputFocus>>,
     input_focus_visible: Option<Res<'w, InputFocusVisible>>,
