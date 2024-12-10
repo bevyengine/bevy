@@ -82,7 +82,7 @@ pub mod prelude {
             SpotLightBundle,
         },
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight, ShadowsStyle},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
             LightProbe,

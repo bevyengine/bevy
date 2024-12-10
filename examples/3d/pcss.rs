@@ -9,7 +9,7 @@ use bevy::{
         Skybox,
     },
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
+    pbr::{CubemapVisibleEntities, ShadowsStyle, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
     render::{
         camera::TemporalJitter,
@@ -141,9 +141,9 @@ fn main() {
 }
 
 /// Creates all the objects in the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_camera(&mut commands, &asset_server);
-    spawn_light(&mut commands, &app_status);
+    spawn_light(&mut commands);
     spawn_gltf_scene(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
 }
@@ -176,13 +176,14 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 /// Spawns the initial light.
-fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
+fn spawn_light(commands: &mut Commands) {
     // Because this light can become a directional light, point light, or spot
     // light depending on the settings, we add the union of the components
     // necessary for this light to behave as all three of those.
     commands
         .spawn((
-            create_directional_light(app_status),
+            directional_light(),
+            ShadowsStyle::Soft,
             Transform::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
@@ -286,21 +287,26 @@ fn handle_light_type_change(
         };
         app_status.light_type = light_type;
 
+        let shadow_style = if app_status.soft_shadows {
+            ShadowsStyle::Soft
+        } else {
+            ShadowsStyle::Hard
+        };
+
         for light in lights.iter_mut() {
             let mut light_commands = commands.entity(light);
             light_commands
-                .remove::<DirectionalLight>()
-                .remove::<PointLight>()
-                .remove::<SpotLight>();
+                .remove::<(DirectionalLight, PointLight, SpotLight)>()
+                .insert(shadow_style);
             match light_type {
                 LightType::Point => {
-                    light_commands.insert(create_point_light(&app_status));
+                    light_commands.insert(point_light());
                 }
                 LightType::Spot => {
-                    light_commands.insert(create_spot_light(&app_status));
+                    light_commands.insert(spot_light());
                 }
                 LightType::Directional => {
-                    light_commands.insert(create_directional_light(&app_status));
+                    light_commands.insert(directional_light());
                 }
             }
         }
@@ -342,7 +348,7 @@ fn handle_shadow_filter_change(
 
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
-    mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
+    mut lights: Query<&mut ShadowsStyle>,
     mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -352,43 +358,34 @@ fn handle_pcss_toggle(
         };
         app_status.soft_shadows = value;
 
+        let new_light_shadows = if value {
+            ShadowsStyle::Soft
+        } else {
+            ShadowsStyle::Hard
+        };
+
         // Recreating the lights is the simplest way to toggle soft shadows.
-        for (directional_light, point_light, spot_light) in lights.iter_mut() {
-            if let Some(mut directional_light) = directional_light {
-                *directional_light = create_directional_light(&app_status);
-            }
-            if let Some(mut point_light) = point_light {
-                *point_light = create_point_light(&app_status);
-            }
-            if let Some(mut spot_light) = spot_light {
-                *spot_light = create_spot_light(&app_status);
-            }
+        for mut light_shadows in &mut lights {
+            *light_shadows = new_light_shadows;
         }
     }
 }
 
 /// Creates the [`DirectionalLight`] component with the appropriate settings.
-fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
+fn directional_light() -> DirectionalLight {
     DirectionalLight {
-        shadows_enabled: true,
-        soft_shadow_size: if app_status.soft_shadows {
-            Some(LIGHT_RADIUS)
-        } else {
-            None
-        },
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
+        angular_size: PI * 0.1,
         ..default()
     }
 }
 
 /// Creates the [`PointLight`] component with the appropriate settings.
-fn create_point_light(app_status: &AppStatus) -> PointLight {
+fn point_light() -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        shadows_enabled: true,
         radius: LIGHT_RADIUS,
-        soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()
@@ -396,13 +393,11 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
 }
 
 /// Creates the [`SpotLight`] component with the appropriate settings.
-fn create_spot_light(app_status: &AppStatus) -> SpotLight {
+fn spot_light() -> SpotLight {
     SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
-        shadows_enabled: true,
-        soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()

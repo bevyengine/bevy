@@ -4,7 +4,8 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    gltf::Gltf, input::common_conditions::input_just_pressed, pbr::ShadowsStyle, prelude::*,
+    scene::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
@@ -144,12 +145,15 @@ fn scene_load_check(
 fn update_lights(
     key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut DirectionalLight)>,
+    mut query: Query<(&mut Transform, &mut ShadowsStyle)>,
     mut animate_directional_light: Local<bool>,
 ) {
-    for (_, mut light) in &mut query {
+    for (_, mut light_shadows) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
-            light.shadows_enabled = !light.shadows_enabled;
+            *light_shadows = match *light_shadows {
+                ShadowsStyle::None => ShadowsStyle::Hard,
+                _ => ShadowsStyle::None,
+            };
         }
     }
 
