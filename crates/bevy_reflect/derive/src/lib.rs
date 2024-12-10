@@ -826,9 +826,3 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         };
     })
 }
-
-#[cfg(feature = "functions")]
-#[proc_macro]
-pub fn reflect_fn(input: TokenStream) -> TokenStream {
-    impls::func::reflect_fn(input)
-}

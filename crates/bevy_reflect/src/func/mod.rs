@@ -189,7 +189,6 @@ pub mod signature;
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use alloc::borrow::Cow;
 
     use super::*;
@@ -198,7 +197,6 @@ mod tests {
         func::args::{ArgError, ArgList, Ownership},
         TypePath,
     };
-    use bevy_reflect_derive::reflect_fn;
 
     #[test]
     fn should_error_on_missing_args() {
@@ -264,79 +262,5 @@ mod tests {
                 received: Ownership::Owned
             })
         );
-    }
-
-    #[test]
-    fn should_create_dynamic_function_with_macro() {
-        let func = reflect_fn!(
-            fn add(a: i32, b: i32) -> i32 {
-                a + b
-            }
-        );
-
-        let info = func.info();
-
-        assert_eq!(info.name().unwrap(), "add");
-        assert_eq!(info.base().arg_count(), 2);
-        assert_eq!(info.base().args()[0].name(), Some("a"));
-        assert!(info.base().args()[0].is::<i32>());
-        assert_eq!(info.base().args()[1].name(), Some("b"));
-        assert!(info.base().args()[1].is::<i32>());
-        assert!(info.base().return_info().is::<i32>());
-
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
-        let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
-    }
-
-    #[test]
-    fn should_create_zero_arg_dynamic_function_with_macro() {
-        let func = reflect_fn!(
-            fn shout() {
-                println!("HEY!!!");
-            }
-        );
-
-        let info = func.info();
-
-        assert_eq!(info.name().unwrap(), "shout");
-        assert_eq!(info.base().arg_count(), 0);
-        assert!(info.base().return_info().is::<()>());
-    }
-
-    #[test]
-    fn should_create_anonymous_dynamic_function_with_macro() {
-        let func = reflect_fn!(
-            fn _(a: i32, b: i32) -> i32 {
-                a + b
-            }
-        );
-
-        let info = func.info();
-        assert_eq!(info.name(), None);
-    }
-
-    #[test]
-    fn should_create_string_named_dynamic_function_with_macro() {
-        let func = reflect_fn!(
-            fn "some cool function"(a: i32, b: i32) -> i32 {
-                a + b
-            }
-        );
-
-        let info = func.info();
-        assert_eq!(info.name().unwrap(), "some cool function");
-    }
-
-    #[test]
-    fn should_create_expression_named_dynamic_function_with_macro() {
-        let func = reflect_fn!(
-            fn {concat!("some", " cool ", "function")}(a: i32, b: i32) -> i32 {
-                a + b
-            }
-        );
-
-        let info = func.info();
-        assert_eq!(info.name().unwrap(), "some cool function");
     }
 }

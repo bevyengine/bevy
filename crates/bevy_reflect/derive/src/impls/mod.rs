@@ -2,7 +2,7 @@ mod assertions;
 mod common;
 mod enums;
 #[cfg(feature = "functions")]
-pub(crate) mod func;
+mod func;
 mod opaque;
 mod structs;
 mod tuple_structs;
