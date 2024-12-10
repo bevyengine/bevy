@@ -174,11 +174,11 @@ pub fn document_required_components(attr: TokenStream, item: TokenStream) -> Tok
         .collect::<Vec<_>>()
         .join(", ");
 
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-    let required_components_path = format!(
-        "{}::component::Component#required-components",
-        bevy_ecs_path.to_token_stream()
-    );
+    let bevy_ecs_path = crate::bevy_ecs_path()
+        .to_token_stream()
+        .to_string()
+        .replace(' ', "");
+    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
 
     // Insert information about required components after any existing doc comments
     let mut out = TokenStream::new();
