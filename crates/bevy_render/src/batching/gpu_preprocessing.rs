@@ -375,12 +375,12 @@ impl FromWorld for GpuPreprocessingSupport {
             }
         }
 
-        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
-        {
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 ||
+            is_non_supported_android_device(adapter) {
             GpuPreprocessingMode::None
         } else if !device
             .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE) ||
+            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::MULTI_DRAW_INDIRECT) ||
             !adapter.get_downlevel_capabilities().flags.contains(
         DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
         {
