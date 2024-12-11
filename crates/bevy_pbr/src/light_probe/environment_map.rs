@@ -107,15 +107,15 @@ pub struct EnvironmentMapLight {
     /// as the vertical axis.
     pub rotation: Quat,
 
-    /// Whether the light from this environment map has an effect on meshes with
-    /// lightmaps.
+    /// Whether the light from this environment map contributes diffuse lighting
+    /// to meshes with lightmaps.
     ///
-    /// Set this to false if your lightmap baking tool bakes the light from this
-    /// environment light into the lightmaps in order to avoid counting the
-    /// radiance from this environment map twice.
+    /// Set this to false if your lightmap baking tool bakes the diffuse light
+    /// from this environment light into the lightmaps in order to avoid
+    /// counting the radiance from this environment map twice.
     ///
     /// By default, this is set to true.
-    pub affects_lightmapped_meshes: bool,
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl Default for EnvironmentMapLight {
@@ -125,7 +125,7 @@ impl Default for EnvironmentMapLight {
             specular_map: Handle::default(),
             intensity: 0.0,
             rotation: Quat::IDENTITY,
-            affects_lightmapped_meshes: true,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }
@@ -210,7 +210,9 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// The scale factor applied to the diffuse and specular light in the
     /// cubemap. This is in units of cd/m² (candela per square meter).
     pub(crate) intensity: f32,
-    pub(crate) affects_lightmapped_meshes: bool,
+    /// Whether this lightmap affects the diffuse lighting of lightmapped
+    /// meshes.
+    pub(crate) affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -338,8 +340,8 @@ impl LightProbeComponent for EnvironmentMapLight {
         self.intensity
     }
 
-    fn affects_lightmapped_meshes(&self) -> bool {
-        self.affects_lightmapped_meshes
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
+        self.affects_lightmapped_mesh_diffuse
     }
 
     fn create_render_view_light_probes(
@@ -354,7 +356,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,
-            affects_lightmapped_meshes,
+            affects_lightmapped_mesh_diffuse,
             ..
         }) = view_component
         {
@@ -371,7 +373,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                     ) as i32,
                     smallest_specular_mip_level: specular_map.mip_level_count - 1,
                     intensity: *intensity,
-                    affects_lightmapped_meshes: *affects_lightmapped_meshes,
+                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
                 };
             }
         };
@@ -386,7 +388,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             cubemap_index: -1,
             smallest_specular_mip_level: 0,
             intensity: 1.0,
-            affects_lightmapped_meshes: true,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }

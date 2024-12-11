@@ -59,8 +59,8 @@ pub struct ExtractedPointLight {
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
-    /// whether this point light affects lightmapped meshes
-    pub affects_lightmapped_meshes: bool,
+    /// whether this point light contributes diffuse light to lightmapped meshes
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 #[derive(Component, Debug)]
@@ -70,8 +70,9 @@ pub struct ExtractedDirectionalLight {
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
     pub volumetric: bool,
-    /// whether this directional light affects lightmapped meshes
-    pub affects_lightmapped_meshes: bool,
+    /// whether this directional light contributes diffuse light to lightmapped
+    /// meshes
+    pub affects_lightmapped_mesh_diffuse: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub cascade_shadow_config: CascadeShadowConfig,
@@ -85,12 +86,12 @@ pub struct ExtractedDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
-        const SHADOWS_ENABLED            = 1 << 0;
-        const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
-        const VOLUMETRIC                 = 1 << 2;
-        const AFFECTS_LIGHTMAPPED_MESHES = 1 << 3;
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SHADOWS_ENABLED                   = 1 << 0;
+        const SPOT_LIGHT_Y_NEGATIVE             = 1 << 1;
+        const VOLUMETRIC                        = 1 << 2;
+        const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
+        const NONE                              = 0;
+        const UNINITIALIZED                     = 0xFFFF;
     }
 }
 
@@ -120,11 +121,11 @@ pub struct GpuDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
-        const SHADOWS_ENABLED            = 1 << 0;
-        const VOLUMETRIC                 = 1 << 1;
-        const AFFECTS_LIGHTMAPPED_MESHES = 1 << 2;
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SHADOWS_ENABLED                   = 1 << 0;
+        const VOLUMETRIC                        = 1 << 1;
+        const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const NONE                              = 0;
+        const UNINITIALIZED                     = 0xFFFF;
     }
 }
 
@@ -318,7 +319,7 @@ pub fn extract_lights(
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
-            affects_lightmapped_meshes: point_light.affects_lightmapped_meshes,
+            affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: point_light.soft_shadows_enabled,
             #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -381,7 +382,8 @@ pub fn extract_lights(
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                         volumetric: volumetric_light.is_some(),
-                        affects_lightmapped_meshes: spot_light.affects_lightmapped_meshes,
+                        affects_lightmapped_mesh_diffuse: spot_light
+                            .affects_lightmapped_mesh_diffuse,
                         #[cfg(feature = "experimental_pbr_pcss")]
                         soft_shadows_enabled: spot_light.soft_shadows_enabled,
                         #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -457,7 +459,8 @@ pub fn extract_lights(
                     illuminance: directional_light.illuminance,
                     transform: *transform,
                     volumetric: volumetric_light.is_some(),
-                    affects_lightmapped_meshes: directional_light.affects_lightmapped_meshes,
+                    affects_lightmapped_mesh_diffuse: directional_light
+                        .affects_lightmapped_mesh_diffuse,
                     #[cfg(feature = "experimental_pbr_pcss")]
                     soft_shadow_size: directional_light.soft_shadow_size,
                     #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -895,8 +898,8 @@ pub fn prepare_lights(
             flags |= PointLightFlags::VOLUMETRIC;
         }
 
-        if light.affects_lightmapped_meshes {
-            flags |= PointLightFlags::AFFECTS_LIGHTMAPPED_MESHES;
+        if light.affects_lightmapped_mesh_diffuse {
+            flags |= PointLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
         }
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {

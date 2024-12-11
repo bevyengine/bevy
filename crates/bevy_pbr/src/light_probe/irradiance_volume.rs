@@ -361,7 +361,7 @@ impl LightProbeComponent for IrradianceVolume {
         self.intensity
     }
 
-    fn affects_lightmapped_meshes(&self) -> bool {
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
         self.affects_lightmapped_meshes
     }
 

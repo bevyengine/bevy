@@ -286,13 +286,13 @@ fn update_lightmaps(
     }
 }
 
-/// Sets the `affects_lightmapped_meshes` flag appropriately on the directional
-/// light.
+/// Sets the `affects_lightmapped_mesh_diffuse` flag appropriately on the
+/// directional light.
 fn initialize_directional_light(mut lights: Query<&mut DirectionalLight>) {
     for mut light in &mut lights {
         // Do this check to avoid incurring change events on every frame.
-        if light.affects_lightmapped_meshes {
-            light.affects_lightmapped_meshes = false;
+        if light.affects_lightmapped_mesh_diffuse {
+            light.affects_lightmapped_mesh_diffuse = false;
         }
     }
 }
