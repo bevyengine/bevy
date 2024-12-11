@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
@@ -82,6 +82,11 @@ where
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
+    }
+
+    #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
     }
 
     #[inline]

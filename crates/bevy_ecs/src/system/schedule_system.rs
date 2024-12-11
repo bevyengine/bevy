@@ -4,7 +4,7 @@ use core::any::TypeId;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     result::Result,
     schedule::InternedSystemSet,
     system::{input::SystemIn, BoxedSystem, System},
@@ -44,6 +44,14 @@ impl System for ScheduleSystem {
         match self {
             ScheduleSystem::Infallible(inner_system) => inner_system.component_access(),
             ScheduleSystem::Fallible(inner_system) => inner_system.component_access(),
+        }
+    }
+
+    #[inline(always)]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        match self {
+            ScheduleSystem::Infallible(inner_system) => inner_system.component_access_set(),
+            ScheduleSystem::Fallible(inner_system) => inner_system.component_access_set(),
         }
     }
 
