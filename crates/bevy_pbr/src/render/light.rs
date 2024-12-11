@@ -59,6 +59,7 @@ pub struct ExtractedPointLight {
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
+    pub affects_lightmapped_meshes: bool,
 }
 
 #[derive(Component, Debug)]
@@ -68,6 +69,7 @@ pub struct ExtractedDirectionalLight {
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
     pub volumetric: bool,
+    pub affects_lightmapped_meshes: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub cascade_shadow_config: CascadeShadowConfig,
@@ -84,6 +86,7 @@ bitflags::bitflags! {
         const SHADOWS_ENABLED            = 1 << 0;
         const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
         const VOLUMETRIC                 = 1 << 2;
+        const AFFECTS_LIGHTMAPPED_MESHES = 1 << 3;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -117,6 +120,7 @@ bitflags::bitflags! {
     struct DirectionalLightFlags: u32 {
         const SHADOWS_ENABLED            = 1 << 0;
         const VOLUMETRIC                 = 1 << 1;
+        const AFFECTS_LIGHTMAPPED_MESHES = 1 << 2;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -135,6 +139,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    ambient_light_affects_lightmapped_meshes: u32,
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -311,6 +316,7 @@ pub fn extract_lights(
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
+            affects_lightmapped_meshes: point_light.affects_lightmapped_meshes,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: point_light.soft_shadows_enabled,
             #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -373,6 +379,7 @@ pub fn extract_lights(
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                         volumetric: volumetric_light.is_some(),
+                        affects_lightmapped_meshes: spot_light.affects_lightmapped_meshes,
                         #[cfg(feature = "experimental_pbr_pcss")]
                         soft_shadows_enabled: spot_light.soft_shadows_enabled,
                         #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -448,6 +455,7 @@ pub fn extract_lights(
                     illuminance: directional_light.illuminance,
                     transform: *transform,
                     volumetric: volumetric_light.is_some(),
+                    affects_lightmapped_meshes: directional_light.affects_lightmapped_meshes,
                     #[cfg(feature = "experimental_pbr_pcss")]
                     soft_shadow_size: directional_light.soft_shadow_size,
                     #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -885,6 +893,10 @@ pub fn prepare_lights(
             flags |= PointLightFlags::VOLUMETRIC;
         }
 
+        if light.affects_lightmapped_meshes {
+            flags |= PointLightFlags::AFFECTS_LIGHTMAPPED_MESHES;
+        }
+
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
                 let light_direction = light.transform.forward();
@@ -1137,6 +1149,8 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
+                as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query

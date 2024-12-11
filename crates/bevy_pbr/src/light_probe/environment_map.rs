@@ -106,6 +106,8 @@ pub struct EnvironmentMapLight {
     /// This is useful for users who require a different axis, such as the Z-axis, to serve
     /// as the vertical axis.
     pub rotation: Quat,
+
+    pub affects_lightmapped_meshes: bool,
 }
 
 impl Default for EnvironmentMapLight {
@@ -115,6 +117,7 @@ impl Default for EnvironmentMapLight {
             specular_map: Handle::default(),
             intensity: 0.0,
             rotation: Quat::IDENTITY,
+            affects_lightmapped_meshes: true,
         }
     }
 }
@@ -199,6 +202,7 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// The scale factor applied to the diffuse and specular light in the
     /// cubemap. This is in units of cd/m² (candela per square meter).
     pub(crate) intensity: f32,
+    pub(crate) affects_lightmapped_meshes: bool,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -326,6 +330,10 @@ impl LightProbeComponent for EnvironmentMapLight {
         self.intensity
     }
 
+    fn affects_lightmapped_meshes(&self) -> bool {
+        self.affects_lightmapped_meshes
+    }
+
     fn create_render_view_light_probes(
         view_component: Option<&EnvironmentMapLight>,
         image_assets: &RenderAssets<GpuImage>,
@@ -338,6 +346,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,
+            affects_lightmapped_meshes,
             ..
         }) = view_component
         {
@@ -354,6 +363,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                     ) as i32,
                     smallest_specular_mip_level: specular_map.mip_level_count - 1,
                     intensity: *intensity,
+                    affects_lightmapped_meshes: *affects_lightmapped_meshes,
                 };
             }
         };
@@ -368,6 +378,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             cubemap_index: -1,
             smallest_specular_mip_level: 0,
             intensity: 1.0,
+            affects_lightmapped_meshes: true,
         }
     }
 }

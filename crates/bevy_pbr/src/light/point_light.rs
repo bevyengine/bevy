@@ -64,6 +64,8 @@ pub struct PointLight {
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
+    pub affects_lightmapped_meshes: bool,
+
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
     /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
     /// Too high of a depth bias can lead to shadows detaching from their casters, or
@@ -96,6 +98,7 @@ impl Default for PointLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
+            affects_lightmapped_meshes: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,

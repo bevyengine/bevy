@@ -98,6 +98,8 @@ pub struct DirectionalLight {
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadow_size: Option<f32>,
 
+    pub affects_lightmapped_meshes: bool,
+
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
     ///
@@ -123,6 +125,7 @@ impl Default for DirectionalLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            affects_lightmapped_meshes: true,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadow_size: None,
         }

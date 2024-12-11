@@ -25,6 +25,7 @@ pub struct AmbientLight {
     ///
     /// [cd/m^2]: https://en.wikipedia.org/wiki/Candela_per_square_metre
     pub brightness: f32,
+    pub affects_lightmapped_meshes: bool,
 }
 
 impl Default for AmbientLight {
@@ -32,6 +33,7 @@ impl Default for AmbientLight {
         Self {
             color: Color::WHITE,
             brightness: 80.0,
+            affects_lightmapped_meshes: true,
         }
     }
 }
@@ -39,5 +41,6 @@ impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
+        affects_lightmapped_meshes: true,
     };
 }

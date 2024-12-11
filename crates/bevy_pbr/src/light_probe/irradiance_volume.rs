@@ -143,6 +143,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
 };
+use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
@@ -166,7 +167,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
-#[derive(Clone, Default, Reflect, Component, Debug)]
+#[derive(Clone, Reflect, Component, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
@@ -180,6 +181,19 @@ pub struct IrradianceVolume {
     ///
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
+
+    pub affects_lightmapped_meshes: bool,
+}
+
+impl Default for IrradianceVolume {
+    #[inline]
+    fn default() -> Self {
+        IrradianceVolume {
+            voxels: default(),
+            intensity: 0.0,
+            affects_lightmapped_meshes: true,
+        }
+    }
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
@@ -334,6 +348,10 @@ impl LightProbeComponent for IrradianceVolume {
 
     fn intensity(&self) -> f32 {
         self.intensity
+    }
+
+    fn affects_lightmapped_meshes(&self) -> bool {
+        self.affects_lightmapped_meshes
     }
 
     fn create_render_view_light_probes(

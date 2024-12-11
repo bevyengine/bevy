@@ -69,6 +69,12 @@ fn query_light_probe(
             light_probe = light_probes.reflection_probes[light_probe_index];
         }
 
+#ifdef LIGHTMAP
+        if (light_probe.affects_lightmapped_meshes == 0u) {
+            continue;
+        }
+#endif  // LIGHTMAP
+
         // Unpack the inverse transform.
         let light_from_world =
             transpose_affine_matrix(light_probe.light_from_world_transposed);
@@ -120,6 +126,12 @@ fn query_light_probe(
         } else {
             light_probe = light_probes.reflection_probes[light_probe_index];
         }
+
+#ifdef LIGHTMAP
+        if (light_probe.affects_lightmapped_meshes == 0u) {
+            continue;
+        }
+#endif  // LIGHTMAP
 
         // Unpack the inverse transform.
         let light_from_world =

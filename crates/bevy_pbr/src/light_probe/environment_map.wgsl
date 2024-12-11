@@ -50,6 +50,14 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         query_result.texture_index = light_probes.view_cubemap_index;
         query_result.intensity = light_probes.intensity_for_view;
+
+#ifdef LIGHTMAP
+        // Discard the view environment map if we're lightmapped and it's not
+        // supposed to affect lightmapped meshes.
+        if (light_probes.view_environment_map_affects_lightmapped_meshes == 0u) {
+            query_result.texture_index = -1;
+        }
+#endif  // LIGHTMAP
     }
 
     // If there's no cubemap, bail out.

@@ -406,6 +406,16 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        // If the light doesn't affect lightmapped meshes, and we're
+        // lightmapped, skip it.
+#ifdef LIGHTMAP
+        if ((view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT) == 0u) {
+            continue;
+        }
+#endif  // LIGHTMAP
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -442,6 +452,15 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        // If the light doesn't affect lightmapped meshes, and we're
+        // lightmapped, skip it.
+#ifdef LIGHTMAP
+        if ((view_bindings::clusterable_objects.data[light_id].flags &
+                mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT) == 0u) {
+            continue;
+        }
+#endif  // LIGHTMAP
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -494,6 +513,15 @@ fn apply_pbr_lighting(
         if (*light).skip != 0u {
             continue;
         }
+
+        // If the light doesn't affect lightmapped meshes, and we're
+        // lightmapped, skip it.
+#ifdef LIGHTMAP
+        if (((*light).flags &
+                mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT) == 0u) {
+            continue;
+        }
+#endif  // LIGHTMAP
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
