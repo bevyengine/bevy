@@ -13,7 +13,7 @@ use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClick
 mod widgets;
 
 /// How bright the lightmaps are.
-const LIGHTMAP_EXPOSURE: f32 = 250.0;
+const LIGHTMAP_EXPOSURE: f32 = 600.0;
 
 /// How far above the ground the sphere's origin is when moved, in scene units.
 const SPHERE_OFFSET: f32 = 0.2;

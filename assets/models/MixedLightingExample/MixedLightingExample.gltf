@@ -166,29 +166,13 @@
 				}
 			},
 			"name":"fabric Mystere Mango Velvet",
-			"normalTexture":{
-				"extensions":{
-					"KHR_texture_transform":{
-						"offset":[
-							-0.5,
-							0.5
-						],
-						"scale":[
-							2,
-							2
-						]
-					}
-				},
-				"index":0,
-				"scale":0.6000000238418579
-			},
 			"occlusionTexture":{
-				"index":1,
+				"index":0,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
-					"index":2
+					"index":1
 				},
 				"metallicFactor":0,
 				"roughnessFactor":0.800000011920929
@@ -219,11 +203,11 @@
 						]
 					}
 				},
-				"index":3,
+				"index":2,
 				"scale":0.6000000238418579
 			},
 			"occlusionTexture":{
-				"index":4,
+				"index":3,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
@@ -246,7 +230,7 @@
 							]
 						}
 					},
-					"index":5
+					"index":4
 				},
 				"roughnessFactor":0.800000011920929
 			}
@@ -254,12 +238,12 @@
 		{
 			"name":"label",
 			"occlusionTexture":{
-				"index":6,
+				"index":5,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
-					"index":7
+					"index":6
 				},
 				"metallicFactor":0
 			}
@@ -267,7 +251,7 @@
 		{
 			"name":"metal",
 			"occlusionTexture":{
-				"index":8,
+				"index":7,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
@@ -283,7 +267,7 @@
 		{
 			"name":"wood Brown",
 			"occlusionTexture":{
-				"index":9,
+				"index":8,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
@@ -301,7 +285,7 @@
 							]
 						}
 					},
-					"index":10
+					"index":9
 				},
 				"metallicRoughnessTexture":{
 					"extensions":{
@@ -317,14 +301,14 @@
 							]
 						}
 					},
-					"index":9
+					"index":8
 				}
 			}
 		},
 		{
 			"name":"wood Black",
 			"occlusionTexture":{
-				"index":11,
+				"index":10,
 				"texCoord":1
 			},
 			"pbrMetallicRoughness":{
@@ -348,7 +332,7 @@
 							]
 						}
 					},
-					"index":12
+					"index":11
 				},
 				"metallicRoughnessTexture":{
 					"extensions":{
@@ -364,7 +348,7 @@
 							]
 						}
 					},
-					"index":11
+					"index":10
 				}
 			}
 		}
@@ -516,15 +500,11 @@
 		},
 		{
 			"sampler":0,
-			"source":1
-		},
-		{
-			"sampler":0,
 			"source":3
 		},
 		{
 			"sampler":0,
-			"source":1
+			"source":0
 		},
 		{
 			"sampler":0,
@@ -532,7 +512,7 @@
 		},
 		{
 			"sampler":0,
-			"source":1
+			"source":0
 		},
 		{
 			"sampler":0,
@@ -554,11 +534,6 @@
 	"images":[
 		{
 			"mimeType":"image/png",
-			"name":"Image_0",
-			"uri":"Image_0.png"
-		},
-		{
-			"mimeType":"image/png",
 			"name":"Image_1",
 			"uri":"Image_1.png"
 		},
@@ -566,6 +541,11 @@
 			"mimeType":"image/png",
 			"name":"Image_6",
 			"uri":"Image_6.png"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"Image_0",
+			"uri":"Image_0.png"
 		},
 		{
 			"mimeType":"image/png",
