@@ -56,7 +56,7 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, hashbrown::HashSet, tracing::error};
+use bevy_utils::{default, tracing::error, HashSet};
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 
@@ -338,7 +338,7 @@ impl FromWorld for RenderLightmaps {
             render_lightmaps: default(),
             slabs: vec![],
             free_slabs: FixedBitSet::new(),
-            pending_lightmaps: HashSet::new(),
+            pending_lightmaps: default(),
             bindless_supported,
         }
     }
