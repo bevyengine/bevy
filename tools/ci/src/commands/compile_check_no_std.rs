@@ -97,7 +97,7 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check -p bevy_ecs --no-default-features --features edge_executor,critical-section --target {target}"
+                "cargo check -p bevy_ecs --no-default-features --features edge_executor,critical-section,bevy_debug_stepping,bevy_reflect --target {target}"
             ),
             "Please fix compiler errors in output above for bevy_ecs no_std compatibility.",
         ));
