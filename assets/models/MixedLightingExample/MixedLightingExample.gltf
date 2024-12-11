@@ -533,44 +533,44 @@
 	],
 	"images":[
 		{
-			"mimeType":"image/png",
-			"name":"Image_1",
-			"uri":"Image_1.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairOcclusion",
+			"uri":"SheenChairOcclusion.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_6",
-			"uri":"Image_6.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairBaseColor",
+			"uri":"SheenChairBaseColor.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_0",
-			"uri":"Image_0.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairFabricNormal",
+			"uri":"SheenChairFabricNormal.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_2",
-			"uri":"Image_2.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairFabricOcclusion",
+			"uri":"SheenChairFabricOcclusion.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_5",
-			"uri":"Image_5.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairLabelBaseColor",
+			"uri":"SheenChairLabelBaseColor.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_1-Image_4",
-			"uri":"Image_1-Image_4.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairOcclusion-SheenChairWoodMetallicRoughness",
+			"uri":"SheenChairOcclusion-SheenChairWoodMetallicRoughness.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_3",
-			"uri":"Image_3.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairWoodBaseColor",
+			"uri":"SheenChairWoodBaseColor.jpg"
 		},
 		{
-			"mimeType":"image/png",
-			"name":"Image_1-Image_6",
-			"uri":"Image_1-Image_6.png"
+			"mimeType":"image/jpeg",
+			"name":"SheenChairOcclusion-SheenChairBaseColor",
+			"uri":"SheenChairOcclusion-SheenChairBaseColor.jpg"
 		}
 	],
 	"accessors":[

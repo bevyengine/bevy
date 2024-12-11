@@ -3853,6 +3853,7 @@ wasm = false
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
+required-features = ["jpeg"]
 
 [package.metadata.example.mixed_lighting]
 name = "Mixed lighting"
