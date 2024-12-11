@@ -107,6 +107,14 @@ pub struct EnvironmentMapLight {
     /// as the vertical axis.
     pub rotation: Quat,
 
+    /// Whether the light from this environment map has an effect on meshes with
+    /// lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the light from this
+    /// environment light into the lightmaps in order to avoid counting the
+    /// radiance from this environment map twice.
+    ///
+    /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
 }
 

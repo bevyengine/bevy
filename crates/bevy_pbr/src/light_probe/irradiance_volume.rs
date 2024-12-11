@@ -182,6 +182,17 @@ pub struct IrradianceVolume {
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
 
+    /// Whether the light from this irradiance volume has an effect on meshes
+    /// with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the light from this
+    /// irradiance volume into the lightmaps in order to avoid counting the
+    /// irradiance twice. Frequently, applications use irradiance volumes as a
+    /// lower-quality alternative to lightmaps for capturing indirect
+    /// illumination on dynamic objects, and such applications will want to set
+    /// this value to false.
+    ///
+    /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
 }
 

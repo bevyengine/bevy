@@ -64,6 +64,13 @@ pub struct PointLight {
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
+    /// Whether this point light has an effect on meshes with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the direct light
+    /// from this point light into the lightmaps in order to avoid counting the
+    /// radiance from this light twice.
+    ///
+    /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
 
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions

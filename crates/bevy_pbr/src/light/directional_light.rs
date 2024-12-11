@@ -98,6 +98,13 @@ pub struct DirectionalLight {
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadow_size: Option<f32>,
 
+    /// Whether this directional light has an effect on meshes with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the direct light
+    /// from this directional light into the lightmaps in order to avoid
+    /// counting the radiance from this light twice.
+    ///
+    /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and

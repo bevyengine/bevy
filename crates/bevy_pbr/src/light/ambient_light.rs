@@ -19,12 +19,20 @@ use super::*;
 #[reflect(Resource, Debug, Default)]
 pub struct AmbientLight {
     pub color: Color,
+
     /// A direct scale factor multiplied with `color` before being passed to the shader.
     ///
     /// After applying this multiplier, the resulting value should be in units of [cd/m^2].
     ///
     /// [cd/m^2]: https://en.wikipedia.org/wiki/Candela_per_square_metre
     pub brightness: f32,
+
+    /// Whether this ambient light has an effect on meshes with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the ambient light
+    /// into the lightmaps, to avoid rendering that light twice.
+    ///
+    /// By default, this is set to true.
     pub affects_lightmapped_meshes: bool,
 }
 

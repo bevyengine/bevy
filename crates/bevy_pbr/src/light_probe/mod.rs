@@ -126,6 +126,7 @@ struct RenderLightProbe {
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
 
+    /// Whether the light from this light probe affects lightmapped meshes.
     affects_lightmapped_meshes: u32,
 }
 
@@ -161,6 +162,10 @@ pub struct LightProbesUniform {
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity_for_view: f32,
 
+    /// Whether the environment map attached to the view affects lightmapped
+    /// meshes.
+    ///
+    /// This will be 1 if the map does affect lightmapped meshes or 0 otherwise.
     view_environment_map_affects_lightmapped_meshes: u32,
 }
 

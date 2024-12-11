@@ -126,6 +126,7 @@ struct LightProbe {
     light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
+    /// Whether this light probe affects lightmapped meshes.
     affects_lightmapped_meshes: u32,
 };
 

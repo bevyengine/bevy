@@ -59,6 +59,7 @@ pub struct ExtractedPointLight {
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
+    /// whether this point light affects lightmapped meshes
     pub affects_lightmapped_meshes: bool,
 }
 
@@ -69,6 +70,7 @@ pub struct ExtractedDirectionalLight {
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
     pub volumetric: bool,
+    /// whether this directional light affects lightmapped meshes
     pub affects_lightmapped_meshes: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
