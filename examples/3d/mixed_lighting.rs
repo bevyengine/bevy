@@ -63,6 +63,9 @@ enum LightingMode {
 #[derive(Clone, Copy, Default, Event)]
 struct LightingModeChanged;
 
+#[derive(Clone, Copy, Component, Debug)]
+struct HelpText;
+
 /// The name of every static object in the scene that has a lightmap, as well as
 /// the UV rect of its lightmap.
 static LIGHTMAPS: [(&str, Rect); 5] = [
@@ -72,7 +75,7 @@ static LIGHTMAPS: [(&str, Rect); 5] = [
     ),
     (
         "SheenChair_fabric",
-        uv_rect_opengl(vec2(0.786, 0.024), Vec2::splat(0.191)),
+        uv_rect_opengl(vec2(0.7864, 0.02377), vec2(0.1910, 0.1912)),
     ),
     (
         "SheenChair_label",
@@ -121,10 +124,11 @@ fn main() {
         .add_systems(Update, handle_lighting_mode_change)
         .add_systems(Update, widgets::handle_ui_interactions::<LightingMode>)
         .add_systems(Update, move_sphere)
+        .add_systems(Update, adjust_help_text)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
     commands
         .spawn(Camera3d::default())
         .insert(Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
@@ -151,6 +155,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
             );
         });
+
+    commands.spawn((
+        create_help_text(&app_status),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        HelpText,
+    ));
 }
 
 fn add_lightmaps_to_meshes(
@@ -175,15 +190,13 @@ fn add_lightmaps_to_meshes(
                 material.lightmap_exposure = LIGHTMAP_EXPOSURE;
             }
 
-            if app_status.lighting_mode == LightingMode::RealTime {
-                commands.entity(entity).remove::<Lightmap>();
-            } else {
-                commands.entity(entity).insert(Lightmap {
-                    image: asset_server.load("lightmaps/MixedLightingExample.zstd.ktx2"),
-                    uv_rect,
-                });
-            }
-
+            add_lightmap_to_mesh(
+                &mut commands,
+                entity,
+                &asset_server,
+                uv_rect,
+                app_status.lighting_mode,
+            );
             continue 'outer;
         }
 
@@ -192,14 +205,14 @@ fn add_lightmaps_to_meshes(
                 material.lightmap_exposure = LIGHTMAP_EXPOSURE;
             }
 
-            if app_status.lighting_mode == LightingMode::Baked {
-                commands.entity(entity).insert(Lightmap {
-                    image: asset_server.load("lightmaps/MixedLightingExample.zstd.ktx2"),
-                    uv_rect: uv_rect_opengl(vec2(0.788, 0.484), Vec2::splat(0.062)),
-                });
-            } else {
-                commands.entity(entity).remove::<Lightmap>();
-            }
+            let uv_rect = uv_rect_opengl(vec2(0.788, 0.484), Vec2::splat(0.062));
+            add_lightmap_to_mesh(
+                &mut commands,
+                entity,
+                &asset_server,
+                uv_rect,
+                app_status.lighting_mode,
+            );
         }
     }
 }
@@ -343,4 +356,61 @@ fn on_scene_loaded(
     mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>,
 ) {
     lighting_mode_change_event_writer.send(LightingModeChanged);
+}
+
+fn add_lightmap_to_mesh(
+    commands: &mut Commands,
+    entity: Entity,
+    asset_server: &AssetServer,
+    uv_rect: Rect,
+    lighting_mode: LightingMode,
+) {
+    match lighting_mode {
+        LightingMode::Baked => {
+            commands.entity(entity).insert(Lightmap {
+                image: asset_server.load("lightmaps/MixedLightingExample-Baked.zstd.ktx2"),
+                uv_rect,
+            });
+        }
+        LightingMode::Mixed => {
+            commands.entity(entity).insert(Lightmap {
+                image: asset_server.load("lightmaps/MixedLightingExample-Mixed.zstd.ktx2"),
+                uv_rect,
+            });
+        }
+        LightingMode::RealTime => {
+            commands.entity(entity).remove::<Lightmap>();
+        }
+    }
+}
+
+fn adjust_help_text(
+    mut commands: Commands,
+    help_texts: Query<Entity, With<HelpText>>,
+    app_status: Res<AppStatus>,
+    mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
+) {
+    if lighting_mode_change_event_reader.read().next().is_none() {
+        return;
+    }
+
+    for help_text in &help_texts {
+        commands
+            .entity(help_text)
+            .insert(create_help_text(&app_status));
+    }
+}
+
+fn create_help_text(app_status: &AppStatus) -> Text {
+    match app_status.lighting_mode {
+        LightingMode::Baked => Text::new(
+            "Scenery: Static, global illumination ON\nSphere: Static, global illumination ON",
+        ),
+        LightingMode::Mixed => Text::new(
+            "Scenery: Static, global illumination ON\nSphere: Dynamic, global illumination OFF",
+        ),
+        LightingMode::RealTime => Text::new(
+            "Scenery: Dynamic, global illumination OFF\nSphere: Dynamic, global illumination OFF",
+        ),
+    }
 }
