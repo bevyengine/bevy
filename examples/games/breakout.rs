@@ -401,7 +401,7 @@ fn play_collision_sound(
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
+        commands.spawn(AudioPlayer::with_despawn(sound.clone()));
     }
 }
 

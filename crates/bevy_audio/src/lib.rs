@@ -9,7 +9,7 @@
 //!
 //! ```no_run
 //! # use bevy_ecs::prelude::*;
-//! # use bevy_audio::{AudioPlayer, AudioPlugin, AudioSource, PlaybackSettings};
+//! # use bevy_audio::{AudioPlayer, AudioPlugin, AudioSource};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
 //! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
@@ -20,10 +20,9 @@
 //! }
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
-//!     commands.spawn((
-//!         AudioPlayer::new(asset_server.load("background_audio.ogg")),
-//!         PlaybackSettings::LOOP,
-//!     ));
+//!     commands.spawn(
+//!         AudioPlayer::with_loop(asset_server.load("background_audio.ogg"))
+//!     );
 //! }
 //! ```
 
