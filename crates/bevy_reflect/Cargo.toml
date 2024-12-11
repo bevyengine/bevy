@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.81.0"
 
 [features]
-default = ["std", "smallvec", "debug", "functions"] # TMP
+default = ["std", "smallvec", "debug"]
 std = [
   "bevy_utils/std",
   "erased-serde/std",
