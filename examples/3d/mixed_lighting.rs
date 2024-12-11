@@ -274,11 +274,22 @@ fn update_radio_buttons(
 fn handle_lighting_mode_change(
     mut widget_click_events: EventReader<WidgetClickEvent<LightingMode>>,
     mut lighting_mode_change_events: EventWriter<LightingModeChanged>,
+    mut objects: Query<(&Name, &mut Transform)>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in widget_click_events.read() {
         app_status.lighting_mode = **event;
         lighting_mode_change_events.send(LightingModeChanged);
+
+        // Reset the sphere's position if the lighting mode was set to `Baked`.
+        if app_status.lighting_mode == LightingMode::Baked {
+            for (name, mut transform) in &mut objects {
+                if &**name == "Sphere" {
+                    transform.translation = INITIAL_SPHERE_POSITION;
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -287,8 +298,11 @@ fn move_sphere(
     pointers: Query<&PointerInteraction>,
     mut meshes: Query<(&Name, &Parent), With<Mesh3d>>,
     mut transforms: Query<&mut Transform>,
+    app_status: Res<AppStatus>,
 ) {
-    if !mouse_button_input.pressed(MouseButton::Left) {
+    if app_status.lighting_mode == LightingMode::Baked
+        || !mouse_button_input.pressed(MouseButton::Left)
+    {
         return;
     }
 
