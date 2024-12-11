@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
 
 use bevy_math::prelude::*;
 
@@ -92,4 +92,3 @@ criterion_group!(
     build_pos_cubic,
     build_accel_cubic,
 );
-criterion_main!(benches);

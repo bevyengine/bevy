@@ -58,7 +58,7 @@ use bevy_render::{
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
 use bevy_utils::{default, hashbrown::HashSet, tracing::error};
 use fixedbitset::FixedBitSet;
-use nonmax::NonMaxU32;
+use nonmax::{NonMaxU16, NonMaxU32};
 
 use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
@@ -173,7 +173,7 @@ pub struct LightmapSlabIndex(pub(crate) NonMaxU32);
 /// which a lightmap is located.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Deref, DerefMut)]
 #[repr(transparent)]
-pub(crate) struct LightmapSlotIndex(pub(crate) NonMaxU32);
+pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
@@ -480,7 +480,7 @@ impl From<usize> for LightmapSlabIndex {
 
 impl From<u32> for LightmapSlotIndex {
     fn from(value: u32) -> Self {
-        Self(NonMaxU32::new(value).unwrap())
+        Self(NonMaxU16::new(value as u16).unwrap())
     }
 }
 
@@ -502,8 +502,14 @@ impl From<LightmapSlotIndex> for usize {
     }
 }
 
-impl From<LightmapSlotIndex> for u32 {
+impl From<LightmapSlotIndex> for u16 {
     fn from(value: LightmapSlotIndex) -> Self {
         value.0.get()
+    }
+}
+
+impl From<LightmapSlotIndex> for u32 {
+    fn from(value: LightmapSlotIndex) -> Self {
+        value.0.get() as u32
     }
 }

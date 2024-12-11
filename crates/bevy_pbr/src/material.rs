@@ -1063,6 +1063,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             &pipeline.material_layout,
             render_device,
             material_param,
+            false,
         ) {
             Ok(unprepared) => {
                 bind_group_allocator.init(render_device, *material_binding_id, unprepared);

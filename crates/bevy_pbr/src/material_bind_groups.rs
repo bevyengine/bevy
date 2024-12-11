@@ -23,10 +23,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
-use core::any;
-use core::iter;
-use core::marker::PhantomData;
-use core::num::NonZero;
+use core::{any, iter, marker::PhantomData, num::NonZero};
 
 /// An object that creates and stores bind groups for a single material type.
 ///
@@ -159,11 +156,17 @@ impl From<u32> for MaterialBindGroupIndex {
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
-pub struct MaterialBindGroupSlot(pub u32);
+pub struct MaterialBindGroupSlot(pub u16);
 
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
-        MaterialBindGroupSlot(value)
+        MaterialBindGroupSlot(value as u16)
+    }
+}
+
+impl From<MaterialBindGroupSlot> for u32 {
+    fn from(value: MaterialBindGroupSlot) -> Self {
+        value.0 as u32
     }
 }
 
@@ -767,7 +770,7 @@ where
     fn from_world(world: &mut World) -> Self {
         // Create a new bind group allocator.
         let render_device = world.resource::<RenderDevice>();
-        let bind_group_layout_entries = M::bind_group_layout_entries(render_device);
+        let bind_group_layout_entries = M::bind_group_layout_entries(render_device, false);
         let bind_group_layout =
             render_device.create_bind_group_layout(M::label(), &bind_group_layout_entries);
         let fallback_buffers =
@@ -818,7 +821,7 @@ impl MaterialFallbackBuffers {
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
     ) -> MaterialFallbackBuffers {
-        let mut fallback_buffers = HashMap::new();
+        let mut fallback_buffers = HashMap::default();
         for bind_group_layout_entry in bind_group_layout_entries {
             // Create a dummy buffer of the appropriate size.
             let BindingType::Buffer {

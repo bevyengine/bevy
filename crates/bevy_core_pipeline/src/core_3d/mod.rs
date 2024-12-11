@@ -65,10 +65,12 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
-use bevy_render::mesh::allocator::SlabId;
-use bevy_render::render_phase::PhaseItemBinKey;
-use bevy_render::view::GpuCulling;
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    mesh::allocator::SlabId,
+    render_phase::PhaseItemBinKey,
+    view::GpuCulling,
+};
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -79,7 +81,6 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -95,7 +96,7 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    sync_world::RenderEntity,
+    sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -702,7 +703,7 @@ pub fn prepare_core_3d_depth_textures(
         &Msaa,
     )>,
 ) {
-    let mut render_target_usage = HashMap::default();
+    let mut render_target_usage = <HashMap<_, _>>::default();
     for (view, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         if !opaque_3d_phases.contains_key(&view)
             || !alpha_mask_3d_phases.contains_key(&view)
@@ -724,7 +725,7 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| usage);
     }
 
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -787,7 +788,7 @@ pub fn prepare_core_3d_transmission_textures(
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&entity)
             || !alpha_mask_3d_phases.contains_key(&entity)
@@ -895,11 +896,11 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
     )>,
 ) {
-    let mut depth_textures = HashMap::default();
-    let mut normal_textures = HashMap::default();
-    let mut deferred_textures = HashMap::default();
-    let mut deferred_lighting_id_textures = HashMap::default();
-    let mut motion_vectors_textures = HashMap::default();
+    let mut depth_textures = <HashMap<_, _>>::default();
+    let mut normal_textures = <HashMap<_, _>>::default();
+    let mut deferred_textures = <HashMap<_, _>>::default();
+    let mut deferred_lighting_id_textures = <HashMap<_, _>>::default();
+    let mut motion_vectors_textures = <HashMap<_, _>>::default();
     for (
         entity,
         camera,

@@ -27,7 +27,7 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     //
     // TODO(pcwalton): Consider bicubic filtering.
 #ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
-    let lightmap_slot = mesh[instance_index].lightmap_slot;
+    let lightmap_slot = mesh[instance_index].material_and_lightmap_bind_group_slot >> 16u;
     return textureSampleLevel(
         lightmaps_textures[lightmap_slot],
         lightmaps_samplers[lightmap_slot],
