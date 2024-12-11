@@ -23,10 +23,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
-use core::any;
-use core::iter;
-use core::marker::PhantomData;
-use core::num::NonZero;
+use core::{any, iter, marker::PhantomData, num::NonZero};
 
 /// An object that creates and stores bind groups for a single material type.
 ///
@@ -38,7 +35,7 @@ where
     M: Material,
 {
     /// The data that the allocator keeps about each bind group.
-    pub bind_groups: Vec<MaterialBindGroup<M>>,
+    bind_groups: Vec<MaterialBindGroup<M>>,
 
     /// Stores IDs of material bind groups that have at least one slot
     /// available.
@@ -60,7 +57,22 @@ where
 }
 
 /// Information that the allocator keeps about each bind group.
-pub struct MaterialBindGroup<M>
+pub enum MaterialBindGroup<M>
+where
+    M: Material,
+{
+    /// Information that the allocator keeps about each bind group with bindless
+    /// textures in use.
+    Bindless(MaterialBindlessBindGroup<M>),
+
+    /// Information that the allocator keeps about each bind group for which
+    /// bindless textures are not in use.
+    NonBindless(MaterialNonBindlessBindGroup<M>),
+}
+
+/// Information that the allocator keeps about each bind group with bindless
+/// textures in use.
+pub struct MaterialBindlessBindGroup<M>
 where
     M: Material,
 {
@@ -79,6 +91,33 @@ where
     /// We keep this value so that we can quickly find the next free slot when
     /// we go to allocate.
     used_slot_bitmap: u32,
+}
+
+/// Information that the allocator keeps about each bind group for which
+/// bindless textures are not in use.
+///
+/// When a bindless texture isn't in use, bind groups and material instances are
+/// in 1:1 correspondence, and therefore there's only a single slot for extra
+/// material data here.
+pub struct MaterialNonBindlessBindGroup<M>
+where
+    M: Material,
+{
+    /// The single allocation in a non-bindless bind group.
+    allocation: MaterialNonBindlessBindGroupAllocation<M>,
+}
+
+/// The single allocation in a non-bindless bind group.
+enum MaterialNonBindlessBindGroupAllocation<M>
+where
+    M: Material,
+{
+    /// The allocation is free.
+    Unallocated,
+    /// The allocation has been allocated, but not yet initialized.
+    Allocated,
+    /// The allocation is full and contains both a bind group and extra data.
+    Initialized(BindGroup, M::Data),
 }
 
 /// Where the GPU data for a material is located.
@@ -170,7 +209,6 @@ where
                 fallback_image,
                 fallback_resources,
                 &self.fallback_buffers,
-                self.bindless_enabled,
             );
         }
     }
@@ -207,11 +245,31 @@ where
     /// [`MaterialBindingId`].
     pub(crate) fn init(
         &mut self,
+        render_device: &RenderDevice,
         material_binding_id: MaterialBindingId,
         unprepared_bind_group: UnpreparedBindGroup<M::Data>,
     ) {
+        self.bind_groups[material_binding_id.group.0 as usize].init(
+            render_device,
+            &self.bind_group_layout,
+            material_binding_id.slot,
+            unprepared_bind_group,
+        );
+    }
+
+    /// Fills a slot directly with a custom bind group.
+    ///
+    /// This is only a meaningful operation for non-bindless bind groups. It's
+    /// rarely used, but see the `texture_binding_array` example for an example
+    /// demonstrating how this feature might see use in practice.
+    pub(crate) fn init_custom(
+        &mut self,
+        material_binding_id: MaterialBindingId,
+        bind_group: BindGroup,
+        bind_group_data: M::Data,
+    ) {
         self.bind_groups[material_binding_id.group.0 as usize]
-            .init(material_binding_id.slot, unprepared_bind_group);
+            .init_custom(bind_group, bind_group_data);
     }
 
     /// Marks the slot corresponding to the given [`MaterialBindingId`] as free.
@@ -235,15 +293,156 @@ impl<M> MaterialBindGroup<M>
 where
     M: Material,
 {
-    /// Returns a new bind group.
-    fn new(bindless_enabled: bool) -> MaterialBindGroup<M> {
-        let count = if !bindless_enabled {
-            1
+    /// Creates a new material bind group.
+    fn new(bindless: bool) -> MaterialBindGroup<M> {
+        if bindless {
+            MaterialBindGroup::Bindless(MaterialBindlessBindGroup::new())
         } else {
-            M::BINDLESS_SLOT_COUNT.unwrap_or(1)
-        };
+            MaterialBindGroup::NonBindless(MaterialNonBindlessBindGroup::new())
+        }
+    }
 
-        MaterialBindGroup {
+    /// Allocates a new binding slot and returns its ID.
+    fn allocate(&mut self) -> MaterialBindGroupSlot {
+        match *self {
+            MaterialBindGroup::Bindless(ref mut material_bindless_bind_group) => {
+                material_bindless_bind_group.allocate()
+            }
+            MaterialBindGroup::NonBindless(ref mut material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.allocate()
+            }
+        }
+    }
+
+    /// Assigns an unprepared bind group to the group and slot specified in the
+    /// [`MaterialBindingId`].
+    fn init(
+        &mut self,
+        render_device: &RenderDevice,
+        bind_group_layout: &BindGroupLayout,
+        slot: MaterialBindGroupSlot,
+        unprepared_bind_group: UnpreparedBindGroup<M::Data>,
+    ) {
+        match *self {
+            MaterialBindGroup::Bindless(ref mut material_bindless_bind_group) => {
+                material_bindless_bind_group.init(
+                    render_device,
+                    bind_group_layout,
+                    slot,
+                    unprepared_bind_group,
+                );
+            }
+            MaterialBindGroup::NonBindless(ref mut material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.init(
+                    render_device,
+                    bind_group_layout,
+                    slot,
+                    unprepared_bind_group,
+                );
+            }
+        }
+    }
+
+    /// Fills a slot directly with a custom bind group.
+    ///
+    /// This is only a meaningful operation for non-bindless bind groups. It's
+    /// rarely used, but see the `texture_binding_array` example for an example
+    /// demonstrating how this feature might see use in practice.
+    fn init_custom(&mut self, bind_group: BindGroup, extra_data: M::Data) {
+        match *self {
+            MaterialBindGroup::Bindless(_) => {
+                error!("Custom bind groups aren't supported in bindless mode");
+            }
+            MaterialBindGroup::NonBindless(ref mut material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.init_custom(bind_group, extra_data);
+            }
+        }
+    }
+
+    /// Marks the slot corresponding to the given [`MaterialBindGroupSlot`] as
+    /// free.
+    fn free(&mut self, material_bind_group_slot: MaterialBindGroupSlot) {
+        match *self {
+            MaterialBindGroup::Bindless(ref mut material_bindless_bind_group) => {
+                material_bindless_bind_group.free(material_bind_group_slot);
+            }
+            MaterialBindGroup::NonBindless(ref mut material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.free(material_bind_group_slot);
+            }
+        }
+    }
+
+    /// Returns the actual bind group, or `None` if it hasn't been created yet.
+    pub fn get_bind_group(&self) -> Option<&BindGroup> {
+        match *self {
+            MaterialBindGroup::Bindless(ref material_bindless_bind_group) => {
+                material_bindless_bind_group.get_bind_group()
+            }
+            MaterialBindGroup::NonBindless(ref material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.get_bind_group()
+            }
+        }
+    }
+
+    /// Returns true if all the slots are full or false if at least one slot in
+    /// this bind group is free.
+    fn is_full(&self) -> bool {
+        match *self {
+            MaterialBindGroup::Bindless(ref material_bindless_bind_group) => {
+                material_bindless_bind_group.is_full()
+            }
+            MaterialBindGroup::NonBindless(ref material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.is_full()
+            }
+        }
+    }
+
+    /// Recreates the bind group for this material bind group containing the
+    /// data for every material in it.
+    fn rebuild_bind_group_if_necessary(
+        &mut self,
+        render_device: &RenderDevice,
+        bind_group_layout: &BindGroupLayout,
+        fallback_image: &FallbackImage,
+        fallback_bindless_resources: &FallbackBindlessResources,
+        fallback_buffers: &MaterialFallbackBuffers,
+    ) {
+        match *self {
+            MaterialBindGroup::Bindless(ref mut material_bindless_bind_group) => {
+                material_bindless_bind_group.rebuild_bind_group_if_necessary(
+                    render_device,
+                    bind_group_layout,
+                    fallback_image,
+                    fallback_bindless_resources,
+                    fallback_buffers,
+                );
+            }
+            MaterialBindGroup::NonBindless(_) => {}
+        }
+    }
+
+    /// Returns the associated extra data for the material with the given slot.
+    pub fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
+        match *self {
+            MaterialBindGroup::Bindless(ref material_bindless_bind_group) => {
+                material_bindless_bind_group.get_extra_data(slot)
+            }
+            MaterialBindGroup::NonBindless(ref material_non_bindless_bind_group) => {
+                material_non_bindless_bind_group.get_extra_data(slot)
+            }
+        }
+    }
+}
+
+impl<M> MaterialBindlessBindGroup<M>
+where
+    M: Material,
+{
+    /// Returns a new bind group.
+    fn new() -> MaterialBindlessBindGroup<M> {
+        let count = M::BINDLESS_SLOT_COUNT.unwrap_or(1);
+
+        MaterialBindlessBindGroup {
             bind_group: None,
             unprepared_bind_groups: iter::repeat_with(|| None).take(count as usize).collect(),
             used_slot_bitmap: 0,
@@ -266,6 +465,8 @@ where
     /// Assigns the given unprepared bind group to the given slot.
     fn init(
         &mut self,
+        _: &RenderDevice,
+        _: &BindGroupLayout,
         slot: MaterialBindGroupSlot,
         unprepared_bind_group: UnpreparedBindGroup<M::Data>,
     ) {
@@ -291,7 +492,7 @@ where
     }
 
     /// Returns the actual bind group, or `None` if it hasn't been created yet.
-    pub fn get_bind_group(&self) -> Option<&BindGroup> {
+    fn get_bind_group(&self) -> Option<&BindGroup> {
         self.bind_group.as_ref()
     }
 
@@ -304,7 +505,6 @@ where
         fallback_image: &FallbackImage,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &MaterialFallbackBuffers,
-        bindless_enabled: bool,
     ) {
         if self.bind_group.is_some() {
             return;
@@ -317,23 +517,6 @@ where
         else {
             return;
         };
-
-        // If bindless isn't enabled, create a trivial bind group containing
-        // only one material's worth of data.
-        if !bindless_enabled {
-            let entries = first_bind_group
-                .bindings
-                .iter()
-                .map(|(index, binding)| BindGroupEntry {
-                    binding: *index,
-                    resource: binding.get_binding(),
-                })
-                .collect::<Vec<_>>();
-
-            self.bind_group =
-                Some(render_device.create_bind_group(M::label(), bind_group_layout, &entries));
-            return;
-        }
 
         // Creates the intermediate binding resource vectors.
         let Some(binding_resource_arrays) = self.recreate_binding_resource_arrays(
@@ -473,11 +656,104 @@ where
     }
 
     /// Returns the associated extra data for the material with the given slot.
-    pub fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
+    fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
         &self.unprepared_bind_groups[slot.0 as usize]
             .as_ref()
             .unwrap()
             .data
+    }
+}
+
+impl<M> MaterialNonBindlessBindGroup<M>
+where
+    M: Material,
+{
+    /// Creates a new material bind group.
+    fn new() -> MaterialNonBindlessBindGroup<M> {
+        MaterialNonBindlessBindGroup {
+            allocation: MaterialNonBindlessBindGroupAllocation::Unallocated,
+        }
+    }
+
+    /// Allocates a new slot and returns its index.
+    ///
+    /// This bind group must not be full.
+    fn allocate(&mut self) -> MaterialBindGroupSlot {
+        debug_assert!(!self.is_full());
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Allocated;
+        MaterialBindGroupSlot(0)
+    }
+
+    /// Assigns an unprepared bind group to the group and slot specified in the
+    /// [`MaterialBindingId`].
+    ///
+    /// For non-bindless bind groups, we go ahead and create the bind group
+    /// immediately.
+    fn init(
+        &mut self,
+        render_device: &RenderDevice,
+        bind_group_layout: &BindGroupLayout,
+        _: MaterialBindGroupSlot,
+        unprepared_bind_group: UnpreparedBindGroup<M::Data>,
+    ) {
+        let entries = unprepared_bind_group
+            .bindings
+            .iter()
+            .map(|(index, binding)| BindGroupEntry {
+                binding: *index,
+                resource: binding.get_binding(),
+            })
+            .collect::<Vec<_>>();
+
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Initialized(
+            render_device.create_bind_group(M::label(), bind_group_layout, &entries),
+            unprepared_bind_group.data,
+        );
+    }
+
+    /// Fills the slot directly with a custom bind group.
+    ///
+    /// This is only a meaningful operation for non-bindless bind groups. It's
+    /// rarely used, but see the `texture_binding_array` example for an example
+    /// demonstrating how this feature might see use in practice.
+    fn init_custom(&mut self, bind_group: BindGroup, extra_data: M::Data) {
+        self.allocation =
+            MaterialNonBindlessBindGroupAllocation::Initialized(bind_group, extra_data);
+    }
+
+    /// Deletes the stored bind group.
+    fn free(&mut self, _: MaterialBindGroupSlot) {
+        self.allocation = MaterialNonBindlessBindGroupAllocation::Unallocated;
+    }
+
+    /// Returns true if the slot is full or false if it's free.
+    fn is_full(&self) -> bool {
+        !matches!(
+            self.allocation,
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+        )
+    }
+
+    /// Returns the actual bind group, or `None` if it hasn't been created yet.
+    fn get_bind_group(&self) -> Option<&BindGroup> {
+        match self.allocation {
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+            | MaterialNonBindlessBindGroupAllocation::Allocated => None,
+            MaterialNonBindlessBindGroupAllocation::Initialized(ref bind_group, _) => {
+                Some(bind_group)
+            }
+        }
+    }
+
+    /// Returns the associated extra data for the material.
+    fn get_extra_data(&self, _: MaterialBindGroupSlot) -> &M::Data {
+        match self.allocation {
+            MaterialNonBindlessBindGroupAllocation::Initialized(_, ref extra_data) => extra_data,
+            MaterialNonBindlessBindGroupAllocation::Unallocated
+            | MaterialNonBindlessBindGroupAllocation::Allocated => {
+                panic!("Bind group not initialized")
+            }
+        }
     }
 }
 
@@ -488,7 +764,7 @@ where
     fn from_world(world: &mut World) -> Self {
         // Create a new bind group allocator.
         let render_device = world.resource::<RenderDevice>();
-        let bind_group_layout_entries = M::bind_group_layout_entries(render_device);
+        let bind_group_layout_entries = M::bind_group_layout_entries(render_device, false);
         let bind_group_layout =
             render_device.create_bind_group_layout(M::label(), &bind_group_layout_entries);
         let fallback_buffers =
@@ -539,7 +815,7 @@ impl MaterialFallbackBuffers {
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
     ) -> MaterialFallbackBuffers {
-        let mut fallback_buffers = HashMap::new();
+        let mut fallback_buffers = HashMap::default();
         for bind_group_layout_entry in bind_group_layout_entries {
             // Create a dummy buffer of the appropriate size.
             let BindingType::Buffer {

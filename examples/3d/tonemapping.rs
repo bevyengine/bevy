@@ -572,7 +572,7 @@ impl PerMethodSettings {
 
 impl Default for PerMethodSettings {
     fn default() -> Self {
-        let mut settings = HashMap::new();
+        let mut settings = <HashMap<_, _>>::default();
 
         for method in [
             Tonemapping::None,

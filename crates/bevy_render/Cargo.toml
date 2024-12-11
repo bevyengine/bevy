@@ -79,11 +79,8 @@ naga = { version = "23", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
 ktx2 = { version = "0.3.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }

@@ -1,22 +1,16 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use core::fmt::Debug;
-
+#[cfg(feature = "curve")]
+mod curve_impls;
 use crate::{
     ops::{self, FloatPow},
     Vec2, VectorSpace,
 };
-
-use derive_more::derive::{Display, Error};
-
-#[cfg(feature = "alloc")]
-use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
-
-#[cfg(feature = "curve")]
-use crate::curve::{Curve, Interval};
-
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use thiserror::Error;
+#[cfg(feature = "alloc")]
+use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -24,15 +18,18 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [`CubicSegment::new_bezier`] for use in easing.
 ///
 /// ### Interpolation
+///
 /// The curve only passes through the first and last control point in each set of four points. The curve
 /// is divided into "segments" by every fourth control point.
 ///
 /// ### Tangency
+///
 /// Tangents are manually defined by the two intermediate control points within each set of four points.
 /// You can think of the control points the curve passes through as "anchors", and as the intermediate
 /// control points as the anchors displaced along their tangent vectors
 ///
 /// ### Continuity
+///
 /// A Bezier curve is at minimum C0 continuous, meaning it has no holes or jumps. Each curve segment is
 /// C2, meaning the tangent vector changes smoothly between each set of four control points, but this
 /// doesn't hold at the control points between segments. Making the whole curve C1 or C2 requires moving
@@ -52,8 +49,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// let bezier = CubicBezier::new(points).to_curve().unwrap();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve.
@@ -99,11 +96,10 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
         }
     }
 }
-
 /// An error returned during cubic curve generation for cubic Bezier curves indicating that a
 /// segment of control points was not present.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Unable to generate cubic curve: at least one set of control points is required")]
+#[derive(Clone, Debug, Error)]
+#[error("Unable to generate cubic curve: at least one set of control points is required")]
 pub struct CubicBezierError;
 
 /// A spline interpolated continuously between the nearest two control points, with the position and
@@ -114,16 +110,20 @@ pub struct CubicBezierError;
 /// such as network prediction.
 ///
 /// ### Interpolation
+///
 /// The curve passes through every control point.
 ///
 /// ### Tangency
+///
 /// Tangents are explicitly defined at each control point.
 ///
 /// ### Continuity
+///
 /// The curve is at minimum C1 continuous, meaning that it has no holes or jumps and the tangent vector also
 /// has no sudden jumps.
 ///
 /// ### Parametrization
+///
 /// The first segment of the curve connects the first two control points, the second connects the second and
 /// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
 /// the final curve segment connects the last control point to the first.
@@ -149,8 +149,8 @@ pub struct CubicBezierError;
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve.
@@ -245,16 +245,20 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// **Note** the Catmull-Rom spline is a special case of Cardinal spline where the tension is 0.5.
 ///
 /// ### Interpolation
+///
 /// The curve passes through every control point.
 ///
 /// ### Tangency
+///
 /// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
+///
 /// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
 /// vector is also well-defined everywhere, without sudden jumps.
 ///
 /// ### Parametrization
+///
 /// The first segment of the curve connects the first two control points, the second connects the second and
 /// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
 /// the final curve segment connects the last control point to the first.
@@ -274,8 +278,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     /// Tension
@@ -404,17 +408,20 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// necessarily pass through any of the control points.
 ///
 /// ### Interpolation
+///
 /// The curve does not necessarily pass through its control points.
 ///
 /// ### Tangency
 /// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
+///
 /// The curve is C2 continuous, meaning it has no holes or jumps, the tangent vector changes smoothly along
 /// the entire curve, and the acceleration also varies continuously. The acceleration continuity of this
 /// spline makes it useful for camera paths.
 ///
 /// ### Parametrization
+///
 /// Each curve segment is defined by a window of four control points taken in sequence. When [`to_curve_cyclic`]
 /// is used to form a cyclic curve, the three additional segments used to close the curve come last.
 ///
@@ -433,14 +440,13 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// ```
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
     pub control_points: Vec<P>,
 }
-
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
@@ -527,10 +533,10 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
 }
 
 /// Error during construction of [`CubicNurbs`]
-#[derive(Clone, Debug, Error, Display)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
-    #[display("Wrong number of knots: expected {expected}, provided {provided}")]
+    #[error("Wrong number of knots: expected {expected}, provided {provided}")]
     KnotsNumberMismatch {
         /// Expected number of knots
         expected: usize,
@@ -539,13 +545,13 @@ pub enum CubicNurbsError {
     },
     /// The provided knots had a descending knot pair. Subsequent knots must
     /// either increase or stay the same.
-    #[display("Invalid knots: contains descending knot pair")]
+    #[error("Invalid knots: contains descending knot pair")]
     DescendingKnots,
     /// The provided knots were all equal. Knots must contain at least one increasing pair.
-    #[display("Invalid knots: all knots are equal")]
+    #[error("Invalid knots: all knots are equal")]
     ConstantKnots,
     /// Provided a different number of weights and control points.
-    #[display("Incorrect number of weights: expected {expected}, provided {provided}")]
+    #[error("Incorrect number of weights: expected {expected}, provided {provided}")]
     WeightsNumberMismatch {
         /// Expected number of weights
         expected: usize,
@@ -553,7 +559,7 @@ pub enum CubicNurbsError {
         provided: usize,
     },
     /// The number of control points provided is less than 4.
-    #[display("Not enough control points, at least 4 are required, {provided} were provided")]
+    #[error("Not enough control points, at least 4 are required, {provided} were provided")]
     NotEnoughControlPoints {
         /// The number of control points provided
         provided: usize,
@@ -564,6 +570,7 @@ pub enum CubicNurbsError {
 /// represent a much more diverse class of curves (like perfect circles and ellipses).
 ///
 /// ### Non-uniformity
+///
 /// The 'NU' part of NURBS stands for "Non-Uniform". This has to do with a parameter called 'knots'.
 /// The knots are a non-decreasing sequence of floating point numbers. The first and last three pairs of
 /// knots control the behavior of the curve as it approaches its endpoints. The intermediate pairs
@@ -572,16 +579,20 @@ pub enum CubicNurbsError {
 /// and can create sharp corners.
 ///
 /// ### Rationality
+///
 /// The 'R' part of NURBS stands for "Rational". This has to do with NURBS allowing each control point to
 /// be assigned a weighting, which controls how much it affects the curve compared to the other points.
 ///
 /// ### Interpolation
+///
 /// The curve will not pass through the control points except where a knot has multiplicity four.
 ///
 /// ### Tangency
+///
 /// Tangents are automatically computed based on the position of control points.
 ///
 /// ### Continuity
+///
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
@@ -606,8 +617,8 @@ pub enum CubicNurbsError {
 ///     .unwrap();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
     /// The control points of the NURBS
@@ -822,21 +833,25 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// A spline interpolated linearly between the nearest 2 points.
 ///
 /// ### Interpolation
+///
 /// The curve passes through every control point.
 ///
 /// ### Tangency
+///
 /// The curve is not generally differentiable at control points.
 ///
 /// ### Continuity
+///
 /// The curve is C0 continuous, meaning it has no holes or jumps.
 ///
 /// ### Parametrization
+///
 /// Each curve segment connects two adjacent control points in sequence. When a cyclic curve is
 /// formed with [`to_curve_cyclic`], the final segment connects the last control point with the first.
 ///
 /// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
-#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the linear spline.
@@ -909,8 +924,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
 }
 
 /// An error indicating that a spline construction didn't have enough control points to generate a curve.
-#[derive(Clone, Debug, Error, Display)]
-#[display("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
+#[derive(Clone, Debug, Error)]
+#[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
 pub struct InsufficientDataError {
     expected: usize,
     given: usize,
@@ -945,6 +960,7 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 /// Segments can be chained together to form a longer [compound curve].
 ///
 /// [compound curve]: CubicCurve
+/// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -1108,26 +1124,15 @@ impl CubicSegment<Vec2> {
     }
 }
 
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
-    }
-}
-
 /// A collection of [`CubicSegment`]s chained into a single parametric curve. It is a [`Curve`]
 /// with domain `[0, N]`, where `N` is its number of segments.
 ///
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
-#[cfg(feature = "alloc")]
+///
+/// [`Curve`]: crate::curve::Curve
 #[derive(Clone, Debug, PartialEq)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
@@ -1248,21 +1253,6 @@ impl<P: VectorSpace> CubicCurve<P> {
     }
 }
 
-#[cfg(all(feature = "curve", feature = "alloc"))]
-impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        // The non-emptiness invariant guarantees the success of this.
-        Interval::new(0.0, self.segments.len() as f32)
-            .expect("CubicCurve is invalid because it has no segments")
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
-    }
-}
-
 #[cfg(feature = "alloc")]
 impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
@@ -1298,6 +1288,7 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// together.
 ///
 /// [compound curves]: RationalCurve
+/// [`Curve`]: crate::curve::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
@@ -1309,7 +1300,6 @@ pub struct RationalSegment<P: VectorSpace> {
     /// The width of the domain of this segment.
     pub knot_span: f32,
 }
-
 impl<P: VectorSpace> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
@@ -1424,26 +1414,15 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 }
 
-#[cfg(feature = "curve")]
-impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
-    }
-}
-
 /// A collection of [`RationalSegment`]s chained into a single parametric curve. It is a [`Curve`]
 /// with domain `[0, N]`, where `N` is the number of segments.
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
-#[cfg(feature = "alloc")]
+///
+/// [`Curve`]: crate::curve::Curve
 #[derive(Clone, Debug, PartialEq)]
+#[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
@@ -1580,21 +1559,6 @@ impl<P: VectorSpace> RationalCurve<P> {
     #[inline]
     pub fn length(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()
-    }
-}
-
-#[cfg(all(feature = "curve", feature = "alloc"))]
-impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
-    #[inline]
-    fn domain(&self) -> Interval {
-        // The non-emptiness invariant guarantees the success of this.
-        Interval::new(0.0, self.length())
-            .expect("RationalCurve is invalid because it has zero length")
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> P {
-        self.position(t)
     }
 }
 

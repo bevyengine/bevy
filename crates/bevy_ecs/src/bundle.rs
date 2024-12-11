@@ -227,6 +227,7 @@ unsafe impl<C: Component> Bundle for C {
             storages,
             required_components,
             0,
+            &mut Vec::new(),
         );
     }
 
@@ -381,7 +382,7 @@ impl BundleInfo {
 
         if deduped.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
-            let mut seen = HashSet::new();
+            let mut seen = <HashSet<_>>::default();
             let mut dups = Vec::new();
             for id in component_ids {
                 if !seen.insert(id) {
@@ -902,7 +903,6 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
@@ -910,6 +910,7 @@ impl<'w> BundleInserter<'w> {
                         add_bundle.iter_existing(),
                     );
                 }
+                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
             }
         }
 
@@ -1422,8 +1423,11 @@ impl Bundles {
             .or_insert_with(|| {
                 let (id, storages) =
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids));
-                self.dynamic_bundle_storages
-                    .insert_unique_unchecked(id, storages);
+                // SAFETY: The ID always increases when new bundles are added, and so, the ID is unique.
+                unsafe {
+                    self.dynamic_bundle_storages
+                        .insert_unique_unchecked(id, storages);
+                }
                 (component_ids.into(), id)
             });
         *bundle_id
