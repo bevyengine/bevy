@@ -724,11 +724,11 @@ pub struct InvalidGenerationError {
     current_generation: u32,
 }
 
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum MutableAssetError {
-    #[display("asset is not present or has an invalid generation")]
+    #[error("asset is not present or has an invalid generation")]
     Missing,
-    #[display("asset `Arc` is aliased (there is another `Arc` or `Weak` to this asset), so it is not safe to mutate")]
+    #[error("asset `Arc` is aliased (there is another `Arc` or `Weak` to this asset), so it is not safe to mutate")]
     Aliased,
 }
 
