@@ -476,7 +476,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let mut added = HashSet::new();
+        let mut added = <HashSet<_>>::default();
         let mut entries = Vec::new();
         while let Some(registration) =
             map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?

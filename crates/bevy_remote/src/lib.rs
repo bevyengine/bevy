@@ -802,7 +802,7 @@ fn process_remote_requests(world: &mut World) {
 
         match handler {
             RemoteMethodSystemId::Instant(id) => {
-                let result = match world.run_system_with_input(id, message.params) {
+                let result = match world.run_system_with(id, message.params) {
                     Ok(result) => result,
                     Err(error) => {
                         let _ = message.sender.force_send(Err(BrpError {
@@ -852,7 +852,7 @@ fn process_single_ongoing_watching_request(
     system_id: &RemoteWatchingMethodSystemId,
 ) -> BrpResult<Option<Value>> {
     world
-        .run_system_with_input(*system_id, message.params.clone())
+        .run_system_with(*system_id, message.params.clone())
         .map_err(|error| BrpError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Failed to run method handler: {error}"),

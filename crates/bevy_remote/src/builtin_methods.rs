@@ -369,7 +369,7 @@ pub fn process_remote_get_watching_request(
 
     let mut changed = Vec::new();
     let mut removed = Vec::new();
-    let mut errors = HashMap::new();
+    let mut errors = <HashMap<_, _>>::default();
 
     'component_loop: for component_path in components {
         let Ok(type_registration) =
@@ -859,7 +859,7 @@ fn build_components_map<'a>(
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
     type_registry: &TypeRegistry,
 ) -> AnyhowResult<HashMap<String, Value>> {
-    let mut serialized_components_map = HashMap::new();
+    let mut serialized_components_map = <HashMap<_, _>>::default();
 
     for (type_path, reflect_component) in paths_and_reflect_components {
         let Some(reflected) = reflect_component.reflect(entity_ref.clone()) else {
@@ -885,7 +885,7 @@ fn build_has_map<'a>(
     entity_ref: FilteredEntityRef,
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
 ) -> HashMap<String, Value> {
-    let mut has_map = HashMap::new();
+    let mut has_map = <HashMap<_, _>>::default();
 
     for (type_path, reflect_component) in paths_and_reflect_components {
         let has = reflect_component.contains(entity_ref.clone());
