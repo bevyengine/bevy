@@ -3,7 +3,10 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # TODO: #16477 - Delete this once notify-types has been bumped.
+  "RUSTSEC-2024-0384",
+]
 
 [licenses]
 version = 2
