@@ -71,7 +71,7 @@ fn g1(a: f32) -> f32 {
 }
 
 fn h0_approx(a: f32) -> f32 {
-    return 0.2 + a * (0.24 * a - 0.44);
+    return -0.2 - a * (0.24 * a - 0.44);
 }
 
 fn h1_approx(a: f32) -> f32 {
