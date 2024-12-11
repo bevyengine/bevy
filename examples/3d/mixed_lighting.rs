@@ -94,6 +94,8 @@ static LIGHTMAPS: [(&str, Rect); 5] = [
     ),
 ];
 
+static SPHERE_UV_RECT: Rect = uv_rect_opengl(vec2(0.788, 0.484), Vec2::splat(0.062));
+
 /// The initial position of the sphere.
 ///
 /// When the user sets the light mode to [`LightingMode::Baked`], we reset the
@@ -218,6 +220,17 @@ fn update_lightmaps(
         return;
     }
 
+    // Select the lightmap to use, based on the lighting mode.
+    let lightmap: Option<Handle<Image>> = match app_status.lighting_mode {
+        LightingMode::Baked => {
+            Some(asset_server.load("lightmaps/MixedLightingExample-Baked.zstd.ktx2"))
+        }
+        LightingMode::Mixed => {
+            Some(asset_server.load("lightmaps/MixedLightingExample-Mixed.zstd.ktx2"))
+        }
+        LightingMode::RealTime => None,
+    };
+
     'outer: for (entity, name, material) in &meshes {
         // Add lightmaps to or remove lightmaps from the scenery objects in the
         // scene (all objects but the sphere).
@@ -235,13 +248,17 @@ fn update_lightmaps(
             }
 
             // Add or remove the lightmap.
-            update_lightmap_for_mesh(
-                &mut commands,
-                entity,
-                &asset_server,
-                uv_rect,
-                app_status.lighting_mode,
-            );
+            match lightmap {
+                Some(ref lightmap) => {
+                    commands.entity(entity).insert(Lightmap {
+                        image: (*lightmap).clone(),
+                        uv_rect,
+                    });
+                }
+                None => {
+                    commands.entity(entity).remove::<Lightmap>();
+                }
+            }
             continue 'outer;
         }
 
@@ -252,15 +269,19 @@ fn update_lightmaps(
                 material.lightmap_exposure = LIGHTMAP_EXPOSURE;
             }
 
-            // Add or remove the lightmap.
-            let uv_rect = uv_rect_opengl(vec2(0.788, 0.484), Vec2::splat(0.062));
-            update_lightmap_for_mesh(
-                &mut commands,
-                entity,
-                &asset_server,
-                uv_rect,
-                app_status.lighting_mode,
-            );
+            // Add or remove the lightmap from the sphere. We only apply the
+            // lightmap in fully-baked mode.
+            match (&lightmap, app_status.lighting_mode) {
+                (&Some(ref lightmap), LightingMode::Baked) => {
+                    commands.entity(entity).insert(Lightmap {
+                        image: (*lightmap).clone(),
+                        uv_rect: SPHERE_UV_RECT,
+                    });
+                }
+                _ => {
+                    commands.entity(entity).remove::<Lightmap>();
+                }
+            }
         }
     }
 }
@@ -448,34 +469,6 @@ fn move_sphere(
         )) = interaction.get_nearest_hit()
         {
             transform.translation = position + vec3(0.0, SPHERE_OFFSET, 0.0);
-        }
-    }
-}
-
-/// A helper function that adds a lightmap to a single mesh, taking the current
-/// lighting mode into account.
-fn update_lightmap_for_mesh(
-    commands: &mut Commands,
-    entity: Entity,
-    asset_server: &AssetServer,
-    uv_rect: Rect,
-    lighting_mode: LightingMode,
-) {
-    match lighting_mode {
-        LightingMode::Baked => {
-            commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("lightmaps/MixedLightingExample-Baked.zstd.ktx2"),
-                uv_rect,
-            });
-        }
-        LightingMode::Mixed => {
-            commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("lightmaps/MixedLightingExample-Mixed.zstd.ktx2"),
-                uv_rect,
-            });
-        }
-        LightingMode::RealTime => {
-            commands.entity(entity).remove::<Lightmap>();
         }
     }
 }
