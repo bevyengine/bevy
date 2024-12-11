@@ -766,7 +766,7 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
             let target_side_height = target_size.x * (border[2] - border[0]);
             let target_side_width = target_size.y * (border[3] - border[1]);
 
