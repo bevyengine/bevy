@@ -71,6 +71,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
+    #[cfg(feature("http_source_cache"))]
     if let Some(data) = http_asset_cache::try_load_from_cache(str_path)? {
         return Ok(Box::new(VecReader::new(data)));
     }
@@ -81,6 +82,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
 
+            #[cfg(feature("http_source_cache"))]
             http_asset_cache::save_to_cache(str_path, &buffer)?;
 
             Ok(Box::new(VecReader::new(buffer)))
@@ -139,6 +141,7 @@ impl AssetReader for HttpSourceAssetReader {
 /// A naive implementation of an HTTP asset cache that never invalidates.
 /// `ureq` currently does not support caching, so this is a simple workaround.
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
+#[cfg(feature("http_source_cache"))]
 mod http_asset_cache {
     use core::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;

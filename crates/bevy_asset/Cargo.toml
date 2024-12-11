@@ -11,11 +11,11 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["http_source"]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
 http_source = ["ureq"]
+http_source_cache = []
 asset_processor = []
 watch = []
 trace = []

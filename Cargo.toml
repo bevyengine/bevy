@@ -433,6 +433,12 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables using assets from HTTP sources
+http_source = ["bevy_internal/http_source"]
+
+# Assets downloaded from HTTP sources are cached
+http_source_cache = ["bevy_internal/http_source_cache"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
