@@ -305,7 +305,7 @@ pub trait ChildBuild {
     fn parent_entity(&self) -> Entity;
 
     /// Adds a command to be executed, like [`Commands::queue`].
-    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self;
+    fn queue_command<C: Command>(&mut self, command: C) -> &mut Self;
 }
 
 impl ChildBuild for ChildBuilder<'_> {
@@ -330,7 +330,7 @@ impl ChildBuild for ChildBuilder<'_> {
         self.add_children.parent
     }
 
-    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self {
+    fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.commands.queue(command);
         self
     }
@@ -573,7 +573,7 @@ impl ChildBuild for WorldChildBuilder<'_> {
         self.parent
     }
 
-    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self {
+    fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
         command.apply(self.world);
         self
     }
