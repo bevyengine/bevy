@@ -37,7 +37,7 @@ impl Volume {
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
     ///
-    /// NOTE: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
     /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
     ///
     /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
@@ -89,6 +89,12 @@ impl Default for PlaybackSettings {
 
 impl PlaybackSettings {
     /// Will play the associated audio source once.
+    ///
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    ///
+    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
         volume: Volume(1.0),
