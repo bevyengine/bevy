@@ -236,7 +236,6 @@ fn setup(
             p.spawn(TextSpan::new("---------------\n"));
             p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
             p.spawn(TextSpan::new("1/2 - Decrease/Increase aperture\n"));
-            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
             p.spawn(TextSpan::new("3/4 - Decrease/Increase shutter speed\n"));
             p.spawn(TextSpan::new("5/6 - Decrease/Increase sensitivity\n"));
             p.spawn(TextSpan::new("R - Reset exposure"));
