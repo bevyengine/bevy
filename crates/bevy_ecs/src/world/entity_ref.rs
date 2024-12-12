@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
-    observer::{Observer, Observers},
+    observer::Observer,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -1468,13 +1468,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
         // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
         let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
+            bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 storages,
                 components,
                 &world.observers,
                 old_location.archetype_id,
-                bundle_info,
                 false,
             )?
         };
@@ -1650,13 +1649,12 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = remove_bundle_from_archetype(
+        let new_archetype_id = bundle_info.remove_bundle_from_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             location.archetype_id,
-            bundle_info,
             // components from the bundle that are not present on the entity are ignored
             true,
         )
@@ -3271,36 +3269,42 @@ unsafe fn insert_dynamic_bundle<
     }
 }
 
-/// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
-/// removal was invalid). in the event that adding the given bundle does not result in an Archetype
-/// change. Results are cached in the Archetype Graph to avoid redundant work.
-/// if `intersection` is false, attempting to remove a bundle with components _not_ contained in the
-/// current archetype will fail, returning None. if `intersection` is true, components in the bundle
-/// but not in the current archetype will be ignored
+/// Removes a bundle from the given archetype and returns the resulting archetype
+/// (or `None` if the removal was invalid).
+/// This could be the same [`ArchetypeId`], in the event that removing the given bundle
+/// does not result in an [`Archetype`] change.
+///
+/// Results are cached in the [`Archetype`] graph to avoid redundant work.
+///
+/// If `intersection` is false, attempting to remove a bundle with components not contained in the
+/// current archetype will fail, returning `None`.
+///
+/// If `intersection` is true, components in the bundle but not in the current archetype
+/// will be ignored.
 ///
 /// # Safety
 /// `archetype_id` must exist and components in `bundle_info` must exist
-unsafe fn remove_bundle_from_archetype(
+pub(crate) unsafe fn remove_bundle_from_archetype(
+    &self,
     archetypes: &mut Archetypes,
     storages: &mut Storages,
     components: &Components,
     observers: &Observers,
     archetype_id: ArchetypeId,
-    bundle_info: &BundleInfo,
     intersection: bool,
 ) -> Option<ArchetypeId> {
-    // check the archetype graph to see if the Bundle has been removed from this archetype in the
-    // past
-    let remove_bundle_result = {
+    // Check the archetype graph to see if the bundle has been
+    // removed from this archetype in the past.
+    let archetype_after_remove_result = {
         let edges = archetypes[archetype_id].edges();
         if intersection {
-            edges.get_remove_bundle(bundle_info.id())
+            edges.get_archetype_after_bundle_remove(self.id())
         } else {
-            edges.get_take_bundle(bundle_info.id())
+            edges.get_archetype_after_bundle_take(self.id())
         }
     };
-    let result = if let Some(result) = remove_bundle_result {
-        // this Bundle removal result is cached. just return that!
+    let result = if let Some(result) = archetype_after_remove_result {
+        // This bundle removal result is cached. Just return that!
         result
     } else {
         let mut next_table_components;
@@ -3310,7 +3314,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.iter_explicit_components() {
+            for component_id in self.iter_explicit_components() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -3319,18 +3323,17 @@ unsafe fn remove_bundle_from_archetype(
                         StorageType::SparseSet => removed_sparse_set_components.push(component_id),
                     }
                 } else if !intersection {
-                    // a component in the bundle was not present in the entity's archetype, so this
-                    // removal is invalid cache the result in the archetype
-                    // graph
+                    // A component in the bundle was not present in the entity's archetype, so this
+                    // removal is invalid. Cache the result in the archetype graph.
                     current_archetype
                         .edges_mut()
-                        .insert_take_bundle(bundle_info.id(), None);
+                        .cache_archetype_after_bundle_take(self.id(), None);
                     return None;
                 }
             }
 
-            // sort removed components so we can do an efficient "sorted remove". archetype
-            // components are already sorted
+            // Sort removed components so we can do an efficient "sorted remove".
+            // Archetype components are already sorted.
             removed_table_components.sort_unstable();
             removed_sparse_set_components.sort_unstable();
             next_table_components = current_archetype.table_components().collect();
@@ -3363,32 +3366,17 @@ unsafe fn remove_bundle_from_archetype(
         Some(new_archetype_id)
     };
     let current_archetype = &mut archetypes[archetype_id];
-    // cache the result in an edge
+    // Cache the result in an edge.
     if intersection {
         current_archetype
             .edges_mut()
-            .insert_remove_bundle(bundle_info.id(), result);
+            .cache_archetype_after_bundle_remove(self.id(), result);
     } else {
         current_archetype
             .edges_mut()
-            .insert_take_bundle(bundle_info.id(), result);
+            .cache_archetype_after_bundle_take(self.id(), result);
     }
     result
-}
-
-fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
-    let mut remove_index = 0;
-    source.retain(|value| {
-        while remove_index < remove.len() && *value > remove[remove_index] {
-            remove_index += 1;
-        }
-
-        if remove_index < remove.len() {
-            *value != remove[remove_index]
-        } else {
-            true
-        }
-    });
 }
 
 /// Moves component data out of storage.
@@ -3699,27 +3687,6 @@ mod tests {
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
-
-    #[test]
-    fn sorted_remove() {
-        let mut a = vec![1, 2, 3, 4, 5, 6, 7];
-        let b = vec![1, 2, 3, 5, 7];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![4, 6]);
-
-        let mut a = vec![1];
-        let b = vec![1];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![]);
-
-        let mut a = vec![1];
-        let b = vec![2];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![1]);
-    }
 
     #[derive(Component, Clone, Copy, Debug, PartialEq)]
     struct TestComponent(u32);
