@@ -2096,7 +2096,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_component_and_his_runtime_required_components() {
+    fn remove_component_and_its_runtime_required_components() {
         #[derive(Component)]
         struct X;
 
@@ -2141,7 +2141,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_component_and_his_required_components() {
+    fn remove_component_and_its_required_components() {
         #[derive(Component)]
         #[require(Y)]
         struct X;
@@ -2590,6 +2590,24 @@ mod tests {
         );
         assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
         assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
+    }
+
+    #[test]
+    #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
+    fn required_components_recursion_errors() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct C;
+
+        World::new().register_component::<A>();
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are
