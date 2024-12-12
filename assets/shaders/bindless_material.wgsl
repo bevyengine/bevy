@@ -18,7 +18,7 @@ struct Color {
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 #ifdef BINDLESS
-    let slot = mesh[in.instance_index].material_bind_group_slot;
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     let base_color = material_color[slot].base_color;
 #else   // BINDLESS
     let base_color = material_color.base_color;
