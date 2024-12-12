@@ -81,18 +81,32 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
         // calculate the number of sync points each sync point is from the beginning of the graph
-        // use the same sync point if the distance is the same
         let mut distances: HashMap<usize, u32> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
+        // Keep track of any explicit sync nodes for a specific distance.
+        let mut distance_to_explicit_sync_node: HashMap<u32, NodeId> = HashMap::default();
         for node in &topo {
-            let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+            let node_system = graph.systems[node.index()].get().unwrap();
+
+            let node_needs_sync = if is_apply_deferred(node_system) {
+                distance_to_explicit_sync_node.insert(
+                    distances.get(&node.index()).copied().unwrap_or_default(),
+                    *node,
+                );
+
+                // This node just did a sync, so the only reason to do another sync is if one was
+                // explicitly scheduled afterwards.
+                false
+            } else {
+                node_system.has_deferred()
+            };
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
-                let add_sync_on_edge = add_sync_after
-                    && !is_apply_deferred(graph.systems[target.index()].get().unwrap())
-                    && !self.no_sync_edges.contains(&(*node, target));
+                let edge_needs_sync = node_needs_sync
+                    && !self.no_sync_edges.contains(&(*node, target))
+                    || is_apply_deferred(graph.systems[target.index()].get().unwrap());
 
-                let weight = if add_sync_on_edge { 1 } else { 0 };
+                let weight = if edge_needs_sync { 1 } else { 0 };
 
                 // Use whichever distance is larger, either the current distance, or the distance to
                 // the parent plus the weight.
@@ -103,15 +117,34 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .max(distances.get(&node.index()).copied().unwrap_or_default() + weight);
 
                 distances.insert(target.index(), distance);
+            }
+        }
 
-                if add_sync_on_edge {
-                    let sync_point = self.get_sync_point(graph, distances[&target.index()]);
-                    sync_point_graph.add_edge(*node, sync_point);
-                    sync_point_graph.add_edge(sync_point, target);
-
-                    // edge is now redundant
-                    sync_point_graph.remove_edge(*node, target);
+        // Find any edges which have a different number of sync points between them and make sure
+        // there is a sync point between them.
+        for node in &topo {
+            let node_distance = distances.get(&node.index()).copied().unwrap_or_default();
+            for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
+                let target_distance = distances.get(&target.index()).copied().unwrap_or_default();
+                if node_distance == target_distance {
+                    // These nodes are the same distance, so they don't need an edge between them.
+                    continue;
                 }
+
+                if is_apply_deferred(graph.systems[target.index()].get().unwrap()) {
+                    // We don't need to insert a sync point since ApplyDeferred is a sync point
+                    // already!
+                    continue;
+                }
+                let sync_point = distance_to_explicit_sync_node
+                    .get(&target_distance)
+                    .copied()
+                    .unwrap_or_else(|| self.get_sync_point(graph, target_distance));
+
+                sync_point_graph.add_edge(*node, sync_point);
+                sync_point_graph.add_edge(sync_point, target);
+
+                sync_point_graph.remove_edge(*node, target);
             }
         }
 
