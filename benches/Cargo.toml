@@ -32,6 +32,9 @@ rand_chacha = "0.3"
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 bevy_winit = { path = "../crates/bevy_winit", features = ["x11"] }
 
+[lints.clippy]
+needless_lifetimes = "allow"
+
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/main.rs"
