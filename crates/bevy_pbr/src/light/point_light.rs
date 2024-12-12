@@ -21,7 +21,13 @@ use super::*;
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(CubemapFrusta, CubemapVisibleEntities, Transform, Visibility)]
+#[require(
+    CubemapFrusta,
+    CubemapVisibleEntities,
+    LightShadows,
+    Transform,
+    Visibility
+)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
@@ -42,27 +48,6 @@ pub struct PointLight {
     /// not produce the intended result -- for example, light radius does not
     /// affect shadow softness or diffuse lighting.
     pub radius: f32,
-
-    /// Whether this light casts shadows.
-    pub shadows_enabled: bool,
-
-    /// Whether soft shadows are enabled.
-    ///
-    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
-    /// cause shadows to become blurrier (i.e. their penumbra increases in
-    /// radius) as they extend away from objects. The blurriness of the shadow
-    /// depends on the [`PointLight::radius`] of the light; larger lights result
-    /// in larger penumbras and therefore blurrier shadows.
-    ///
-    /// Currently, soft shadows are rather noisy if not using the temporal mode.
-    /// If you enable soft shadows, consider choosing
-    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
-    /// (TAA) to smooth the noise out over time.
-    ///
-    /// Note that soft shadows are significantly more expensive to render than
-    /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub soft_shadows_enabled: bool,
 
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
     /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
@@ -95,12 +80,9 @@ impl Default for PointLight {
             intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
-            #[cfg(feature = "experimental_pbr_pcss")]
-            soft_shadows_enabled: false,
         }
     }
 }

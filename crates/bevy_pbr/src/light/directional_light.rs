@@ -56,6 +56,7 @@ use super::*;
     CascadesFrusta,
     CascadeShadowConfig,
     CascadesVisibleEntities,
+    LightShadows,
     Transform,
     Visibility
 )]
@@ -73,30 +74,23 @@ pub struct DirectionalLight {
     /// area.
     pub illuminance: f32,
 
-    /// Whether this light casts shadows.
+    /// The angular size of this light in radians. This must be a value in the
+    /// range [0, π).
     ///
-    /// Note that shadows are rather expensive and become more so with every
-    /// light that casts them. In general, it's best to aggressively limit the
-    /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
-
-    /// Whether soft shadows are enabled, and if so, the size of the light.
+    /// The angular size of an object is how large it appears in one's field
+    /// of view. For example, if viewed from the surface of the Earth, if one
+    /// were to draw a line (specifically a *great circle*]) across the sky
+    /// through the center of the Sun, the Sun would cover roughly 0.5 degrees
+    /// of that circle, or 8.73e-3 radians.
     ///
-    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
-    /// cause shadows to become blurrier (i.e. their penumbra increases in
-    /// radius) as they extend away from objects. The blurriness of the shadow
-    /// depends on the size of the light; larger lights result in larger
-    /// penumbras and therefore blurrier shadows.
+    /// This value controls the radius of soft shadow penumbras, as well as
+    /// some volumetric lighting effects. See [`LightShadows`] for more
+    /// information on soft shadows.
     ///
-    /// Currently, soft shadows are rather noisy if not using the temporal mode.
-    /// If you enable soft shadows, consider choosing
-    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
-    /// (TAA) to smooth the noise out over time.
-    ///
-    /// Note that soft shadows are significantly more expensive to render than
-    /// hard shadows.
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub soft_shadow_size: Option<f32>,
+    /// Note that this is not the same thing as the *solid angle* (or "angular
+    /// area", roughly) that this light covers in the sky. That is a separate
+    /// measurement, with units of *steradians* rather than radians.
+    pub angular_size: f32,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
@@ -120,11 +114,9 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
+            angular_size: Self::SUN_ANGULAR_SIZE,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
-            #[cfg(feature = "experimental_pbr_pcss")]
-            soft_shadow_size: None,
         }
     }
 }
@@ -132,4 +124,5 @@ impl Default for DirectionalLight {
 impl DirectionalLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
+    pub const SUN_ANGULAR_SIZE: f32 = 8.72665e-3;
 }
