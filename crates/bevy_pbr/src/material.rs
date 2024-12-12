@@ -14,7 +14,8 @@ use bevy_core_pipeline::{
     },
     oit::OrderIndependentTransparencySettings,
     prepass::{
-        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
     },
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -907,10 +908,12 @@ pub fn queue_material_meshes<M: Material>(
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            draw_function: draw_alpha_mask_pbr,
-                            pipeline: pipeline_id,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: draw_alpha_mask_pbr,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_phase.add(
                             bin_key,
