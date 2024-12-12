@@ -4,6 +4,9 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_overlay;
+
 use crate::widget::ImageNode;
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
@@ -41,6 +44,8 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+#[cfg(feature = "bevy_ui_debug")]
+pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -98,6 +103,7 @@ pub enum RenderUiSystem {
     ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
+    ExtractDebug,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -125,6 +131,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
+                RenderUiSystem::ExtractDebug,
             )
                 .chain(),
         )
@@ -136,6 +143,8 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                #[cfg(feature = "bevy_ui_debug")]
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
             ),
         )
         .add_systems(
@@ -502,7 +511,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(computed_node.outline_width()),
+                        border: BorderRect::all(computed_node.outline_width()),
                         border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
