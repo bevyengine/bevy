@@ -951,10 +951,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBinKey {
-                                draw_function: opaque_draw_deferred,
-                                pipeline: pipeline_id,
+                                batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                    draw_function: opaque_draw_deferred,
+                                    pipeline: pipeline_id,
+                                    material_bind_group_index: Some(material.binding.group.0),
+                                },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -962,10 +964,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         opaque_phase.add(
                             OpaqueNoLightmap3dBinKey {
-                                draw_function: opaque_draw_prepass,
-                                pipeline: pipeline_id,
+                                batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                    draw_function: opaque_draw_prepass,
+                                    pipeline: pipeline_id,
+                                    material_bind_group_index: Some(material.binding.group.0),
+                                },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -976,10 +980,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            pipeline: pipeline_id,
-                            draw_function: alpha_mask_draw_deferred,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: alpha_mask_draw_deferred,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -988,10 +994,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            pipeline: pipeline_id,
-                            draw_function: alpha_mask_draw_prepass,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: alpha_mask_draw_prepass,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_phase.add(
                             bin_key,
