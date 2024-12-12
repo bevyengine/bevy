@@ -272,7 +272,7 @@ fn update_lightmaps(
             // Add or remove the lightmap from the sphere. We only apply the
             // lightmap in fully-baked mode.
             match (&lightmap, app_status.lighting_mode) {
-                (&Some(ref lightmap), LightingMode::Baked) => {
+                (Some(lightmap), LightingMode::Baked) => {
                     commands.entity(entity).insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect: SPHERE_UV_RECT,
