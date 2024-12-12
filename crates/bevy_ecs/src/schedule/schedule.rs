@@ -2050,7 +2050,7 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        prelude::{Res, Resource},
+        prelude::{ApplyDeferred, Res, Resource},
         schedule::{
             tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
             ScheduleBuildSettings, SystemSet,
@@ -2100,6 +2100,24 @@ mod tests {
 
         // inserted a sync point
         assert_eq!(schedule.executable.systems.len(), 3);
+    }
+
+    #[test]
+    fn explicit_sync_point_used_as_auto_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain());
+        schedule.run(&mut world);
+
+        // No sync point was inserted, since we can reuse the explicit sync point.
+        assert_eq!(schedule.executable.systems.len(), 5);
     }
 
     #[test]
