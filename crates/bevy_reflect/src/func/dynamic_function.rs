@@ -8,7 +8,6 @@ use crate::{
         DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
         IntoFunctionMut,
     },
-    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
@@ -426,10 +425,6 @@ impl PartialReflect for DynamicFunction<'static> {
 
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         Debug::fmt(self, f)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     fn is_dynamic(&self) -> bool {
