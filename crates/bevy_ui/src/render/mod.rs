@@ -511,7 +511,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(computed_node.outline_width()),
+                        border: BorderRect::all(computed_node.outline_width()),
                         border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
