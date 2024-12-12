@@ -69,7 +69,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     mesh::allocator::SlabId,
     render_phase::PhaseItemBinKey,
-    view::GpuCulling,
+    view::NoIndirectDrawing,
 };
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -569,20 +569,20 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<GpuCulling>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, has_gpu_culling) in &cameras_3d {
+    for (entity, camera, no_indirect_drawing) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
             GpuPreprocessingMode::Culling
         } else {
             GpuPreprocessingMode::PreprocessingOnly
@@ -616,7 +616,7 @@ pub fn extract_camera_prepass_phase(
             (
                 RenderEntity,
                 &Camera,
-                Has<GpuCulling>,
+                Has<NoIndirectDrawing>,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
@@ -633,7 +633,7 @@ pub fn extract_camera_prepass_phase(
     for (
         entity,
         camera,
-        gpu_culling,
+        no_indirect_drawing,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -646,7 +646,7 @@ pub fn extract_camera_prepass_phase(
 
         // If GPU culling is in use, use it (and indirect mode); otherwise, just
         // preprocess the meshes.
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if gpu_culling {
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
             GpuPreprocessingMode::Culling
         } else {
             GpuPreprocessingMode::PreprocessingOnly
