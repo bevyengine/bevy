@@ -241,6 +241,7 @@ impl Frustum {
 
     /// Returns a frustum derived from `clip_from_world`,
     /// but with a custom far plane.
+    /// If `far` is `None` behavior is identical to [`Frustum::from_clip_from_world`]
     #[inline]
     pub fn from_clip_from_world_custom_far(
         clip_from_world: &Mat4,
@@ -248,11 +249,16 @@ impl Frustum {
         view_backward: &Vec3,
         far: Option<f32>,
     ) -> Self {
-        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-        let far_center = *view_translation - far.unwrap_or_default() * *view_backward;
-        frustum.half_spaces[5] =
-            HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
-        frustum
+        match far {
+            None => Frustum::from_clip_from_world(clip_from_world),
+            Some(far) => {
+                let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
+                let far_center = *view_translation - far * *view_backward;
+                frustum.half_spaces[5] =
+                    HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
+                frustum
+            }
+        }
     }
 
     // NOTE: This approach of extracting the frustum half-space from the view
@@ -542,7 +548,7 @@ mod tests {
             fov: 90.0_f32.to_radians(),
             aspect_ratio: 1.0,
             near: 1.0,
-            far: 100.0,
+            far: Some(100.0),
         };
         proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
     }
@@ -550,7 +556,7 @@ mod tests {
     fn contains_aabb_test_frustum_with_rotation() -> Frustum {
         let half_extent_world = (((49.5 * 49.5) * 0.5) as f32).sqrt() + 0.5f32.sqrt();
         let near = 50.5 - half_extent_world;
-        let far = near + 2.0 * half_extent_world;
+        let far = Some(near + 2.0 * half_extent_world);
         let fov = 2.0 * ops::atan(half_extent_world / near);
         let proj = PerspectiveProjection {
             aspect_ratio: 1.0,

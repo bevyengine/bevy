@@ -618,7 +618,7 @@ pub fn update_point_light_frusta(
                 &clip_from_world,
                 &transform.translation(),
                 &view_backward,
-                point_light.range,
+                Some(point_light.range),
             );
         }
     }
@@ -654,7 +654,7 @@ pub fn update_spot_light_frusta(
             &clip_from_world,
             &transform.translation(),
             &view_backward,
-            spot_light.range,
+            Some(spot_light.range),
         );
     }
 }

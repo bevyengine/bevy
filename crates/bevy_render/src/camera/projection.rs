@@ -92,7 +92,7 @@ pub trait CameraProjection {
             &clip_from_world,
             &camera_transform.translation(),
             &camera_transform.back(),
-            self.far().unwrap_or_default(),
+            self.far(),
         )
     }
 }
@@ -176,7 +176,7 @@ pub struct PerspectiveProjection {
     ///
     /// Objects farther from the camera than this value will not be visible.
     ///
-    /// Defaults to None (infinite far plane)
+    /// Defaults to `None` (far plane is ignored for visibility checks)
     pub far: Option<f32>,
 }
 
@@ -260,7 +260,7 @@ impl Default for PerspectiveProjection {
         PerspectiveProjection {
             fov: core::f32::consts::PI / 4.0,
             near: 0.1,
-            far: Option::None,
+            far: None,
             aspect_ratio: 1.0,
         }
     }
@@ -354,7 +354,9 @@ pub struct OrthographicProjection {
     ///
     /// Objects further than this will not be rendered.
     ///
-    /// Defaults to None (infinite far plane)
+    /// Defaults to [`OrthographicProjection::DEFAULT_FAR_PLANE`].
+    ///
+    /// ie: `Some(1000.0)`.
     pub far: Option<f32>,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
     /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
@@ -408,7 +410,7 @@ impl CameraProjection for OrthographicProjection {
             self.area.max.y,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
-            self.far.unwrap_or_default(),
+            self.far.unwrap_or(Self::DEFAULT_FAR_PLANE),
             self.near,
         )
     }
@@ -451,7 +453,7 @@ impl CameraProjection for OrthographicProjection {
             top_prime,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
-            self.far,
+            self.far.unwrap_or(Self::DEFAULT_FAR_PLANE),
             self.near,
         )
     }
@@ -530,6 +532,8 @@ impl FromWorld for OrthographicProjection {
 }
 
 impl OrthographicProjection {
+    pub const DEFAULT_FAR_PLANE: f32 = 1000.0;
+
     /// Returns the default orthographic projection for a 2D context.
     ///
     /// The near plane is set to a negative value so that the camera can still
@@ -549,7 +553,7 @@ impl OrthographicProjection {
         OrthographicProjection {
             scale: 1.0,
             near: 0.0,
-            far: None,
+            far: Some(Self::DEFAULT_FAR_PLANE),
             viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize,
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
