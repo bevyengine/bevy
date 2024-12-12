@@ -62,6 +62,7 @@ fn setup_scene(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
+        ..default()
     });
     commands.insert_resource(CameraMode::Chase);
     commands.spawn((

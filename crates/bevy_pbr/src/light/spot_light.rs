@@ -60,6 +60,18 @@ pub struct SpotLight {
     #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
 
+    /// Whether this spot light contributes diffuse lighting to meshes with
+    /// lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the direct diffuse
+    /// light from this directional light into the lightmaps in order to avoid
+    /// counting the radiance from this light twice. Note that the specular
+    /// portion of the light is always considered, because Bevy currently has no
+    /// means to bake specular light.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_mesh_diffuse: bool,
+
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
     ///
@@ -116,6 +128,7 @@ impl Default for SpotLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
+            affects_lightmapped_mesh_diffuse: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,

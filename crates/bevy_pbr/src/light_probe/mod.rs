@@ -125,6 +125,10 @@ struct RenderLightProbe {
     ///
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
+
+    /// Whether this light probe adds to the diffuse contribution of the
+    /// irradiance for meshes with lightmaps.
+    affects_lightmapped_mesh_diffuse: u32,
 }
 
 /// A per-view shader uniform that specifies all the light probes that the view
@@ -158,6 +162,12 @@ pub struct LightProbesUniform {
     ///
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity_for_view: f32,
+
+    /// Whether the environment map attached to the view affects the diffuse
+    /// lighting for lightmapped meshes.
+    ///
+    /// This will be 1 if the map does affect lightmapped meshes or 0 otherwise.
+    view_environment_map_affects_lightmapped_mesh_diffuse: u32,
 }
 
 /// A GPU buffer that stores information about all light probes.
@@ -190,6 +200,10 @@ where
     //
     // See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
+
+    // Whether this light probe adds to the diffuse contribution of the
+    // irradiance for meshes with lightmaps.
+    affects_lightmapped_mesh_diffuse: bool,
 
     // The IDs of all assets associated with this light probe.
     //
@@ -278,6 +292,10 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// This is a scaling factor that will be multiplied by the value or values
     /// sampled from the texture.
     fn intensity(&self) -> f32;
+
+    /// Returns true if this light probe contributes diffuse lighting to meshes
+    /// with lightmaps or false otherwise.
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool;
 
     /// Creates an instance of [`RenderViewLightProbes`] containing all the
     /// information needed to render this light probe.
@@ -537,6 +555,9 @@ fn upload_light_probes(
             intensity_for_view: render_view_environment_maps
                 .map(|maps| maps.view_light_probe_info.intensity)
                 .unwrap_or(1.0),
+            view_environment_map_affects_lightmapped_mesh_diffuse: render_view_environment_maps
+                .map(|maps| maps.view_light_probe_info.affects_lightmapped_mesh_diffuse as u32)
+                .unwrap_or(1),
         };
 
         // Add any environment maps that [`gather_light_probes`] found to the
@@ -576,6 +597,7 @@ impl Default for LightProbesUniform {
             view_cubemap_index: -1,
             smallest_specular_mip_level_for_view: 0,
             intensity_for_view: 1.0,
+            view_environment_map_affects_lightmapped_mesh_diffuse: 1,
         }
     }
 }
@@ -596,6 +618,7 @@ where
             light_from_world: light_probe_transform.compute_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
+            affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
         })
     }
 
@@ -693,6 +716,8 @@ where
                 ],
                 texture_index: cubemap_index as i32,
                 intensity: light_probe.intensity,
+                affects_lightmapped_mesh_diffuse: light_probe.affects_lightmapped_mesh_diffuse
+                    as u32,
             });
         }
     }
@@ -707,6 +732,7 @@ where
             light_from_world: self.light_from_world,
             world_from_light: self.world_from_light,
             intensity: self.intensity,
+            affects_lightmapped_mesh_diffuse: self.affects_lightmapped_mesh_diffuse,
             asset_id: self.asset_id.clone(),
         }
     }
