@@ -8,12 +8,14 @@ use crate::world::{Command, World};
 pub struct SendEvent<E: Event> {
     /// The event to send.
     pub event: E,
+    /// The source code location that triggered this command.
     #[cfg(feature = "track_change_detection")]
     pub caller: &'static Location<'static>,
 }
 
 // This does not use `From`, as the resulting `Into` is not track_caller
 impl<E: Event> SendEvent<E> {
+    /// Constructs a new `SendEvent` tracking the caller.
     pub fn new(event: E) -> Self {
         Self {
             event,
