@@ -45,6 +45,20 @@ impl BorderRect {
     }
 }
 
+impl core::ops::Neg for BorderRect {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self {
+        Self {
+            left: -self.left,
+            right: -self.right,
+            top: -self.top,
+            bottom: -self.bottom,
+        }
+    }
+}
+
 impl From<f32> for BorderRect {
     fn from(extent: f32) -> Self {
         Self::all(extent)

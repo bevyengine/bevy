@@ -366,6 +366,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
+            node.bypass_change_detection().margin = taffy_rect_to_border_rect(layout.margin);
 
             let viewport_size = root_size.unwrap_or(node.size);
 
