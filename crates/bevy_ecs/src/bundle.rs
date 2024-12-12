@@ -889,11 +889,13 @@ pub(crate) struct BundleInserter<'w> {
     archetype_after_insert: ConstNonNull<ArchetypeAfterBundleInsert>,
     table: NonNull<Table>,
     archetype: NonNull<Archetype>,
-    result: InsertBundleResult,
+    archetype_move_type: ArchetypeMoveType,
     change_tick: Tick,
 }
 
-pub(crate) enum InsertBundleResult {
+/// The type of archetype move (or lack thereof) that will result from a bundle
+/// being inserted into an entity.
+pub(crate) enum ArchetypeMoveType {
     /// If the entity already has all of the components that are being inserted,
     /// its archetype won't change.
     SameArchetype,
@@ -945,7 +947,7 @@ impl<'w> BundleInserter<'w> {
         );
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
-            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
+            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
@@ -959,14 +961,14 @@ impl<'w> BundleInserter<'w> {
                 archetype: archetype.into(),
                 bundle_info: bundle_info.into(),
                 table: table.into(),
-                result: InsertBundleResult::SameArchetype,
+                archetype_move_type: ArchetypeMoveType::SameArchetype,
                 change_tick,
                 world: world.as_unsafe_world_cell(),
             }
         } else {
             let (archetype, new_archetype) =
                 world.archetypes.get_2_mut(archetype_id, new_archetype_id);
-            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
+            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
@@ -982,7 +984,7 @@ impl<'w> BundleInserter<'w> {
                     archetype: archetype.into(),
                     bundle_info: bundle_info.into(),
                     table: table.into(),
-                    result: InsertBundleResult::NewArchetypeSameTable {
+                    archetype_move_type: ArchetypeMoveType::NewArchetypeSameTable {
                         new_archetype: new_archetype.into(),
                     },
                     change_tick,
@@ -995,7 +997,7 @@ impl<'w> BundleInserter<'w> {
                     archetype: archetype.into(),
                     bundle_info: bundle_info.into(),
                     table: table.into(),
-                    result: InsertBundleResult::NewArchetypeNewTable {
+                    archetype_move_type: ArchetypeMoveType::NewArchetypeNewTable {
                         new_archetype: new_archetype.into(),
                         new_table: new_table.into(),
                     },
@@ -1049,8 +1051,8 @@ impl<'w> BundleInserter<'w> {
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
-        let (new_archetype, new_location) = match &mut self.result {
-            InsertBundleResult::SameArchetype => {
+        let (new_archetype, new_location) = match &mut self.archetype_move_type {
+            ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let sparse_sets = {
                     let world = self.world.world_mut();
@@ -1073,7 +1075,7 @@ impl<'w> BundleInserter<'w> {
 
                 (archetype, location)
             }
-            InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
+            ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
@@ -1115,7 +1117,7 @@ impl<'w> BundleInserter<'w> {
 
                 (new_archetype, new_location)
             }
-            InsertBundleResult::NewArchetypeNewTable {
+            ArchetypeMoveType::NewArchetypeNewTable {
                 new_archetype,
                 new_table,
             } => {
