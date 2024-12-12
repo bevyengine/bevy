@@ -14,7 +14,7 @@ pub struct SendEvent<E: Event> {
 
 // This does not use `From`, as the resulting `Into` is not track_caller
 impl<E: Event> SendEvent<E> {
-    fn new(event: E) -> Self {
+    pub fn new(event: E) -> Self {
         Self {
             event,
             #[cfg(feature = "track_change_detection")]
