@@ -116,6 +116,7 @@ Example | Description
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
+[Multiple Sprites, One Parent Entity](../examples/2d/multiple_sprites_one_parent_entity.rs) | Constructs a large parent entity composed of multiple sprites
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
