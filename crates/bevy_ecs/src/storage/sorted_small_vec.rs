@@ -21,14 +21,22 @@ impl<const N: usize> Default for SortedSmallVec<N> {
 }
 
 impl<const N: usize> SortedSmallVec<N> {
+    /// Construct an empty vector
     pub fn new() -> Self {
         Self(SmallVec::new())
     }
 
+    /// Construct an empty vector
+    ///
+    /// This is a `const` version of [`SortedSmallVec::new()`]
     pub const fn new_const() -> Self {
         Self(SmallVec::new_const())
     }
 
+    /// Construct a new `SortedSmallVec` from a `Vec<usize>`.
+    ///
+    /// Elements are copied and put in a sorted order if the original `Vec` isn't ordered.
+    /// Duplicates are removed.
     pub fn from_vec(vec: Vec<usize>) -> Self {
         let mut sorted_vec = Self(SmallVec::with_capacity(vec.len()));
         for value in vec {
@@ -79,6 +87,7 @@ impl<const N: usize> SortedSmallVec<N> {
         self.0.clear();
     }
 
+    /// Returns the number of elements in the vector.
     pub fn len(&self) -> usize {
         self.0.len()
     }
