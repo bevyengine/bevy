@@ -986,8 +986,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// sent, consider using a typed [`EventWriter`] instead.
     ///
     /// [`EventWriter`]: crate::event::EventWriter
+    #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.queue(SendEvent { event });
+        self.queue(SendEvent {
+            event,
+            #[cfg(feature = "track_change_detection")]
+            caller: Location::caller(),
+        });
         self
     }
 
