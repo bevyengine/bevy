@@ -1659,6 +1659,7 @@ name = "HTTP Asset Source"
 description = "Load an asset from a http source"
 category = "Assets"
 wasm = true
+required-features = ["http_source"]
 
 [[example]]
 name = "hot_asset_reloading"
