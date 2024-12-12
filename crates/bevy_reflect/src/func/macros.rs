@@ -221,10 +221,28 @@ pub(crate) use count_tokens;
 /// - `RETURN`: `->` Type | _none_
 ///   - If present, defines the return type of the function.
 ///     Otherwise, the return type is assumed to be `()`.
-/// - `BLOCK`: Block
-///   - The block of code that the function will execute.
+/// - `BLOCK`: Block | _none_
+///   - Optional if `NAME` is an Identifier of a function in scope.
+///     In such cases, a Block will be generated that calls `NAME` with `ARGS`.
+///   - Otherwise, if present, defines the block of code that the function will execute.
 ///
 /// # Examples
+///
+/// Using a function already in scope:
+///
+/// ```
+/// # use bevy_reflect::func::ArgList;
+/// # use bevy_reflect::reflect_fn;
+/// fn add(a: i32, b: i32) -> i32 {
+///     a + b
+/// }
+///
+/// let func = reflect_fn!(fn add(a: i32, b: i32) -> i32);
+///
+/// let args = ArgList::new().push_owned(1).push_owned(2);
+/// let result = func.call(args).unwrap().unwrap_owned();
+/// assert_eq!(result.try_downcast_ref(), Some(&3));
+/// ```
 ///
 /// Defining anonymous functions:
 ///
@@ -349,6 +367,15 @@ macro_rules! reflect_fn {
         let temp: () = $block;
         temp
     }};
+    (@call $name:ident ($($arg_name:ident),*) $block:block) => {
+        $block
+    };
+    (@call $name:ident ($($arg_name:ident),*)) => {{
+        // We could potentially coerce the function to a `fn` pointer here using the given types,
+        // but that shouldn't really be necessary since it wouldn't compile anyways if given
+        // incorrect argument types.
+        $name($($arg_name),*)
+    }};
 
     // === Anonymous === //
     (fn ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $block:block) => {
@@ -379,17 +406,17 @@ macro_rules! reflect_fn {
     };
 
     // === Ident Named === //
-    (fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $block:block) => {
-        $crate::reflect_fn!(@main [] [] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? $block)
+    (fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $($block:block)?) => {
+        $crate::reflect_fn!(@main [] [] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? {$crate::reflect_fn!(@call $name ($($arg_name),*) $($block)?)})
     };
-    (mut fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $block:block) => {
-        $crate::reflect_fn!(@main [mut] [] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? $block)
+    (mut fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $($block:block)?) => {
+        $crate::reflect_fn!(@main [mut] [] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? {$crate::reflect_fn!(@call $name ($($arg_name),*) $($block)?)})
     };
-    (move fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $block:block) => {
-        $crate::reflect_fn!(@main [] [move] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? $block)
+    (move fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $($block:block)?) => {
+        $crate::reflect_fn!(@main [] [move] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? {$crate::reflect_fn!(@call $name ($($arg_name),*) $($block)?)})
     };
-    (mut move fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $block:block) => {
-        $crate::reflect_fn!(@main [mut] [move] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? $block)
+    (mut move fn $name:ident ($($(mut)? $arg_name:ident : $arg_ty:ty),* $(,)?) $(-> $ret_ty:ty)? $($block:block)?) => {
+        $crate::reflect_fn!(@main [mut] [move] fn {::core::stringify!($name)} ($($arg_name : $arg_ty),*) $(-> $ret_ty)? {$crate::reflect_fn!(@call $name ($($arg_name),*) $($block)?)})
     };
 
     // === Literal Named === //
