@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 /// Stores a sorted list of indices with quick implementation for union, difference, intersection.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -29,7 +29,7 @@ impl<const N: usize> SortedSmallVec<N> {
     /// Construct an empty vector
     ///
     /// This is a `const` version of [`SortedSmallVec::new()`]
-    pub const fn new_const() -> Self {
+    pub(crate) const fn new_const() -> Self {
         Self(SmallVec::new_const())
     }
 
@@ -51,7 +51,7 @@ impl<const N: usize> SortedSmallVec<N> {
 
     /// Insert the value if it's not already present in the vector.
     /// Maintains a sorted order.
-    pub fn insert(&mut self, index: usize) {
+    pub(crate) fn insert(&mut self, index: usize) {
         match self.0.binary_search(&index) {
             // element already present in the vector
             Ok(_) => {}
@@ -62,18 +62,14 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Removes a value if it's present in the vector
-    pub fn remove(&mut self, index: usize) {
-        match self.0.binary_search(&index) {
-            Ok(pos) => {
-                self.0.remove(pos);
-            }
-            // element is not there
-            Err(_) => {}
+    pub(crate) fn remove(&mut self, index: usize) {
+        if let Ok(pos) = self.0.binary_search(&index) {
+            self.0.remove(pos);
         }
-    }
+   }
 
     /// Returns true if the vector contains the value.
-    pub fn contains(&self, index: usize) -> bool {
+    pub(crate) fn contains(&self, index: usize) -> bool {
         self.0.binary_search(&index).is_ok()
     }
 
@@ -88,12 +84,12 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Returns the number of elements in the vector.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Adds all the elements from `other` into this vector. (skipping duplicates)
-    pub fn union_with(&mut self, other: &Self) {
+    pub(crate) fn union_with(&mut self, other: &Self) {
         let mut i = 0;
         let mut j = 0;
         while i < self.len() && j < other.len() {
@@ -116,7 +112,7 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Returns the elements that are in both `self` and `other`.
-    pub fn intersection<'a>(&'a self, other: &'a Self) -> Intersection<'a, N> {
+    pub(crate) fn intersection<'a>(&'a self, other: &'a Self) -> Intersection<'a, N> {
         Intersection {
             this: self,
             other,
@@ -126,7 +122,7 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Return the elements that are in `self` but not in `other`.
-    pub fn difference<'a>(&'a self, other: &'a Self) -> Difference<'a, N> {
+    pub(crate) fn difference<'a>(&'a self, other: &'a Self) -> Difference<'a, N> {
         Difference {
             this: self,
             other,
@@ -136,12 +132,12 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Returns true if the two vectors have no common elements.
-    pub fn is_disjoint(&self, other: &Self) -> bool {
+    pub(crate) fn is_disjoint(&self, other: &Self) -> bool {
         self.intersection(other).next().is_none()
     }
 
     /// Returns true if all the elements in `self` are also in `other`.
-    pub fn is_subset(&self, other: &Self) -> bool {
+    pub(crate) fn is_subset(&self, other: &Self) -> bool {
         self.difference(other).next().is_none()
     }
 }
@@ -175,7 +171,7 @@ impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
 }
 
 /// Intersection between `this` and `other` sorted vectors.
-pub struct Intersection<'a, const N: usize> {
+pub(crate) struct Intersection<'a, const N: usize> {
     this: &'a SortedSmallVec<N>,
     other: &'a SortedSmallVec<N>,
     i: usize,
@@ -205,10 +201,10 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     }
 }
 
-impl<'a, const N: usize> Into<SortedSmallVec<N>> for Intersection<'a, N> {
-    fn into(self) -> SortedSmallVec<N> {
+impl<'a, const N: usize> From<Intersection<'a, N>> for SortedSmallVec<N> {
+    fn from(intersection: Intersection<'a, N>) -> Self {
         let mut sorted_vec = SortedSmallVec::new_const();
-        for value in self.into_iter() {
+        for value in intersection.into_iter() {
             sorted_vec.insert(value);
         }
         sorted_vec
@@ -216,7 +212,7 @@ impl<'a, const N: usize> Into<SortedSmallVec<N>> for Intersection<'a, N> {
 }
 
 /// Difference between `this` and `other` sorted vectors.
-pub struct Difference<'a, const N: usize> {
+pub(crate) struct Difference<'a, const N: usize> {
     this: &'a SortedSmallVec<N>,
     other: &'a SortedSmallVec<N>,
     i: usize,
@@ -252,10 +248,10 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
     }
 }
 
-impl<'a, const N: usize> Into<SortedSmallVec<N>> for Difference<'a, N> {
-    fn into(self) -> SortedSmallVec<N> {
+impl<'a, const N: usize> From<Difference<'a, N>> for SortedSmallVec<N> {
+    fn from(difference: Difference<'a, N>) -> Self {
         let mut sorted_vec = SortedSmallVec::new_const();
-        for value in self.into_iter() {
+        for value in difference.into_iter() {
             sorted_vec.insert(value);
         }
         sorted_vec
