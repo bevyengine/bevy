@@ -479,8 +479,6 @@ pub fn prepare_shadows(
                         box_shadow.radius.bottom_left,
                     ];
 
-                    //let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
-
                     let uvs = [
                         Vec2::new(
                             uinode_rect.min.x + positions_diff[0].x,
