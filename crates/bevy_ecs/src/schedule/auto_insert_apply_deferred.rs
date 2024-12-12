@@ -82,7 +82,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> =
+        let mut distances: HashMap<usize, u32> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
             let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
@@ -94,21 +94,18 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 let weight = if add_sync_on_edge { 1 } else { 0 };
 
+                // Use whichever distance is larger, either the current distance, or the distance to
+                // the parent plus the weight.
                 let distance = distances
                     .get(&target.index())
-                    .unwrap_or(&None)
-                    .or(Some(0))
-                    .map(|distance| {
-                        distance.max(
-                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
-                        )
-                    });
+                    .copied()
+                    .unwrap_or_default()
+                    .max(distances.get(&node.index()).copied().unwrap_or_default() + weight);
 
                 distances.insert(target.index(), distance);
 
                 if add_sync_on_edge {
-                    let sync_point =
-                        self.get_sync_point(graph, distances[&target.index()].unwrap());
+                    let sync_point = self.get_sync_point(graph, distances[&target.index()]);
                     sync_point_graph.add_edge(*node, sync_point);
                     sync_point_graph.add_edge(sync_point, target);
 
