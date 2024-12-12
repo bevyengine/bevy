@@ -17,7 +17,9 @@ impl Prepare for TestCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}"
+                // Test most targets except for doc-tests, examples, and benchmarks. This is based
+                // of of the list at <https://doc.rust-lang.org/cargo/commands/cargo-test.html#target-selection>.
+                "cargo test --workspace --lib --bins --tests {no_fail_fast}"
             ),
             "Please fix failing tests in output above.",
         )]
