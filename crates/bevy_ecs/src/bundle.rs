@@ -821,7 +821,7 @@ impl BundleInfo {
                         match component_info.storage_type() {
                             StorageType::Table => removed_table_components.push(component_id),
                             StorageType::SparseSet => {
-                                removed_sparse_set_components.push(component_id)
+                                removed_sparse_set_components.push(component_id);
                             }
                         }
                     } else if !intersection {

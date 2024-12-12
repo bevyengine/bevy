@@ -582,11 +582,11 @@ impl Archetype {
         self.entities.reserve(additional);
     }
 
-    /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
+    /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
     /// # Panics
-    /// This function will panic if `index >= self.len()`
+    /// This function will panic if `row >= self.entities.len()`
     #[inline]
     pub(crate) fn swap_remove(&mut self, row: ArchetypeRow) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
