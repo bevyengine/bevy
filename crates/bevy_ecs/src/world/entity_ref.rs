@@ -1649,16 +1649,17 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = bundle_info.remove_bundle_from_archetype(
-            &mut world.archetypes,
-            &mut world.storages,
-            &world.components,
-            &world.observers,
-            location.archetype_id,
-            // components from the bundle that are not present on the entity are ignored
-            true,
-        )
-        .expect("intersections should always return a result");
+        let new_archetype_id = bundle_info
+            .remove_bundle_from_archetype(
+                &mut world.archetypes,
+                &mut world.storages,
+                &world.components,
+                &world.observers,
+                location.archetype_id,
+                // components from the bundle that are not present on the entity are ignored
+                true,
+            )
+            .expect("intersections should always return a result");
 
         if new_archetype_id == location.archetype_id {
             return location;
@@ -3267,116 +3268,6 @@ unsafe fn insert_dynamic_bundle<
             core::panic::Location::caller(),
         )
     }
-}
-
-/// Removes a bundle from the given archetype and returns the resulting archetype
-/// (or `None` if the removal was invalid).
-/// This could be the same [`ArchetypeId`], in the event that removing the given bundle
-/// does not result in an [`Archetype`] change.
-///
-/// Results are cached in the [`Archetype`] graph to avoid redundant work.
-///
-/// If `intersection` is false, attempting to remove a bundle with components not contained in the
-/// current archetype will fail, returning `None`.
-///
-/// If `intersection` is true, components in the bundle but not in the current archetype
-/// will be ignored.
-///
-/// # Safety
-/// `archetype_id` must exist and components in `bundle_info` must exist
-pub(crate) unsafe fn remove_bundle_from_archetype(
-    &self,
-    archetypes: &mut Archetypes,
-    storages: &mut Storages,
-    components: &Components,
-    observers: &Observers,
-    archetype_id: ArchetypeId,
-    intersection: bool,
-) -> Option<ArchetypeId> {
-    // Check the archetype graph to see if the bundle has been
-    // removed from this archetype in the past.
-    let archetype_after_remove_result = {
-        let edges = archetypes[archetype_id].edges();
-        if intersection {
-            edges.get_archetype_after_bundle_remove(self.id())
-        } else {
-            edges.get_archetype_after_bundle_take(self.id())
-        }
-    };
-    let result = if let Some(result) = archetype_after_remove_result {
-        // This bundle removal result is cached. Just return that!
-        result
-    } else {
-        let mut next_table_components;
-        let mut next_sparse_set_components;
-        let next_table_id;
-        {
-            let current_archetype = &mut archetypes[archetype_id];
-            let mut removed_table_components = Vec::new();
-            let mut removed_sparse_set_components = Vec::new();
-            for component_id in self.iter_explicit_components() {
-                if current_archetype.contains(component_id) {
-                    // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = unsafe { components.get_info_unchecked(component_id) };
-                    match component_info.storage_type() {
-                        StorageType::Table => removed_table_components.push(component_id),
-                        StorageType::SparseSet => removed_sparse_set_components.push(component_id),
-                    }
-                } else if !intersection {
-                    // A component in the bundle was not present in the entity's archetype, so this
-                    // removal is invalid. Cache the result in the archetype graph.
-                    current_archetype
-                        .edges_mut()
-                        .cache_archetype_after_bundle_take(self.id(), None);
-                    return None;
-                }
-            }
-
-            // Sort removed components so we can do an efficient "sorted remove".
-            // Archetype components are already sorted.
-            removed_table_components.sort_unstable();
-            removed_sparse_set_components.sort_unstable();
-            next_table_components = current_archetype.table_components().collect();
-            next_sparse_set_components = current_archetype.sparse_set_components().collect();
-            sorted_remove(&mut next_table_components, &removed_table_components);
-            sorted_remove(
-                &mut next_sparse_set_components,
-                &removed_sparse_set_components,
-            );
-
-            next_table_id = if removed_table_components.is_empty() {
-                current_archetype.table_id()
-            } else {
-                // SAFETY: all components in next_table_components exist
-                unsafe {
-                    storages
-                        .tables
-                        .get_id_or_insert(&next_table_components, components)
-                }
-            };
-        }
-
-        let new_archetype_id = archetypes.get_id_or_insert(
-            components,
-            observers,
-            next_table_id,
-            next_table_components,
-            next_sparse_set_components,
-        );
-        Some(new_archetype_id)
-    };
-    let current_archetype = &mut archetypes[archetype_id];
-    // Cache the result in an edge.
-    if intersection {
-        current_archetype
-            .edges_mut()
-            .cache_archetype_after_bundle_remove(self.id(), result);
-    } else {
-        current_archetype
-            .edges_mut()
-            .cache_archetype_after_bundle_take(self.id(), result);
-    }
-    result
 }
 
 /// Moves component data out of storage.

@@ -489,13 +489,13 @@ impl BundleInfo {
     ///
     /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
     /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added).
-    /// 
+    ///
     /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
     /// should be `Existing`. If the original archetype does not have `ComponentA`, the status should be `Added`.
-    /// 
+    ///
     /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`]
     /// should be used, which will report `Added` vs `Existing` status based on the current archetype's structure.
-    /// 
+    ///
     /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
     /// to look up the [`ArchetypeAfterBundleInsert`] in the archetype graph, which requires
     /// ownership of the entity's current archetype.
@@ -820,7 +820,9 @@ impl BundleInfo {
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
                             StorageType::Table => removed_table_components.push(component_id),
-                            StorageType::SparseSet => removed_sparse_set_components.push(component_id),
+                            StorageType::SparseSet => {
+                                removed_sparse_set_components.push(component_id)
+                            }
                         }
                     } else if !intersection {
                         // A component in the bundle was not present in the entity's archetype, so this
