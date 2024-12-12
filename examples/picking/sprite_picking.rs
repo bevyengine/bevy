@@ -88,20 +88,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[derive(Component)]
-struct AnimationIndices {
-    first: usize,
-    last: usize,
-}
-
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+    mut query: Query<(&mut AnimationTimer, &mut Sprite)>,
 ) {
-    for (indices, mut timer, mut sprite) in &mut query {
+    for (mut timer, mut sprite) in &mut query {
         let Some(texture_atlas) = &mut sprite.texture_atlas else {
             continue;
         };
@@ -109,11 +103,7 @@ fn animate_sprite(
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            texture_atlas.index = if texture_atlas.index == indices.last {
-                indices.first
-            } else {
-                texture_atlas.index + 1
-            };
+            texture_atlas.advance_index();
         }
     }
 }
@@ -126,19 +116,18 @@ fn setup_atlas(
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::new(24, 24), 7, 1, None, None);
     let texture_atlas_layout_handle = texture_atlas_layouts.add(layout);
-    // Use only the subset of sprites in the sheet that make up the run animation
-    let animation_indices = AnimationIndices { first: 1, last: 6 };
+
     commands
         .spawn((
             Sprite::from_atlas_image(
                 texture_handle,
                 TextureAtlas {
                     layout: texture_atlas_layout_handle,
-                    index: animation_indices.first,
+                    index: 1,
+                    index_range: (1, 6)
                 },
             ),
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
-            animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         ))
         .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
