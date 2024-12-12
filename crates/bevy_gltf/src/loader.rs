@@ -923,7 +923,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {

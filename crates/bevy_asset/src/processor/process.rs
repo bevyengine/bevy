@@ -326,14 +326,7 @@ impl<'a> ProcessContext<'a> {
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
-                self.path,
-                Box::new(meta),
-                &*loader,
-                &mut reader,
-                false,
-                true,
-            )
+            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
         for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info
