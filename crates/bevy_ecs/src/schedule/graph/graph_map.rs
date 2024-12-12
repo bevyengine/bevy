@@ -4,6 +4,7 @@
 //!
 //! [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 
+use alloc::vec::Vec;
 use bevy_utils::{hashbrown::HashSet, FixedHasher};
 use core::{
     fmt,

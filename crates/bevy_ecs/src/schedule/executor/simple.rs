@@ -1,7 +1,7 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 use crate::{
     schedule::{
@@ -100,13 +100,22 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            let f = AssertUnwindSafe(|| {
                 // TODO: implement an error-handling API instead of suppressing a possible failure.
                 let _ = __rust_begin_short_backtrace::run(system, world);
-            }));
-            if let Err(payload) = res {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                std::panic::resume_unwind(payload);
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
             }
         }
 

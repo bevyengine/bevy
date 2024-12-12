@@ -4,6 +4,7 @@ use crate::{
     observer::ObserverState,
     world::{DeferredWorld, World},
 };
+use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]

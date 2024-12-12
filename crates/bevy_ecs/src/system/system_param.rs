@@ -16,6 +16,7 @@ use crate::{
         FromWorld, World,
     },
 };
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
