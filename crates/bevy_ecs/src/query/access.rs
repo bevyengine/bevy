@@ -858,13 +858,17 @@ impl AccessConflicts {
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
-        Self::Individual(SortedSmallVec::const_new())
+        Self::Individual(SortedSmallVec::new_const())
     }
 }
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        Self::Individual(value.iter().map(T::sparse_set_index).collect())
+        let mut conflicts = SortedSmallVec::new_const();
+        for index in value.iter().map(|a| T::sparse_set_index(a)) {
+            conflicts.insert(index);
+        }
+        Self::Individual(conflicts)
     }
 }
 
@@ -874,7 +878,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_everything() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: SortedSmallVec::new_const(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -884,7 +888,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_nothing() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: SortedSmallVec::new_const(),
             filter_sets: Vec::new(),
         }
     }
@@ -926,7 +930,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     fn add_required(&mut self, index: T) {
-        self.required.grow_and_insert(index.sparse_set_index());
+        self.required.insert(index.sparse_set_index());
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -935,7 +939,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
         for filter in &mut self.filter_sets {
-            filter.with.grow_and_insert(index.sparse_set_index());
+            filter.with.insert(index.sparse_set_index());
         }
     }
 
@@ -945,7 +949,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
         for filter in &mut self.filter_sets {
-            filter.without.grow_and_insert(index.sparse_set_index());
+            filter.without.insert(index.sparse_set_index());
         }
     }
 
@@ -1068,8 +1072,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
 #[derive(Eq, PartialEq)]
 pub(crate) struct AccessFilters<T> {
-    pub(crate) with: FixedBitSet,
-    pub(crate) without: FixedBitSet,
+    pub(crate) with: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    pub(crate) without: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     _index_type: PhantomData<T>,
 }
 
@@ -1092,8 +1096,8 @@ impl<T: SparseSetIndex> Clone for AccessFilters<T> {
 impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AccessFilters")
-            .field("with", &FormattedBitSet::<T>::new(&self.with))
-            .field("without", &FormattedBitSet::<T>::new(&self.without))
+            .field("with", &self.with)
+            .field("without", &self.without)
             .finish()
     }
 }
@@ -1101,8 +1105,8 @@ impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
 impl<T: SparseSetIndex> Default for AccessFilters<T> {
     fn default() -> Self {
         Self {
-            with: FixedBitSet::default(),
-            without: FixedBitSet::default(),
+            with: SortedSmallVec::new_const(),
+            without: SortedSmallVec::new_const(),
             _index_type: PhantomData,
         }
     }
@@ -1276,9 +1280,9 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{
+    use crate::{query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
-    };
+    }, storage::SortedSmallVec};
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 
@@ -1308,8 +1312,8 @@ mod tests {
     fn create_sample_access_filters() -> AccessFilters<usize> {
         let mut access_filters = AccessFilters::<usize>::default();
 
-        access_filters.with.grow_and_insert(3);
-        access_filters.without.grow_and_insert(5);
+        access_filters.with.insert(3);
+        access_filters.without.insert(5);
 
         access_filters
     }
@@ -1382,8 +1386,8 @@ mod tests {
         let original: AccessFilters<usize> = create_sample_access_filters();
         let mut cloned = AccessFilters::<usize>::default();
 
-        cloned.with.grow_and_insert(1);
-        cloned.without.grow_and_insert(2);
+        cloned.with.insert(1);
+        cloned.without.insert(2);
 
         cloned.clone_from(&original);
 
@@ -1537,13 +1541,13 @@ mod tests {
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),
-                without: FixedBitSet::default(),
+                with: SortedSmallVec::from_vec(vec![0, 1, 2]),
+                without: SortedSmallVec::new_const(),
                 _index_type: PhantomData,
             },
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
-                without: FixedBitSet::with_capacity_and_blocks(5, [0b10000]),
+                with: SortedSmallVec::from_vec(vec![0, 1, 3]),
+                without: SortedSmallVec::from_vec(vec![4]),
                 _index_type: PhantomData,
             },
         ];

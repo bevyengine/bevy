@@ -29,6 +29,14 @@ impl<const N: usize> SortedSmallVec<N> {
         Self(SmallVec::new_const())
     }
 
+    pub fn from_vec(vec: Vec<usize>) -> Self {
+        let mut sorted_vec = Self(SmallVec::with_capacity(vec.len()));
+        for value in vec {
+            sorted_vec.insert(value);
+        }
+        sorted_vec
+    }
+
     pub(crate) fn ones(&self) -> impl Iterator<Item = usize> + '_ {
         self.0.iter().copied()
     }
@@ -42,6 +50,17 @@ impl<const N: usize> SortedSmallVec<N> {
             Err(pos) => {
                 self.0.insert(pos, index);
             }
+        }
+    }
+
+    /// Removes a value if it's present in the vector
+    pub fn remove(&mut self, index: usize) {
+        match self.0.binary_search(&index) {
+            Ok(pos) => {
+                self.0.remove(pos);
+            }
+            // element is not there
+            Err(_) => {}
         }
     }
 
@@ -147,7 +166,7 @@ impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
 }
 
 /// Intersection between `this` and `other` sorted vectors.
-struct Intersection<'a, const N: usize> {
+pub struct Intersection<'a, const N: usize> {
     this: &'a SortedSmallVec<N>,
     other: &'a SortedSmallVec<N>,
     i: usize,
@@ -188,7 +207,7 @@ impl<'a, const N: usize> Into<SortedSmallVec<N>> for Intersection<'a, N> {
 }
 
 /// Difference between `this` and `other` sorted vectors.
-struct Difference<'a, const N: usize> {
+pub struct Difference<'a, const N: usize> {
     this: &'a SortedSmallVec<N>,
     other: &'a SortedSmallVec<N>,
     i: usize,
