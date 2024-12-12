@@ -218,7 +218,7 @@ mod gltf {
         ));
         commands.spawn((
             SceneRoot(asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+                GltfAssetLabel::scene("0").from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
             StateScoped(CURRENT_SCENE),
         ));
@@ -245,7 +245,7 @@ mod animation {
         mut graphs: ResMut<Assets<AnimationGraph>>,
     ) {
         let (graph, node) = AnimationGraph::from_clip(
-            asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
+            asset_server.load(GltfAssetLabel::animation("2").from_asset(FOX_PATH)),
         );
 
         let graph_handle = graphs.add(graph);
@@ -271,7 +271,7 @@ mod animation {
 
         commands
             .spawn((
-                SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
+                SceneRoot(asset_server.load(GltfAssetLabel::scene("0").from_asset(FOX_PATH))),
                 StateScoped(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
