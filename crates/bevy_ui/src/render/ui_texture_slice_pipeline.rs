@@ -764,20 +764,20 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
-            let target_side_height = target_size.x * (border[2] - border[0]);
-            let target_side_width = target_size.y * (border[3] - border[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
+            let target_side_width = target_size.x * (border[2] - border[0]);
+            let target_side_height = target_size.y * (border[3] - border[1]);
 
             // compute the number of times to repeat the side and center slices when tiling along each axis
             // if the returned value is `1.` the slice will be stretched to fill the axis.
             let repeat_side_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, sides_scale_mode);
             let repeat_center_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, center_scale_mode);
             let repeat_center_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, center_scale_mode);
 
             [
                 slices,
