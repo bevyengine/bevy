@@ -3941,7 +3941,7 @@ name = "tab_navigation"
 path = "examples/ui/tab_navigation.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui.tab_navigation]
+[package.metadata.example.tab_navigation]
 name = "Tab Navigation"
 description = "Demonstration of Tab Navigation"
 category = "UI (User Interface)"
