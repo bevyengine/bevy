@@ -217,7 +217,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub rect: Rect,
+    pub bounds: Vec2,
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
@@ -323,10 +323,7 @@ pub fn extract_shadows(
                     transform: transform.compute_matrix()
                         * Mat4::from_translation(offset.extend(0.)),
                     color: drop_shadow.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: shadow_size + 6. * blur_radius,
-                    },
+                    bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
                     camera_entity,
                     radius,
@@ -415,9 +412,7 @@ pub fn prepare_shadows(
             while item_index < ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity()) {
-                    let uinode_rect = box_shadow.rect;
-
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = box_shadow.bounds.extend(1.0);
 
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
@@ -480,24 +475,21 @@ pub fn prepare_shadows(
                     ];
 
                     let uvs = [
+                        Vec2::new(positions_diff[0].x, positions_diff[0].y),
                         Vec2::new(
-                            uinode_rect.min.x + positions_diff[0].x,
-                            uinode_rect.min.y + positions_diff[0].y,
+                            box_shadow.bounds.x + positions_diff[1].x,
+                            positions_diff[1].y,
                         ),
                         Vec2::new(
-                            uinode_rect.max.x + positions_diff[1].x,
-                            uinode_rect.min.y + positions_diff[1].y,
+                            box_shadow.bounds.x + positions_diff[2].x,
+                            box_shadow.bounds.y + positions_diff[2].y,
                         ),
                         Vec2::new(
-                            uinode_rect.max.x + positions_diff[2].x,
-                            uinode_rect.max.y + positions_diff[2].y,
-                        ),
-                        Vec2::new(
-                            uinode_rect.min.x + positions_diff[3].x,
-                            uinode_rect.max.y + positions_diff[3].y,
+                            positions_diff[3].x,
+                            box_shadow.bounds.y + positions_diff[3].y,
                         ),
                     ]
-                    .map(|pos| pos / uinode_rect.max);
+                    .map(|pos| pos / box_shadow.bounds);
 
                     for i in 0..4 {
                         ui_meta.vertices.push(BoxShadowVertex {
