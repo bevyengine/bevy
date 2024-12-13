@@ -1516,7 +1516,11 @@ impl World {
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityFetchError> {
-        DeferredWorld::from(self).with_component(entity, f)
+        let result = DeferredWorld::from(&mut *self).with_component(entity, f)?;
+
+        self.flush();
+
+        Ok(result)
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's

@@ -114,7 +114,7 @@ impl<'w> DeferredWorld<'w> {
     /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
     /// ```
     #[inline]
-    pub fn with_component<T: Component, R>(
+    pub(crate) fn with_component<T: Component, R>(
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,

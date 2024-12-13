@@ -1145,7 +1145,6 @@ impl<'w> EntityWorldMut<'w> {
             .with_component(self.entity, f)
             .expect("entity access must be valid")?;
 
-        self.world.flush();
         self.update_location();
 
         Some(result)
