@@ -1132,11 +1132,23 @@ impl<'w> EntityWorldMut<'w> {
     /// #
     /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn with_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
-        self.world
+        self.assert_not_despawned();
+
+        let result = self
+            .world
             .with_component(self.entity, f)
-            .expect("entity access must be valid")
+            .expect("entity access must be valid")?;
+
+        self.world.flush();
+        self.update_location();
+
+        Some(result)
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
