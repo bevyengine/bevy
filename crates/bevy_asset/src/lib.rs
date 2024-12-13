@@ -412,7 +412,7 @@ pub trait AsAssetId: Component {
     /// The underlying asset type.
     type Asset: Asset;
 
-    /// Converts this component to an asset id.
+    /// Retrieves the asset id from this component.
     fn as_asset_id(&self) -> AssetId<Self::Asset>;
 }
 
