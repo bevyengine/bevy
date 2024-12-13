@@ -12,6 +12,7 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use bevy_log::error;
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
@@ -154,15 +155,23 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
-        let err_msg = || {
-            panic!(
+        // SAFETY: `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
+        let Some(changes) = (unsafe { world.get_resource() }) else {
+            error!(
                 "AssetChanges<{ty}> resource was removed, please do not remove \
                 AssetChanges<{ty}> when using the AssetChanged<{ty}> world query",
                 ty = ShortName::of::<A>()
-            )
+            );
+
+            return AssetChangedFetch {
+                inner: None,
+                check: AssetChangeCheck {
+                    change_ticks: &HashMap::default(),
+                    last_run,
+                    this_run,
+                },
+            };
         };
-        // SAFETY: `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
-        let changes: &AssetChanges<_> = unsafe { world.get_resource().unwrap_or_else(err_msg) };
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
         AssetChangedFetch {

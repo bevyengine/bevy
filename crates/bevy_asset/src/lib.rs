@@ -407,7 +407,7 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
-/// A trait for newtypes that can be used as asset identifiers, i.e. handle wrappers.
+/// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
 pub trait AsAssetId: Component {
     /// The underlying asset type.
     type Asset: Asset;
