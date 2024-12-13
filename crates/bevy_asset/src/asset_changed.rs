@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_utils::HashMap;
 use disqualified::ShortName;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{AsAssetId, Asset, AssetId};
 
