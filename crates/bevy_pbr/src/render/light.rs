@@ -15,7 +15,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
     mesh::allocator::MeshAllocator,
-    view::GpuCulling,
+    view::NoIndirectDrawing,
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -687,7 +687,7 @@ pub fn prepare_lights(
             &ExtractedView,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         ),
         With<Camera3d>,
     >,
@@ -1096,7 +1096,7 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity_and_hasher(views_count, EntityHash);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers, has_gpu_culling) in sorted_cameras
+    for (entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
@@ -1104,7 +1104,7 @@ pub fn prepare_lights(
         live_views.insert(entity);
         let mut view_lights = Vec::new();
 
-        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if has_gpu_culling {
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
             GpuPreprocessingMode::Culling
         } else {
             GpuPreprocessingMode::PreprocessingOnly
@@ -1237,8 +1237,8 @@ pub fn prepare_lights(
                     },
                 ));
 
-                if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                    commands.entity(view_light_entity).insert(GpuCulling);
+                if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
                 }
 
                 view_lights.push(view_light_entity);
@@ -1329,8 +1329,8 @@ pub fn prepare_lights(
                 LightEntity::Spot { light_entity },
             ));
 
-            if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                commands.entity(view_light_entity).insert(GpuCulling);
+            if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                commands.entity(view_light_entity).insert(NoIndirectDrawing);
             }
 
             view_lights.push(view_light_entity);
@@ -1464,8 +1464,8 @@ pub fn prepare_lights(
                     },
                 ));
 
-                if matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                    commands.entity(view_light_entity).insert(GpuCulling);
+                if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
                 }
 
                 view_lights.push(view_light_entity);
