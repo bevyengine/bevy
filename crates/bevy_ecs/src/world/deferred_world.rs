@@ -90,29 +90,6 @@ impl<'w> DeferredWorld<'w> {
     /// While this is available for all components, it's recommended to only be
     /// used with immutable components.
     /// When available, prefer using [`get_mut`](DeferredWorld::get_mut).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use bevy_ecs::{prelude::*, world::DeferredWorld};
-    /// #
-    /// #[derive(Component, PartialEq, Eq, Debug)]
-    /// #[component(immutable)]
-    /// struct Foo(bool);
-    ///
-    /// # let mut world = World::default();
-    /// # world.register_component::<Foo>();
-    /// #
-    /// # let entity = world.spawn(Foo(false)).id();
-    /// #
-    /// # let mut world = DeferredWorld::from(&mut world);
-    /// #
-    /// world.with_component(entity, |foo: &mut Foo| {
-    ///     foo.0 = true;
-    /// });
-    /// #
-    /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
-    /// ```
     #[inline]
     pub(crate) fn with_component<T: Component, R>(
         &mut self,
