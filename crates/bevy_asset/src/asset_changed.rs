@@ -2,6 +2,8 @@
 //!
 //! Like [`Changed`], but for [`Asset`]s.
 
+use crate::{AsAssetId, Asset, AssetId};
+use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
@@ -13,8 +15,6 @@ use bevy_ecs::{
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
-
-use crate::{AsAssetId, Asset, AssetId};
 
 #[derive(Resource)]
 pub(crate) struct AssetChanges<A: Asset> {
@@ -218,14 +218,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
-        // SAFETY:
-        // - `world` is a valid world
-        // -  we only access our private `AssetChanges` resource
-        let world = unsafe { world.into().world() };
-
-        let resource_id = world.resource_id::<AssetChanges<A::Asset>>()?;
-        let asset_id = world.component_id::<A>()?;
+    fn get_state(components: &Components) -> Option<Self::State> {
+        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
+        let asset_id = components.component_id::<A>()?;
         Some(AssetChangedState {
             asset_id,
             resource_id,

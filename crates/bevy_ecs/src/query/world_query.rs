@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
@@ -132,8 +132,9 @@ pub unsafe trait WorldQuery {
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State>;
+    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
+    /// access to [`Components`].
+    fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
@@ -227,9 +228,8 @@ macro_rules! impl_tuple_world_query {
                 ($($name::init_state(world),)*)
             }
             #[allow(unused_variables)]
-            fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
-                let world = world.into();
-                Some(($($name::get_state(world)?,)*))
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

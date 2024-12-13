@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -194,8 +194,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         world.register_component::<T>()
     }
 
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
-        world.into().components().component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -305,8 +305,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         world.register_component::<T>()
     }
 
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
-        world.into().components().component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -488,9 +488,8 @@ macro_rules! impl_or_query_filter {
                 ($($filter::init_state(world),)*)
             }
 
-            fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
-                let world = world.into();
-                Some(($($filter::get_state(world)?,)*))
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($filter::get_state(components)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -764,8 +763,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         world.register_component::<T>()
     }
 
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<ComponentId> {
-        world.into().components().component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -997,8 +996,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         world.register_component::<T>()
     }
 
-    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<ComponentId> {
-        world.into().components().component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
