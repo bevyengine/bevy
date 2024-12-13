@@ -21,7 +21,7 @@
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
 //! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
 //! calling [`AssetServer::load`] on the same path will return the same handle.
-//! The handle that's returned can be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! The handle that's returned can be used to instantiate various [`Component`]s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
 //! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
