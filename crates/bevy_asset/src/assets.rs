@@ -1,3 +1,4 @@
+use crate::asset_changed::AssetChanges;
 use crate::{
     self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
     UntypedHandle,
@@ -14,7 +15,6 @@ use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
-use crate::asset_changed::AssetChanges;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
 /// usage and is not suitable for identifying assets across app runs.
@@ -560,7 +560,7 @@ impl<A: Asset> Assets<A> {
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    pub fn asset_events(
+    pub(crate) fn asset_events(
         mut assets: ResMut<Self>,
         mut events: EventWriter<AssetEvent<A>>,
         asset_changes: Option<ResMut<AssetChanges<A>>>,

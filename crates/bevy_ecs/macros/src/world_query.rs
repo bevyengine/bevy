@@ -195,9 +195,10 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
+            fn get_state<'w>(world:  impl Into<#path::world::unsafe_world_cell::UnsafeWorldCell<'w>>) -> Option<#state_struct_name #user_ty_generics> {
+                let world = world.into();
                 Some(#state_struct_name {
-                    #(#named_field_idents: <#field_types>::get_state(components)?,)*
+                    #(#named_field_idents: <#field_types>::get_state(world)?,)*
                 })
             }
 

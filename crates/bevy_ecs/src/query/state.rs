@@ -205,8 +205,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
     fn try_new_uninitialized(world: &World) -> Option<Self> {
-        let fetch_state = D::get_state(world.components())?;
-        let filter_state = F::get_state(world.components())?;
+        let fetch_state = D::get_state(world)?;
+        let filter_state = F::get_state(world)?;
         Some(Self::from_states_uninitialized(
             world.id(),
             fetch_state,
@@ -613,8 +613,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut fetch_state = NewD::get_state(world).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let filter_state = NewF::get_state(world).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut fetch_state, &self.component_access);
         NewD::update_component_access(&fetch_state, &mut component_access);
@@ -701,9 +701,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut new_fetch_state = NewD::get_state(world.components())
+        let mut new_fetch_state = NewD::get_state(world)
             .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let new_filter_state = NewF::get_state(world.components())
+        let new_filter_state = NewF::get_state(world)
             .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut new_fetch_state, &self.component_access);

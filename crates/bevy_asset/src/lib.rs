@@ -141,6 +141,7 @@
 // FIXME(3492): remove once docs are ready
 // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
 #![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![allow(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -148,6 +149,7 @@
 )]
 
 extern crate alloc;
+extern crate core;
 
 pub mod io;
 pub mod meta;
@@ -160,7 +162,7 @@ pub mod transformer;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::asset_changed::{AssetChanged, AssetOrHandleChanged};
+    pub use crate::asset_changed::AssetChanged;
 
     #[doc(hidden)]
     pub use crate::{
@@ -209,6 +211,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
@@ -403,6 +406,15 @@ impl Plugin for AssetPlugin {
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
+
+/// A trait for newtypes that can be used as asset identifiers, i.e. handle wrappers.
+pub trait AsAssetId: Component {
+    /// The underlying asset type.
+    type Asset: Asset;
+
+    /// Converts this component to an asset id.
+    fn as_asset_id(&self) -> AssetId<Self::Asset>;
+}
 
 /// This trait defines how to visit the dependencies of an asset.
 /// For example, a 3D model might require both textures and meshes to be loaded.

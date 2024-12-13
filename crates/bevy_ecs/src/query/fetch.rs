@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    component::{Component, ComponentId, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -342,7 +342,7 @@ unsafe impl WorldQuery for Entity {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_components: &Components) -> Option<()> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<()> {
         Some(())
     }
 
@@ -418,7 +418,7 @@ unsafe impl WorldQuery for EntityLocation {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_components: &Components) -> Option<()> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<()> {
         Some(())
     }
 
@@ -501,7 +501,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_components: &Components) -> Option<()> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<()> {
         Some(())
     }
 
@@ -581,7 +581,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_components: &Components) -> Option<()> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<()> {
         Some(())
     }
 
@@ -673,7 +673,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         FilteredAccess::default()
     }
 
-    fn get_state(_components: &Components) -> Option<Self::State> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
         Some(FilteredAccess::default())
     }
 
@@ -767,7 +767,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         FilteredAccess::default()
     }
 
-    fn get_state(_components: &Components) -> Option<Self::State> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
         Some(FilteredAccess::default())
     }
 
@@ -853,12 +853,12 @@ where
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+        Self::get_state(world).unwrap()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
         let mut ids = SmallVec::new();
-        B::get_component_ids(components, &mut |maybe_id| {
+        B::get_component_ids(world.into().components(), &mut |maybe_id| {
             if let Some(id) = maybe_id {
                 ids.push(id);
             }
@@ -952,12 +952,12 @@ where
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        Self::get_state(world.components()).unwrap()
+        Self::get_state(world).unwrap()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
         let mut ids = SmallVec::new();
-        B::get_component_ids(components, &mut |maybe_id| {
+        B::get_component_ids(world.into().components(), &mut |maybe_id| {
             if let Some(id) = maybe_id {
                 ids.push(id);
             }
@@ -1038,7 +1038,7 @@ unsafe impl WorldQuery for &Archetype {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_components: &Components) -> Option<()> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<()> {
         Some(())
     }
 
@@ -1197,8 +1197,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         world.register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        world.into().components().component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1396,8 +1396,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         world.register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        world.into().components().component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1595,8 +1595,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         world.register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        world.into().components().component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1699,8 +1699,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     }
 
     // Forwarded to `&mut T`
-    fn get_state(components: &Components) -> Option<ComponentId> {
-        <&mut T as WorldQuery>::get_state(components)
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<ComponentId> {
+        <&mut T as WorldQuery>::get_state(world)
     }
 
     // Forwarded to `&mut T`
@@ -1826,8 +1826,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         T::init_state(world)
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        T::get_state(components)
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        T::get_state(world)
     }
 
     fn matches_component_set(
@@ -1985,8 +1985,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         world.register_component::<T>()
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        world.into().components().component_id::<T>()
     }
 
     fn matches_component_set(
@@ -2144,8 +2144,9 @@ macro_rules! impl_anytuple_fetch {
                 ($($name::init_state(world),)*)
             }
             #[allow(unused_variables)]
-            fn get_state(components: &Components) -> Option<Self::State> {
-                Some(($($name::get_state(components)?,)*))
+            fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+                let world = world.into();
+                Some(($($name::get_state(world)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -2239,8 +2240,8 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
         D::init_state(world)
     }
 
-    fn get_state(components: &Components) -> Option<Self::State> {
-        D::get_state(components)
+    fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+        D::get_state(world)
     }
 
     fn matches_component_set(
@@ -2307,7 +2308,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn init_state(_world: &mut World) -> Self::State {}
 
-    fn get_state(_components: &Components) -> Option<Self::State> {
+    fn get_state<'w>(_world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
         Some(())
     }
 

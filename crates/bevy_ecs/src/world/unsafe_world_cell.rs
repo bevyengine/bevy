@@ -910,11 +910,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
     pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
-        // SAFETY: World is only used to access query data and initialize query state
-        let state = unsafe {
-            let world = self.world().world();
-            Q::get_state(world.components())?
-        };
+        let state = Q::get_state(self.world)?;
         let location = self.location();
         // SAFETY: Location is guaranteed to exist
         let archetype = unsafe {

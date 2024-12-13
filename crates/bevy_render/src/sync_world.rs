@@ -255,7 +255,7 @@ mod render_entities_world_query_impls {
 
     use bevy_ecs::{
         archetype::Archetype,
-        component::{ComponentId, Components, Tick},
+        component::{ComponentId, Tick},
         entity::Entity,
         query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
@@ -340,8 +340,8 @@ mod render_entities_world_query_impls {
             <&RenderEntity as WorldQuery>::init_state(world)
         }
 
-        fn get_state(components: &Components) -> Option<Self::State> {
-            <&RenderEntity as WorldQuery>::get_state(components)
+        fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+            <&RenderEntity as WorldQuery>::get_state(world)
         }
 
         fn matches_component_set(
@@ -438,8 +438,8 @@ mod render_entities_world_query_impls {
             <&MainEntity as WorldQuery>::init_state(world)
         }
 
-        fn get_state(components: &Components) -> Option<Self::State> {
-            <&MainEntity as WorldQuery>::get_state(components)
+        fn get_state<'w>(world: impl Into<UnsafeWorldCell<'w>>) -> Option<Self::State> {
+            <&MainEntity as WorldQuery>::get_state(world)
         }
 
         fn matches_component_set(
