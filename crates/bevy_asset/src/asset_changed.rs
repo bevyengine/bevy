@@ -1,6 +1,6 @@
 //! Define the [`AssetChanged`] query filter.
 //!
-//! Like [`Changed`], but for [`Asset`]s.
+//! Like [`Changed`](bevy_ecs::prelude::Changed), but for [`Asset`]s.
 
 use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
