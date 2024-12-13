@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System, SystemMeta, SystemMetaProvider};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -232,5 +232,27 @@ where
         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
     ) -> Out {
         self(run_system(input))
+    }
+}
+
+impl<Func, S> SystemMetaProvider for AdapterSystem<Func, S>
+where
+    Func: Adapt<S>,
+    S: System + SystemMetaProvider,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        self.system.system_metas()
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        self.system.system_metas_mut()
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>) {
+        self.system.extend_with_system_metas(vec);
+    }
+
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>) {
+        self.system.extend_with_system_metas_mut(vec_mut);
     }
 }
