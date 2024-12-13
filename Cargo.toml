@@ -3933,5 +3933,10 @@ name = "testbed_ui_layout_rounding"
 path = "examples/testbed/ui_layout_rounding.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "tab_navigation"
+path = "examples/ui/tab_navigation.rs"
+doc-scrape-examples = true
+
 [package.metadata.example.testbed_ui_layout_rounding]
 hidden = true
