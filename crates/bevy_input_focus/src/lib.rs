@@ -293,6 +293,7 @@ mod tests {
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
     };
+    use bevy_window::WindowResolution;
     use smol_str::SmolStr;
 
     #[derive(Component)]
@@ -368,6 +369,12 @@ mod tests {
 
         app.add_plugins((InputPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
+
+        let window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+        app.world_mut().spawn((window, PrimaryWindow));
 
         let entity_a = app
             .world_mut()
