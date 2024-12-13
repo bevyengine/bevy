@@ -5,6 +5,7 @@
 
 use alloc::collections::BTreeMap;
 use core::fmt::Debug;
+use core::ops::{BitOr, BitOrAssign};
 use std::collections::HashSet;
 
 use crate::{
@@ -190,14 +191,79 @@ fn build_hover_map(
 /// it will be considered hovered.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]
+#[repr(u8)]
 pub enum PickingInteraction {
     /// The entity is being pressed down by a pointer.
-    Pressed = 2,
+    Pressed(PressedButtons) = 2,
     /// The entity is being hovered by a pointer.
     Hovered = 1,
     /// No pointers are interacting with this entity.
     #[default]
     None = 0,
+}
+
+impl BitOr for PickingInteraction {
+    type Output = Self;
+
+    fn bitor(mut self, rhs: Self) -> PickingInteraction {
+        self |= rhs;
+        self
+    }
+}
+
+impl BitOrAssign for PickingInteraction {
+    fn bitor_assign(&mut self, rhs: Self) {
+        use PickingInteraction::*;
+        match (self, rhs) {
+            (Pressed(a), Pressed(b)) => *a |= b,
+            (Pressed(_), _) => (),
+            (a, Pressed(b)) => *a = Pressed(b),
+            (a @ None, Hovered) => *a = Hovered,
+            _ => (),
+        }
+    }
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    #[derive(Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[reflect(opaque)]
+    #[reflect(Hash, PartialEq, Debug)]
+    /// Button pressed in a [`PickingInteraction`]
+    pub struct PressedButtons: u8 {
+        /// Left mouse button is pressed.
+        const LEFT = 1;
+        /// Right mouse button is pressed.
+        const RIGHT = 2;
+        /// Middle mouse button is pressed.
+        const MIDDLE = 4;
+        /// Touch input is pressed.
+        const TOUCH = 8;
+        /// Custom input is pressed.
+        const CUSTOM = 16;
+        /// X1 or back, reserved, currently does nothing.
+        const X1 = 32;
+        /// X2 or forward, reserved, currently does nothing.
+        const X2 = 64;
+        /// Left mouse button or touch input is pressed.
+        const LEFT_OR_TOUCH = 1|8;
+    }
+}
+
+impl From<PointerPress> for PressedButtons {
+    fn from(value: PointerPress) -> Self {
+        let mut result = PressedButtons::empty();
+        if value.is_primary_pressed() {
+            result |= PressedButtons::LEFT;
+        }
+        if value.is_secondary_pressed() {
+            result |= PressedButtons::RIGHT;
+        }
+        if value.is_middle_pressed() {
+            result |= PressedButtons::MIDDLE;
+        }
+        result
+    }
 }
 
 /// Uses pointer events to update [`PointerInteraction`] and [`PickingInteraction`] components.
@@ -235,7 +301,12 @@ pub fn update_interactions(
             pointer_interaction.sorted_entities = sorted_entities;
 
             for hovered_entity in pointers_hovered_entities.iter().map(|(entity, _)| entity) {
-                merge_interaction_states(pointer_press, hovered_entity, &mut new_interaction_state);
+                merge_interaction_states(
+                    pointer,
+                    pointer_press,
+                    hovered_entity,
+                    &mut new_interaction_state,
+                );
             }
         }
     }
@@ -252,28 +323,55 @@ pub fn update_interactions(
 
 /// Merge the interaction state of this entity into the aggregated map.
 fn merge_interaction_states(
+    id: &PointerId,
     pointer_press: &PointerPress,
     hovered_entity: &Entity,
     new_interaction_state: &mut HashMap<Entity, PickingInteraction>,
 ) {
-    let new_interaction = match pointer_press.is_any_pressed() {
-        true => PickingInteraction::Pressed,
-        false => PickingInteraction::Hovered,
-    };
-
-    if let Some(old_interaction) = new_interaction_state.get_mut(hovered_entity) {
-        // Only update if the new value has a higher precedence than the old value.
-        if *old_interaction != new_interaction
-            && matches!(
-                (*old_interaction, new_interaction),
-                (PickingInteraction::Hovered, PickingInteraction::Pressed)
-                    | (PickingInteraction::None, PickingInteraction::Pressed)
-                    | (PickingInteraction::None, PickingInteraction::Hovered)
-            )
-        {
-            *old_interaction = new_interaction;
-        }
+    let new_interaction = if !pointer_press.is_any_pressed() {
+        PickingInteraction::Hovered
     } else {
-        new_interaction_state.insert(*hovered_entity, new_interaction);
+        match id {
+            PointerId::Mouse => PickingInteraction::Pressed((*pointer_press).into()),
+            PointerId::Touch(_) => PickingInteraction::Pressed(PressedButtons::TOUCH),
+            PointerId::Custom(_) => PickingInteraction::Pressed(PressedButtons::CUSTOM),
+        }
+    };
+    new_interaction_state
+        .entry(*hovered_entity)
+        .and_modify(|old| *old |= new_interaction)
+        .or_insert(new_interaction);
+}
+
+#[cfg(test)]
+mod test {
+    use crate::focus::{PickingInteraction::*, PressedButtons};
+
+    #[test]
+    fn merge_interaction() {
+        assert_eq!(
+            Pressed(PressedButtons::LEFT) | Pressed(PressedButtons::RIGHT),
+            Pressed(PressedButtons::LEFT | PressedButtons::RIGHT)
+        );
+        assert_eq!(
+            Pressed(PressedButtons::LEFT) | Hovered,
+            Pressed(PressedButtons::LEFT)
+        );
+        assert_eq!(
+            Hovered | Pressed(PressedButtons::LEFT),
+            Pressed(PressedButtons::LEFT)
+        );
+        assert_eq!(
+            Pressed(PressedButtons::LEFT) | None,
+            Pressed(PressedButtons::LEFT)
+        );
+        assert_eq!(
+            None | Pressed(PressedButtons::LEFT),
+            Pressed(PressedButtons::LEFT)
+        );
+        assert_eq!(Hovered | None, Hovered);
+        assert_eq!(None | Hovered, Hovered);
+        assert_eq!(Hovered | Hovered, Hovered);
+        assert_eq!(None | None, None);
     }
 }
