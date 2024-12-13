@@ -283,12 +283,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_mesh_materials::<M>
-                        .before(extract_meshes_for_cpu_building)
-                        .before(extract_meshes_for_gpu_building),
-                )
+                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
