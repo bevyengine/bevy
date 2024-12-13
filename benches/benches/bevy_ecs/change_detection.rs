@@ -350,7 +350,7 @@ fn multiple_archetype_none_changed_detection_generic<
                     assert_eq!(0, count);
                 },
                 criterion::BatchSize::LargeInput,
-            )
+            );
         },
     );
 }
