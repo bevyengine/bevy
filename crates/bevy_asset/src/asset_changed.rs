@@ -11,8 +11,8 @@ use bevy_ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::HashMap;
-use disqualified::ShortName;
 use core::marker::PhantomData;
+use disqualified::ShortName;
 
 use crate::{AsAssetId, Asset, AssetId};
 
