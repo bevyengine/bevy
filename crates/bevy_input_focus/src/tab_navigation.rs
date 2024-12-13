@@ -26,20 +26,21 @@
 //!
 //! This module also provides `AutoFocus`, a component which can be added to an entity to
 //! automatically focus it when it is added to the world.
-use bevy_app::{App, Plugin, PreUpdate, Startup};
+use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     observer::Trigger,
-    query::{Added, With, Without},
+    query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
+    world::DeferredWorld,
 };
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{keyboard::KeyCode, ButtonInput, ButtonState};
-use bevy_utils::tracing::{info, warn};
+use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
 
-use crate::{FocusKeyboardInput, InputFocus, InputFocusVisible};
+use crate::{FocusKeyboardInput, InputFocus, InputFocusVisible, SetInputFocus};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
@@ -196,7 +197,6 @@ impl TabNavigation<'_, '_> {
 
         // Stable sort by tabindex
         focusable.sort_by(compare_tab_indices);
-        info!("Focusable entities: {:?}", focusable.len());
 
         let index = focusable.iter().position(|e| Some(e.0) == focus);
         let count = focusable.len();
@@ -249,8 +249,10 @@ pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_tab_navigation)
-            .add_systems(PreUpdate, handle_auto_focus);
+        app.add_systems(Startup, setup_tab_navigation);
+        app.world_mut()
+            .register_component_hooks::<AutoFocus>()
+            .on_add(on_auto_focus_added);
     }
 }
 
@@ -290,12 +292,9 @@ pub fn handle_tab_navigation(
     }
 }
 
-fn handle_auto_focus(
-    mut focus: ResMut<InputFocus>,
-    query: Query<Entity, (With<TabIndex>, Added<AutoFocus>)>,
-) {
-    if let Some(entity) = query.iter().next() {
-        focus.0 = Some(entity);
+fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    if world.entity(entity).contains::<TabIndex>() {
+        world.set_input_focus(entity);
     }
 }
 

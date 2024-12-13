@@ -114,10 +114,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TabGroup::new(0),
                 ))
                 .with_children(|parent| {
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
                 });
 
             parent.spawn(Text::new("Tab Group 2"));
@@ -136,10 +136,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TabGroup::new(2),
                 ))
                 .with_children(|parent| {
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
                 });
 
             parent.spawn(Text::new("Tab Group 1"));
@@ -158,10 +158,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TabGroup::new(1),
                 ))
                 .with_children(|parent| {
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
                 });
 
             parent.spawn(Text::new("Modal Tab Group"));
@@ -176,10 +176,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TabGroup::modal(),
                 ))
                 .with_children(|parent| {
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
-                    create_button(parent, asset_server.as_ref());
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
+                    create_button(parent, &asset_server);
                 });
         });
 }
