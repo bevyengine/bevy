@@ -7,7 +7,7 @@
 // mesh's transform on the previous frame and writes it into the `MeshUniform`
 // so that TAA works.
 
-#import bevy_pbr::mesh_types::Mesh
+#import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
 #import bevy_render::maths
 #import bevy_render::view::View
 
@@ -145,13 +145,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     // Cull if necessary.
 #ifdef FRUSTUM_CULLING
-    let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
-    let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
+    if ((current_input[input_index].flags & MESH_FLAGS_NO_FRUSTUM_CULLING_BIT) == 0u) {
+        let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+        let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
-    // Do an OBB-based frustum cull.
-    let model_center = world_from_local * vec4(aabb_center, 1.0);
-    if (!view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents)) {
-        return;
+        // Do an OBB-based frustum cull.
+        let model_center = world_from_local * vec4(aabb_center, 1.0);
+        if (!view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents)) {
+            return;
+        }
     }
 #endif
 
