@@ -158,6 +158,9 @@ impl<'w> DeferredWorld<'w> {
 
         let result = f(&mut component);
 
+        // Simulate adding this component by updating the relevant ticks
+        *component.ticks.added = *component.ticks.changed;
+
         // SAFETY:
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
