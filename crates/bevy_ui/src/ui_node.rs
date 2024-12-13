@@ -2663,6 +2663,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component)]
 pub enum UiAntiAlias {
     /// UI will render with anti-aliasing
     #[default]
@@ -2688,6 +2689,7 @@ pub enum UiAntiAlias {
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component)]
 pub struct BoxShadowSamples(pub u32);
 
 impl Default for BoxShadowSamples {
