@@ -259,7 +259,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 mod tests {
     use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
-    use std::num::NonZero;
+    use core::num::NonZero;
 
     use crate::{AssetApp, Assets};
     use bevy_app::{App, AppExit, Last, Startup, Update};
