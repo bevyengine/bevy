@@ -980,6 +980,10 @@ pub fn prepare_lights(
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
         }
 
+        if light.affects_lightmapped_mesh_diffuse {
+            flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+        }
+
         let num_cascades = light
             .cascade_shadow_config
             .bounds

@@ -36,17 +36,28 @@ enum LightingMode {
     /// mode, as the red hue on the bottom of the sphere demonstrates.
     Baked,
 
-    /// Light for the static objects is computed ahead of time, but the light
-    /// for the dynamic sphere is computed at runtime.
+    /// All light for the static objects is computed ahead of time, but the
+    /// light for the dynamic sphere is computed at runtime.
     ///
     /// In this mode, the sphere can be moved, and the light will be computed
     /// for it as you do so. The sphere loses indirect illumination; notice the
     /// lack of a red hue at the base of the sphere. However, the rest of the
     /// scene has indirect illumination. Note also that the sphere doesn't cast
-    /// shadows on the static objects in this mode, because shadows are part of
+    /// a shadow on the static objects in this mode, because shadows are part of
     /// the lighting computation.
+    MixedDirect,
+
+    /// Indirect light for the static objects is computed ahead of time, and
+    /// direct light for all objects is computed at runtime.
+    ///
+    /// In this mode, the sphere can be moved, and the light will be computed
+    /// for it as you do so. The sphere loses indirect illumination; notice the
+    /// lack of a red hue at the base of the sphere. However, the rest of the
+    /// scene has indirect illumination. The sphere does cast a shadow on
+    /// objects in this mode, because the direct light for all objects is being
+    /// computed dynamically.
     #[default]
-    Mixed,
+    MixedIndirect,
 
     /// Light is computed at runtime for all objects.
     ///
@@ -115,17 +126,16 @@ fn main() {
         .insert_resource(AmbientLight {
             color: ClearColor::default().0,
             brightness: 10000.0,
-            affects_lightmapped_meshes: false,
+            affects_lightmapped_meshes: true,
         })
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<LightingMode>>()
         .add_event::<LightingModeChanged>()
         .add_systems(Startup, setup)
         .add_systems(Update, update_lightmaps)
-        .add_systems(Update, initialize_directional_light)
+        .add_systems(Update, update_directional_light)
         .add_systems(Update, make_sphere_nonpickable)
         .add_systems(Update, update_radio_buttons)
-        .add_systems(Update, update_shadows)
         .add_systems(Update, handle_lighting_mode_change)
         .add_systems(Update, widgets::handle_ui_interactions::<LightingMode>)
         .add_systems(Update, reset_sphere_position)
@@ -180,7 +190,8 @@ fn spawn_buttons(commands: &mut Commands) {
                 "Lighting",
                 &[
                     (LightingMode::Baked, "Baked"),
-                    (LightingMode::Mixed, "Mixed"),
+                    (LightingMode::MixedDirect, "Mixed (Direct)"),
+                    (LightingMode::MixedIndirect, "Mixed (Indirect)"),
                     (LightingMode::RealTime, "Real-Time"),
                 ],
             );
@@ -225,8 +236,11 @@ fn update_lightmaps(
         LightingMode::Baked => {
             Some(asset_server.load("lightmaps/MixedLightingExample-Baked.zstd.ktx2"))
         }
-        LightingMode::Mixed => {
-            Some(asset_server.load("lightmaps/MixedLightingExample-Mixed.zstd.ktx2"))
+        LightingMode::MixedDirect => {
+            Some(asset_server.load("lightmaps/MixedLightingExample-MixedDirect.zstd.ktx2"))
+        }
+        LightingMode::MixedIndirect => {
+            Some(asset_server.load("lightmaps/MixedLightingExample-MixedIndirect.zstd.ktx2"))
         }
         LightingMode::RealTime => None,
     };
@@ -286,17 +300,6 @@ fn update_lightmaps(
     }
 }
 
-/// Sets the `affects_lightmapped_mesh_diffuse` flag appropriately on the
-/// directional light.
-fn initialize_directional_light(mut lights: Query<&mut DirectionalLight>) {
-    for mut light in &mut lights {
-        // Do this check to avoid incurring change events on every frame.
-        if light.affects_lightmapped_mesh_diffuse {
-            light.affects_lightmapped_mesh_diffuse = false;
-        }
-    }
-}
-
 /// Converts a uv rectangle from the OpenGL coordinate system (origin in the
 /// lower left) to the Vulkan coordinate system (origin in the upper left) that
 /// Bevy uses.
@@ -325,8 +328,9 @@ fn make_sphere_nonpickable(
     }
 }
 
-/// Enables or disables shadows as necessary when the lighting mode changes.
-fn update_shadows(
+/// Updates the directional light settings as necessary when the lighting mode
+/// changes.
+fn update_directional_light(
     mut lights: Query<&mut DirectionalLight>,
     mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
@@ -337,16 +341,17 @@ fn update_shadows(
         return;
     }
 
+    // Real-time direct light is used on the scenery if we're using mixed
+    // indirect or real-time mode.
+    let scenery_is_lit_in_real_time = matches!(
+        app_status.lighting_mode,
+        LightingMode::MixedIndirect | LightingMode::RealTime
+    );
+
     for mut light in &mut lights {
-        // Only enable real-time shadows if we're using the real-time lighting
-        // mode.
-        //
-        // You might think that we would want to enable shadows in mixed mode as
-        // well, but they actually won't show up if we do so. That's because
-        // real-time shadows are the absence of real-time lights. So if there's
-        // no real-time light illuminating a surface in the first place,
-        // real-time shadows won't appear on it.
-        light.shadows_enabled = app_status.lighting_mode == LightingMode::RealTime;
+        light.affects_lightmapped_mesh_diffuse = scenery_is_lit_in_real_time;
+        // Don't bother enabling shadows if they won't show up on the scenery.
+        light.shadows_enabled = scenery_is_lit_in_real_time;
     }
 }
 
@@ -496,17 +501,22 @@ fn adjust_help_text(
 fn create_help_text(app_status: &AppStatus) -> Text {
     match app_status.lighting_mode {
         LightingMode::Baked => Text::new(
-            "Scenery: Static, global illumination ON
-Sphere: Static, global illumination ON",
+            "Scenery: Static, baked direct light, baked indirect light
+Sphere: Static, baked direct light, baked indirect light",
         ),
-        LightingMode::Mixed => Text::new(
-            "Scenery: Static, global illumination ON
-Sphere: Dynamic, global illumination OFF
+        LightingMode::MixedDirect => Text::new(
+            "Scenery: Static, baked direct light, baked indirect light
+Sphere: Dynamic, real-time direct light, no indirect light
+Click in the scene to move the sphere",
+        ),
+        LightingMode::MixedIndirect => Text::new(
+            "Scenery: Static, real-time direct light, baked indirect light
+Sphere: Dynamic, real-time direct light, no indirect light
 Click in the scene to move the sphere",
         ),
         LightingMode::RealTime => Text::new(
-            "Scenery: Dynamic, global illumination OFF
-Sphere: Dynamic, global illumination OFF
+            "Scenery: Dynamic, real-time direct light, no indirect light
+Sphere: Dynamic, real-time direct light, no indirect light
 Click in the scene to move the sphere",
         ),
     }
