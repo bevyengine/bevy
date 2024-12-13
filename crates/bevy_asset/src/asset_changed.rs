@@ -12,7 +12,7 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_log::error;
+use bevy_utils::tracing::error;
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
@@ -43,7 +43,9 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: AsAssetId> {
-    change_ticks: &'w HashMap<AssetId<A::Asset>, Tick>,
+    // This should never be `None` in practice, but we need to handle the case
+    // where the `AssetChanges` resource was removed.
+    change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
     last_run: Tick,
     this_run: Tick,
 }
@@ -59,7 +61,7 @@ impl<A: AsAssetId> Copy for AssetChangeCheck<'_, A> {}
 impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     fn new(changes: &'w AssetChanges<A::Asset>, last_run: Tick, this_run: Tick) -> Self {
         Self {
-            change_ticks: &changes.change_ticks,
+            change_ticks: Some(&changes.change_ticks),
             last_run,
             this_run,
         }
@@ -70,7 +72,8 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
         let id = handle.as_asset_id();
 
-        self.change_ticks.get(&id).is_some_and(is_newer)
+        self.change_ticks
+            .is_some_and(|change_ticks| change_ticks.get(&id).is_some_and(is_newer))
     }
 }
 
@@ -156,7 +159,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         // SAFETY: `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
-        let Some(changes) = (unsafe { world.get_resource() }) else {
+        let Some(changes) = (unsafe { world.get_resource::<AssetChanges<A::Asset>>() }) else {
             error!(
                 "AssetChanges<{ty}> resource was removed, please do not remove \
                 AssetChanges<{ty}> when using the AssetChanged<{ty}> world query",
@@ -166,7 +169,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
             return AssetChangedFetch {
                 inner: None,
                 check: AssetChangeCheck {
-                    change_ticks: &HashMap::default(),
+                    change_ticks: None,
                     last_run,
                     this_run,
                 },
