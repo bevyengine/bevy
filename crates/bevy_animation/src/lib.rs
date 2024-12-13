@@ -45,9 +45,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
 use bevy_utils::{
-    hashbrown::HashMap,
     tracing::{trace, warn},
-    NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
+    HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
 };
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
@@ -658,7 +657,7 @@ impl ActiveAnimation {
     ///
     /// Note that any events between the current time and `seek_time`
     /// will be triggered on the next update.
-    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undesired.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
         self.last_seek_time = Some(self.seek_time);
         self.seek_time = seek_time;
@@ -669,7 +668,7 @@ impl ActiveAnimation {
     ///
     /// Note that any events between the current time and `0.0`
     /// will be triggered on the next update.
-    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undesired.
     pub fn rewind(&mut self) -> &mut Self {
         self.last_seek_time = Some(self.seek_time);
         self.seek_time = 0.0;

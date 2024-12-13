@@ -89,11 +89,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 })
                                 .observe(|
-                                    trigger: Trigger<Pointer<Down>>,
+                                    trigger: Trigger<Pointer<Pressed>>,
                                     mut commands: Commands
                                 | {
                                     if trigger.event().button == PointerButton::Primary {
-                                        commands.entity(trigger.entity()).despawn_recursive();
+                                        commands.entity(trigger.target()).despawn_recursive();
                                     }
                                 });
                             }

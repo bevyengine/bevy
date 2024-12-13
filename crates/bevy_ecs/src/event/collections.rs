@@ -4,6 +4,8 @@ use bevy_ecs::{
     system::Resource,
 };
 use bevy_utils::detailed_trace;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -120,9 +122,24 @@ impl<E: Event> Events<E> {
     /// "Sends" an `event` by writing it to the current event buffer.
     /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
+        self.send_with_caller(
+            event,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    pub(crate) fn send_with_caller(
+        &mut self,
+        event: E,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+    ) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
+            #[cfg(feature = "track_change_detection")]
+            caller,
             _marker: PhantomData,
         };
         detailed_trace!("Events::send() -> id: {}", event_id);
@@ -138,6 +155,7 @@ impl<E: Event> Events<E> {
     /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
+    #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         let last_count = self.event_count;
 
@@ -152,6 +170,7 @@ impl<E: Event> Events<E> {
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
     /// This method returns the [ID](`EventId`) of the sent `event`.
+    #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,
@@ -300,6 +319,7 @@ impl<E: Event> Events<E> {
 }
 
 impl<E: Event> Extend<E> for Events<E> {
+    #[track_caller]
     fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
@@ -309,6 +329,8 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
+                #[cfg(feature = "track_change_detection")]
+                caller: Location::caller(),
                 _marker: PhantomData,
             };
             event_count += 1;
@@ -377,6 +399,8 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
+            #[cfg(feature = "track_change_detection")]
+            caller: Location::caller(),
             _marker: PhantomData,
         });
 

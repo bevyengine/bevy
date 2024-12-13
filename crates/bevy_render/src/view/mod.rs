@@ -923,7 +923,7 @@ pub fn prepare_view_targets(
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {

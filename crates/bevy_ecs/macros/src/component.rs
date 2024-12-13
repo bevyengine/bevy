@@ -88,7 +88,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     components,
                     storages,
                     required_components,
-                    inheritance_depth + 1
+                    inheritance_depth + 1,
+                    recursion_check_stack
                 );
             });
             match &require.func {
@@ -98,7 +99,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             || { let x: #ident = #func().into(); x },
-                            inheritance_depth
+                            inheritance_depth,
+                            recursion_check_stack
                         );
                     });
                 }
@@ -108,7 +110,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             || { let x: #ident = (#func)().into(); x },
-                            inheritance_depth
+                            inheritance_depth,
+                            recursion_check_stack
                         );
                     });
                 }
@@ -118,7 +121,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             <#ident as Default>::default,
-                            inheritance_depth
+                            inheritance_depth,
+                            recursion_check_stack
                         );
                     });
                 }
@@ -145,9 +149,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 storages: &mut #bevy_ecs_path::storage::Storages,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 inheritance_depth: u16,
+                recursion_check_stack: &mut Vec<#bevy_ecs_path::component::ComponentId>
             ) {
+                #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
+                let self_id = components.register_component::<Self>(storages);
+                recursion_check_stack.push(self_id);
                 #(#register_required)*
                 #(#register_recursive_requires)*
+                recursion_check_stack.pop();
             }
 
             #[allow(unused_variables)]
@@ -174,13 +183,19 @@ pub fn document_required_components(attr: TokenStream, item: TokenStream) -> Tok
         .collect::<Vec<_>>()
         .join(", ");
 
+    let bevy_ecs_path = crate::bevy_ecs_path()
+        .to_token_stream()
+        .to_string()
+        .replace(' ', "");
+    let required_components_path = bevy_ecs_path + "::component::Component#required-components";
+
     // Insert information about required components after any existing doc comments
     let mut out = TokenStream::new();
     let mut end_of_attributes_reached = false;
     for tt in item {
         if !end_of_attributes_reached & matches!(tt, TokenTree::Ident(_)) {
             end_of_attributes_reached = true;
-            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's required components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
+            let doc: TokenStream = format!("#[doc = \"\n\n# Required Components\n{paths} \n\n A component's [required components]({required_components_path}) are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.\"]").parse().unwrap();
             out.extend(doc);
         }
         out.extend(Some(tt));

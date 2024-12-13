@@ -9,12 +9,13 @@ use crate::*;
 use bevy_asset::{Asset, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
-        Transmissive3d, Transparent3d,
+        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey,
+        ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
     },
     oit::OrderIndependentTransparencySettings,
     prepass::{
-        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
     },
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -28,7 +29,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
     extract_resource::ExtractResource,
@@ -40,7 +40,8 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
-use bevy_render::{sync_world::MainEntityHashMap, texture::FallbackImage};
+use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
+use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_utils::{hashbrown::hash_map::Entry, tracing::error};
 use core::{hash::Hash, marker::PhantomData};
 
@@ -634,7 +635,10 @@ pub fn queue_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
+    (mesh_allocator, material_bind_group_allocator): (
+        Res<MeshAllocator>,
+        Res<MaterialBindGroupAllocator<M>>,
+    ),
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -865,15 +869,21 @@ pub fn queue_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let bin_key = Opaque3dBinKey {
-                            draw_function: draw_opaque_pbr,
-                            pipeline: pipeline_id,
+                            batch_set_key: Opaque3dBatchSetKey {
+                                draw_function: draw_opaque_pbr,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                index_slab,
+                                lightmap_image,
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_index: Some(material.binding.group.0),
-                            lightmap_image,
                         };
                         opaque_phase.add(
                             bin_key,
@@ -893,14 +903,16 @@ pub fn queue_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            extra_index: PhaseItemExtraIndex::NONE,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            draw_function: draw_alpha_mask_pbr,
-                            pipeline: pipeline_id,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: draw_alpha_mask_pbr,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_phase.add(
                             bin_key,
@@ -918,7 +930,7 @@ pub fn queue_material_meshes<M: Material>(
                         pipeline: pipeline_id,
                         distance,
                         batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
+                        extra_index: PhaseItemExtraIndex::None,
                     });
                 }
             }
@@ -1053,6 +1065,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             &pipeline.material_layout,
             render_device,
             material_param,
+            false,
         ) {
             Ok(unprepared) => {
                 bind_group_allocator.init(render_device, *material_binding_id, unprepared);

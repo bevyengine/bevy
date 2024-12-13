@@ -1,4 +1,4 @@
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use crate::{entity::Entity, world::unsafe_world_cell::UnsafeWorldCell};
 
@@ -90,15 +90,13 @@ impl<'w> Eq for QueryEntityError<'w> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum QuerySingleError {
     /// No entity fits the query.
-    #[display("No entities fit the query {_0}")]
-    #[error(ignore)]
+    #[error("No entities fit the query {0}")]
     NoEntities(&'static str),
     /// Multiple entities fit the query.
-    #[display("Multiple entities fit the query {_0}")]
-    #[error(ignore)]
+    #[error("Multiple entities fit the query {0}")]
     MultipleEntities(&'static str),
 }
 

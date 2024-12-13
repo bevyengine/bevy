@@ -262,7 +262,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        // Skip invisible images
+        // Skip if no visible shadows
         if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
@@ -377,7 +377,7 @@ pub fn queue_shadows(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }
