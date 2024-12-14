@@ -140,11 +140,7 @@ impl AudioSink {
 
 impl AudioSinkPlayback for AudioSink {
     fn volume(&self) -> f32 {
-        if let Some(volume) = self.managed_volume {
-            volume
-        } else {
-            self.sink.volume()
-        }
+        self.managed_volume.unwrap_or_else(|| self.sink.volume())
     }
 
     fn set_volume(&mut self, volume: f32) {
@@ -193,9 +189,8 @@ impl AudioSinkPlayback for AudioSink {
     }
 
     fn unmute(&mut self) {
-        if let Some(volume) = self.managed_volume {
+        if let Some(volume) = self.managed_volume.take() {
             self.sink.set_volume(volume);
-            self.managed_volume = None;
         }
     }
 }
@@ -289,9 +284,8 @@ impl AudioSinkPlayback for SpatialAudioSink {
     }
 
     fn unmute(&mut self) {
-        if let Some(volume) = self.managed_volume {
+        if let Some(volume) = self.managed_volume.take() {
             self.sink.set_volume(volume);
-            self.managed_volume = None;
         }
     }
 }
