@@ -313,7 +313,7 @@ impl SpatialAudioSink {
 
 #[cfg(test)]
 mod tests {
-    use rodio::{OutputStream, Sink, SpatialSink};
+    use rodio::Sink;
 
     use super::*;
 
