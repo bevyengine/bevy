@@ -79,7 +79,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     // which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
-        let ids = handle.as_asset_id();
+        let id = handle.as_asset_id();
 
         self.change_ticks
             .is_some_and(|change_ticks| change_ticks.get(&id).is_some_and(is_newer))
