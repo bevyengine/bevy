@@ -265,8 +265,8 @@ mod tests {
         fn by_ref((InRef(a), InRef(b)): (InRef<usize>, InRef<usize>)) -> usize {
             *a + *b
         }
-        fn by_mut((InMut(a), InMut(b)): (InMut<usize>, InMut<usize>)) {
-            *a += *b;
+        fn by_mut((InMut(a), In(b)): (InMut<usize>, In<usize>)) {
+            *a += b;
         }
 
         let mut world = World::new();
@@ -279,11 +279,11 @@ mod tests {
         by_mut.initialize(&mut world);
 
         let mut a = 12;
-        let mut b = 24;
+        let b = 24;
 
         assert_eq!(by_value.run((a, b), &mut world), 36);
         assert_eq!(by_ref.run((&a, &b), &mut world), 36);
-        by_mut.run((&mut a, &mut b), &mut world);
+        by_mut.run((&mut a, b), &mut world);
         assert_eq!(a, 36);
     }
 }
