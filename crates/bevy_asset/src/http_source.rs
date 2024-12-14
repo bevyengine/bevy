@@ -237,8 +237,7 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https
-                .make_meta_uri(Path::new("example.com/favicon")),
+            HttpSourceAssetReader::Https.make_meta_uri(Path::new("example.com/favicon")),
             None
         );
     }
