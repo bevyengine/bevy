@@ -38,7 +38,7 @@ pub enum ApplyError {
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
     DifferentSize { from_size: usize, to_size: usize },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]

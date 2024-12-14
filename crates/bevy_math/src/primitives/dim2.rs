@@ -8,6 +8,9 @@ use crate::{
     Dir2, Vec2,
 };
 
+#[cfg(feature = "alloc")]
+use super::polygon::is_polygon_simple;
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -1629,6 +1632,15 @@ impl<const N: usize> Polygon<N> {
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
+
+    /// Tests if the polygon is simple.
+    ///
+    /// A polygon is simple if it is not self intersecting and not self tangent.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    #[cfg(feature = "alloc")]
+    pub fn is_simple(&self) -> bool {
+        is_polygon_simple(&self.vertices)
+    }
 }
 
 impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
@@ -1744,6 +1756,14 @@ impl BoxedPolygon {
     /// Create a new `BoxedPolygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
+    }
+
+    /// Tests if the polygon is simple.
+    ///
+    /// A polygon is simple if it is not self intersecting and not self tangent.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    pub fn is_simple(&self) -> bool {
+        is_polygon_simple(&self.vertices)
     }
 }
 
@@ -1909,14 +1929,14 @@ impl Measured2d for RegularPolygon {
 pub struct Capsule2d {
     /// The radius of the capsule
     pub radius: f32,
-    /// Half the height of the capsule, excluding the hemicircles
+    /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {
     /// Returns the default [`Capsule2d`] with a radius of `0.5` and a half-height of `0.5`,
-    /// excluding the hemicircles.
+    /// excluding the semicircles.
     fn default() -> Self {
         Self {
             radius: 0.5,

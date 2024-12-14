@@ -1,7 +1,9 @@
 //! The animation graph, which allows animations to be blended together.
 
-use core::iter;
-use core::ops::{Index, IndexMut, Range};
+use core::{
+    iter,
+    ops::{Index, IndexMut, Range},
+};
 use std::io::{self, Write};
 
 use bevy_asset::{
@@ -420,7 +422,7 @@ impl AnimationGraph {
         Self {
             graph,
             root,
-            mask_groups: HashMap::new(),
+            mask_groups: HashMap::default(),
         }
     }
 

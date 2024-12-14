@@ -223,7 +223,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             let line_normal = (conjugate_rot * intersect_line).yx();
             let angle = line_normal.to_angle();
 
-            // Since the plane containing the caps of the extrusion is not guaranteed to be orthgonal to the `ax` plane, only a certain "scale" factor
+            // Since the plane containing the caps of the extrusion is not guaranteed to be orthogonal to the `ax` plane, only a certain "scale" factor
             // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
             let scale = cap_normal.reject_from(ax).length();
 

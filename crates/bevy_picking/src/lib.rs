@@ -18,7 +18,7 @@
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
-//!         // Stop the event from bubbling up the entity hierarchjy
+//!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
 //!     });
 //! ```
@@ -49,13 +49,13 @@
 //!         // Spawn your entity here, e.g. a Mesh.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
 //!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.entity()).unwrap();
+//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {:?} goes BOOM!", trigger.entity());
-//!             commands.entity(trigger.entity()).despawn();
+//!             println!("Entity {:?} goes BOOM!", trigger.target());
+//!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.send(Greeting);
@@ -172,7 +172,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
@@ -288,7 +288,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
+/// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
@@ -400,7 +400,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Pressed>>()
             .add_event::<Pointer<DragDrop>>()
             .add_event::<Pointer<DragEnd>>()
             .add_event::<Pointer<DragEnter>>()
@@ -411,10 +411,10 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, pointer_events, update_interactions)
+                (update_focus, update_interactions, pointer_events)
                     .chain()
                     .in_set(PickSet::Focus),
             );

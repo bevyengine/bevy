@@ -43,7 +43,7 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -89,7 +89,7 @@ impl BinnedPhaseItem for Opaque3dDeferred {
 impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 
@@ -118,7 +118,7 @@ impl PhaseItem for AlphaMask3dDeferred {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -163,6 +163,6 @@ impl BinnedPhaseItem for AlphaMask3dDeferred {
 impl CachedRenderPipelinePhaseItem for AlphaMask3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }

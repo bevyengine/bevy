@@ -156,6 +156,9 @@ bevy_ui_picking_backend = [
   "bevy_internal/bevy_ui_picking_backend",
 ]
 
+# Provides a debug overlay for bevy UI
+bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
+
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
@@ -487,7 +490,7 @@ futures-lite = "2.0.1"
 async-std = "1.13"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
-thiserror = "1.0"
+thiserror = "2.0"
 event-listener = "5.3.0"
 hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
@@ -2767,6 +2770,17 @@ name = "Many Cameras & Lights"
 description = "Test rendering of many cameras and lights"
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_components"
+path = "examples/stress_tests/many_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_components]
+name = "Many Components (and Entities and Systems)"
+description = "Test large ECS systems"
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_cubes"

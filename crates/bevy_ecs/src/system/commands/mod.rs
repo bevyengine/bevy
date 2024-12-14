@@ -4,7 +4,7 @@ use core::{marker::PhantomData, panic::Location};
 
 use super::{
     Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
-    UnregisterSystem,
+    UnregisterSystem, UnregisterSystemCached,
 };
 use crate::{
     self as bevy_ecs,
@@ -15,7 +15,7 @@ use crate::{
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
     schedule::ScheduleLabel,
-    system::{input::SystemInput, RunSystemWithInput, SystemId},
+    system::{input::SystemInput, RunSystemWith, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
         EntityWorldMut, FromWorld, SpawnBatchIter, World,
@@ -810,25 +810,25 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.run_system_with_input(id, ());
+        self.run_system_with(id, ());
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system_with_input`](World::run_system_with_input).
+    /// Calls [`World::run_system_with`](World::run_system_with).
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+    /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
+    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(RunSystemWithInput::new_with_input(id, input));
+        self.queue(RunSystemWith::new_with_input(id, input));
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -904,6 +904,21 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(UnregisterSystem::new(system_id));
     }
 
+    /// Removes a system previously registered with [`World::register_system_cached`].
+    ///
+    /// See [`World::unregister_system_cached`] for more information.
+    pub fn unregister_system_cached<
+        I: SystemInput + Send + 'static,
+        O: 'static,
+        M: 'static,
+        S: IntoSystem<I, O, M> + Send + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) {
+        self.queue(UnregisterSystemCached::new(system));
+    }
+
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
@@ -915,7 +930,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.run_system_cached_with(system, ());
     }
 
-    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
+    /// Similar to [`Self::run_system_with`], but caching the [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
@@ -971,8 +986,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// sent, consider using a typed [`EventWriter`] instead.
     ///
     /// [`EventWriter`]: crate::event::EventWriter
+    #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.queue(SendEvent { event });
+        self.queue(SendEvent {
+            event,
+            #[cfg(feature = "track_change_detection")]
+            caller: Location::caller(),
+        });
         self
     }
 
@@ -1720,6 +1740,12 @@ impl<'a> EntityCommands<'a> {
 
     /// Clones an entity and returns the [`EntityCommands`] of the clone.
     ///
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// To configure cloning behavior (such as only cloning certain components),
+    /// use [`EntityCommands::clone_and_spawn_with`].
+    ///
     /// # Panics
     ///
     /// The command will panic when applied if the original entity does not exist.
@@ -1735,20 +1761,27 @@ impl<'a> EntityCommands<'a> {
     /// struct ComponentB(u32);
     ///
     /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity and keep its EntityCommands.
+    ///     // Create a new entity and keep its EntityCommands
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity
-    ///     let entity_clone = entity.clone();
+    ///     let mut entity_clone = entity.clone_and_spawn();
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone(&mut self) -> EntityCommands<'_> {
-        self.clone_with(|_| {})
+    pub fn clone_and_spawn(&mut self) -> EntityCommands<'_> {
+        self.clone_and_spawn_with(|_| {})
     }
 
     /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`],
     /// returning the [`EntityCommands`] of the clone.
     ///
+    /// By default, the clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// To exclude specific components, use [`EntityCloneBuilder::deny`].
+    /// To only include specific components, use [`EntityCloneBuilder::deny_all`]
+    /// followed by [`EntityCloneBuilder::allow`].
+    ///
     /// # Panics
     ///
     /// The command will panic when applied if the original entity does not exist.
@@ -1764,21 +1797,21 @@ impl<'a> EntityCommands<'a> {
     /// struct ComponentB(u32);
     ///
     /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity and keep its EntityCommands.
+    ///     // Create a new entity and keep its EntityCommands
     ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
     ///
     ///     // Create a clone of the first entity, but without ComponentB
-    ///     let entity_clone = entity.clone_with(|builder| {
+    ///     let mut entity_clone = entity.clone_and_spawn_with(|builder| {
     ///         builder.deny::<ComponentB>();
     ///     });
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
-    pub fn clone_with(
+    pub fn clone_and_spawn_with(
         &mut self,
         f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.queue(clone_entity_with(entity_clone, f));
+        self.queue(clone_and_spawn_with(entity_clone, f));
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
@@ -2258,7 +2291,7 @@ fn observe<E: Event, B: Bundle, M>(
     }
 }
 
-fn clone_entity_with(
+fn clone_and_spawn_with(
     entity_clone: Entity,
     f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
 ) -> impl EntityCommand {
@@ -2602,6 +2635,25 @@ mod tests {
         assert!(world.get::<X>(e).is_none());
 
         assert!(world.get::<Z>(e).is_some());
+    }
+
+    #[test]
+    fn unregister_system_cached_commands() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+
+        fn nothing() {}
+
+        assert!(world.iter_resources().count() == 0);
+        let id = world.register_system_cached(nothing);
+        assert!(world.iter_resources().count() == 1);
+        assert!(world.get_entity(id.entity).is_ok());
+
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.unregister_system_cached(nothing);
+        queue.apply(&mut world);
+        assert!(world.iter_resources().count() == 0);
+        assert!(world.get_entity(id.entity).is_err());
     }
 
     fn is_send<T: Send>() {}

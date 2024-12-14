@@ -469,7 +469,7 @@ fn handle_mouse_clicks(
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
 
-    // Move all the main objeccts.
+    // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,

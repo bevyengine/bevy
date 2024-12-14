@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
-    observer::{Observer, Observers},
+    observer::Observer,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -728,7 +728,7 @@ impl<'w> EntityMut<'w> {
     /// let mut entity_mut = world.entity_mut(entity);
     /// let mut ptrs = entity_mut.get_mut_by_id(&HashSet::from_iter([x_id, y_id]))
     /// #   .unwrap();
-    /// # let [mut x_ptr, mut y_ptr] = ptrs.get_many_mut([&x_id, &y_id]).unwrap();
+    /// # let [Some(mut x_ptr), Some(mut y_ptr)] = ptrs.get_many_mut([&x_id, &y_id]) else { unreachable!() };
     /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
     /// ```
     #[inline]
@@ -1468,13 +1468,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
         // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
         let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
+            bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 storages,
                 components,
                 &world.observers,
                 old_location.archetype_id,
-                bundle_info,
                 false,
             )?
         };
@@ -1650,17 +1649,17 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = remove_bundle_from_archetype(
-            &mut world.archetypes,
-            &mut world.storages,
-            &world.components,
-            &world.observers,
-            location.archetype_id,
-            bundle_info,
-            // components from the bundle that are not present on the entity are ignored
-            true,
-        )
-        .expect("intersections should always return a result");
+        let new_archetype_id = bundle_info
+            .remove_bundle_from_archetype(
+                &mut world.archetypes,
+                &mut world.storages,
+                &world.components,
+                &world.observers,
+                location.archetype_id,
+                // components from the bundle that are not present on the entity are ignored
+                true,
+            )
+            .expect("intersections should always return a result");
 
         if new_archetype_id == location.archetype_id {
             return location;
@@ -3271,126 +3270,6 @@ unsafe fn insert_dynamic_bundle<
     }
 }
 
-/// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
-/// removal was invalid). in the event that adding the given bundle does not result in an Archetype
-/// change. Results are cached in the Archetype Graph to avoid redundant work.
-/// if `intersection` is false, attempting to remove a bundle with components _not_ contained in the
-/// current archetype will fail, returning None. if `intersection` is true, components in the bundle
-/// but not in the current archetype will be ignored
-///
-/// # Safety
-/// `archetype_id` must exist and components in `bundle_info` must exist
-unsafe fn remove_bundle_from_archetype(
-    archetypes: &mut Archetypes,
-    storages: &mut Storages,
-    components: &Components,
-    observers: &Observers,
-    archetype_id: ArchetypeId,
-    bundle_info: &BundleInfo,
-    intersection: bool,
-) -> Option<ArchetypeId> {
-    // check the archetype graph to see if the Bundle has been removed from this archetype in the
-    // past
-    let remove_bundle_result = {
-        let edges = archetypes[archetype_id].edges();
-        if intersection {
-            edges.get_remove_bundle(bundle_info.id())
-        } else {
-            edges.get_take_bundle(bundle_info.id())
-        }
-    };
-    let result = if let Some(result) = remove_bundle_result {
-        // this Bundle removal result is cached. just return that!
-        result
-    } else {
-        let mut next_table_components;
-        let mut next_sparse_set_components;
-        let next_table_id;
-        {
-            let current_archetype = &mut archetypes[archetype_id];
-            let mut removed_table_components = Vec::new();
-            let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.iter_explicit_components() {
-                if current_archetype.contains(component_id) {
-                    // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = unsafe { components.get_info_unchecked(component_id) };
-                    match component_info.storage_type() {
-                        StorageType::Table => removed_table_components.push(component_id),
-                        StorageType::SparseSet => removed_sparse_set_components.push(component_id),
-                    }
-                } else if !intersection {
-                    // a component in the bundle was not present in the entity's archetype, so this
-                    // removal is invalid cache the result in the archetype
-                    // graph
-                    current_archetype
-                        .edges_mut()
-                        .insert_take_bundle(bundle_info.id(), None);
-                    return None;
-                }
-            }
-
-            // sort removed components so we can do an efficient "sorted remove". archetype
-            // components are already sorted
-            removed_table_components.sort_unstable();
-            removed_sparse_set_components.sort_unstable();
-            next_table_components = current_archetype.table_components().collect();
-            next_sparse_set_components = current_archetype.sparse_set_components().collect();
-            sorted_remove(&mut next_table_components, &removed_table_components);
-            sorted_remove(
-                &mut next_sparse_set_components,
-                &removed_sparse_set_components,
-            );
-
-            next_table_id = if removed_table_components.is_empty() {
-                current_archetype.table_id()
-            } else {
-                // SAFETY: all components in next_table_components exist
-                unsafe {
-                    storages
-                        .tables
-                        .get_id_or_insert(&next_table_components, components)
-                }
-            };
-        }
-
-        let new_archetype_id = archetypes.get_id_or_insert(
-            components,
-            observers,
-            next_table_id,
-            next_table_components,
-            next_sparse_set_components,
-        );
-        Some(new_archetype_id)
-    };
-    let current_archetype = &mut archetypes[archetype_id];
-    // cache the result in an edge
-    if intersection {
-        current_archetype
-            .edges_mut()
-            .insert_remove_bundle(bundle_info.id(), result);
-    } else {
-        current_archetype
-            .edges_mut()
-            .insert_take_bundle(bundle_info.id(), result);
-    }
-    result
-}
-
-fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
-    let mut remove_index = 0;
-    source.retain(|value| {
-        while remove_index < remove.len() && *value > remove[remove_index] {
-            remove_index += 1;
-        }
-
-        if remove_index < remove.len() {
-            *value != remove[remove_index]
-        } else {
-            true
-        }
-    });
-}
-
 /// Moves component data out of storage.
 ///
 /// This function leaves the underlying memory unchanged, but the component behind
@@ -3656,7 +3535,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Ref<'_>, EntityComponentError> {
-        let mut ptrs = HashMap::with_capacity(self.len());
+        let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
@@ -3671,7 +3550,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        let mut ptrs = HashMap::with_capacity(self.len());
+        let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
@@ -3699,27 +3578,6 @@ mod tests {
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
-
-    #[test]
-    fn sorted_remove() {
-        let mut a = vec![1, 2, 3, 4, 5, 6, 7];
-        let b = vec![1, 2, 3, 5, 7];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![4, 6]);
-
-        let mut a = vec![1];
-        let b = vec![1];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![]);
-
-        let mut a = vec![1];
-        let b = vec![2];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![1]);
-    }
 
     #[derive(Component, Clone, Copy, Debug, PartialEq)]
     struct TestComponent(u32);
@@ -4703,7 +4561,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.entity()).insert(TestComponent(0));
+                commands.entity(trigger.target()).insert(TestComponent(0));
             })
             .id();
 
@@ -4725,7 +4583,7 @@ mod tests {
         let mut world = World::new();
         world.add_observer(
             |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
-                commands.entity(trigger.entity()).despawn();
+                commands.entity(trigger.target()).despawn();
             },
         );
         let entity = world.spawn_empty().id();
