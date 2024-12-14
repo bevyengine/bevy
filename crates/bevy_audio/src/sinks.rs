@@ -7,14 +7,23 @@ use rodio::{Sink, SpatialSink};
 pub trait AudioSinkPlayback {
     /// Gets the volume of the sound.
     ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
+    /// The value `1.0` is the "normal" volume (unfiltered input). Any value
+    /// other than `1.0` will multiply each sample by this value.
+    ///
+    /// If the sink is muted, this returns the managed volume rather than the
+    /// sink's actual volume. This allows you to use the volume as if the sink
+    /// were not muted, because a muted sink has a volume of 0.
     fn volume(&self) -> f32;
 
     /// Changes the volume of the sound.
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
     /// will multiply each sample by this value.
+    ///
+    /// If the sink is muted, this sets the managed volume rather than the
+    /// sink's actual volume. This allows you to control the volume even when
+    /// the sink is muted, so that when it is unmuted, the volume is restored
+    /// and all calls to this function are respected.
     ///
     /// # Note on Audio Volume
     ///
@@ -23,7 +32,7 @@ pub trait AudioSinkPlayback {
     /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
     /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
     /// Multiply the current volume by 0.316 to halve the perceived volume.
-    fn set_volume(&self, volume: f32);
+    fn set_volume(&mut self, volume: f32);
 
     /// Gets the speed of the sound.
     ///
@@ -71,6 +80,24 @@ pub trait AudioSinkPlayback {
 
     /// Returns true if this sink has no more sounds to play.
     fn empty(&self) -> bool;
+
+    /// Returns true if the sink is muted.
+    fn is_muted(&self) -> bool;
+
+    /// Mutes the sink.
+    fn mute(&mut self);
+
+    /// Unmutes the sink.
+    fn unmute(&mut self);
+
+    /// Toggles whether the sink is muted or not.
+    fn toggle_mute(&mut self) {
+        if self.is_muted() {
+            self.unmute();
+        } else {
+            self.mute();
+        }
+    }
 }
 
 /// Used to control audio during playback.
@@ -86,15 +113,46 @@ pub trait AudioSinkPlayback {
 #[derive(Component)]
 pub struct AudioSink {
     pub(crate) sink: Sink,
+
+    /// Managed volume allows the sink to be muted without losing the user's
+    /// intended volume setting.
+    ///
+    /// This is used to restore the volume when [`unmute`](Self::unmute) is
+    /// called.
+    ///
+    /// If the sink is not muted, this is `None`.
+    ///
+    /// If the sink is muted, this is `Some(volume)` where `volume` is the
+    /// user's intended volume setting, even if the underlying sink's volume is
+    /// 0.
+    pub(crate) managed_volume: Option<f32>,
+}
+
+impl AudioSink {
+    /// Create a new audio sink.
+    pub fn new(sink: Sink) -> Self {
+        Self {
+            sink,
+            managed_volume: None,
+        }
+    }
 }
 
 impl AudioSinkPlayback for AudioSink {
     fn volume(&self) -> f32 {
-        self.sink.volume()
+        if let Some(volume) = self.managed_volume {
+            volume
+        } else {
+            self.sink.volume()
+        }
     }
 
-    fn set_volume(&self, volume: f32) {
-        self.sink.set_volume(volume);
+    fn set_volume(&mut self, volume: f32) {
+        if self.is_muted() {
+            self.managed_volume = Some(volume);
+        } else {
+            self.sink.set_volume(volume);
+        }
     }
 
     fn speed(&self) -> f32 {
@@ -123,6 +181,22 @@ impl AudioSinkPlayback for AudioSink {
 
     fn empty(&self) -> bool {
         self.sink.empty()
+    }
+
+    fn is_muted(&self) -> bool {
+        self.managed_volume.is_some()
+    }
+
+    fn mute(&mut self) {
+        self.managed_volume = Some(self.volume());
+        self.sink.set_volume(0.0);
+    }
+
+    fn unmute(&mut self) {
+        if let Some(volume) = self.managed_volume {
+            self.sink.set_volume(volume);
+            self.managed_volume = None;
+        }
     }
 }
 
@@ -139,6 +213,29 @@ impl AudioSinkPlayback for AudioSink {
 #[derive(Component)]
 pub struct SpatialAudioSink {
     pub(crate) sink: SpatialSink,
+
+    /// Managed volume allows the sink to be muted without losing the user's
+    /// intended volume setting.
+    ///
+    /// This is used to restore the volume when [`unmute`](Self::unmute) is
+    /// called.
+    ///
+    /// If the sink is not muted, this is `None`.
+    ///
+    /// If the sink is muted, this is `Some(volume)` where `volume` is the
+    /// user's intended volume setting, even if the underlying sink's volume is
+    /// 0.
+    pub(crate) managed_volume: Option<f32>,
+}
+
+impl SpatialAudioSink {
+    /// Create a new spatial audio sink.
+    pub fn new(sink: SpatialSink) -> Self {
+        Self {
+            sink,
+            managed_volume: None,
+        }
+    }
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
@@ -146,8 +243,12 @@ impl AudioSinkPlayback for SpatialAudioSink {
         self.sink.volume()
     }
 
-    fn set_volume(&self, volume: f32) {
-        self.sink.set_volume(volume);
+    fn set_volume(&mut self, volume: f32) {
+        if self.is_muted() {
+            self.managed_volume = Some(volume);
+        } else {
+            self.sink.set_volume(volume);
+        }
     }
 
     fn speed(&self) -> f32 {
@@ -176,6 +277,22 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn empty(&self) -> bool {
         self.sink.empty()
+    }
+
+    fn is_muted(&self) -> bool {
+        self.managed_volume.is_some()
+    }
+
+    fn mute(&mut self) {
+        self.managed_volume = Some(self.volume());
+        self.sink.set_volume(0.0);
+    }
+
+    fn unmute(&mut self) {
+        if let Some(volume) = self.managed_volume {
+            self.sink.set_volume(volume);
+            self.managed_volume = None;
+        }
     }
 }
 
