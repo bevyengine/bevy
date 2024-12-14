@@ -249,3 +249,41 @@ all_tuples!(
     8,
     I
 );
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        system::{In, InMut, InRef, IntoSystem, System},
+        world::World,
+    };
+
+    #[test]
+    fn two_tuple() {
+        fn by_value((In(a), In(b)): (In<usize>, In<usize>)) -> usize {
+            a + b
+        }
+        fn by_ref((InRef(a), InRef(b)): (InRef<usize>, InRef<usize>)) -> usize {
+            *a + *b
+        }
+        fn by_mut((InMut(a), InMut(b)): (InMut<usize>, InMut<usize>)) {
+            *a += *b;
+        }
+
+        let mut world = World::new();
+        let mut by_value = IntoSystem::into_system(by_value);
+        let mut by_ref = IntoSystem::into_system(by_ref);
+        let mut by_mut = IntoSystem::into_system(by_mut);
+
+        by_value.initialize(&mut world);
+        by_ref.initialize(&mut world);
+        by_mut.initialize(&mut world);
+
+        let mut a = 12;
+        let mut b = 24;
+
+        assert_eq!(by_value.run((a, b), &mut world), 36);
+        assert_eq!(by_ref.run((&a, &b), &mut world), 36);
+        by_mut.run((&mut a, &mut b), &mut world);
+        assert_eq!(a, 36);
+    }
+}
