@@ -191,6 +191,11 @@ pub mod ray {
             &self.map
         }
 
+        /// The mutable hash map of all rays cast in the current frame.
+        pub fn map_mut(&mut self) -> &mut HashMap<RayId, Ray3d> {
+            &mut self.map
+        }
+
         /// Clears the [`RayMap`] and re-populates it with one ray for each
         /// combination of pointer entity and camera entity where the pointer
         /// intersects the camera's viewport.
