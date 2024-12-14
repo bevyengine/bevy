@@ -1,5 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
+use variadics_please::all_tuples;
+
 use crate::{bundle::Bundle, prelude::Trigger, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
@@ -11,6 +13,9 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 /// - [`InMut<T>`]: For mutable references to values
 /// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
+/// - Tuples of [`SystemInput`]s up to 8 elements
+///
+/// For advanced usecases, you can implement this trait for your own types.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
 pub trait SystemInput: Sized {
@@ -30,14 +35,6 @@ pub trait SystemInput: Sized {
 
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
 pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
-
-/// [`SystemInput`] type for systems that take no input.
-impl SystemInput for () {
-    type Param<'i> = ();
-    type Inner<'i> = ();
-
-    fn wrap(_this: Self::Inner<'_>) -> Self::Param<'_> {}
-}
 
 /// A [`SystemInput`] type which denotes that a [`System`] receives
 /// an input value of type `T` from its caller.
@@ -227,3 +224,28 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
         StaticSystemInput(this)
     }
 }
+
+macro_rules! impl_system_input_tuple {
+    ($(#[$meta:meta])* $($name:ident),*) => {
+        $(#[$meta])*
+        impl<$($name: SystemInput),*> SystemInput for ($($name,)*) {
+            type Param<'i> = ($($name::Param<'i>,)*);
+            type Inner<'i> = ($($name::Inner<'i>,)*);
+
+            #[allow(non_snake_case)]
+            #[allow(clippy::unused_unit)]
+            fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+                let ($($name,)*) = this;
+                ($($name::wrap($name),)*)
+            }
+        }
+    };
+}
+
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_input_tuple,
+    0,
+    8,
+    I
+);
