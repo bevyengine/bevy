@@ -59,7 +59,7 @@ use self::{
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material, MeshMaterial3d, PreviousGlobalTransform};
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -68,13 +68,13 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
-    component::{require, Component},
+    component::{require, Component, ComponentId},
     entity::Entity,
-    prelude::With,
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
+    world::DeferredWorld,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -83,13 +83,14 @@ use bevy_render::{
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{
-        check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
-        Visibility, VisibilitySystems,
+        prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility,
+        VisibilityClass,
     },
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
+use core::any::TypeId;
 use derive_more::From;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
@@ -219,11 +220,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshLoader)
-            .add_systems(
-                PostUpdate,
-                check_visibility::<With<MeshletMesh3d>>.in_set(VisibilitySystems::CheckVisibility),
-            );
+            .register_asset_loader(MeshletMeshLoader);
     }
 
     fn finish(&self, app: &mut App) {
@@ -303,7 +300,8 @@ impl Plugin for MeshletPlugin {
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, PreviousGlobalTransform, Visibility)]
+#[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
+#[component(on_add = add_meshlet_mesh_3d_visibility_class)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
@@ -315,6 +313,16 @@ impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
 impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
     fn from(mesh: &MeshletMesh3d) -> Self {
         mesh.id()
+    }
+}
+
+fn add_meshlet_mesh_3d_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<MeshletMesh3d>());
     }
 }
 
