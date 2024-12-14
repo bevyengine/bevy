@@ -390,11 +390,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn horizontal(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.left = value;
-        rect.right = value;
-        rect
+    pub fn horizontal(value: Val) -> Self {
+        UiRect {
+            left: value,
+            right: value,
+            ..Default::default()
+        }
     }
 
     /// Creates a new [`UiRect`] where `top` and `bottom` take the given value,
@@ -412,11 +413,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn vertical(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.top = value;
-        rect.bottom = value;
-        rect
+    pub fn vertical(value: Val) -> Self {
+        UiRect {
+            top: value,
+            bottom: value,
+            ..Default::default()
+        }
     }
 
     /// Creates a new [`UiRect`] where both `left` and `right` take the value of `horizontal`, and both `top` and `bottom` take the value of `vertical`.
@@ -433,7 +435,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub const fn axes(horizontal: Val, vertical: Val) -> Self {
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
         UiRect {
             left: horizontal,
             right: horizontal,
@@ -457,10 +459,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn left(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.left = value;
-        rect
+    pub fn left(value: Val) -> Self {
+        UiRect {
+            left: value,
+            ..Default::default()
+        }
     }
 
     /// Creates a new [`UiRect`] where `right` takes the given value,
@@ -478,10 +481,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn right(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.right = value;
-        rect
+    pub fn right(value: Val) -> Self {
+        UiRect {
+            right: value,
+            ..Default::default()
+        }
     }
 
     /// Creates a new [`UiRect`] where `top` takes the given value,
@@ -499,10 +503,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn top(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.top = value;
-        rect
+    pub fn top(value: Val) -> Self {
+        UiRect {
+            top: value,
+            ..Default::default()
+        }
     }
 
     /// Creates a new [`UiRect`] where `bottom` takes the given value,
@@ -520,10 +525,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn bottom(value: Val) -> Self {
-        let mut rect = UiRect::DEFAULT;
-        rect.bottom = value;
-        rect
+    pub fn bottom(value: Val) -> Self {
+        UiRect {
+            bottom: value,
+            ..Default::default()
+        }
     }
 
     /// Returns the [`UiRect`] with its `left` field set to the given value.
@@ -540,7 +546,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_left(mut self, left: Val) -> Self {
+    pub fn with_left(mut self, left: Val) -> Self {
         self.left = left;
         self
     }
@@ -559,7 +565,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_right(mut self, right: Val) -> Self {
+    pub fn with_right(mut self, right: Val) -> Self {
         self.right = right;
         self
     }
@@ -578,7 +584,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_top(mut self, top: Val) -> Self {
+    pub fn with_top(mut self, top: Val) -> Self {
         self.top = top;
         self
     }
@@ -597,7 +603,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     #[inline]
-    pub const fn with_bottom(mut self, bottom: Val) -> Self {
+    pub fn with_bottom(mut self, bottom: Val) -> Self {
         self.bottom = bottom;
         self
     }
