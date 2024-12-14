@@ -337,7 +337,9 @@ pub trait AsBindGroup {
     /// Note that the *actual* slot count may be different from this value, due
     /// to platform limitations. For example, if bindless resources aren't
     /// supported on this platform, the actual slot count will be 1.
-    const BINDLESS_SLOT_COUNT: Option<u32> = None;
+    fn bindless_slot_count() -> Option<u32> {
+        None
+    }
 
     /// label
     fn label() -> Option<&'static str> {

@@ -567,7 +567,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // limitations into account.
     let (bindless_slot_count, actual_bindless_slot_count_declaration) = match attr_bindless_count {
         Some(bindless_count) => (
-            quote! { const BINDLESS_SLOT_COUNT: Option<u32> = Some(#bindless_count); },
+            quote! {
+                fn bindless_slot_count() -> Option<u32> {
+                    Some(#bindless_count)
+                }
+            },
             quote! {
                 let #actual_bindless_slot_count = if render_device.features().contains(
                     #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
