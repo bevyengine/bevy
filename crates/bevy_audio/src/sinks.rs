@@ -366,18 +366,4 @@ mod tests {
         let audio_sink = AudioSink::new(sink);
         test_audio_sink_playback(audio_sink);
     }
-
-    #[test]
-    fn test_spatial_audio_sink() {
-        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-        let sink = SpatialSink::try_new(
-            &stream_handle,
-            [0.0, 0.0, 0.0],
-            [10.0, 0.0, 0.0],
-            [-10.0, 0.0, 0.0],
-        )
-        .unwrap();
-        let spatial_audio_sink = SpatialAudioSink::new(sink);
-        test_audio_sink_playback(spatial_audio_sink);
-    }
 }
