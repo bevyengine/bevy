@@ -31,11 +31,10 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::view::VisibilityClass;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -163,10 +162,6 @@ type DrawSpecializedPipelineCommands = (
     // Draw the mesh
     DrawMesh,
 );
-
-/// A query filter that tells [`view::check_visibility`] about our custom
-/// rendered entity.
-type WithCustomRenderedEntity = With<CustomRenderedEntity>;
 
 // This contains the state needed to specialize a mesh pipeline
 #[derive(Resource)]
@@ -313,9 +308,8 @@ fn queue_custom_mesh_pipeline(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &(render_entity, visible_entity) in view_visible_entities
-            .get::<WithCustomRenderedEntity>()
-            .iter()
+        for &(render_entity, visible_entity) in
+            view_visible_entities.get::<CustomRenderedEntity>().iter()
         {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(visible_entity)

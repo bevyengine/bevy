@@ -33,11 +33,10 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderVisibleEntities},
+        view::{ExtractedView, RenderVisibleEntities, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::view::VisibilityClass;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -174,10 +173,6 @@ impl Vertex {
 /// the render phase.
 type DrawCustomPhaseItemCommands = (SetItemPipeline, DrawCustomPhaseItem);
 
-/// A query filter that tells [`view::check_visibility`] about our custom
-/// rendered entity.
-type WithCustomRenderedEntity = With<CustomRenderedEntity>;
-
 /// A single triangle's worth of vertices, for demonstration purposes.
 static VERTICES: [Vertex; 3] = [
     Vertex::new(vec3(-0.866, -0.5, 0.5), vec3(1.0, 0.0, 0.0)),
@@ -261,10 +256,7 @@ fn queue_custom_phase_item(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &entity in view_visible_entities
-            .get::<WithCustomRenderedEntity>()
-            .iter()
-        {
+        for &entity in view_visible_entities.get::<CustomRenderedEntity>().iter() {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
