@@ -149,6 +149,7 @@ pub struct AssetChangedState<A: AsAssetId> {
 }
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+#[allow(unsafe_code)]
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Item<'w> = ();
     type Fetch<'w> = AssetChangedFetch<'w, A>;
@@ -258,6 +259,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 }
 
 /// SAFETY: read-only access
+#[allow(unsafe_code)]
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
