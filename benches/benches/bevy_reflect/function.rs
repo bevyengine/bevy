@@ -83,6 +83,7 @@ fn overload(c: &mut Criterion) {
         a + b
     }
 
+    #[expect(clippy::too_many_arguments)]
     fn complex<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(
         _: T0,
         _: T1,
