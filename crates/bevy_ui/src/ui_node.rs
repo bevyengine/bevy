@@ -1,18 +1,18 @@
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{component::ComponentId, prelude::*, system::SystemParam, world::DeferredWorld};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    view::Visibility,
+    view::{Visibility, VisibilityClass},
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::{any::TypeId, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -308,9 +308,11 @@ impl From<&Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
+    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
+#[component(on_add = add_node_visibility_class)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -645,6 +647,17 @@ impl Node {
 impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+// The `check_visibility` system needs to mark UI nodes as visible.
+pub(crate) fn add_node_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<Node>());
     }
 }
 

@@ -57,8 +57,10 @@ use super::*;
     CascadeShadowConfig,
     CascadesVisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    VisibilityClass
 )]
+#[component(on_add = add_light_visibility_class)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///

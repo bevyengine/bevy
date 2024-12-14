@@ -7,11 +7,15 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
+use std::any::TypeId;
+
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
+        component::ComponentId,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
+        world::DeferredWorld,
     },
     prelude::*,
     render::{
@@ -29,19 +33,37 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::view::VisibilityClass;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.
 ///
-/// Note the [`ExtractComponent`] trait implementation. This is necessary to
-/// tell Bevy that this object should be pulled into the render world.
+/// Note the [`ExtractComponent`] trait implementation: this is necessary to
+/// tell Bevy that this object should be pulled into the render world. Also note
+/// the [`add_custom_rendered_entity_visibility_class`] implementation, which is
+/// needed to tell Bevy's `check_visibility` system that entities with this
+/// component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
+#[require(VisibilityClass)]
+#[component(on_add = add_custom_rendered_entity_visibility_class)]
 struct CustomRenderedEntity;
+
+/// Tells Bevy's `check_visibility` system that entities with the
+/// [`CustomRenderedEntity`] component need to be marked as visible or not.
+fn add_custom_rendered_entity_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<CustomRenderedEntity>());
+    }
+}
 
 /// Holds a reference to our shader.
 ///
@@ -168,14 +190,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
-        .add_systems(Startup, setup)
-        // Make sure to tell Bevy to check our entity for visibility. Bevy won't
-        // do this by default, for efficiency reasons.
-        .add_systems(
-            PostUpdate,
-            view::check_visibility::<WithCustomRenderedEntity>
-                .in_set(VisibilitySystems::CheckVisibility),
-        );
+        .add_systems(Startup, setup);
 
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)

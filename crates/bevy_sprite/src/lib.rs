@@ -37,6 +37,8 @@ pub mod prelude {
     };
 }
 
+use core::any::TypeId;
+
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
@@ -52,7 +54,7 @@ pub use texture_slice::*;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{component::ComponentId, prelude::*, query::QueryItem, world::DeferredWorld};
 use bevy_image::Image;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -60,7 +62,7 @@ use bevy_render::{
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{check_visibility, NoFrustumCulling, VisibilitySystems},
+    view::{NoFrustumCulling, VisibilityClass, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -97,11 +99,20 @@ pub enum SpriteSystem {
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
 #[reflect(Component, Default, Debug)]
+#[require(VisibilityClass)]
+#[component(on_add = add_sprite_visibility_class)]
 pub struct SpriteSource;
 
-/// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
+// The `check_visibility` system needs to mark sprites as visible.
+pub(crate) fn add_sprite_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<Sprite>());
+    }
+}
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -140,11 +151,6 @@ impl Plugin for SpritePlugin {
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
-                    (
-                        check_visibility::<With<Mesh2d>>,
-                        check_visibility::<WithSprite>,
-                    )
-                        .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 

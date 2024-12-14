@@ -1,8 +1,10 @@
-use core::ops::DerefMut;
+use core::{any::TypeId, ops::DerefMut};
 
 use bevy_ecs::{
+    component::ComponentId,
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
+    world::DeferredWorld,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
@@ -13,8 +15,8 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
-        VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
+        VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -501,6 +503,18 @@ pub enum ShadowFilteringMethod {
     ///
     /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
     Temporal,
+}
+
+pub struct LightVisibilityClass;
+
+pub(crate) fn add_light_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<LightVisibilityClass>());
+    }
 }
 
 /// System sets used to run light-related systems.

@@ -133,7 +133,7 @@ use bevy_render::{
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
-    view::{check_visibility, VisibilitySystems},
+    view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -409,7 +409,6 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
                     (
                         check_dir_light_mesh_visibility,
                         check_point_light_mesh_visibility,

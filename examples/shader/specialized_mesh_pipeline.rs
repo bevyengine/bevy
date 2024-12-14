@@ -6,8 +6,11 @@
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
+use std::any::TypeId;
+
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    ecs::{component::ComponentId, world::DeferredWorld},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -28,10 +31,11 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::view::VisibilityClass;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -97,15 +101,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct CustomRenderedMeshPipelinePlugin;
 impl Plugin for CustomRenderedMeshPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
-            .add_systems(
-                PostUpdate,
-                // Make sure to tell Bevy to check our entity for visibility. Bevy won't
-                // do this by default, for efficiency reasons.
-                // This will do things like frustum culling and hierarchy visibility
-                view::check_visibility::<WithCustomRenderedEntity>
-                    .in_set(VisibilitySystems::CheckVisibility),
-            );
+        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default());
 
         // We make sure to add these to the render app, not the main app.
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -132,10 +128,28 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 /// A marker component that represents an entity that is to be rendered using
 /// our specialized pipeline.
 ///
-/// Note the [`ExtractComponent`] trait implementation. This is necessary to
-/// tell Bevy that this object should be pulled into the render world.
+/// Note the [`ExtractComponent`] trait implementation: this is necessary to
+/// tell Bevy that this object should be pulled into the render world. Also note
+/// the [`add_custom_rendered_entity_visibility_class`] implementation, which is
+/// needed to tell Bevy's `check_visibility` system that entities with this
+/// component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
+#[require(VisibilityClass)]
+#[component(on_add = add_custom_rendered_entity_visibility_class)]
 struct CustomRenderedEntity;
+
+/// Tells Bevy's `check_visibility` system that entities with the
+/// [`CustomRenderedEntity`] component need to be marked as visible or not.
+#[inline]
+fn add_custom_rendered_entity_visibility_class(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<CustomRenderedEntity>());
+    }
+}
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
 /// the render phase.
