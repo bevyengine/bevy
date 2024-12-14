@@ -235,7 +235,7 @@ impl SpatialAudioSink {
 
 impl AudioSinkPlayback for SpatialAudioSink {
     fn volume(&self) -> f32 {
-        self.sink.volume()
+        self.managed_volume.unwrap_or_else(|| self.sink.volume())
     }
 
     fn set_volume(&mut self, volume: f32) {
