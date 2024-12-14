@@ -310,3 +310,74 @@ impl SpatialAudioSink {
         self.sink.set_emitter_position(position.to_array());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rodio::{OutputStream, Sink, SpatialSink};
+
+    use super::*;
+
+    fn test_audio_sink_playback<T: AudioSinkPlayback>(mut audio_sink: T) {
+        // Test volume
+        assert_eq!(audio_sink.volume(), 1.0); // default volume
+        audio_sink.set_volume(0.5);
+        assert_eq!(audio_sink.volume(), 0.5);
+        audio_sink.set_volume(1.0);
+        assert_eq!(audio_sink.volume(), 1.0);
+
+        // Test speed
+        assert_eq!(audio_sink.speed(), 1.0); // default speed
+        audio_sink.set_speed(0.5);
+        assert_eq!(audio_sink.speed(), 0.5);
+        audio_sink.set_speed(1.0);
+        assert_eq!(audio_sink.speed(), 1.0);
+
+        // Test pause
+        assert!(!audio_sink.is_paused()); // default pause state
+        audio_sink.pause();
+        assert!(audio_sink.is_paused());
+        audio_sink.play();
+        assert!(!audio_sink.is_paused());
+
+        // Test mute
+        assert!(!audio_sink.is_muted()); // default mute state
+        audio_sink.mute();
+        assert!(audio_sink.is_muted());
+        audio_sink.unmute();
+        assert!(!audio_sink.is_muted());
+
+        // Test volume with mute
+        audio_sink.set_volume(0.5);
+        audio_sink.mute();
+        assert_eq!(audio_sink.volume(), 0.5); // returns managed volume even though sink volume is 0
+        audio_sink.unmute();
+        assert_eq!(audio_sink.volume(), 0.5); // managed volume is restored
+
+        // Test toggle mute
+        audio_sink.toggle_mute();
+        assert!(audio_sink.is_muted());
+        audio_sink.toggle_mute();
+        assert!(!audio_sink.is_muted());
+    }
+
+    #[test]
+    fn test_audio_sink() {
+        let (sink, _queue_rx) = Sink::new_idle();
+        let audio_sink = AudioSink::new(sink);
+        test_audio_sink_playback(audio_sink);
+    }
+
+    #[test]
+    fn test_spatial_audio_sink() {
+        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+        let sink = SpatialSink::try_new(
+            &stream_handle,
+            [0.0, 0.0, 0.0],
+            [10.0, 0.0, 0.0],
+            [-10.0, 0.0, 0.0],
+        )
+        .unwrap();
+        let spatial_audio_sink = SpatialAudioSink::new(sink);
+        test_audio_sink_playback(spatial_audio_sink);
+    }
+}
