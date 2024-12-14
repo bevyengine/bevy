@@ -17,6 +17,25 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 ///
 /// For advanced usecases, you can implement this trait for your own types.
 ///
+/// # Examples
+///
+/// ## Tuples of [`SystemInput`]s
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn add((InMut(a), In(b)): (InMut<usize>, In<usize>)) {
+///     *a += b;
+/// }
+/// # let mut world = World::new();
+/// # let mut add = IntoSystem::into_system(add);
+/// # add.initialize(&mut world);
+/// # let mut a = 12;
+/// # let b = 24;
+/// # add.run((&mut a, b), &mut world);
+/// # assert_eq!(a, 36);
+/// ```
+///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
 pub trait SystemInput: Sized {
     /// The wrapper input type that is defined as the first argument to [`FunctionSystem`]s.
@@ -43,6 +62,8 @@ pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 /// are being [`run`](System::run). For [`FunctionSystem`]s the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
 /// means a system can only have one or zero input parameters.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 ///
 /// # Examples
 ///
@@ -96,6 +117,8 @@ impl<T> DerefMut for In<T> {
 /// This is similar to [`In`] but takes a reference to a value instead of the value itself.
 /// See [`InMut`] for the mutable version.
 ///
+/// See [`SystemInput`] to learn more about system inputs in general.
+///
 /// # Examples
 ///
 /// Here is a simple example of a system that logs the passed in message.
@@ -146,6 +169,8 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 ///
 /// This is similar to [`In`] but takes a mutable reference to a value instead of the value itself.
 /// See [`InRef`] for the read-only version.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 ///
 /// # Examples
 ///
@@ -214,6 +239,8 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
 ///
 /// This makes it useful for having arbitrary [`SystemInput`]s in
 /// function systems.
+///
+/// See [`SystemInput`] to learn more about system inputs in general.
 pub struct StaticSystemInput<'a, I: SystemInput>(pub I::Inner<'a>);
 
 impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
