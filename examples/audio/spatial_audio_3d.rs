@@ -11,6 +11,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_positions)
         .add_systems(Update, update_listener)
+        .add_systems(Update, mute)
         .run();
 }
 
@@ -126,5 +127,13 @@ fn update_listener(
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
         listeners.translation.z -= speed * time.delta_secs();
+    }
+}
+
+fn mute(keyboard_input: Res<ButtonInput<KeyCode>>, mut sinks: Query<&mut SpatialAudioSink>) {
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut sink in sinks.iter_mut() {
+            sink.toggle_mute();
+        }
     }
 }
