@@ -1,6 +1,7 @@
-//! Define the [`AssetChanged`] query filter.
+//! Defines the [`AssetChanged`] query filter.
 //!
-//! Like [`Changed`](bevy_ecs::prelude::Changed), but for [`Asset`]s.
+//! Like [`Changed`](bevy_ecs::prelude::Changed), but for [`Asset`]s,
+//! and triggers whenever the handle or the underlying asset changes.
 
 use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
@@ -123,7 +124,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// [`Assets<Mesh>::get_mut`]: crate::Assets::get_mut
 pub struct AssetChanged<A: AsAssetId>(PhantomData<A>);
 
-/// Fetch for [`AssetChanged`].
+/// [`WorldQuery`] fetch for [`AssetChanged`].
 #[doc(hidden)]
 pub struct AssetChangedFetch<'w, A: AsAssetId> {
     inner: Option<ReadFetch<'w, A>>,
@@ -139,7 +140,7 @@ impl<'w, A: AsAssetId> Clone for AssetChangedFetch<'w, A> {
     }
 }
 
-/// State for [`AssetChanged`].
+/// [`WorldQuery`] state for [`AssetChanged`].
 #[doc(hidden)]
 pub struct AssetChangedState<A: AsAssetId> {
     asset_id: ComponentId,
