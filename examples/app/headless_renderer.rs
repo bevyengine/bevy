@@ -367,12 +367,12 @@ impl render_graph::Node for ImageCopyDriver {
             // That's why image in buffer can be little bit wider
             // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
+                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
             );
 
             let texture_extent = Extent3d {
-                width: src_image.size.x,
-                height: src_image.size.y,
+                width: src_image.size.width,
+                height: src_image.size.height,
                 depth_or_array_layers: 1,
             };
 

@@ -118,7 +118,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -677,7 +677,7 @@ pub fn prepare_sprite_image_bind_groups(
                     continue;
                 };
 
-                batch_image_size = gpu_image.size.as_vec2();
+                batch_image_size = gpu_image.size_f32();
                 batch_image_handle = extracted_sprite.image_handle_id;
                 image_bind_groups
                     .values
