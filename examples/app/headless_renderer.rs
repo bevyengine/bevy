@@ -370,12 +370,6 @@ impl render_graph::Node for ImageCopyDriver {
                 (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
             );
 
-            let texture_extent = Extent3d {
-                width: src_image.size.width,
-                height: src_image.size.height,
-                depth_or_array_layers: 1,
-            };
-
             encoder.copy_texture_to_buffer(
                 src_image.texture.as_image_copy(),
                 ImageCopyBuffer {
@@ -390,7 +384,7 @@ impl render_graph::Node for ImageCopyDriver {
                         rows_per_image: None,
                     },
                 },
-                texture_extent,
+                src_image.size,
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
