@@ -79,7 +79,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     // which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
-        let id = handle.as_asset_id();
+        let ids = handle.as_asset_id();
 
         self.change_ticks
             .is_some_and(|change_ticks| change_ticks.get(&id).is_some_and(is_newer))
@@ -148,8 +148,8 @@ pub struct AssetChangedState<A: AsAssetId> {
     _asset: PhantomData<fn(A)>,
 }
 
-// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 #[allow(unsafe_code)]
+/// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Item<'w> = ();
     type Fetch<'w> = AssetChangedFetch<'w, A>;
@@ -258,8 +258,8 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 }
 
-/// SAFETY: read-only access
 #[allow(unsafe_code)]
+/// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
