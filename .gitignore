@@ -4,6 +4,7 @@ crates/**/target
 benches/**/target
 tools/**/target
 **/*.rs.bk
+rustc-ice-*
 
 # Cargo
 Cargo.lock

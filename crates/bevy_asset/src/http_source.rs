@@ -192,10 +192,10 @@ mod tests {
     fn make_http_uri() {
         assert_eq!(
             HttpSourceAssetReader::Http
-                .make_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
+                .make_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
-            "http://s3.johanhelsing.studio/dump/favicon.png"
+            "http://example.com/favicon.png"
         );
     }
 
@@ -203,10 +203,10 @@ mod tests {
     fn make_https_uri() {
         assert_eq!(
             HttpSourceAssetReader::Https
-                .make_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
+                .make_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
-            "https://s3.johanhelsing.studio/dump/favicon.png"
+            "https://example.com/favicon.png"
         );
     }
 
@@ -214,11 +214,11 @@ mod tests {
     fn make_http_meta_uri() {
         assert_eq!(
             HttpSourceAssetReader::Http
-                .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
+                .make_meta_uri(Path::new("example.com/favicon.png"))
                 .expect("cannot create meta uri")
                 .to_str()
                 .unwrap(),
-            "http://s3.johanhelsing.studio/dump/favicon.png.meta"
+            "http://example.com/favicon.png.meta"
         );
     }
 
@@ -226,11 +226,11 @@ mod tests {
     fn make_https_meta_uri() {
         assert_eq!(
             HttpSourceAssetReader::Https
-                .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon.png"))
+                .make_meta_uri(Path::new("example.com/favicon.png"))
                 .expect("cannot create meta uri")
                 .to_str()
                 .unwrap(),
-            "https://s3.johanhelsing.studio/dump/favicon.png.meta"
+            "https://example.com/favicon.png.meta"
         );
     }
 
@@ -238,7 +238,7 @@ mod tests {
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
             HttpSourceAssetReader::Https
-                .make_meta_uri(Path::new("s3.johanhelsing.studio/dump/favicon")),
+                .make_meta_uri(Path::new("example.com/favicon")),
             None
         );
     }
