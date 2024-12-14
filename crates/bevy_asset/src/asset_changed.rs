@@ -21,9 +21,10 @@ use disqualified::ShortName;
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time
 /// a query ran.
 ///
-/// This resource is automatically managed by the [`AssetEvents`] schedule and should not be
-/// exposed to the user in order to maintain safety guarantees. Any additional uses of this
-/// resource should be carefully audited to ensure that they do not introduce any safety issues.
+/// This resource is automatically managed by the [`AssetEvents`](crate::AssetEvents) schedule and
+/// should not be exposed to the user in order to maintain safety guarantees. Any additional uses of
+/// this resource should be carefully audited to ensure that they do not introduce any safety
+/// issues.
 #[derive(Resource)]
 pub(crate) struct AssetChanges<A: Asset> {
     change_ticks: HashMap<AssetId<A>, Tick>,

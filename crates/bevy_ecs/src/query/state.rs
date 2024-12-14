@@ -583,11 +583,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             {
                 access.add_component_write(archetype_component_id);
             }
-            if self
-                .component_access
-                .access
-                .has_resource_read(component_id)
-            {
+            if self.component_access.access.has_resource_read(component_id) {
                 access.add_resource_read(archetype_component_id);
             }
             if self
