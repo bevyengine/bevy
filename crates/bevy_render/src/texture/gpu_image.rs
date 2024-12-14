@@ -6,7 +6,7 @@ use crate::{
 use bevy_asset::AssetId;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
-use bevy_math::{AspectRatio, UVec2, Vec2};
+use bevy_math::{AspectRatio, UVec2};
 use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
@@ -79,35 +79,17 @@ impl RenderAsset for GpuImage {
 }
 
 impl GpuImage {
-    /// Returns the width of a 2D image.
-    #[inline]
-    pub fn width(&self) -> u32 {
-        self.size.width
-    }
-
-    /// Returns the height of a 2D image.
-    #[inline]
-    pub fn height(&self) -> u32 {
-        self.size.height
-    }
-
     /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
     pub fn aspect_ratio(&self) -> AspectRatio {
-        AspectRatio::try_from_pixels(self.width(), self.height()).expect(
+        AspectRatio::try_from_pixels(self.size.width, self.size.height).expect(
             "Failed to calculate aspect ratio: Image dimensions must be positive, non-zero values",
         )
-    }
-
-    /// Returns the size of a 2D image as f32.
-    #[inline]
-    pub fn size_f32(&self) -> Vec2 {
-        Vec2::new(self.width() as f32, self.height() as f32)
     }
 
     /// Returns the size of a 2D image.
     #[inline]
     pub fn size(&self) -> UVec2 {
-        UVec2::new(self.width(), self.height())
+        UVec2::new(self.size.width, self.size.height)
     }
 }
