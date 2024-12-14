@@ -230,7 +230,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
         let resource_id = world.init_resource::<AssetChanges<A::Asset>>();
-        let asset_id = world.component_id::<A>().unwrap();
+        let asset_id = world.register_component::<A>();
         AssetChangedState {
             asset_id,
             resource_id,
@@ -337,7 +337,6 @@ mod tests {
         assets: Res<Assets<MyAsset>>,
         query: Query<&MyComponent, AssetChanged<MyComponent>>,
     ) {
-        println!("counting updates");
         for handle in query.iter() {
             let asset = assets.get(&handle.0).unwrap();
             counter.0[asset.0] += 1;
