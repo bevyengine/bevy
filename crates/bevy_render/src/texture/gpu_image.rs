@@ -89,7 +89,7 @@ impl GpuImage {
 
     /// Returns the size of a 2D image.
     #[inline]
-    pub fn size(&self) -> UVec2 {
+    pub fn size_2d(&self) -> UVec2 {
         UVec2::new(self.size.width, self.size.height)
     }
 }
