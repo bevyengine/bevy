@@ -205,7 +205,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let mut trait_path = BevyManifest::default().get_path("bevy_app");
+    let mut trait_path = BevyManifest::shared().get_path("bevy_app");
     let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("AppLabel").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
