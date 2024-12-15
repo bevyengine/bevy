@@ -282,12 +282,12 @@ fn find_connected_meshlets(
 
     // For each meshlet, gather all other meshlets that share at least one vertex along with their shared vertex count
     let mut connected_meshlets_per_meshlet = vec![Vec::new(); simplification_queue.len()];
-    for ((meshlet_id1, meshlet_id2), shared_count) in meshlet_pair_to_shared_vertex_count {
+    for ((meshlet_id1, meshlet_id2), shared_vertex_count) in meshlet_pair_to_shared_vertex_count {
         // We record both id1->id2 and id2->id1 as adjacency is symmetrical
         connected_meshlets_per_meshlet[meshlet_id1 - simplification_queue.start]
-            .push((meshlet_id2, shared_count));
+            .push((meshlet_id2, shared_vertex_count));
         connected_meshlets_per_meshlet[meshlet_id2 - simplification_queue.start]
-            .push((meshlet_id1, shared_count));
+            .push((meshlet_id1, shared_vertex_count));
     }
 
     // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
@@ -308,8 +308,8 @@ fn group_meshlets(
     let mut adjwgt = Vec::new();
     for connected_meshlets in connected_meshlets_per_meshlet {
         xadj.push(adjncy.len() as i32);
-        for (connected_meshlet_queue_id, shared_vertex_count) in connected_meshlets {
-            adjncy.push(*connected_meshlet_queue_id as i32);
+        for (connected_meshlet_id, shared_vertex_count) in connected_meshlets {
+            adjncy.push((connected_meshlet_id - simplification_queue.start) as i32);
             adjwgt.push(*shared_vertex_count as i32);
             // TODO: Additional weight based on meshlet spatial proximity
         }
