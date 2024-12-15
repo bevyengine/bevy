@@ -15,6 +15,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         MyMusic,
     ));
+
+    // example instructions
+    commands.spawn((
+        Text::new("-/=: Volume Down/Up\nSpace: Pause Playback\nM: Toggle Mute"),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
+    // camera
+    commands.spawn(Camera3d::default());
 }
 
 #[derive(Component)]
