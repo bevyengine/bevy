@@ -20,10 +20,11 @@ pub trait AudioSinkPlayback {
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
     /// will multiply each sample by this value.
     ///
-    /// If the sink is muted, this sets the managed volume rather than the
-    /// sink's actual volume. This allows you to control the volume even when
-    /// the sink is muted, so that when it is unmuted, the volume is restored
-    /// and all calls to this function are respected.
+    /// If the sink is muted, changing the volume won't unmute it, i.e. the
+    /// sink's volume will remain at `0.0`. However, the sink will remember the
+    /// volume change and it will be used when [`unmute`](Self::unmute) is
+    /// called. This allows you to control the volume even when the sink is
+    /// muted.
     ///
     /// # Note on Audio Volume
     ///
@@ -85,9 +86,14 @@ pub trait AudioSinkPlayback {
     fn is_muted(&self) -> bool;
 
     /// Mutes the sink.
+    ///
+    /// Muting a sink sets the volume to 0. Use [`unmute`](Self::unmute) to
+    /// unmute the sink and restore the original volume.
     fn mute(&mut self);
 
     /// Unmutes the sink.
+    ///
+    /// Restores the volume to the value it was before it was muted.
     fn unmute(&mut self);
 
     /// Toggles whether the sink is muted or not.
