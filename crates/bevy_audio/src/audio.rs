@@ -69,6 +69,11 @@ pub struct PlaybackSettings {
     /// Useful for "deferred playback", if you want to prepare
     /// the entity, but hear the sound later.
     pub paused: bool,
+    /// Whether to create the sink in muted state or not.
+    ///
+    /// This is useful for audio that should be initially muted. You can still
+    /// set the initial volume and it is applied when the audio is unmuted.
+    pub muted: bool,
     /// Enables spatial audio for this source.
     ///
     /// See also: [`SpatialListener`].
@@ -100,6 +105,7 @@ impl PlaybackSettings {
         volume: Volume(1.0),
         speed: 1.0,
         paused: false,
+        muted: false,
         spatial: false,
         spatial_scale: None,
     };
@@ -125,6 +131,12 @@ impl PlaybackSettings {
     /// Helper to start in a paused state.
     pub const fn paused(mut self) -> Self {
         self.paused = true;
+        self
+    }
+
+    /// Helper to start muted.
+    pub const fn muted(mut self) -> Self {
+        self.muted = true;
         self
     }
 
