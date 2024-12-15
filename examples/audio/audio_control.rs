@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_speed, pause, volume))
+        .add_systems(Update, (update_speed, pause, mute, volume))
         .run();
 }
 
@@ -15,6 +15,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         MyMusic,
     ));
+
+    // example instructions
+    commands.spawn((
+        Text::new("-/=: Volume Down/Up\nSpace: Pause Playback\nM: Toggle Mute"),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
+    // camera
+    commands.spawn(Camera3d::default());
 }
 
 #[derive(Component)]
@@ -30,10 +44,24 @@ fn pause(keyboard_input: Res<ButtonInput<KeyCode>>, sink: Single<&AudioSink, Wit
     }
 }
 
-fn volume(keyboard_input: Res<ButtonInput<KeyCode>>, sink: Single<&AudioSink, With<MyMusic>>) {
+fn mute(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut sink: Single<&mut AudioSink, With<MyMusic>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        sink.toggle_mute();
+    }
+}
+
+fn volume(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut sink: Single<&mut AudioSink, With<MyMusic>>,
+) {
     if keyboard_input.just_pressed(KeyCode::Equal) {
-        sink.set_volume(sink.volume() + 0.1);
+        let current_volume = sink.volume();
+        sink.set_volume(current_volume + 0.1);
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
-        sink.set_volume(sink.volume() - 0.1);
+        let current_volume = sink.volume();
+        sink.set_volume(current_volume - 0.1);
     }
 }
