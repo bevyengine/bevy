@@ -18,6 +18,7 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     // Bicubic 4-tap
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/111/0/2
+#ifdef LIGHTMAP_BICUBIC_SAMPLING
     let texture_size = vec2<f32>(textureDimensions(lightmaps_texture));
     let texel_size = 1.0 / texture_size;
     let puv = lightmap_uv * texture_size + 0.5;
@@ -33,10 +34,13 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
     let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
     let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
-    let filtered_sample = g0(fuv.y) * (g0x * sample(p0) + g1x * sample(p1)) +
-                          g1(fuv.y) * (g0x * sample(p2) + g1x * sample(p3));
+    let color = g0(fuv.y) * (g0x * sample(p0) + g1x * sample(p1)) +
+                g1(fuv.y) * (g0x * sample(p2) + g1x * sample(p3));
+#else
+    let color = sample(lightmap_uv);
+#endif
 
-    return filtered_sample * exposure;
+    return color * exposure;
 }
 
 fn sample(uv: vec2<f32>) -> vec3<f32> {

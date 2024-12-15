@@ -479,6 +479,12 @@ where
         if key.mesh_key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING)
+        {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
+        }
 
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
@@ -893,8 +899,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            // Even though we don't use the lightmap in the prepass, the
-            // `SetMeshBindGroup` render command will bind the data for it. So
+            // Even though we don't use the lightmap in the forward prepass, the deferred gbuffer prepass uses it,
+            // and the `SetMeshBindGroup` render command will bind the data for it. So
             // we need to include the appropriate flag in the mesh pipeline key
             // to ensure that the necessary bind group layout entries are
             // present.

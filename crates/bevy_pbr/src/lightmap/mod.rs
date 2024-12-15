@@ -73,8 +73,6 @@ pub struct LightmapPlugin;
 #[reflect(Component, Default)]
 pub struct Lightmap {
     /// The lightmap texture.
-    ///
-    /// The texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
     pub image: Handle<Image>,
 
     /// The rectangle within the lightmap texture that the UVs are relative to.
@@ -86,6 +84,13 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
+
+    /// Whether bicubic sampling should be used for sampling this lightmap.
+    ///
+    /// Bicubic sampling is higher quality, but slower, and may lead to light leaks.
+    ///
+    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
+    pub bicubic_sampling: bool,
 }
 
 /// Lightmap data stored in the render world.
@@ -102,6 +107,9 @@ pub(crate) struct RenderLightmap {
     /// right coordinate is the `max` part of the rect. The rect ranges from (0,
     /// 0) to (1, 1).
     pub(crate) uv_rect: Rect,
+
+    // Whether or not bicubic sampling should be used for this lightmap.
+    pub(crate) bicubic_sampling: bool,
 }
 
 /// Stores data for all lightmaps in the render world.
@@ -175,7 +183,11 @@ fn extract_lightmaps(
         // Store information about the lightmap in the render world.
         render_lightmaps.render_lightmaps.insert(
             entity.into(),
-            RenderLightmap::new(lightmap.image.id(), lightmap.uv_rect),
+            RenderLightmap::new(
+                lightmap.image.id(),
+                lightmap.uv_rect,
+                lightmap.bicubic_sampling,
+            ),
         );
 
         // Make a note of the loaded lightmap image so we can efficiently
@@ -187,9 +199,13 @@ fn extract_lightmaps(
 }
 
 impl RenderLightmap {
-    /// Creates a new lightmap from a texture and a UV rect.
-    fn new(image: AssetId<Image>, uv_rect: Rect) -> Self {
-        Self { image, uv_rect }
+    /// Creates a new lightmap from a texture, UV rect, and sampling method.
+    fn new(image: AssetId<Image>, uv_rect: Rect, bicubic_sampling: bool) -> Self {
+        Self {
+            image,
+            uv_rect,
+            bicubic_sampling,
+        }
     }
 }
 
@@ -214,6 +230,7 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            bicubic_sampling: false,
         }
     }
 }
