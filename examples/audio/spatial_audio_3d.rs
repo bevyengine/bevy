@@ -65,7 +65,9 @@ fn setup(
 
     // example instructions
     commands.spawn((
-        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Text::new(
+            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement\nM: Toggle Mute",
+        ),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
