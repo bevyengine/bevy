@@ -148,6 +148,9 @@ impl InheritedVisibility {
 /// When adding a new renderable component, you'll typically want to write an
 /// add-component hook that adds the type ID of that component to the
 /// [`VisibilityClass`] array. See `custom_phase_item` for an example.
+//
+// Note: This can't be a `ComponentId` because the visibility classes are copied
+// into the render world, and component IDs are per-world.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
