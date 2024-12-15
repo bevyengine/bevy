@@ -149,6 +149,7 @@ impl InheritedVisibility {
 /// add-component hook that adds the type ID of that component to the
 /// [`VisibilityClass`] array. See `custom_phase_item` for an example.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
@@ -355,23 +356,25 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.configure_sets(
-            PostUpdate,
-            (CalculateBounds, UpdateFrusta, VisibilityPropagate)
-                .before(CheckVisibility)
-                .after(TransformSystem::TransformPropagate),
-        )
-        .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
-        .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
-        .init_resource::<PreviousVisibleEntities>()
-        .add_systems(
-            PostUpdate,
-            (
-                calculate_bounds.in_set(CalculateBounds),
-                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility.in_set(CheckVisibility),
-            ),
-        );
+        app.register_type::<VisibilityClass>()
+            .configure_sets(
+                PostUpdate,
+                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                    .before(CheckVisibility)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
+            .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
+            .init_resource::<PreviousVisibleEntities>()
+            .add_systems(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    (visibility_propagate_system, reset_view_visibility)
+                        .in_set(VisibilityPropagate),
+                    check_visibility.in_set(CheckVisibility),
+                ),
+            );
     }
 }
 
