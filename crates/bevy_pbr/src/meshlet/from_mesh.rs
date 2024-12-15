@@ -23,6 +23,8 @@ use thiserror::Error;
 
 // Aim to have 8 meshlets per group
 const TARGET_MESHLETS_PER_GROUP: usize = 8;
+// Reject groups that keep over 95% of their original triangles
+const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
 
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
 ///
@@ -132,15 +134,23 @@ impl MeshletMesh {
 
             let next_lod_start = meshlets.len();
             for group_meshlets in groups.into_iter() {
+                // If the group only has a single meshlet we can't simplify it
+                if group_meshlets.len() == 1 {
+                    continue;
+                }
+
                 // Simplify the group to ~50% triangle count
-                let (simplified_group_indices, mut group_error) = simplify_meshlet_group(
+                let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_group(
                     &group_meshlets,
                     &meshlets,
                     &vertices,
                     vertex_normals,
                     vertex_stride,
                     &vertex_locks,
-                );
+                ) else {
+                    // Couldn't simplify the group enough
+                    continue;
+                };
 
                 // Compute LOD data for the group
                 let group_bounding_sphere = compute_lod_group_data(
@@ -367,7 +377,7 @@ fn simplify_meshlet_group(
     vertex_normals: &[f32],
     vertex_stride: usize,
     vertex_locks: &[bool],
-) -> (Vec<u32>, f16) {
+) -> Option<(Vec<u32>, f16)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
     for meshlet_id in group_meshlets {
@@ -392,7 +402,14 @@ fn simplify_meshlet_group(
         Some(&mut error),
     );
 
-    (simplified_group_indices, f16::from_f32(error))
+    // Check if we were able to simplify at least a little
+    if simplified_group_indices.len() as f32 / group_indices.len() as f32
+        > SIMPLIFICATION_FAILURE_PERCENTAGE
+    {
+        return None;
+    }
+
+    Some((simplified_group_indices, f16::from_f32(error)))
 }
 
 fn compute_lod_group_data(
