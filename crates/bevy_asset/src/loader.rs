@@ -443,8 +443,7 @@ impl<'a> LoadContext<'a> {
         !self.asset_server.get_handles_untyped(&path).is_empty()
     }
 
-    /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
-    /// The relevant asset metadata collected in this context will be stored in the returned [`LoadedAsset`].
+    /// "Finishes" this context by populating the final [`Asset`] value.
     pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
         LoadedAsset {
             value,
