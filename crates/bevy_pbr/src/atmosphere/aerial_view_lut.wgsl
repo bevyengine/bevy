@@ -43,7 +43,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             prev_t = t_i;
 
             let local_r = get_local_r(r, mu, t_i);
-            if local_r > atmosphere.top_radius { break; }
             let local_up = get_local_up(r, t_i, ray_dir.xyz);
 
             let local_atmosphere = sample_atmosphere(local_r);
