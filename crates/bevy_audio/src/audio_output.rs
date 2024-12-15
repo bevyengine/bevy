@@ -159,9 +159,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 
             match settings.mode {
                 PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
-                PlaybackMode::Once => sink.append(audio_source.decoder()),
-                PlaybackMode::Despawn => sink.append(audio_source.decoder()),
-                PlaybackMode::Remove => sink.append(audio_source.decoder()),
+                PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
+                    sink.append(audio_source.decoder())
+                }
             };
 
             let mut sink = SpatialAudioSink::new(sink);
@@ -178,8 +178,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             match settings.mode {
-                PlaybackMode::Loop => commands.entity(entity).insert(sink),
-                PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
                 PlaybackMode::Despawn => commands
                     .entity(entity)
                     // PERF: insert as bundle to reduce archetype moves
@@ -200,9 +199,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 
             match settings.mode {
                 PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
-                PlaybackMode::Once => sink.append(audio_source.decoder()),
-                PlaybackMode::Despawn => sink.append(audio_source.decoder()),
-                PlaybackMode::Remove => sink.append(audio_source.decoder()),
+                PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
+                    sink.append(audio_source.decoder())
+                }
             };
 
             let mut sink = AudioSink::new(sink);
@@ -219,8 +218,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             match settings.mode {
-                PlaybackMode::Loop => commands.entity(entity).insert(sink),
-                PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
                 PlaybackMode::Despawn => commands
                     .entity(entity)
                     // PERF: insert as bundle to reduce archetype moves
