@@ -94,6 +94,7 @@ struct VertexOutput {
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     cluster_id: u32,
+    material_bind_group_slot: u32,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     motion_vector: vec2<f32>,
@@ -152,6 +153,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
     let world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
 
+    let material_bind_group_slot = instance_uniform.material_bind_group_slot;
+
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
@@ -173,6 +176,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         world_tangent,
         instance_uniform.flags,
         instance_id ^ meshlet_id,
+        material_bind_group_slot,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
         motion_vector,
