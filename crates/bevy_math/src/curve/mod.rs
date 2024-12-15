@@ -287,6 +287,7 @@
 
 pub mod adaptors;
 pub mod cores;
+pub mod derivatives;
 pub mod easing;
 pub mod interval;
 pub mod iterable;

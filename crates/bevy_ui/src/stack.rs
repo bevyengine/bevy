@@ -62,7 +62,7 @@ pub fn ui_stack_system(
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),
         ));
-        visited_root_nodes.insert_unique_unchecked(id);
+        visited_root_nodes.insert(id);
     }
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {

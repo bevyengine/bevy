@@ -9,7 +9,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
@@ -32,7 +32,7 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -887,7 +887,7 @@ pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
 ) {
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = HashSet::new();
+    let mut changed_window_ids = <HashSet<_>>::default();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
     let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
@@ -926,7 +926,9 @@ pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
-                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                if normalized_target
+                    .is_changed(&scale_factor_changed_window_ids, &HashSet::default())
+                {
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
@@ -1031,7 +1033,7 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -1051,7 +1053,7 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
-        gpu_culling,
+        no_indirect_drawing,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -1062,7 +1064,7 @@ pub fn extract_cameras(
                 TemporalJitter,
                 RenderLayers,
                 Projection,
-                GpuCulling,
+                NoIndirectDrawing,
                 ViewUniformOffset,
             )>();
             continue;
@@ -1154,14 +1156,13 @@ pub fn extract_cameras(
                 commands.insert(perspective.clone());
             }
 
-            if gpu_culling {
-                if gpu_preprocessing_support.max_supported_mode == GpuPreprocessingMode::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
+            if no_indirect_drawing
+                || !matches!(
+                    gpu_preprocessing_support.max_supported_mode,
+                    GpuPreprocessingMode::Culling
+                )
+            {
+                commands.insert(NoIndirectDrawing);
             }
         };
     }
@@ -1199,8 +1200,8 @@ pub fn sort_cameras(
             ord => ord,
         });
     let mut previous_order_target = None;
-    let mut ambiguities = HashSet::new();
-    let mut target_counts = HashMap::new();
+    let mut ambiguities = <HashSet<_>>::default();
+    let mut target_counts = <HashMap<_, _>>::default();
     for sorted_camera in &mut sorted_cameras.0 {
         let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
         if let Some(previous_order_target) = previous_order_target {

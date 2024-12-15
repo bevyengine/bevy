@@ -235,6 +235,9 @@ bevy_sprite_picking_backend = [
 # Provides a UI picking backend
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
+# Provides a UI debug overlay
+bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
