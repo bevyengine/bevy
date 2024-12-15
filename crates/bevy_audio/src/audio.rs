@@ -36,6 +36,12 @@ impl Volume {
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum PlaybackMode {
     /// Play the sound once. Do nothing when it ends.
+    ///
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    ///
+    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// added again.
     Once,
     /// Repeat the sound forever.
     Loop,
@@ -63,6 +69,11 @@ pub struct PlaybackSettings {
     /// Useful for "deferred playback", if you want to prepare
     /// the entity, but hear the sound later.
     pub paused: bool,
+    /// Whether to create the sink in muted state or not.
+    ///
+    /// This is useful for audio that should be initially muted. You can still
+    /// set the initial volume and it is applied when the audio is unmuted.
+    pub muted: bool,
     /// Enables spatial audio for this source.
     ///
     /// See also: [`SpatialListener`].
@@ -77,18 +88,24 @@ pub struct PlaybackSettings {
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
-        // TODO: what should the default be: ONCE/DESPAWN/REMOVE?
         Self::ONCE
     }
 }
 
 impl PlaybackSettings {
     /// Will play the associated audio source once.
+    ///
+    /// Note: It is not possible to reuse an `AudioPlayer` after it has finished playing and
+    /// the underlying `AudioSink` or `SpatialAudioSink` has been drained.
+    ///
+    /// To replay a sound, the audio components provided by `AudioPlayer` must be removed and
+    /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
         volume: Volume(1.0),
         speed: 1.0,
         paused: false,
+        muted: false,
         spatial: false,
         spatial_scale: None,
     };
@@ -114,6 +131,12 @@ impl PlaybackSettings {
     /// Helper to start in a paused state.
     pub const fn paused(mut self) -> Self {
         self.paused = true;
+        self
+    }
+
+    /// Helper to start muted.
+    pub const fn muted(mut self) -> Self {
+        self.muted = true;
         self
     }
 

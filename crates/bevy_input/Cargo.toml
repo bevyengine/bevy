@@ -37,11 +37,8 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 smol_str = "0.2"
 
 [lints]

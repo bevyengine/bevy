@@ -38,7 +38,7 @@ impl DynamicTextureAtlasBuilder {
     ///
     /// # Arguments
     ///
-    /// * `altas_layout` - The atlas layout to add the texture to.
+    /// * `atlas_layout` - The atlas layout to add the texture to.
     /// * `texture` - The source texture to add to the atlas.
     /// * `atlas_texture` - The destination atlas texture to copy the source texture to.
     pub fn add_texture(

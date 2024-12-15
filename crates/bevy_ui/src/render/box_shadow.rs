@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
-    TargetCamera, TransparentUi, UiBoxShadowSamples, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -217,7 +217,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub rect: Rect,
+    pub bounds: Vec2,
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
@@ -262,8 +262,8 @@ pub fn extract_shadows(
             continue;
         };
 
-        // Skip invisible images
-        if !view_visibility.get() || box_shadow.color.is_fully_transparent() || uinode.is_empty() {
+        // Skip if no visible shadows
+        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
@@ -278,57 +278,61 @@ pub fn extract_shadows(
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
-        let resolve_val = |val, base, scale_factor| match val {
-            Val::Auto => 0.,
-            Val::Px(px) => px * scale_factor,
-            Val::Percent(percent) => percent / 100. * base,
-            Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
-            Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
-            Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
-            Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
-        };
+        for drop_shadow in box_shadow.iter() {
+            if drop_shadow.color.is_fully_transparent() {
+                continue;
+            }
 
-        let spread_x = resolve_val(box_shadow.spread_radius, uinode.size().x, scale_factor);
-        let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
+            let resolve_val = |val, base, scale_factor| match val {
+                Val::Auto => 0.,
+                Val::Px(px) => px * scale_factor,
+                Val::Percent(percent) => percent / 100. * base,
+                Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
+                Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
+                Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
+                Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
+            };
 
-        let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
+            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
-        let blur_radius = resolve_val(box_shadow.blur_radius, uinode.size().x, scale_factor);
-        let offset = vec2(
-            resolve_val(box_shadow.x_offset, uinode.size().x, scale_factor),
-            resolve_val(box_shadow.y_offset, uinode.size().y, scale_factor),
-        );
+            let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-        let shadow_size = uinode.size() + spread;
-        if shadow_size.cmple(Vec2::ZERO).any() {
-            continue;
-        }
+            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let offset = vec2(
+                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
+                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+            );
 
-        let radius = ResolvedBorderRadius {
-            top_left: uinode.border_radius.top_left * spread_ratio,
-            top_right: uinode.border_radius.top_right * spread_ratio,
-            bottom_left: uinode.border_radius.bottom_left * spread_ratio,
-            bottom_right: uinode.border_radius.bottom_right * spread_ratio,
-        };
+            let shadow_size = uinode.size() + spread;
+            if shadow_size.cmple(Vec2::ZERO).any() {
+                continue;
+            }
 
-        extracted_box_shadows.box_shadows.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedBoxShadow {
-                stack_index: uinode.stack_index,
-                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
-                color: box_shadow.color.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: shadow_size + 6. * blur_radius,
+            let radius = ResolvedBorderRadius {
+                top_left: uinode.border_radius.top_left * spread_ratio,
+                top_right: uinode.border_radius.top_right * spread_ratio,
+                bottom_left: uinode.border_radius.bottom_left * spread_ratio,
+                bottom_right: uinode.border_radius.bottom_right * spread_ratio,
+            };
+
+            extracted_box_shadows.box_shadows.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                ExtractedBoxShadow {
+                    stack_index: uinode.stack_index,
+                    transform: transform.compute_matrix()
+                        * Mat4::from_translation(offset.extend(0.)),
+                    color: drop_shadow.color.into(),
+                    bounds: shadow_size + 6. * blur_radius,
+                    clip: clip.map(|clip| clip.clip),
+                    camera_entity,
+                    radius,
+                    blur_radius,
+                    size: shadow_size,
+                    main_entity: entity.into(),
                 },
-                clip: clip.map(|clip| clip.clip),
-                camera_entity,
-                radius,
-                blur_radius,
-                size: shadow_size,
-                main_entity: entity.into(),
-            },
-        );
+            );
+        }
     }
 }
 
@@ -337,7 +341,7 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -370,7 +374,7 @@ pub fn queue_shadows(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }
@@ -408,9 +412,7 @@ pub fn prepare_shadows(
             while item_index < ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity()) {
-                    let uinode_rect = box_shadow.rect;
-
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = box_shadow.bounds.extend(1.0);
 
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
@@ -472,7 +474,23 @@ pub fn prepare_shadows(
                         box_shadow.radius.bottom_left,
                     ];
 
-                    let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
+                    let uvs = [
+                        Vec2::new(positions_diff[0].x, positions_diff[0].y),
+                        Vec2::new(
+                            box_shadow.bounds.x + positions_diff[1].x,
+                            positions_diff[1].y,
+                        ),
+                        Vec2::new(
+                            box_shadow.bounds.x + positions_diff[2].x,
+                            box_shadow.bounds.y + positions_diff[2].y,
+                        ),
+                        Vec2::new(
+                            positions_diff[3].x,
+                            box_shadow.bounds.y + positions_diff[3].y,
+                        ),
+                    ]
+                    .map(|pos| pos / box_shadow.bounds);
+
                     for i in 0..4 {
                         ui_meta.vertices.push(BoxShadowVertex {
                             position: positions_clipped[i].into(),

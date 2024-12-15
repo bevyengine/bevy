@@ -1,16 +1,15 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::TemporaryRenderEntity,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
@@ -19,10 +18,10 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, Mutable},
     entity::Entity,
     event::EventReader,
-    prelude::With,
+    prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -33,7 +32,7 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -282,8 +281,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
 #[component(on_add = warn_on_no_render_graph)]
@@ -875,7 +874,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
-pub fn camera_system<T: CameraProjection + Component>(
+pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
@@ -888,7 +887,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 ) {
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = HashSet::new();
+    let mut changed_window_ids = <HashSet<_>>::default();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
     let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
@@ -927,7 +926,9 @@ pub fn camera_system<T: CameraProjection + Component>(
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
-                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                if normalized_target
+                    .is_changed(&scale_factor_changed_window_ids, &HashSet::default())
+                {
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
@@ -1032,7 +1033,7 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -1052,7 +1053,7 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
-        gpu_culling,
+        no_indirect_drawing,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -1063,7 +1064,7 @@ pub fn extract_cameras(
                 TemporalJitter,
                 RenderLayers,
                 Projection,
-                GpuCulling,
+                NoIndirectDrawing,
                 ViewUniformOffset,
             )>();
             continue;
@@ -1099,9 +1100,7 @@ pub fn extract_cameras(
                                     .get(*entity)
                                     .cloned()
                                     .map(|entity| entity.id())
-                                    .unwrap_or_else(|_e| {
-                                        commands.spawn(TemporaryRenderEntity).id()
-                                    });
+                                    .unwrap_or(Entity::PLACEHOLDER);
                                 (render_entity, (*entity).into())
                             })
                             .collect();
@@ -1156,14 +1155,14 @@ pub fn extract_cameras(
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
             }
-            if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
+
+            if no_indirect_drawing
+                || !matches!(
+                    gpu_preprocessing_support.max_supported_mode,
+                    GpuPreprocessingMode::Culling
+                )
+            {
+                commands.insert(NoIndirectDrawing);
             }
         };
     }
@@ -1201,8 +1200,8 @@ pub fn sort_cameras(
             ord => ord,
         });
     let mut previous_order_target = None;
-    let mut ambiguities = HashSet::new();
-    let mut target_counts = HashMap::new();
+    let mut ambiguities = <HashSet<_>>::default();
+    let mut target_counts = <HashMap<_, _>>::default();
     for sorted_camera in &mut sorted_cameras.0 {
         let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
         if let Some(previous_order_target) = previous_order_target {

@@ -1,40 +1,18 @@
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
+use smallvec::SmallVec;
 
 use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
-use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 
-/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
-///
-/// [`ScheduleGraph`]: super::ScheduleGraph
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum NodeId {
-    /// Identifier for a system.
-    System(usize),
-    /// Identifier for a system set.
-    Set(usize),
-}
+mod graph_map;
+mod node;
+mod tarjan_scc;
 
-impl NodeId {
-    /// Returns the internal integer value.
-    pub(crate) fn index(&self) -> usize {
-        match self {
-            NodeId::System(index) | NodeId::Set(index) => *index,
-        }
-    }
-
-    /// Returns `true` if the identified node is a system.
-    pub const fn is_system(&self) -> bool {
-        matches!(self, NodeId::System(_))
-    }
-
-    /// Returns `true` if the identified node is a system set.
-    pub const fn is_set(&self) -> bool {
-        matches!(self, NodeId::Set(_))
-    }
-}
+pub use graph_map::{DiGraph, Direction, UnGraph};
+pub use node::NodeId;
 
 /// Specifies what kind of edge should be added to the dependency graph.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -43,9 +21,9 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    /// A node that should be preceded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
     BeforeNoSync,
-    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    /// A node that should be succeeded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
     AfterNoSync,
 }
 
@@ -95,32 +73,32 @@ pub(crate) fn row_col(index: usize, num_cols: usize) -> (usize, usize) {
 }
 
 /// Stores the results of the graph analysis.
-pub(crate) struct CheckGraphResults<V> {
+pub(crate) struct CheckGraphResults {
     /// Boolean reachability matrix for the graph.
     pub(crate) reachable: FixedBitSet,
     /// Pairs of nodes that have a path connecting them.
-    pub(crate) connected: HashSet<(V, V)>,
+    pub(crate) connected: HashSet<(NodeId, NodeId)>,
     /// Pairs of nodes that don't have a path connecting them.
-    pub(crate) disconnected: Vec<(V, V)>,
+    pub(crate) disconnected: Vec<(NodeId, NodeId)>,
     /// Edges that are redundant because a longer path exists.
-    pub(crate) transitive_edges: Vec<(V, V)>,
+    pub(crate) transitive_edges: Vec<(NodeId, NodeId)>,
     /// Variant of the graph with no transitive edges.
-    pub(crate) transitive_reduction: DiGraphMap<V, ()>,
+    pub(crate) transitive_reduction: DiGraph,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
     #[allow(dead_code)]
-    pub(crate) transitive_closure: DiGraphMap<V, ()>,
+    pub(crate) transitive_closure: DiGraph,
 }
 
-impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
+impl Default for CheckGraphResults {
     fn default() -> Self {
         Self {
             reachable: FixedBitSet::new(),
-            connected: HashSet::new(),
+            connected: HashSet::default(),
             disconnected: Vec::new(),
             transitive_edges: Vec::new(),
-            transitive_reduction: DiGraphMap::new(),
-            transitive_closure: DiGraphMap::new(),
+            transitive_reduction: DiGraph::default(),
+            transitive_closure: DiGraph::default(),
         }
     }
 }
@@ -136,13 +114,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
 /// ["On the calculation of transitive reduction-closure of orders"][1] by Habib, Morvan and Rampon.
 ///
 /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
-pub(crate) fn check_graph<V>(
-    graph: &DiGraphMap<V, ()>,
-    topological_order: &[V],
-) -> CheckGraphResults<V>
-where
-    V: NodeTrait + Debug,
-{
+pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> CheckGraphResults {
     if graph.node_count() == 0 {
         return CheckGraphResults::default();
     }
@@ -150,25 +122,25 @@ where
     let n = graph.node_count();
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
-    let mut map = HashMap::with_capacity(n);
-    let mut topsorted = DiGraphMap::<V, ()>::new();
+    let mut map = <HashMap<_, _>>::with_capacity_and_hasher(n, Default::default());
+    let mut topsorted = <DiGraph>::default();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
-        for pred in graph.neighbors_directed(node, Incoming) {
-            topsorted.add_edge(pred, node, ());
+        for pred in graph.neighbors_directed(node, Direction::Incoming) {
+            topsorted.add_edge(pred, node);
         }
     }
 
     let mut reachable = FixedBitSet::with_capacity(n * n);
-    let mut connected = HashSet::new();
+    let mut connected = <HashSet<_>>::default();
     let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
-    let mut transitive_reduction = DiGraphMap::<V, ()>::new();
-    let mut transitive_closure = DiGraphMap::<V, ()>::new();
+    let mut transitive_reduction = DiGraph::default();
+    let mut transitive_closure = DiGraph::default();
 
     let mut visited = FixedBitSet::with_capacity(n);
 
@@ -182,24 +154,24 @@ where
     for a in topsorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Outgoing) {
+        for b in topsorted.neighbors_directed(a, Direction::Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
                 // edge <a, b> is not redundant
-                transitive_reduction.add_edge(a, b, ());
-                transitive_closure.add_edge(a, b, ());
+                transitive_reduction.add_edge(a, b);
+                transitive_closure.add_edge(a, b);
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
-                    .neighbors_directed(b, Outgoing)
+                    .neighbors_directed(b, Direction::Outgoing)
                     .collect::<Vec<_>>();
                 for c in successors {
                     let index_c = *map.get(&c).unwrap();
                     debug_assert!(index_b < index_c);
                     if !visited[index_c] {
                         visited.insert(index_c);
-                        transitive_closure.add_edge(a, c, ());
+                        transitive_closure.add_edge(a, c);
                         reachable.insert(index(index_a, index_c, n));
                     }
                 }
@@ -247,16 +219,13 @@ where
 /// ["Finding all the elementary circuits of a directed graph"][1] by D. B. Johnson.
 ///
 /// [1]: https://doi.org/10.1137/0204007
-pub fn simple_cycles_in_component<N>(graph: &DiGraphMap<N, ()>, scc: &[N]) -> Vec<Vec<N>>
-where
-    N: NodeTrait + Debug,
-{
+pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
     let mut cycles = vec![];
-    let mut sccs = vec![scc.to_vec()];
+    let mut sccs = vec![SmallVec::from_slice(scc)];
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
-        let mut subgraph = DiGraphMap::new();
+        let mut subgraph = <DiGraph>::default();
         for &node in &scc {
             subgraph.add_node(node);
         }
@@ -264,7 +233,7 @@ where
         for &node in &scc {
             for successor in graph.neighbors(node) {
                 if subgraph.contains_node(successor) {
-                    subgraph.add_edge(node, successor, ());
+                    subgraph.add_edge(node, successor);
                 }
             }
         }
@@ -272,15 +241,17 @@ where
         // path of nodes that may form a cycle
         let mut path = Vec::with_capacity(subgraph.node_count());
         // we mark nodes as "blocked" to avoid finding permutations of the same cycles
-        let mut blocked = HashSet::with_capacity(subgraph.node_count());
+        let mut blocked: HashSet<_> =
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // connects nodes along path segments that can't be part of a cycle (given current root)
         // those nodes can be unblocked at the same time
-        let mut unblock_together: HashMap<N, HashSet<N>> =
-            HashMap::with_capacity(subgraph.node_count());
+        let mut unblock_together: HashMap<NodeId, HashSet<NodeId>> =
+            HashMap::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for unblocking nodes
         let mut unblock_stack = Vec::with_capacity(subgraph.node_count());
         // nodes can be involved in multiple cycles
-        let mut maybe_in_more_cycles: HashSet<N> = HashSet::with_capacity(subgraph.node_count());
+        let mut maybe_in_more_cycles: HashSet<NodeId> =
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for DFS
         let mut stack = Vec::with_capacity(subgraph.node_count());
 
@@ -338,16 +309,13 @@ where
             }
         }
 
+        drop(stack);
+
         // remove node from subgraph
         subgraph.remove_node(root);
 
         // divide remainder into smaller SCCs
-        let mut tarjan_scc = TarjanScc::new();
-        tarjan_scc.run(&subgraph, |scc| {
-            if scc.len() > 1 {
-                sccs.push(scc.to_vec());
-            }
-        });
+        sccs.extend(subgraph.iter_sccs().filter(|scc| scc.len() > 1));
     }
 
     cycles

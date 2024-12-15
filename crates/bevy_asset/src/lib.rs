@@ -628,9 +628,9 @@ mod tests {
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
-    use derive_more::derive::{Display, Error, From};
     use serde::{Deserialize, Serialize};
     use std::path::Path;
+    use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
     pub struct CoolText {
@@ -658,14 +658,14 @@ mod tests {
     #[derive(Default)]
     pub struct CoolTextLoader;
 
-    #[derive(Error, Display, Debug, From)]
+    #[derive(Error, Debug)]
     pub enum CoolTextLoaderError {
-        #[display("Could not load dependency: {dependency}")]
+        #[error("Could not load dependency: {dependency}")]
         CannotLoadDependency { dependency: AssetPath<'static> },
-        #[display("A RON error occurred during loading")]
-        RonSpannedError(ron::error::SpannedError),
-        #[display("An IO error occurred during loading")]
-        Io(std::io::Error),
+        #[error("A RON error occurred during loading")]
+        RonSpannedError(#[from] ron::error::SpannedError),
+        #[error("An IO error occurred during loading")]
+        Io(#[from] std::io::Error),
     }
 
     impl AssetLoader for CoolTextLoader {

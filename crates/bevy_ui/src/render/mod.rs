@@ -4,10 +4,13 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_overlay;
+
 use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
-    DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
+    experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
+    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -41,6 +44,8 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+#[cfg(feature = "bevy_ui_debug")]
+pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -98,6 +103,7 @@ pub enum RenderUiSystem {
     ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
+    ExtractDebug,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -125,6 +131,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
+                RenderUiSystem::ExtractDebug,
             )
                 .chain(),
         )
@@ -136,6 +143,8 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                #[cfg(feature = "bevy_ui_debug")]
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
             ),
         )
         .add_systems(
@@ -502,7 +511,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(computed_node.outline_width()),
+                        border: BorderRect::all(computed_node.outline_width()),
                         border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
@@ -537,7 +546,7 @@ pub fn extract_default_ui_camera_view(
                 RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
-                Option<&UiBoxShadowSamples>,
+                Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -552,7 +561,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
@@ -654,14 +663,8 @@ pub fn extract_text_sections(
             continue;
         };
 
-        // Align the text to the nearest pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Round the position to the nearest physical pixel
-
-        let mut transform = global_transform.affine()
+        let transform = global_transform.affine()
             * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
-        transform.translation = transform.translation.round();
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
@@ -835,7 +838,7 @@ pub fn queue_uinodes(
             ),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }

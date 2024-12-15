@@ -34,8 +34,9 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
+        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -1234,8 +1235,7 @@ impl World {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::entity::EntityHash;
     /// # use bevy_ecs::entity::EntityHashSet;
-    /// # use bevy_utils::hashbrown::HashSet;
-    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
+    /// # use bevy_utils::HashSet;
     /// # let mut world = World::new();
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
@@ -1470,7 +1470,10 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -1668,6 +1671,84 @@ impl World {
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
+    }
+
+    /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component, Debug, PartialEq)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// world.spawn_batch(vec![
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Position { x: 1.0, y: 1.0 },
+    /// ]);
+    ///
+    /// fn get_positions(world: &World) -> Vec<(Entity, &Position)> {
+    ///     let mut query = world.try_query::<(Entity, &Position)>().unwrap();
+    ///     query.iter(world).collect()
+    /// }
+    ///
+    /// let positions = get_positions(&world);
+    ///
+    /// assert_eq!(world.get::<Position>(positions[0].0).unwrap(), positions[0].1);
+    /// assert_eq!(world.get::<Position>(positions[1].0).unwrap(), positions[1].1);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let none_query = world.try_query::<&A>();
+    /// assert!(none_query.is_none());
+    ///
+    /// world.register_component::<A>();
+    ///
+    /// let some_query = world.try_query::<&A>();
+    /// assert!(some_query.is_some());
+    /// ```
+    #[inline]
+    pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
+        self.try_query_filtered::<D, ()>()
+    }
+
+    /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
+    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
+    ///
+    /// let mut query = world.try_query_filtered::<Entity, With<B>>().unwrap();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    #[inline]
+    pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
+        QueryState::try_new(self)
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
@@ -2792,21 +2873,34 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+        self.try_resource_scope(f)
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()))
+    }
+
+    /// Temporarily removes the requested resource from this [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in this [`World`].
+    ///
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
+    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    ///
+    /// See also [`resource_scope`](Self::resource_scope).
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self
-            .components
-            .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(ResourceData::remove)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
+            .and_then(ResourceData::remove)?;
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
@@ -2830,27 +2924,18 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
             unsafe {
-                self.storages
-                    .resources
-                    .get_mut(component_id)
-                    .map(|info| {
-                        info.insert_with_ticks(
-                            ptr,
-                            ticks,
-                            #[cfg(feature = "track_change_detection")]
-                            _caller,
-                        );
-                    })
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No resource of type {} exists in the World.",
-                            core::any::type_name::<R>()
-                        )
-                    });
+                self.storages.resources.get_mut(component_id).map(|info| {
+                    info.insert_with_ticks(
+                        ptr,
+                        ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        _caller,
+                    );
+                })
             }
-        });
+        })?;
 
-        result
+        Some(result)
     }
 
     /// Sends an [`Event`].
@@ -3260,6 +3345,35 @@ impl World {
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
+
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
+    /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::world::DeferredWorld;
+    ///
+    /// fn custom_clone_handler(
+    ///     _world: &mut DeferredWorld,
+    ///     _entity_cloner: &EntityCloner,
+    /// ) {
+    ///     // Custom cloning logic for component
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let component_id = world.register_component::<ComponentA>();
+    ///
+    /// world.get_component_clone_handlers_mut()
+    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    /// ```
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        self.components.get_component_clone_handlers_mut()
+    }
 }
 
 impl World {
@@ -3347,7 +3461,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the closures for each resource type
-    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::new();
+    /// let mut closures: HashMap<TypeId, Box<dyn Fn(&Ptr<'_>)>> = HashMap::default();
     ///
     /// // Add closure for `A`
     /// closures.insert(TypeId::of::<A>(), Box::new(|ptr| {
@@ -3424,7 +3538,7 @@ impl World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the mutator closures for each resource type
-    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::new();
+    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::default();
     ///
     /// // Add mutator closure for `A`
     /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
@@ -3610,6 +3724,7 @@ impl World {
             self.as_unsafe_world_cell()
                 .get_entity(entity)?
                 .get_mut_by_id(component_id)
+                .ok()
         }
     }
 }
@@ -4083,6 +4198,7 @@ mod tests {
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
+                true,
             )
         };
 
@@ -4182,38 +4298,46 @@ mod tests {
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
             to_type_ids(world.inspect_entity(ent0).collect()),
-            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+            [Some(foo_id), Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent1).collect()),
-            [Some(foo_id), Some(bar_id)].into()
+            [Some(foo_id), Some(bar_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent2).collect()),
-            [Some(bar_id), Some(baz_id)].into()
+            [Some(bar_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent3).collect()),
-            [Some(foo_id), Some(baz_id)].into()
+            [Some(foo_id), Some(baz_id)]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent4).collect()),
-            [Some(foo_id)].into()
+            [Some(foo_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent5).collect()),
-            [Some(bar_id)].into()
+            [Some(bar_id)].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             to_type_ids(world.inspect_entity(ent6).collect()),
-            [Some(baz_id)].into()
+            [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
     }
 
     #[test]
     fn iterate_entities() {
         let mut world = World::new();
-        let mut entity_counters = HashMap::new();
+        let mut entity_counters = <HashMap<_, _>>::default();
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();

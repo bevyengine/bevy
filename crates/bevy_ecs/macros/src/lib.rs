@@ -707,7 +707,7 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_ecs")
+    BevyManifest::shared().get_path("bevy_ecs")
 }
 
 #[proc_macro_derive(Event)]
@@ -720,9 +720,17 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component, require))]
+#[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+/// Allows specifying a component's required components.
+///
+/// See `Component` docs for usage.
+#[proc_macro_attribute]
+pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
+    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

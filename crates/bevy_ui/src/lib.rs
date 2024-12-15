@@ -39,12 +39,16 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+
 use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::render::UiDebugOptions;
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
@@ -165,11 +169,12 @@ impl Plugin for UiPlugin {
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
             .register_type::<BorderRadius>()
+            .register_type::<BoxShadow>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
-            .register_type::<UiBoxShadowSamples>()
+            .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .configure_sets(
                 PostUpdate,
@@ -228,6 +233,9 @@ impl Plugin for UiPlugin {
         if !self.enable_rendering {
             return;
         }
+
+        #[cfg(feature = "bevy_ui_debug")]
+        app.init_resource::<UiDebugOptions>();
 
         build_ui_render(app);
     }

@@ -1,9 +1,11 @@
 mod prepass_bindings;
 
+use crate::material_bind_groups::MaterialBindGroupAllocator;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
     sync_world::RenderEntity,
+    view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
 };
 pub use prepass_bindings::*;
 
@@ -18,7 +20,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::Affine3A;
+use bevy_math::{Affine3A, Vec4};
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::{Camera, Mesh},
@@ -251,6 +253,12 @@ pub struct PrepassPipeline<M: Material> {
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+
+    /// Whether skins will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub skins_use_uniform_buffers: bool,
+
+    pub depth_clip_control_supported: bool,
     _marker: PhantomData<M>,
 }
 
@@ -259,35 +267,62 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<AssetServer>();
 
+        let visibility_ranges_buffer_binding_type = render_device
+            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
+
         let view_layout_motion_vectors = render_device.create_bind_group_layout(
             "prepass_view_layout_motion_vectors",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer::<ViewUniform>(true),
+                    (0, uniform_buffer::<ViewUniform>(true)),
                     // Globals
-                    uniform_buffer::<GlobalsUniform>(false),
+                    (1, uniform_buffer::<GlobalsUniform>(false)),
                     // PreviousViewUniforms
-                    uniform_buffer::<PreviousViewData>(true),
+                    (2, uniform_buffer::<PreviousViewData>(true)),
+                    // VisibilityRanges
+                    (
+                        14,
+                        buffer_layout(
+                            visibility_ranges_buffer_binding_type,
+                            false,
+                            Some(Vec4::min_size()),
+                        )
+                        .visibility(ShaderStages::VERTEX),
+                    ),
                 ),
             ),
         );
 
         let view_layout_no_motion_vectors = render_device.create_bind_group_layout(
             "prepass_view_layout_no_motion_vectors",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer::<ViewUniform>(true),
+                    (0, uniform_buffer::<ViewUniform>(true)),
                     // Globals
-                    uniform_buffer::<GlobalsUniform>(false),
+                    (1, uniform_buffer::<GlobalsUniform>(false)),
+                    // VisibilityRanges
+                    (
+                        14,
+                        buffer_layout(
+                            visibility_ranges_buffer_binding_type,
+                            false,
+                            Some(Vec4::min_size()),
+                        )
+                        .visibility(ShaderStages::VERTEX),
+                    ),
                 ),
             ),
         );
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
+
+        let depth_clip_control_supported = render_device
+            .features()
+            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
 
         PrepassPipeline {
             view_layout_motion_vectors,
@@ -315,6 +350,8 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
+            depth_clip_control_supported,
             _marker: PhantomData,
         }
     }
@@ -379,8 +416,14 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
+        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
+        let emulate_unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && !self.depth_clip_control_supported;
+        if emulate_unclipped_depth {
+            shader_defs.push("UNCLIPPED_DEPTH_ORTHO_EMULATION".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -389,6 +432,10 @@ where
             // https://github.com/bevyengine/bevy/pull/8877
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
+        let unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && self.depth_clip_control_supported;
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -453,6 +500,18 @@ where
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        // If bindless mode is on, add a `BINDLESS` define.
+        if self.material_pipeline.bindless {
+            shader_defs.push("BINDLESS".into());
+        }
+
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER)
+        {
+            shader_defs.push("VISIBILITY_RANGE_DITHER".into());
+        }
+
         if key.mesh_key.intersects(
             MeshPipelineKey::NORMAL_PREPASS
                 | MeshPipelineKey::MOTION_VECTOR_PREPASS
@@ -468,6 +527,7 @@ where
             &key.mesh_key,
             &mut shader_defs,
             &mut vertex_attributes,
+            self.skins_use_uniform_buffers,
         );
         bind_group_layouts.insert(1, bind_group);
 
@@ -488,10 +548,10 @@ where
         }
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
-        // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader or we are clamping the orthographic depth.
+        // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
+        // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
-            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+            || emulate_unclipped_depth
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
 
@@ -544,7 +604,7 @@ where
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
-                unclipped_depth: false,
+                unclipped_depth,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
@@ -649,26 +709,33 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
+    visibility_ranges: Res<RenderVisibilityRanges>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let (Some(view_binding), Some(globals_binding)) = (
+    if let (Some(view_binding), Some(globals_binding), Some(visibility_ranges_buffer)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
+        visibility_ranges.buffer().buffer(),
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
             &prepass_pipeline.view_layout_no_motion_vectors,
-            &BindGroupEntries::sequential((view_binding.clone(), globals_binding.clone())),
+            &BindGroupEntries::with_indices((
+                (0, view_binding.clone()),
+                (1, globals_binding.clone()),
+                (14, visibility_ranges_buffer.as_entire_binding()),
+            )),
         ));
 
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &prepass_pipeline.view_layout_motion_vectors,
-                &BindGroupEntries::sequential((
-                    view_binding,
-                    globals_binding,
-                    previous_view_uniforms_binding,
+                &BindGroupEntries::with_indices((
+                    (0, view_binding),
+                    (1, globals_binding),
+                    (2, previous_view_uniforms_binding),
+                    (14, visibility_ranges_buffer.as_entire_binding()),
                 )),
             ));
         }
@@ -696,6 +763,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -784,6 +853,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material) = render_materials.get(*material_asset_id) else {
                 continue;
             };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
@@ -831,6 +905,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
+            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
+                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
+            }
+
             // If the previous frame has skins or morph targets, note that.
             if motion_vector_prepass.is_some() {
                 if mesh_instance
@@ -852,7 +930,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 &mesh.layout,
             );
@@ -864,9 +944,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance
-                .material_bind_group_id
-                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -874,10 +951,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBinKey {
-                                draw_function: opaque_draw_deferred,
-                                pipeline: pipeline_id,
+                                batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                    draw_function: opaque_draw_deferred,
+                                    pipeline: pipeline_id,
+                                    material_bind_group_index: Some(material.binding.group.0),
+                                },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -885,10 +964,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         opaque_phase.add(
                             OpaqueNoLightmap3dBinKey {
-                                draw_function: opaque_draw_prepass,
-                                pipeline: pipeline_id,
+                                batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                    draw_function: opaque_draw_prepass,
+                                    pipeline: pipeline_id,
+                                    material_bind_group_index: Some(material.binding.group.0),
+                                },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -899,10 +980,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            pipeline: pipeline_id,
-                            draw_function: alpha_mask_draw_deferred,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: alpha_mask_draw_deferred,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -911,10 +994,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
                         let bin_key = OpaqueNoLightmap3dBinKey {
-                            pipeline: pipeline_id,
-                            draw_function: alpha_mask_draw_prepass,
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: alpha_mask_draw_prepass,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(
                             bin_key,

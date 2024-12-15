@@ -10,7 +10,7 @@ use bevy_utils::{
     Duration, HashMap,
 };
 use core::{fmt::Display, hash::Hash};
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
@@ -343,7 +343,7 @@ impl AssetSourceBuilders {
     /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
     /// If `watch_processed` is true, the processed sources will watch for changes.
     pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
-        let mut sources = HashMap::new();
+        let mut sources = <HashMap<_, _>>::default();
         for (id, source) in &mut self.sources {
             if let Some(data) = source.build(
                 AssetSourceId::Name(id.clone_owned()),
@@ -629,27 +629,23 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
-#[display("Asset Source '{_0}' does not exist")]
-#[error(ignore)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
-#[derive(Error, Display, Debug, Clone)]
-#[display("Asset Source '{_0}' does not have an AssetWriter.")]
-#[error(ignore)]
+#[derive(Error, Debug, Clone)]
+#[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`](crate::io::AssetReader) does not exist for a given id.
-#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
-#[display("Asset Source '{_0}' does not have a processed AssetReader.")]
-#[error(ignore)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
-#[derive(Error, Display, Debug, Clone)]
-#[display("Asset Source '{_0}' does not have a processed AssetWriter.")]
-#[error(ignore)]
+#[derive(Error, Debug, Clone)]
+#[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 
 const MISSING_DEFAULT_SOURCE: &str =

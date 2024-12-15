@@ -10,7 +10,6 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
         .init_state::<Scene>()
-        .enable_state_scoped_entities::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
         .add_systems(OnEnter(Scene::Animation), animation::setup)
         .add_systems(Update, switch_scene);
@@ -24,6 +23,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[states(scoped_entities)]
 enum Scene {
     #[default]
     Light,
@@ -284,7 +284,7 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.entity()).unwrap()[0];
+        let entity = children.get(trigger.target()).unwrap()[0];
         let entity = children.get(entity).unwrap()[0];
 
         let (entity, mut player) = players.get_mut(entity).unwrap();
