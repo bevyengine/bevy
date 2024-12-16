@@ -1,8 +1,7 @@
 use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, BatchSize, Criterion};
 
 criterion_group!(benches, typed, into, call, overload, clone);
-criterion_main!(benches);
 
 fn add(a: i32, b: i32) -> i32 {
     a + b
@@ -84,6 +83,7 @@ fn overload(c: &mut Criterion) {
         a + b
     }
 
+    #[expect(clippy::too_many_arguments)]
     fn complex<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(
         _: T0,
         _: T1,

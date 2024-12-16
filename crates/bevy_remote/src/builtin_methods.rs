@@ -92,6 +92,11 @@ pub struct BrpQueryParams {
     /// exclude from the results.
     #[serde(default)]
     pub filter: BrpQueryFilter,
+
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
+    pub strict: bool,
 }
 
 /// `bevy/spawn`: Creates a new entity with the given components and responds
@@ -364,7 +369,7 @@ pub fn process_remote_get_watching_request(
 
     let mut changed = Vec::new();
     let mut removed = Vec::new();
-    let mut errors = HashMap::new();
+    let mut errors = <HashMap<_, _>>::default();
 
     'component_loop: for component_path in components {
         let Ok(type_registration) =
@@ -527,19 +532,22 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             has,
         },
         filter: BrpQueryFilter { without, with },
+        strict,
     } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let components =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
-    let option =
-        get_component_ids(&type_registry, world, option).map_err(BrpError::component_error)?;
-    let has = get_component_ids(&type_registry, world, has).map_err(BrpError::component_error)?;
-    let without =
-        get_component_ids(&type_registry, world, without).map_err(BrpError::component_error)?;
-    let with = get_component_ids(&type_registry, world, with).map_err(BrpError::component_error)?;
+    let components = get_component_ids(&type_registry, world, components, strict)
+        .map_err(BrpError::component_error)?;
+    let option = get_component_ids(&type_registry, world, option, strict)
+        .map_err(BrpError::component_error)?;
+    let has =
+        get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
+    let without = get_component_ids(&type_registry, world, without, strict)
+        .map_err(BrpError::component_error)?;
+    let with = get_component_ids(&type_registry, world, with, strict)
+        .map_err(BrpError::component_error)?;
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &components {
@@ -659,8 +667,8 @@ pub fn process_remote_remove_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let component_ids =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
+    let component_ids = get_component_ids(&type_registry, world, components, true)
+        .map_err(BrpError::component_error)?;
 
     // Remove the components.
     let mut entity_world_mut = get_entity_mut(world, entity)?;
@@ -818,16 +826,20 @@ fn get_component_ids(
     type_registry: &TypeRegistry,
     world: &World,
     component_paths: Vec<String>,
+    strict: bool,
 ) -> AnyhowResult<Vec<(TypeId, ComponentId)>> {
     let mut component_ids = vec![];
 
     for component_path in component_paths {
         let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
         let Some(component_id) = world.components().get_id(type_id) else {
-            return Err(anyhow!(
-                "Component `{}` isn't used in the world",
-                component_path
-            ));
+            if strict {
+                return Err(anyhow!(
+                    "Component `{}` isn't used in the world",
+                    component_path
+                ));
+            }
+            continue;
         };
 
         component_ids.push((type_id, component_id));
@@ -847,7 +859,7 @@ fn build_components_map<'a>(
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
     type_registry: &TypeRegistry,
 ) -> AnyhowResult<HashMap<String, Value>> {
-    let mut serialized_components_map = HashMap::new();
+    let mut serialized_components_map = <HashMap<_, _>>::default();
 
     for (type_path, reflect_component) in paths_and_reflect_components {
         let Some(reflected) = reflect_component.reflect(entity_ref.clone()) else {
@@ -873,7 +885,7 @@ fn build_has_map<'a>(
     entity_ref: FilteredEntityRef,
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
 ) -> HashMap<String, Value> {
-    let mut has_map = HashMap::new();
+    let mut has_map = <HashMap<_, _>>::default();
 
     for (type_path, reflect_component) in paths_and_reflect_components {
         let has = reflect_component.contains(entity_ref.clone());

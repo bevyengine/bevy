@@ -755,10 +755,12 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::NoOverload {
-                expected: HashSet::from([
+                expected: [
                     ArgumentSignature::from_iter(vec![Type::of::<i32>(), Type::of::<i32>()]),
                     ArgumentSignature::from_iter(vec![Type::of::<f32>(), Type::of::<f32>()])
-                ]),
+                ]
+                .into_iter()
+                .collect::<HashSet<_>>(),
                 received: ArgumentSignature::from_iter(vec![Type::of::<u32>(), Type::of::<u32>()]),
             }
         );
