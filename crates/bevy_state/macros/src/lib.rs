@@ -20,5 +20,5 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_state_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_state")
+    BevyManifest::shared().get_path("bevy_state")
 }

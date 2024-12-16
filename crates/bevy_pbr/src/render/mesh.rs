@@ -37,8 +37,8 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange,
+        prepare_view_targets, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges,
+        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -421,6 +421,11 @@ bitflags::bitflags! {
         ///
         /// This will be `u16::MAX` if this mesh has no LOD.
         const LOD_INDEX_MASK              = (1 << 16) - 1;
+        /// Disables frustum culling for this mesh.
+        ///
+        /// This corresponds to the
+        /// [`bevy_render::view::visibility::NoFrustumCulling`] component.
+        const NO_FRUSTUM_CULLING          = 1 << 28;
         const SHADOW_RECEIVER             = 1 << 29;
         const TRANSMITTED_SHADOW_RECEIVER = 1 << 30;
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
@@ -435,6 +440,7 @@ impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
         lod_index: Option<NonMaxU16>,
+        no_frustum_culling: bool,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
     ) -> MeshFlags {
@@ -443,6 +449,9 @@ impl MeshFlags {
         } else {
             MeshFlags::SHADOW_RECEIVER
         };
+        if no_frustum_culling {
+            mesh_flags |= MeshFlags::NO_FRUSTUM_CULLING;
+        }
         if transmitted_receiver {
             mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
         }
@@ -1046,6 +1055,7 @@ pub fn extract_meshes_for_cpu_building(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Mesh3d,
+            Has<NoFrustumCulling>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
@@ -1063,6 +1073,7 @@ pub fn extract_meshes_for_cpu_building(
             transform,
             previous_transform,
             mesh,
+            no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -1084,6 +1095,7 @@ pub fn extract_meshes_for_cpu_building(
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
+                no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
             );
@@ -1155,6 +1167,7 @@ pub fn extract_meshes_for_gpu_building(
                 Option<&Lightmap>,
                 Option<&Aabb>,
                 &Mesh3d,
+                Has<NoFrustumCulling>,
                 Has<NotShadowReceiver>,
                 Has<TransmittedShadowReceiver>,
                 Has<NotShadowCaster>,
@@ -1168,6 +1181,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Lightmap>,
                 Changed<Aabb>,
                 Changed<Mesh3d>,
+                Changed<NoFrustumCulling>,
                 Changed<NotShadowReceiver>,
                 Changed<TransmittedShadowReceiver>,
                 Changed<NotShadowCaster>,
@@ -1179,7 +1193,7 @@ pub fn extract_meshes_for_gpu_building(
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
+    cameras_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
 ) {
     let any_gpu_culling = !cameras_query.is_empty();
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
@@ -1209,6 +1223,7 @@ pub fn extract_meshes_for_gpu_building(
             lightmap,
             aabb,
             mesh,
+            no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -1231,6 +1246,7 @@ pub fn extract_meshes_for_gpu_building(
             let mesh_flags = MeshFlags::from_components(
                 transform,
                 lod_index,
+                no_frustum_culling,
                 not_shadow_receiver,
                 transmitted_receiver,
             );
