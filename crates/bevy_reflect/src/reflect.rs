@@ -1,6 +1,6 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
+    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
+    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::boxed::Box;
@@ -268,13 +268,6 @@ where
             ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
             ReflectRef::Opaque(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
-    }
-
-    /// Returns a serializable version of the value.
-    ///
-    /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     /// Indicates whether or not this type is a _dynamic_ type.
