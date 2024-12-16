@@ -49,6 +49,8 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         query_result.texture_index = light_probes.view_cubemap_index;
         query_result.intensity = light_probes.intensity_for_view;
+        query_result.affects_lightmapped_mesh_diffuse =
+            light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u;
     }
 
     // If there's no cubemap, bail out.
@@ -62,7 +64,14 @@ fn compute_radiances(
     let radiance_level = perceptual_roughness * f32(textureNumLevels(
         bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
-    if (!found_diffuse_indirect) {
+    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+    // environment map, note that.
+    var enable_diffuse = !found_diffuse_indirect;
+#ifdef LIGHTMAP
+    enable_diffuse = enable_diffuse && query_result.affects_lightmapped_mesh_diffuse;
+#endif  // LIGHTMAP
+
+    if (enable_diffuse) {
         var irradiance_sample_dir = N;
         // Rotating the world space ray direction by the environment light map transform matrix, it is
         // equivalent to rotating the diffuse environment cubemap itself.
@@ -121,7 +130,15 @@ fn compute_radiances(
 
     let intensity = light_probes.intensity_for_view;
 
-    if (!found_diffuse_indirect) {
+    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+    // environment map, note that.
+    var enable_diffuse = !found_diffuse_indirect;
+#ifdef LIGHTMAP
+    enable_diffuse = enable_diffuse &&
+        light_probes.view_environment_map_affects_lightmapped_mesh_diffuse;
+#endif  // LIGHTMAP
+
+    if (enable_diffuse) {
         var irradiance_sample_dir = N;
         // Rotating the world space ray direction by the environment light map transform matrix, it is
         // equivalent to rotating the diffuse environment cubemap itself.

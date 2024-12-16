@@ -160,6 +160,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
@@ -248,6 +249,7 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
         IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         },
         LightProbe,
     ));
@@ -431,6 +433,7 @@ fn toggle_irradiance_volumes(
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         });
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;

@@ -3868,6 +3868,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "mixed_lighting"
+path = "examples/3d/mixed_lighting.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.mixed_lighting]
+name = "Mixed lighting"
+description = "Demonstrates how to combine baked and dynamic lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "animated_ui"
 path = "examples/animation/animated_ui.rs"
 doc-scrape-examples = true

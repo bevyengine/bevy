@@ -31,6 +31,14 @@ fn irradiance_volume_light(
         return vec3(0.0f);
     }
 
+    // If we're lightmapped, and the irradiance volume contributes no diffuse
+    // light, then bail out.
+#ifdef LIGHTMAP
+    if (!query_result.affects_lightmapped_mesh_diffuse) {
+        return vec3(0.0f);
+    }
+#endif  // LIGHTMAP
+
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
     let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];
 #else

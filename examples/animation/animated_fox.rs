@@ -18,6 +18,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .init_resource::<ParticleAssets>()
