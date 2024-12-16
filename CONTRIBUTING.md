@@ -1,3 +1,5 @@
 # Contributing to Bevy
 
-Hey, we've moved our information on contributing to Bevy's website [here](https://bevyengine.org/learn/contribute/introduction). Go give it a read, and thanks for contributing!
+If you'd like to help build Bevy and are looking for a place to start, you can find an
+[introduction here](https://bevyengine.org/learn/contribute/introduction), that can help point
+you in the right direction.  Give it a read, and thanks for contributing!
