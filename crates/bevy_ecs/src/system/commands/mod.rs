@@ -1738,7 +1738,53 @@ impl<'a> EntityCommands<'a> {
         self.queue(observe(system))
     }
 
-    /// Clones an entity and returns the [`EntityCommands`] of the clone.
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityCloneBuilder`].
+    ///
+    /// By default, the other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create an empty entity
+    ///     let target = commands.spawn_empty().id();
+    ///
+    ///     // Create a new entity and keep its EntityCommands
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Clone only ComponentA onto the target
+    ///     entity.clone_with(target, |builder| {
+    ///         builder.deny::<ComponentB>();
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if either of the entities do not exist.
+    pub fn clone_with(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.queue(clone_with(target, config))
+    }
+
+    /// Spawns a clone of this entity and returns the [`EntityCommands`] of the clone.
     ///
     /// The clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
@@ -1772,8 +1818,8 @@ impl<'a> EntityCommands<'a> {
         self.clone_and_spawn_with(|_| {})
     }
 
-    /// Clones an entity and allows configuring cloning behavior using [`EntityCloneBuilder`],
-    /// returning the [`EntityCommands`] of the clone.
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityCloneBuilder`], returning the [`EntityCommands`] of the clone.
     ///
     /// By default, the clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
@@ -1781,6 +1827,8 @@ impl<'a> EntityCommands<'a> {
     /// To exclude specific components, use [`EntityCloneBuilder::deny`].
     /// To only include specific components, use [`EntityCloneBuilder::deny_all`]
     /// followed by [`EntityCloneBuilder::allow`].
+    ///
+    /// See the methods on [`EntityCloneBuilder`] for more options.
     ///
     /// # Panics
     ///
@@ -1808,14 +1856,39 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn_with(
         &mut self,
-        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
-        self.queue(clone_and_spawn_with(entity_clone, f));
+        self.queue(clone_with(entity_clone, config));
         EntityCommands {
             commands: self.commands_mut().reborrow(),
             entity: entity_clone,
         }
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if either of the entities do not exist.
+    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.queue(clone_components::<B>(target))
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity,
+    /// then removes the components from this entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if either of the entities do not exist.
+    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.queue(move_components::<B>(target))
     }
 }
 
@@ -2291,14 +2364,34 @@ fn observe<E: Event, B: Bundle, M>(
     }
 }
 
-fn clone_and_spawn_with(
-    entity_clone: Entity,
-    f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+/// An [`EntityCommand`] that clones an entity with configurable cloning behavior.
+fn clone_with(
+    target: Entity,
+    config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
 ) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        let mut builder = EntityCloneBuilder::new(world);
-        f(&mut builder);
-        builder.clone_entity(entity, entity_clone);
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.clone_with(target, config);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that clones the specified components into another entity.
+fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.clone_components::<B>(target);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that clones the specified components into another entity
+/// and removes them from the original entity.
+fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.move_components::<B>(target);
+        }
     }
 }
 
