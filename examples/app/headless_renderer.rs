@@ -11,6 +11,7 @@ use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
     image::TextureFormatPixelInfo,
+    pbr::ShadowsStyle,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -178,10 +179,8 @@ fn setup(
     ));
     // light
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
+        PointLight::default(),
+        ShadowsStyle::Hard,
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
