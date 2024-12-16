@@ -20,6 +20,8 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use thiserror::Error;
 
@@ -950,9 +952,7 @@ impl<'w> UnsafeEntityCell<'w> {
             None
         }
     }
-}
 
-impl<'w> UnsafeEntityCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -1029,6 +1029,15 @@ impl<'w> UnsafeEntityCell<'w> {
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
