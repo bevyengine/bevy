@@ -277,10 +277,20 @@ impl UiSurface {
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding
     /// and the size of the node after layout resolution but before rounding.
-    pub fn get_layout(&mut self, entity: Entity) -> Result<(taffy::Layout, Vec2), LayoutError> {
+    pub fn get_layout(
+        &mut self,
+        entity: Entity,
+        use_rounding: bool,
+    ) -> Result<(taffy::Layout, Vec2), LayoutError> {
         let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
             return Err(LayoutError::InvalidHierarchy);
         };
+
+        if use_rounding {
+            self.taffy.enable_rounding();
+        } else {
+            self.taffy.disable_rounding();
+        }
 
         let layout = self
             .taffy

@@ -2528,6 +2528,23 @@ impl Default for ShadowStyle {
     }
 }
 
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Debug, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct LayoutConfig {
+    pub use_rounding: bool,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self { use_rounding: true }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
