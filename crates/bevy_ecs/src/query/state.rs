@@ -1,10 +1,10 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
-    query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
+    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
     storage::{SparseSetIndex, TableId},
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -21,8 +21,8 @@ use log::warn;
 use tracing::Span;
 
 use super::{
-    ComponentAccessKind, NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter,
-    QueryManyIter, QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
+    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
+    QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -173,40 +173,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut state = Self::try_new_uninitialized(world)?;
         state.update_archetypes(world);
         Some(state)
-    }
-
-    /// Identical to `new`, but it populates the provided `access` with the matched results.
-    pub(crate) fn new_with_access(
-        world: &mut World,
-        access: &mut Access<ArchetypeComponentId>,
-    ) -> Self {
-        let mut state = Self::new_uninitialized(world);
-        for archetype in world.archetypes.iter() {
-            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
-            // come directly from the same world.
-            unsafe {
-                if state.new_archetype_internal(archetype) {
-                    state.update_archetype_component_access(archetype, access);
-                }
-            }
-        }
-        state.archetype_generation = world.archetypes.generation();
-
-        // Resource access is not part of any archetype and must be handled separately
-        if state.component_access.access().has_read_all_resources() {
-            access.read_all_resources();
-        } else {
-            for component_id in state.component_access.access().resource_reads() {
-                access.add_resource_read(world.initialize_resource_internal(component_id).id());
-            }
-        }
-
-        debug_assert!(
-            !state.component_access.access().has_any_resource_write(),
-            "Mutable resource access in queries is not allowed"
-        );
-
-        state
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -545,7 +511,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
                 unsafe {
-                    self.new_archetype_internal(archetype);
+                    self.new_archetype(archetype);
                 }
             }
         } else {
@@ -580,7 +546,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
-                        self.new_archetype_internal(archetype);
+                        self.new_archetype(archetype);
                     }
                 }
             }
@@ -612,32 +578,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     ///
-    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    pub unsafe fn new_archetype(
-        &mut self,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-        let matches = unsafe { self.new_archetype_internal(archetype) };
-        if matches {
-            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-            unsafe { self.update_archetype_component_access(archetype, access) };
-        }
-    }
-
-    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
-    /// and [`Archetype`]s that are matched by this query.
-    ///
-    /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
-    /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
-    ///
-    /// # Safety
-    /// `archetype` must be from the `World` this state was initialized from.
-    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
+    pub unsafe fn new_archetype(&mut self, archetype: &Archetype) {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
@@ -660,9 +603,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     });
                 }
             }
-            true
-        } else {
-            false
         }
     }
 
@@ -677,57 +617,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     .ones()
                     .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
         })
-    }
-
-    /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    ///
-    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    ///
-    /// # Safety
-    /// `archetype` must be from the `World` this state was initialized from.
-    pub unsafe fn update_archetype_component_access(
-        &mut self,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        // As a fast path, we can iterate directly over the components involved
-        // if the `access` is finite.
-        if let Ok(iter) = self.component_access.access.try_iter_component_access() {
-            iter.for_each(|component_access| {
-                if let Some(id) = archetype.get_archetype_component_id(*component_access.index()) {
-                    match component_access {
-                        ComponentAccessKind::Archetypal(_) => {}
-                        ComponentAccessKind::Shared(_) => {
-                            access.add_component_read(id);
-                        }
-                        ComponentAccessKind::Exclusive(_) => {
-                            access.add_component_write(id);
-                        }
-                    }
-                }
-            });
-
-            return;
-        }
-
-        for (component_id, archetype_component_id) in
-            archetype.components_with_archetype_component_id()
-        {
-            if self
-                .component_access
-                .access
-                .has_component_read(component_id)
-            {
-                access.add_component_read(archetype_component_id);
-            }
-            if self
-                .component_access
-                .access
-                .has_component_write(component_id)
-            {
-                access.add_component_write(archetype_component_id);
-            }
-        }
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
@@ -1515,7 +1404,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+            // SAFETY: We only access table data that has been registered in `self.component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
             let mut batch_queue = ArrayVec::new();

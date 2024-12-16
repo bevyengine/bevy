@@ -431,11 +431,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::new_archetype(&mut state.state, archetype, system_meta) }
-                }
-
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }

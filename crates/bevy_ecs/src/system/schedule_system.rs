@@ -1,7 +1,6 @@
 use alloc::{borrow::Cow, vec::Vec};
 
 use crate::{
-    archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     error::Result,
     query::{Access, FilteredAccessSet},
@@ -38,11 +37,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     #[inline]
     fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         self.0.component_access_set()
-    }
-
-    #[inline(always)]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.0.archetype_component_access()
     }
 
     #[inline]
@@ -91,11 +85,6 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.0.initialize(world);
-    }
-
-    #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.0.update_archetype_component_access(world);
     }
 
     #[inline]
@@ -173,10 +162,6 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -214,10 +199,6 @@ where
 
     fn initialize(&mut self, world: &mut World) {
         self.system.initialize(world);
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -284,10 +265,6 @@ where
         self.system.component_access_set()
     }
 
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.system.archetype_component_access()
-    }
-
     fn is_send(&self) -> bool {
         self.system.is_send()
     }
@@ -332,10 +309,6 @@ where
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
-    }
-
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        self.system.update_archetype_component_access(world);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {
