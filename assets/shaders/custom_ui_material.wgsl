@@ -1,4 +1,5 @@
-// This shader draws a circle with a given input color
+// This shader draws a progress bar that changes its color based on time elapsed
+// and cycles between 0% full and 100% full
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 
 @group(1) @binding(0) var<uniform> color: vec4<f32>;
