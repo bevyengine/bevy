@@ -237,9 +237,9 @@ impl Default for ComputedNode {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
-    /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
+    /// How far across the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to right)
     pub offset_x: f32,
-    /// How far down the node is scrolled, in pixels. (0 = not scrolled / scrolled to top)
+    /// How far down the node is scrolled, in logical pixels. (0 = not scrolled / scrolled to top)
     pub offset_y: f32,
 }
 
@@ -262,8 +262,8 @@ impl From<&ScrollPosition> for Vec2 {
     }
 }
 
-impl From<&Vec2> for ScrollPosition {
-    fn from(vec: &Vec2) -> Self {
+impl From<Vec2> for ScrollPosition {
+    fn from(vec: Vec2) -> Self {
         ScrollPosition {
             offset_x: vec.x,
             offset_y: vec.y,
