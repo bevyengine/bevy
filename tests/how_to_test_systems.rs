@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
