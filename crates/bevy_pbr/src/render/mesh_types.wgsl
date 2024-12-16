@@ -19,8 +19,9 @@ struct Mesh {
     first_vertex_index: u32,
     current_skin_index: u32,
     previous_skin_index: u32,
-    // Index of the material inside the bind group data.
-    material_bind_group_slot: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
 };
 
 #ifdef SKINNED

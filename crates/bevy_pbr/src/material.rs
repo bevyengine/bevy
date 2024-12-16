@@ -809,11 +809,11 @@ pub fn queue_material_meshes<M: Material>(
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | mesh_pipeline_key_bits;
 
-            let lightmap_image = render_lightmaps
+            let lightmap_slab_index = render_lightmaps
                 .render_lightmaps
                 .get(visible_entity)
-                .map(|lightmap| lightmap.image);
-            if lightmap_image.is_some() {
+                .map(|lightmap| lightmap.slab_index);
+            if lightmap_slab_index.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -881,7 +881,8 @@ pub fn queue_material_meshes<M: Material>(
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
                                 index_slab,
-                                lightmap_image,
+                                lightmap_slab: lightmap_slab_index
+                                    .map(|lightmap_slab_index| *lightmap_slab_index),
                             },
                             asset_id: mesh_instance.mesh_asset_id.into(),
                         };

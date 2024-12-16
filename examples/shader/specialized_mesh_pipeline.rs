@@ -341,7 +341,7 @@ fn queue_custom_mesh_pipeline(
                         material_bind_group_index: None,
                         vertex_slab: default(),
                         index_slab: None,
-                        lightmap_image: None,
+                        lightmap_slab: None,
                     },
                     // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
                     // but you can use anything you like. Note that the asset ID need

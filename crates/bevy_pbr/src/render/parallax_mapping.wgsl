@@ -6,7 +6,7 @@
 }
 
 fn sample_depth_map(uv: vec2<f32>, instance_index: u32) -> f32 {
-    let slot = mesh[instance_index].material_bind_group_slot;
+    let slot = mesh[instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
     // backend (Fxc) panics when using "gradient instructions" inside a loop.
     // It results in the whole loop being unrolled by the shader compiler,
