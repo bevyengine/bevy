@@ -16,18 +16,22 @@
 //! This crate does *not* provide any integration with UI widgets, or provide functions for
 //! tab navigation or gamepad-based focus navigation, as those are typically application-specific.
 
+pub mod tab_navigation;
+
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader},
-    query::With,
+    query::{QueryData, With},
     system::{Commands, Query, Res, Resource, SystemParam},
+    traversal::Traversal,
     world::{Command, DeferredWorld, World},
 };
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::keyboard::KeyboardInput;
-use bevy_window::PrimaryWindow;
+use bevy_window::{PrimaryWindow, Window};
+use core::fmt::Debug;
 
 /// Resource representing which entity has input focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
@@ -102,12 +106,41 @@ impl SetInputFocus for Commands<'_, '_> {
 /// input focus entity, if any. If no entity has input focus, then the event is dispatched to
 /// the main window.
 #[derive(Clone, Debug, Component)]
-pub struct FocusKeyboardInput(pub KeyboardInput);
+pub struct FocusKeyboardInput {
+    /// The keyboard input event.
+    pub input: KeyboardInput,
+    window: Entity,
+}
 
 impl Event for FocusKeyboardInput {
-    type Traversal = &'static Parent;
+    type Traversal = WindowTraversal;
 
     const AUTO_PROPAGATE: bool = true;
+}
+
+#[derive(QueryData)]
+/// These are for accessing components defined on the targeted entity
+pub struct WindowTraversal {
+    parent: Option<&'static Parent>,
+    window: Option<&'static Window>,
+}
+
+impl Traversal<FocusKeyboardInput> for WindowTraversal {
+    fn traverse(item: Self::Item<'_>, event: &FocusKeyboardInput) -> Option<Entity> {
+        let WindowTraversalItem { parent, window } = item;
+
+        // Send event to parent, if it has one.
+        if let Some(parent) = parent {
+            return Some(parent.get());
+        };
+
+        // Otherwise, send it to the window entity (unless this is a window entity).
+        if window.is_none() {
+            return Some(event.window);
+        }
+
+        None
+    }
 }
 
 /// Plugin which registers the system for dispatching keyboard events based on focus and
@@ -130,17 +163,29 @@ fn dispatch_keyboard_input(
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    // If an element has keyboard focus, then dispatch the key event to that element.
-    if let Some(focus_elt) = focus.0 {
-        for ev in key_events.read() {
-            commands.trigger_targets(FocusKeyboardInput(ev.clone()), focus_elt);
-        }
-    } else {
-        // If no element has input focus, then dispatch the key event to the primary window.
-        // There should be only one primary window.
-        if let Ok(window) = windows.get_single() {
+    if let Ok(window) = windows.get_single() {
+        // If an element has keyboard focus, then dispatch the key event to that element.
+        if let Some(focus_elt) = focus.0 {
             for ev in key_events.read() {
-                commands.trigger_targets(FocusKeyboardInput(ev.clone()), window);
+                commands.trigger_targets(
+                    FocusKeyboardInput {
+                        input: ev.clone(),
+                        window,
+                    },
+                    focus_elt,
+                );
+            }
+        } else {
+            // If no element has input focus, then dispatch the key event to the primary window.
+            // There should be only one primary window.
+            for ev in key_events.read() {
+                commands.trigger_targets(
+                    FocusKeyboardInput {
+                        input: ev.clone(),
+                        window,
+                    },
+                    window,
+                );
             }
         }
     }
@@ -248,6 +293,7 @@ mod tests {
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
     };
+    use bevy_window::WindowResolution;
     use smol_str::SmolStr;
 
     #[derive(Component)]
@@ -266,7 +312,7 @@ mod tests {
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
         if let Ok(mut gather) = query.get_mut(trigger.target()) {
-            if let Key::Character(c) = &trigger.0.logical_key {
+            if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }
         }
@@ -323,6 +369,12 @@ mod tests {
 
         app.add_plugins((InputPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
+
+        let window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+        app.world_mut().spawn((window, PrimaryWindow));
 
         let entity_a = app
             .world_mut()
