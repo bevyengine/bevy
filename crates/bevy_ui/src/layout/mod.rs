@@ -357,6 +357,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
+            node.bypass_change_detection().content_size = content_size;
+
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
                 left: rect.left,
                 right: rect.right,
@@ -423,7 +426,6 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(
                 Vec2::ZERO,

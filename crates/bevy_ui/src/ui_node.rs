@@ -18,51 +18,62 @@ use smallvec::SmallVec;
 use thiserror::Error;
 
 /// Provides the computed size and layout properties of the node.
+///
+/// Fields in this struct are public but should not be modified under most circumstances.
+/// For example, in a scrollbar you may want to derive the handle's size from the proportion of
+/// scrollable content in-view. You can directly modify `ComputedNode` after layout to set the
+/// handle size without any delays.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    pub(crate) stack_index: u32,
-    /// The size of the node as width and height in physical pixels
     ///
-    /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) size: Vec2,
+    /// Automatically calculated in [`super::UiSystem::Stack`].
+    pub stack_index: u32,
+    /// The size of the node as width and height in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub size: Vec2,
+    /// Size of this node's content.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub content_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) outline_width: f32,
+    pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
     /// Outline updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) outline_offset: f32,
+    pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) unrounded_size: Vec2,
-    /// Resolved border values in physical pixels
+    pub unrounded_size: Vec2,
+    /// Resolved border values in physical pixels.
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border: BorderRect,
+    pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border_radius: ResolvedBorderRadius,
-    /// Resolved padding values in physical pixels
+    pub border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in physical pixels.
     /// Padding updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) padding: BorderRect,
+    pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) inverse_scale_factor: f32,
+    pub inverse_scale_factor: f32,
 }
 
 impl ComputedNode {
@@ -72,6 +83,14 @@ impl ComputedNode {
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
+    }
+
+    /// The calculated node content size as width and height in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub const fn content_size(&self) -> Vec2 {
+        self.content_size
     }
 
     /// Check if the node is empty.
@@ -215,6 +234,7 @@ impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
         size: Vec2::ZERO,
+        content_size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
