@@ -58,6 +58,11 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) padding: BorderRect,
+    /// Resolved margin values in physical pixels.
+    /// Margin updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) margin: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     ///
@@ -192,6 +197,14 @@ impl ComputedNode {
         self.padding
     }
 
+    /// Returns the thickness of the node's margin on each edge in physical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub const fn margin(&self) -> BorderRect {
+        self.margin
+    }
+
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub const fn content_inset(&self) -> BorderRect {
@@ -221,6 +234,7 @@ impl ComputedNode {
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
+        margin: BorderRect::ZERO,
         inverse_scale_factor: 1.,
     };
 }
@@ -1158,6 +1172,14 @@ impl OverflowClipMargin {
         }
     }
 
+    /// Clip any content that overflows outside the border box
+    pub const fn margin_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::MarginBox,
+            ..Self::DEFAULT
+        }
+    }
+
     /// Add a margin on each edge of the visual box in logical pixels.
     /// The width of the margin will be zero if a negative value is set.
     pub const fn with_margin(mut self, margin: f32) -> Self {
@@ -1182,6 +1204,8 @@ pub enum OverflowClipBox {
     PaddingBox,
     /// Clip any content that overflows outside the border box
     BorderBox,
+    /// Clip any content that overflows outside the margin box
+    MarginBox,
 }
 
 /// The strategy used to position this node
