@@ -1819,6 +1819,31 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes a dynamic bundle from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the provided [`ComponentId`]s do not exist in the [`World`] or if the
+    /// entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.assert_not_despawned();
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_dynamic_info(components, component_ids);
+
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe { self.remove_bundle(bundle_id) };
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
     /// Removes all components associated with the entity.
     ///
     /// # Panics
@@ -2108,6 +2133,44 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityCloneBuilder`].
+    ///
+    /// By default, the other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```ignore
+    /// world.entity_mut(entity).clone_with(|builder| {
+    ///     builder.deny::<ComponentB>();
+    /// });
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_with(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
     /// Spawns a clone of this entity and returns the [`Entity`] of the clone.
     ///
     /// The clone will receive all the components of the original that implement
@@ -2144,14 +2207,17 @@ impl<'w> EntityWorldMut<'w> {
     /// });
     /// ```
     ///
-    /// See the methods on [`EntityCloneBuilder`] for more options.
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
     ///
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clone_and_spawn_with(
         &mut self,
-        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
 
@@ -2159,7 +2225,7 @@ impl<'w> EntityWorldMut<'w> {
         self.world.flush();
 
         let mut builder = EntityCloneBuilder::new(self.world);
-        f(&mut builder);
+        config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);
 
         self.world.flush();
@@ -2188,64 +2254,6 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Clones the specified components of this entity with those components' required components
-    /// and inserts them into another entity.
-    ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
-    ///
-    /// # Panics
-    ///
-    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If the target entity does not exist.
-    pub fn clone_components_with_requires<B: Bundle>(&mut self, target: Entity) -> &mut Self {
-        self.assert_not_despawned();
-
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let bundles = &mut self.world.bundles;
-
-        let bundle_id = bundles.register_contributed_bundle_info::<B>(components, storages);
-        // SAFETY: the `BundleInfo` for this `BundleId` is initialized above
-        let bundle_info = unsafe { bundles.get_unchecked(bundle_id) };
-        let component_ids = bundle_info.contributed_components().to_owned();
-
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow_by_ids(component_ids);
-        builder.clone_entity(self.entity, target);
-
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
-    /// Clones the given components of this entity and inserts them into another entity.
-    ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
-    ///
-    /// You should prefer to use the typed API [`EntityWorldMut::clone_components`] where possible.
-    ///
-    /// # Panics
-    ///
-    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If the target entity does not exist.
-    pub fn clone_components_by_id(
-        &mut self,
-        target: Entity,
-        ids: impl IntoIterator<Item = ComponentId>,
-    ) -> &mut Self {
-        self.assert_not_despawned();
-
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow_by_ids(ids);
-        builder.clone_entity(self.entity, target);
-
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
     /// Clones the specified components of this entity and inserts them into another entity,
     /// then removes the components from this entity.
     ///
@@ -2261,89 +2269,8 @@ impl<'w> EntityWorldMut<'w> {
 
         let mut builder = EntityCloneBuilder::new(self.world);
         builder.deny_all().allow::<B>();
+        builder.enable_move_on_clone();
         builder.clone_entity(self.entity, target);
-
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let bundles = &mut self.world.bundles;
-        let bundle_id = bundles.register_info::<B>(components, storages);
-
-        // SAFETY: the `BundleInfo` for this `BundleId` is initialized above
-        unsafe { self.remove_bundle(bundle_id) };
-
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
-    /// Clones the specified components of this entity with those components' required components,
-    /// inserts them into another entity, then removes the components from this entity.
-    ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
-    ///
-    /// # Panics
-    ///
-    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If the target entity does not exist.
-    pub fn move_components_with_requires<B: Bundle>(&mut self, target: Entity) -> &mut Self {
-        self.assert_not_despawned();
-
-        let storages = &mut self.world.storages;
-        let components = &mut self.world.components;
-        let bundles = &mut self.world.bundles;
-        let bundle_id = bundles.register_contributed_bundle_info::<B>(components, storages);
-        // SAFETY: the `BundleInfo` for this `BundleId` is initialized above
-        let bundle_info = unsafe { bundles.get_unchecked(bundle_id) };
-        let component_ids = bundle_info.contributed_components().to_owned();
-
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow_by_ids(component_ids);
-        builder.clone_entity(self.entity, target);
-
-        // SAFETY: the `BundleInfo` for this `BundleId` is initialized above
-        unsafe { self.remove_bundle(bundle_id) };
-
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
-    /// Clones the given components of this entity and inserts them into another entity,
-    /// then removes the components from this entity.
-    ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
-    ///
-    /// You should prefer to use the typed API [`EntityWorldMut::move_components`] where possible.
-    ///
-    /// # Panics
-    ///
-    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If the target entity does not exist.
-    /// - If any of the provided [`ComponentId`]s do not exist.
-    pub fn move_components_by_id(
-        &mut self,
-        target: Entity,
-        ids: impl IntoIterator<Item = ComponentId> + Clone,
-    ) -> &mut Self {
-        self.assert_not_despawned();
-
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow_by_ids(ids.clone());
-        builder.clone_entity(self.entity, target);
-
-        let ids: Vec<ComponentId> = ids.into_iter().collect();
-        let components = &mut self.world.components;
-        let bundles = &mut self.world.bundles;
-        let bundle_id = if ids.len() == 1 {
-            bundles.init_component_info(components, ids[0])
-        } else {
-            bundles.init_dynamic_info(components, &ids)
-        };
-
-        // SAFETY: the `BundleInfo` for this `BundleId` is initialized above
-        unsafe { self.remove_bundle(bundle_id) };
 
         self.world.flush();
         self.update_location();
@@ -5030,26 +4957,12 @@ mod tests {
         #[derive(Component, Clone, PartialEq, Debug)]
         struct C(u32);
 
-        #[derive(Component, Clone, PartialEq, Debug)]
-        #[require(E(|| E(10)))]
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
         struct D;
 
-        #[derive(Component, Clone, PartialEq, Debug)]
-        #[require(F)]
-        struct E(u32);
-
-        #[derive(Component, Clone, PartialEq, Debug, Default)]
-        struct F;
-
-        #[derive(Component, Clone, PartialEq, Debug)]
-        struct G(u32);
-
-        #[derive(Component, Clone, PartialEq, Debug, Default)]
-        struct H;
-
         let mut world = World::new();
-        let entity_a = world.spawn((A, B, C(5), D, G(22), H)).id();
-        let entity_b = world.spawn((A, G(44))).id();
+        let entity_a = world.spawn((A, B, C(5))).id();
+        let entity_b = world.spawn((A, C(4))).id();
 
         world.entity_mut(entity_a).clone_components::<B>(entity_b);
         assert_eq!(world.entity(entity_a).get::<B>(), Some(&B));
@@ -5059,28 +4972,49 @@ mod tests {
         assert_eq!(world.entity(entity_a).get::<C>(), None);
         assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(5)));
 
-        world
-            .entity_mut(entity_a)
-            .move_components_with_requires::<D>(entity_b);
-        assert_eq!(world.entity(entity_a).get::<D>(), None);
-        assert_eq!(world.entity(entity_a).get::<E>(), None);
-        assert_eq!(world.entity(entity_a).get::<F>(), None);
-        assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
-        assert_eq!(world.entity(entity_b).get::<E>(), Some(&E(10)));
-        assert_eq!(world.entity(entity_b).get::<F>(), Some(&F));
-
-        world.entity_mut(entity_a).move_components::<G>(entity_b);
-        assert_eq!(world.entity(entity_a).get::<G>(), None);
-        assert_eq!(world.entity(entity_b).get::<G>(), Some(&G(22)));
-
-        let id = world.register_component::<H>();
-        world
-            .entity_mut(entity_a)
-            .move_components_by_id(entity_b, [id]);
-        assert_eq!(world.entity(entity_a).get::<H>(), None);
-        assert_eq!(world.entity(entity_b).get::<H>(), Some(&H));
-
         assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
         assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
+    }
+
+    #[test]
+    fn entity_world_mut_clone_with_move_and_require() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(C(|| C(3)))]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(D)]
+        struct C(u32);
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct D;
+
+        let mut world = World::new();
+        let entity_a = world.spawn(A).id();
+        let entity_b = world.spawn_empty().id();
+
+        world.entity_mut(entity_a).clone_with(entity_b, |builder| {
+            builder.deny_all();
+            builder.enable_move_on_clone();
+            builder.with_required_components(|builder| {
+                builder.allow::<B>();
+            });
+        });
+
+        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
+        assert_eq!(world.entity(entity_b).get::<A>(), None);
+
+        assert_eq!(world.entity(entity_a).get::<B>(), None);
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+
+        assert_eq!(world.entity(entity_a).get::<C>(), None);
+        assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(3)));
+
+        assert_eq!(world.entity(entity_a).get::<D>(), None);
+        assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
     }
 }
