@@ -3,6 +3,7 @@ pub mod node;
 
 use core::ops::Range;
 
+use crate::core_3d::Opaque3dBinKey;
 use crate::prepass::OpaqueNoLightmap3dBinKey;
 use bevy_ecs::prelude::*;
 use bevy_render::sync_world::MainEntity;
@@ -25,7 +26,7 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 /// Used to render all 3D meshes with materials that have no transparency.
 #[derive(PartialEq, Eq, Hash)]
 pub struct Opaque3dDeferred {
-    pub key: OpaqueNoLightmap3dBinKey,
+    pub key: Opaque3dBinKey,
     pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -68,7 +69,7 @@ impl PhaseItem for Opaque3dDeferred {
 }
 
 impl BinnedPhaseItem for Opaque3dDeferred {
-    type BinKey = OpaqueNoLightmap3dBinKey;
+    type BinKey = Opaque3dBinKey;
 
     #[inline]
     fn new(
