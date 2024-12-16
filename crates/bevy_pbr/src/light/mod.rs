@@ -1,10 +1,8 @@
-use core::{any::TypeId, ops::DerefMut};
+use core::ops::DerefMut;
 
 use bevy_ecs::{
-    component::ComponentId,
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
-    world::DeferredWorld,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
@@ -505,17 +503,8 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
 pub struct LightVisibilityClass;
-
-pub(crate) fn add_light_visibility_class(
-    mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
-) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<LightVisibilityClass>());
-    }
-}
 
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

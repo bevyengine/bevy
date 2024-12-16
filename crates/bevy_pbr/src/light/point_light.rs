@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility};
 
 use super::*;
 
@@ -28,7 +28,7 @@ use super::*;
     Visibility,
     VisibilityClass
 )]
-#[component(on_add = add_light_visibility_class)]
+#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,

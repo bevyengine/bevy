@@ -5,7 +5,9 @@ mod render_layers;
 
 use core::any::TypeId;
 
+use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
@@ -641,6 +643,28 @@ pub fn check_visibility(
         {
             *view_visibility = ViewVisibility::HIDDEN;
         }
+    }
+}
+
+/// A generic component add hook that automatically adds the appropriate
+/// [`VisibilityClass`] to an entity.
+///
+/// This can be handy when creating custom renderable components. To use this
+/// hook, add it to your renderable component like this:
+///
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(on_add = add_visibility_class::<MyComponent>)]
+/// struct MyComponent {
+///     ...
+/// }
+/// ```
+pub fn add_visibility_class<C>(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId)
+where
+    C: 'static,
+{
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<C>());
     }
 }
 

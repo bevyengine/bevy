@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility};
 
 use super::*;
 
@@ -10,7 +10,7 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
-#[component(on_add = add_light_visibility_class)]
+#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct SpotLight {
     /// The color of the light.
     ///

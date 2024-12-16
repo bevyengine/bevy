@@ -1,18 +1,10 @@
-use core::any::TypeId;
-
 use crate::{
     mesh::Mesh,
-    view::{Visibility, VisibilityClass},
+    view::{self, Visibility, VisibilityClass},
 };
 use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::{Component, ComponentId},
-    entity::Entity,
-    prelude::require,
-    reflect::ReflectComponent,
-    world::DeferredWorld,
-};
+use bevy_ecs::{component::Component, prelude::require, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
@@ -47,7 +39,7 @@ use derive_more::derive::From;
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = add_mesh2d_visibility_class)]
+#[component(on_add = view::add_visibility_class::<Mesh2d>)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
 impl From<Mesh2d> for AssetId<Mesh> {
@@ -59,13 +51,6 @@ impl From<Mesh2d> for AssetId<Mesh> {
 impl From<&Mesh2d> for AssetId<Mesh> {
     fn from(mesh: &Mesh2d) -> Self {
         mesh.id()
-    }
-}
-
-// The `check_visibility` system needs to mark 2D meshes as visible.
-fn add_mesh2d_visibility_class(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<Mesh2d>());
     }
 }
 
@@ -102,7 +87,7 @@ fn add_mesh2d_visibility_class(mut world: DeferredWorld<'_>, entity: Entity, _: 
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = add_mesh3d_visibility_class)]
+#[component(on_add = view::add_visibility_class::<Mesh3d>)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Mesh3d> for AssetId<Mesh> {
@@ -114,12 +99,5 @@ impl From<Mesh3d> for AssetId<Mesh> {
 impl From<&Mesh3d> for AssetId<Mesh> {
     fn from(mesh: &Mesh3d) -> Self {
         mesh.id()
-    }
-}
-
-// The `check_visibility` system needs to mark 3D meshes as visible.
-fn add_mesh3d_visibility_class(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<Mesh3d>());
     }
 }

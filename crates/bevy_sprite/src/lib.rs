@@ -37,8 +37,6 @@ pub mod prelude {
     };
 }
 
-use core::any::TypeId;
-
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
@@ -54,7 +52,7 @@ pub use texture_slice::*;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::{component::ComponentId, prelude::*, query::QueryItem, world::DeferredWorld};
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::Image;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -62,7 +60,7 @@ use bevy_render::{
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{NoFrustumCulling, VisibilityClass, VisibilitySystems},
+    view::{self, NoFrustumCulling, VisibilityClass, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -100,19 +98,8 @@ pub enum SpriteSystem {
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
 #[reflect(Component, Default, Debug)]
 #[require(VisibilityClass)]
-#[component(on_add = add_sprite_visibility_class)]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct SpriteSource;
-
-// The `check_visibility` system needs to mark sprites as visible.
-pub(crate) fn add_sprite_visibility_class(
-    mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
-) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<Sprite>());
-    }
-}
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {

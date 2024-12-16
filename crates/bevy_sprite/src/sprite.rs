@@ -9,17 +9,17 @@ use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     sync_world::SyncToRenderWorld,
-    view::{Visibility, VisibilityClass},
+    view::{self, Visibility, VisibilityClass},
 };
 use bevy_transform::components::Transform;
 
-use crate::{add_sprite_visibility_class, TextureAtlas, TextureAtlasLayout, TextureSlicer};
+use crate::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass)]
 #[reflect(Component, Default, Debug)]
-#[component(on_add = add_sprite_visibility_class)]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,

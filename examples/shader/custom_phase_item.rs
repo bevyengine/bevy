@@ -33,7 +33,7 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderVisibleEntities, VisibilityClass},
+        view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
 };
@@ -44,25 +44,12 @@ use bytemuck::{Pod, Zeroable};
 ///
 /// Note the [`ExtractComponent`] trait implementation: this is necessary to
 /// tell Bevy that this object should be pulled into the render world. Also note
-/// the [`add_custom_rendered_entity_visibility_class`] implementation, which is
-/// needed to tell Bevy's `check_visibility` system that entities with this
-/// component need to be examined for visibility.
+/// the `on_add` hook, which is needed to tell Bevy's `check_visibility` system
+/// that entities with this component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
-#[component(on_add = add_custom_rendered_entity_visibility_class)]
+#[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
-
-/// Tells Bevy's `check_visibility` system that entities with the
-/// [`CustomRenderedEntity`] component need to be marked as visible or not.
-fn add_custom_rendered_entity_visibility_class(
-    mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
-) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<CustomRenderedEntity>());
-    }
-}
 
 /// Holds a reference to our shader.
 ///

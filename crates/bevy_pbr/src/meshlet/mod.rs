@@ -83,7 +83,7 @@ use bevy_render::{
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{
-        prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility,
+        self, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility,
         VisibilityClass,
     },
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -301,7 +301,7 @@ impl Plugin for MeshletPlugin {
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
-#[component(on_add = add_meshlet_mesh_3d_visibility_class)]
+#[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
@@ -313,16 +313,6 @@ impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
 impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
     fn from(mesh: &MeshletMesh3d) -> Self {
         mesh.id()
-    }
-}
-
-fn add_meshlet_mesh_3d_visibility_class(
-    mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
-) {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<MeshletMesh3d>());
     }
 }
 
