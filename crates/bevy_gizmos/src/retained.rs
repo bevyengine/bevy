@@ -3,7 +3,10 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
-use bevy_ecs::component::{require, Component};
+use bevy_ecs::{
+    component::{require, Component},
+    reflect::ReflectComponent,
+};
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 
@@ -73,6 +76,7 @@ impl DerefMut for GizmoAsset {
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 #[require(Transform)]
 pub struct Gizmo {
     /// The handle to the gizmo to draw.
