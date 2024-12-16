@@ -483,7 +483,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -529,7 +529,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
