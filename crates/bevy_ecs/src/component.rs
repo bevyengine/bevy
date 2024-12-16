@@ -2143,6 +2143,10 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// See [`ComponentCloneHandlers`] for more details.
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    // This path will be selected if:
+    // 1. Component has ReflectFromReflect or ReflectDefault registered.
+    // 2. Component has ReflectFromPtr registered.
+    // Otherwise, it will fallback to clone_slow.
     fn clone_fast(ctx: &mut ComponentCloneCtx) -> Option<()> {
         let registry = ctx.type_registry()?;
         let component = {
@@ -2170,6 +2174,8 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
         Some(())
     }
 
+    // This will try to clone component using ReflectComponent.
+    // If the component does not have this type data registered, it will be ignored.
     fn clone_slow(
         component_id: ComponentId,
         source: Entity,
