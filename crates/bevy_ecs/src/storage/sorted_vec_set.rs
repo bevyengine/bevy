@@ -3,9 +3,9 @@ use core::cmp::Ordering;
 
 /// Stores a sorted list of indices with quick implementation for union, difference, intersection.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SortedSmallVec<const N: usize>(SmallVec<[usize; N]>);
+pub struct SortedVecSet<const N: usize>(SmallVec<[usize; N]>);
 
-impl<const N: usize> IntoIterator for SortedSmallVec<N> {
+impl<const N: usize> IntoIterator for SortedVecSet<N> {
     type Item = usize;
     type IntoIter = <SmallVec<[usize; N]> as IntoIterator>::IntoIter;
 
@@ -14,13 +14,13 @@ impl<const N: usize> IntoIterator for SortedSmallVec<N> {
     }
 }
 
-impl<const N: usize> Default for SortedSmallVec<N> {
+impl<const N: usize> Default for SortedVecSet<N> {
     fn default() -> Self {
         Self::new_const()
     }
 }
 
-impl<const N: usize> SortedSmallVec<N> {
+impl<const N: usize> SortedVecSet<N> {
     /// Construct an empty vector
     pub fn new() -> Self {
         Self(SmallVec::new())
@@ -142,7 +142,7 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 }
 
-impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
+impl<const N: usize> Extend<usize> for SortedVecSet<N> {
     fn extend<T: IntoIterator<Item = usize>>(&mut self, other: T) {
         let mut i = 0;
         let mut other_iter = other.into_iter();
@@ -172,8 +172,8 @@ impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
 
 /// Intersection between `this` and `other` sorted vectors.
 pub(crate) struct Intersection<'a, const N: usize> {
-    this: &'a SortedSmallVec<N>,
-    other: &'a SortedSmallVec<N>,
+    this: &'a SortedVecSet<N>,
+    other: &'a SortedVecSet<N>,
     i: usize,
     j: usize,
 }
@@ -201,9 +201,9 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     }
 }
 
-impl<'a, const N: usize> From<Intersection<'a, N>> for SortedSmallVec<N> {
+impl<'a, const N: usize> From<Intersection<'a, N>> for SortedVecSet<N> {
     fn from(intersection: Intersection<'a, N>) -> Self {
-        let mut sorted_vec = SortedSmallVec::new_const();
+        let mut sorted_vec = SortedVecSet::new_const();
         for value in intersection.into_iter() {
             sorted_vec.insert(value);
         }
@@ -213,8 +213,8 @@ impl<'a, const N: usize> From<Intersection<'a, N>> for SortedSmallVec<N> {
 
 /// Difference between `this` and `other` sorted vectors.
 pub(crate) struct Difference<'a, const N: usize> {
-    this: &'a SortedSmallVec<N>,
-    other: &'a SortedSmallVec<N>,
+    this: &'a SortedVecSet<N>,
+    other: &'a SortedVecSet<N>,
     i: usize,
     j: usize,
 }
@@ -248,9 +248,9 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
     }
 }
 
-impl<'a, const N: usize> From<Difference<'a, N>> for SortedSmallVec<N> {
+impl<'a, const N: usize> From<Difference<'a, N>> for SortedVecSet<N> {
     fn from(difference: Difference<'a, N>) -> Self {
-        let mut sorted_vec = SortedSmallVec::new_const();
+        let mut sorted_vec = SortedVecSet::new_const();
         for value in difference.into_iter() {
             sorted_vec.insert(value);
         }
