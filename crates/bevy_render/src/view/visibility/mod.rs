@@ -349,10 +349,6 @@ pub enum VisibilitySystems {
     /// the order of systems within this set is irrelevant, as [`check_visibility`]
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
-    /// Label for the system that runs after visibility checking and marks
-    /// entities that have gone from visible to invisible, or vice versa, as
-    /// changed.
-    VisibilityChangeDetect,
 }
 
 pub struct VisibilityPlugin;
@@ -368,8 +364,6 @@ impl Plugin for VisibilityPlugin {
                     .before(CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
-            .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
-            .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
             .init_resource::<PreviousVisibleEntities>()
             .add_systems(
                 PostUpdate,
