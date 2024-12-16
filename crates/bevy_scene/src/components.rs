@@ -1,7 +1,8 @@
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{require, Component, ReflectComponent},
+    component::{require, Component},
+    prelude::ReflectComponent,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
@@ -17,7 +18,6 @@ use crate::{DynamicScene, Scene};
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(Transform)]
-#[reflect(Component)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct SceneRoot(pub Handle<Scene>);
 
@@ -26,6 +26,5 @@ pub struct SceneRoot(pub Handle<Scene>);
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(Transform)]
-#[reflect(Component)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
 pub struct DynamicSceneRoot(pub Handle<DynamicScene>);
