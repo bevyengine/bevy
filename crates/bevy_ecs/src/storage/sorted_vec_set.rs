@@ -182,6 +182,7 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     type Item = usize;
 
     // We assume that both self and other are sorted and contain no duplicates
+    // Returns items in sorted order without duplicates
     fn next(&mut self) -> Option<Self::Item> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
@@ -203,11 +204,7 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
 
 impl<'a, const N: usize> From<Intersection<'a, N>> for SortedVecSet<N> {
     fn from(intersection: Intersection<'a, N>) -> Self {
-        let mut sorted_vec = SortedVecSet::new_const();
-        for value in intersection.into_iter() {
-            sorted_vec.insert(value);
-        }
-        sorted_vec
+        SortedVecSet(SmallVec::from_iter(intersection))
     }
 }
 
@@ -223,6 +220,7 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
     type Item = usize;
 
     // We assume that both self and other are sorted and contain no duplicates
+    // Returns items in sorted order without duplicates
     fn next(&mut self) -> Option<Self::Item> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
@@ -249,10 +247,6 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
 
 impl<'a, const N: usize> From<Difference<'a, N>> for SortedVecSet<N> {
     fn from(difference: Difference<'a, N>) -> Self {
-        let mut sorted_vec = SortedVecSet::new_const();
-        for value in difference.into_iter() {
-            sorted_vec.insert(value);
-        }
-        sorted_vec
+        SortedVecSet(SmallVec::from_iter(difference))
     }
 }
