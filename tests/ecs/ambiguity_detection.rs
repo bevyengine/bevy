@@ -71,7 +71,7 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
 /// Returns the number of conflicting systems per schedule.
 fn count_ambiguities(sub_app: &SubApp) -> AmbiguitiesCount {
     let schedules = sub_app.world().resource::<Schedules>();
-    let mut ambiguities = HashMap::new();
+    let mut ambiguities = <HashMap<_, _>>::default();
     for (_, schedule) in schedules.iter() {
         let ambiguities_in_schedule = schedule.graph().conflicting_systems().len();
         ambiguities.insert(schedule.label(), ambiguities_in_schedule);

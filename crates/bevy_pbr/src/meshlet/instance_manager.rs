@@ -76,8 +76,8 @@ impl InstanceManager {
             view_instance_visibility: EntityHashMap::default(),
 
             next_material_id: 0,
-            material_id_lookup: HashMap::new(),
-            material_ids_present_in_scene: HashSet::new(),
+            material_id_lookup: HashMap::default(),
+            material_ids_present_in_scene: HashSet::default(),
         }
     }
 
@@ -120,7 +120,14 @@ impl InstanceManager {
             return;
         };
 
-        let mesh_uniform = MeshUniform::new(&transforms, 0, mesh_material_binding_id.slot, None);
+        let mesh_uniform = MeshUniform::new(
+            &transforms,
+            0,
+            mesh_material_binding_id.slot,
+            None,
+            None,
+            None,
+        );
 
         // Append instance data
         self.instances.push((

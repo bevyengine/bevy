@@ -319,7 +319,7 @@ impl SceneSpawner {
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
-                        .or_insert_with(HashSet::new);
+                        .or_insert_with(HashSet::default);
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
@@ -426,7 +426,7 @@ impl SceneSpawner {
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
-        let mut dead_instances = HashSet::default();
+        let mut dead_instances = <HashSet<_>>::default();
         scene_spawner
             .scenes_with_parent
             .retain(|(instance, parent)| {

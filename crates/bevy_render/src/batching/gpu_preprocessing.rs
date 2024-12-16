@@ -24,7 +24,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, GpuCulling, ViewTarget},
+    view::{ExtractedView, NoIndirectDrawing, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
@@ -101,12 +101,13 @@ pub enum GpuPreprocessingMode {
 
     /// GPU preprocessing is in use, but GPU culling isn't.
     ///
-    /// This is used by default.
+    /// This is used when the [`NoIndirectDrawing`] component is present on the
+    /// camera.
     PreprocessingOnly,
 
     /// Both GPU preprocessing and GPU culling are in use.
     ///
-    /// This is used when the [`GpuCulling`] component is present on the camera.
+    /// This is used by default.
     Culling,
 }
 
@@ -247,8 +248,8 @@ where
 pub struct PreprocessWorkItemBuffer {
     /// The buffer of work items.
     pub buffer: BufferVec<PreprocessWorkItem>,
-    /// True if we're using GPU culling.
-    pub gpu_culling: bool,
+    /// True if we're drawing directly instead of indirectly.
+    pub no_indirect_drawing: bool,
 }
 
 /// One invocation of the preprocessing shader: i.e. one mesh instance in a
@@ -382,7 +383,7 @@ impl FromWorld for GpuPreprocessingSupport {
             GpuPreprocessingMode::None
         } else if !device
             .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE) ||
+            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::MULTI_DRAW_INDIRECT) ||
             !adapter.get_downlevel_capabilities().flags.contains(
         DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
         {
@@ -529,7 +530,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -542,7 +543,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for (view, no_indirect_drawing) in &mut views {
         let Some(phase) = sorted_render_phases.get_mut(&view) else {
             continue;
         };
@@ -553,7 +554,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
+                    no_indirect_drawing,
                 });
 
         // Walk through the list of phase items, building up batches as we go.
@@ -604,7 +605,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 }
 
                 // Start a new batch.
-                let indirect_parameters_index = if gpu_culling {
+                let indirect_parameters_index = if !no_indirect_drawing {
                     GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
@@ -647,7 +648,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
+    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -661,7 +662,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, gpu_culling) in &mut views {
+    for (view, no_indirect_drawing) in &mut views {
         let Some(phase) = binned_render_phases.get_mut(&view) else {
             continue;
         };
@@ -673,7 +674,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 .entry(view)
                 .or_insert_with(|| PreprocessWorkItemBuffer {
                     buffer: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_culling,
+                    no_indirect_drawing,
                 });
 
         // Prepare batchables.
@@ -683,7 +684,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         // batch sets. This variable stores the last batch set key that we've
         // seen. If our current batch set key is identical to this one, we can
         // merge the current batch into the last batch set.
-        let mut last_multidraw_key = None;
+        let mut maybe_last_multidraw_key = None;
 
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
@@ -697,6 +698,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
                 match batch {
                     Some(ref mut batch) => {
+                        // Append to the current batch.
                         batch.instance_range.end = output_index + 1;
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
@@ -710,7 +712,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         });
                     }
 
-                    None if gpu_culling => {
+                    None if !no_indirect_drawing => {
+                        // Start a new batch, in indirect mode.
                         let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                             &system_param_item,
                             &mut indirect_parameters_buffer,
@@ -731,6 +734,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     }
 
                     None => {
+                        // Start a new batch, in direct mode.
                         work_item_buffer.buffer.push(PreprocessWorkItem {
                             input_index: input_index.into(),
                             output_index,
@@ -756,12 +760,16 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         // We're in multi-draw mode. Check to see whether our
                         // batch set key is the same as the last one. If so,
                         // merge this batch into the preceding batch set.
-                        let this_multidraw_key = key.get_batch_set_key();
-                        if last_multidraw_key.as_ref() == Some(&this_multidraw_key) {
-                            batch_sets.last_mut().unwrap().push(batch);
-                        } else {
-                            last_multidraw_key = Some(this_multidraw_key);
-                            batch_sets.push(vec![batch]);
+                        match (&maybe_last_multidraw_key, key.get_batch_set_key()) {
+                            (Some(ref last_multidraw_key), Some(this_multidraw_key))
+                                if *last_multidraw_key == this_multidraw_key =>
+                            {
+                                batch_sets.last_mut().unwrap().push(batch);
+                            }
+                            (_, maybe_this_multidraw_key) => {
+                                maybe_last_multidraw_key = maybe_this_multidraw_key;
+                                batch_sets.push(vec![batch]);
+                            }
                         }
                     }
                 }
@@ -779,7 +787,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 };
                 let output_index = data_buffer.add() as u32;
 
-                if gpu_culling {
+                if !no_indirect_drawing {
+                    // We're in indirect mode, so add an indirect parameters
+                    // index.
                     let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,

@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -40,12 +39,16 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
+
 use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_ui_debug")]
+    pub use crate::render::UiDebugOptions;
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
@@ -166,6 +169,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
             .register_type::<BorderRadius>()
+            .register_type::<BoxShadow>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
@@ -229,6 +233,9 @@ impl Plugin for UiPlugin {
         if !self.enable_rendering {
             return;
         }
+
+        #[cfg(feature = "bevy_ui_debug")]
+        app.init_resource::<UiDebugOptions>();
 
         build_ui_render(app);
     }
