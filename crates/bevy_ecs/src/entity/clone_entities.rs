@@ -469,33 +469,6 @@ impl<'w> EntityCloneBuilder<'w> {
         self
     }
 
-    /// By default, any components allowed/denied through the filter will automatically
-    /// allow/deny all of their required components.
-    ///
-    /// This method allows for a scoped mode where any changes to the filter
-    /// will not involve required components.
-    pub fn without_required_components(
-        &mut self,
-        builder: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.attach_required_components = false;
-        builder(self);
-        self.attach_required_components = true;
-        self
-    }
-
-    /// Sets whether the cloner should remove any components that were cloned,
-    /// effectively moving them from the source entity to the target.
-    ///
-    /// This is disabled by default.
-    ///
-    /// The setting only applies to components that are allowed through the filter
-    /// at the time [`EntityCloneBuilder::clone_entity`] is called.
-    pub fn move_components(&mut self, enable: bool) -> &mut Self {
-        self.move_components = enable;
-        self
-    }
-
     /// Adds all components of the bundle to the list of components to clone.
     ///
     /// Note that all components are allowed by default, to clone only explicitly allowed components make sure to call
