@@ -801,10 +801,10 @@ mod tests {
     #[derive(Resource)]
     struct R;
 
-    /// QueryData that performs read access on R to test that resource access is tracked
+    /// `QueryData` that performs read access on R to test that resource access is tracked
     struct ReadsRData;
 
-    /// QueryData that performs write access on R to test that resource access is tracked
+    /// `QueryData` that performs write access on R to test that resource access is tracked
     struct WritesRData;
 
     /// SAFETY:
