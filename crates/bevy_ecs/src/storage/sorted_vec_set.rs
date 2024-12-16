@@ -181,23 +181,23 @@ pub(crate) struct Intersection<'a, const N: usize> {
 impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     type Item = usize;
 
+    // We assume that both self and other are sorted and contain no duplicates
     fn next(&mut self) -> Option<Self::Item> {
-        let mut res = None;
         while self.i < self.this.len() && self.j < self.other.len() {
-            if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
-                && self.this.0[self.i] == self.other.0[self.j]
+            let val_a = self.this.0[self.i];
+            let val_b = self.this.0[self.j];
+            if val_a == val_b
             {
-                res = Some(self.this.0[self.i]);
                 self.i += 1;
                 self.j += 1;
-                return res;
-            } else if self.this.0[self.i] < self.other.0[self.j] {
+                return Some(val_a);
+            } else if val_a < val_b {
                 self.i += 1;
             } else {
                 self.j += 1;
             }
         }
-        res
+        return None;
     }
 }
 
@@ -211,7 +211,7 @@ impl<'a, const N: usize> From<Intersection<'a, N>> for SortedVecSet<N> {
     }
 }
 
-/// Difference between `this` and `other` sorted vectors.
+/// Difference between `this` and `other` sorted vector sets. this - other.
 pub(crate) struct Difference<'a, const N: usize> {
     this: &'a SortedVecSet<N>,
     other: &'a SortedVecSet<N>,
@@ -222,29 +222,28 @@ pub(crate) struct Difference<'a, const N: usize> {
 impl<'a, const N: usize> Iterator for Difference<'a, N> {
     type Item = usize;
 
+    // We assume that both self and other are sorted and contain no duplicates
     fn next(&mut self) -> Option<Self::Item> {
-        let mut res = None;
         while self.i < self.this.len() && self.j < self.other.len() {
-            if self.this.0[self.i] == self.other.0[self.j] {
+            let val_a = self.this.0[self.i];
+            let val_b = self.other.0[self.j];
+            if val_a == val_b {
                 self.i += 1;
                 self.j += 1;
-            } else if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
-                && self.this.0[self.i] < self.other.0[self.j]
+            } else if val_a < val_b
             {
-                res = Some(self.this.0[self.i]);
                 self.i += 1;
-                return res;
+                return Some(val_a);
             } else {
                 self.j += 1;
             }
         }
         if self.i < self.this.len() {
-            if self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1] {
-                res = Some(self.this.0[self.i]);
-            }
+            let val_a = self.this.0[self.i];
             self.i += 1;
+            return Some(val_a);
         }
-        res
+        return None;
     }
 }
 
