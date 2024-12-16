@@ -411,7 +411,7 @@ pub trait Component: Send + Sync + 'static {
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::default()
+        ComponentCloneHandler::default_handler()
     }
 }
 
@@ -976,7 +976,7 @@ impl ComponentDescriptor {
 pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
 /// A struct instructing which clone handler to use when cloning a component.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
 
 impl ComponentCloneHandler {
@@ -2172,7 +2172,7 @@ pub trait ComponentCloneBase {
 }
 impl<C: Component> ComponentCloneBase for ComponentCloneSpecializationWrapper<C> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::default()
+        ComponentCloneHandler::default_handler()
     }
 }
 
