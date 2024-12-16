@@ -1,5 +1,5 @@
 use crate::component::ComponentId;
-use crate::storage::SortedSmallVec;
+use crate::storage::SortedVecSet;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
@@ -16,14 +16,14 @@ const ACCESS_SMALL_VEC_SIZE: usize = 8;
 pub struct Access<T: SparseSetIndex> {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
-    component_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    component_read_and_writes: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::component_writes_inverted` is set.
-    component_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    component_writes: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     /// All accessed resources.
-    resource_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    resource_read_and_writes: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     /// The exclusively-accessed resources.
-    resource_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    resource_writes: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::component_read_and_writes`.
     component_read_and_writes_inverted: bool,
@@ -37,7 +37,7 @@ pub struct Access<T: SparseSetIndex> {
     /// If this is true, then `reads_all` must also be true.
     writes_all_resources: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
-    archetypal: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    archetypal: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     marker: PhantomData<T>,
 }
 
@@ -106,11 +106,11 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all_resources: false,
             component_read_and_writes_inverted: false,
             component_writes_inverted: false,
-            component_read_and_writes: SortedSmallVec::new_const(),
-            component_writes: SortedSmallVec::new_const(),
-            resource_read_and_writes: SortedSmallVec::new_const(),
-            resource_writes: SortedSmallVec::new_const(),
-            archetypal: SortedSmallVec::new_const(),
+            component_read_and_writes: SortedVecSet::new_const(),
+            component_writes: SortedVecSet::new_const(),
+            resource_read_and_writes: SortedVecSet::new_const(),
+            resource_writes: SortedVecSet::new_const(),
+            archetypal: SortedVecSet::new_const(),
             marker: PhantomData,
         }
     }
@@ -602,7 +602,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     fn get_component_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = SortedSmallVec::new_const();
+        let mut conflicts = SortedVecSet::new_const();
 
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
@@ -651,21 +651,21 @@ impl<T: SparseSetIndex> Access<T> {
             if other.writes_all_resources {
                 return AccessConflicts::All;
             }
-            conflicts.extend(other.resource_writes.ones());
+            conflicts.extend(other.resource_writes.iter());
         }
 
         if other.reads_all_resources {
             if self.writes_all_resources {
                 return AccessConflicts::All;
             }
-            conflicts.extend(self.resource_writes.ones());
+            conflicts.extend(self.resource_writes.iter());
         }
         if self.writes_all_resources {
-            conflicts.extend(other.resource_read_and_writes.ones());
+            conflicts.extend(other.resource_read_and_writes.iter());
         }
 
         if other.writes_all_resources {
-            conflicts.extend(self.resource_read_and_writes.ones());
+            conflicts.extend(self.resource_read_and_writes.iter());
         }
 
         conflicts.extend(
@@ -682,7 +682,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns the indices of the resources this has access to.
     pub fn resource_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
         self.resource_read_and_writes
-            .ones()
+            .iter()
             .map(T::get_sparse_set_index)
     }
 
@@ -695,7 +695,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns the indices of the resources this has exclusive access to.
     pub fn resource_writes(&self) -> impl Iterator<Item = T> + '_ {
-        self.resource_writes.ones().map(T::get_sparse_set_index)
+        self.resource_writes.iter().map(T::get_sparse_set_index)
     }
 
     /// Returns the indices of the components that this has an archetypal access to.
@@ -707,7 +707,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
-        self.archetypal.ones().map(T::get_sparse_set_index)
+        self.archetypal.iter().map(T::get_sparse_set_index)
     }
 
     /// Returns an iterator over the component IDs that this `Access` either
@@ -725,7 +725,7 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
         (
             self.component_read_and_writes
-                .ones()
+                .iter()
                 .map(T::get_sparse_set_index),
             self.component_read_and_writes_inverted,
         )
@@ -739,7 +739,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// components that the access *can't* write (true).
     pub(crate) fn component_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
         (
-            self.component_writes.ones().map(T::get_sparse_set_index),
+            self.component_writes.iter().map(T::get_sparse_set_index),
             self.component_writes_inverted,
         )
     }
@@ -768,7 +768,7 @@ impl<T: SparseSetIndex> Access<T> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     pub(crate) access: Access<T>,
-    pub(crate) required: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    pub(crate) required: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters<T>>,
@@ -811,7 +811,7 @@ pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
     /// There is a conflict for a subset of indices
-    Individual(SortedSmallVec<ACCESS_SMALL_VEC_SIZE>),
+    Individual(SortedVecSet<ACCESS_SMALL_VEC_SIZE>),
 }
 
 impl AccessConflicts {
@@ -821,7 +821,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.ones());
+                this.extend(other.iter());
             }
             _ => {}
         }
@@ -838,7 +838,7 @@ impl AccessConflicts {
         match self {
             AccessConflicts::All => String::new(),
             AccessConflicts::Individual(indices) => indices
-                .ones()
+                .iter()
                 .map(|index| {
                     format!(
                         "{}",
@@ -858,13 +858,13 @@ impl AccessConflicts {
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
-        Self::Individual(SortedSmallVec::new_const())
+        Self::Individual(SortedVecSet::new_const())
     }
 }
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        let mut conflicts = SortedSmallVec::new_const();
+        let mut conflicts = SortedVecSet::new_const();
         for index in value.iter().map(|a| T::sparse_set_index(a)) {
             conflicts.insert(index);
         }
@@ -878,7 +878,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_everything() -> Self {
         Self {
             access: Access::default(),
-            required: SortedSmallVec::new_const(),
+            required: SortedVecSet::new_const(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -888,7 +888,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_nothing() -> Self {
         Self {
             access: Access::default(),
-            required: SortedSmallVec::new_const(),
+            required: SortedVecSet::new_const(),
             filter_sets: Vec::new(),
         }
     }
@@ -1059,21 +1059,21 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn with_filters(&self) -> impl Iterator<Item = T> + '_ {
         self.filter_sets
             .iter()
-            .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
+            .flat_map(|f| f.with.iter().map(T::get_sparse_set_index))
     }
 
     /// Returns the indices of the elements that this access filters out.
     pub fn without_filters(&self) -> impl Iterator<Item = T> + '_ {
         self.filter_sets
             .iter()
-            .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
+            .flat_map(|f| f.without.iter().map(T::get_sparse_set_index))
     }
 }
 
 #[derive(Eq, PartialEq)]
 pub(crate) struct AccessFilters<T> {
-    pub(crate) with: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
-    pub(crate) without: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    pub(crate) with: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
+    pub(crate) without: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     _index_type: PhantomData<T>,
 }
 
@@ -1105,8 +1105,8 @@ impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
 impl<T: SparseSetIndex> Default for AccessFilters<T> {
     fn default() -> Self {
         Self {
-            with: SortedSmallVec::new_const(),
-            without: SortedSmallVec::new_const(),
+            with: SortedVecSet::new_const(),
+            without: SortedVecSet::new_const(),
             _index_type: PhantomData,
         }
     }
@@ -1282,7 +1282,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 mod tests {
     use crate::{query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
-    }, storage::SortedSmallVec};
+    }, storage::SortedVecSet};
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 
@@ -1541,13 +1541,13 @@ mod tests {
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
-                with: SortedSmallVec::from_vec(vec![0, 1, 2]),
-                without: SortedSmallVec::new_const(),
+                with: SortedVecSet::from_vec(vec![0, 1, 2]),
+                without: SortedVecSet::new_const(),
                 _index_type: PhantomData,
             },
             AccessFilters {
-                with: SortedSmallVec::from_vec(vec![0, 1, 3]),
-                without: SortedSmallVec::from_vec(vec![4]),
+                with: SortedVecSet::from_vec(vec![0, 1, 3]),
+                without: SortedVecSet::from_vec(vec![4]),
                 _index_type: PhantomData,
             },
         ];

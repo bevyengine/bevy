@@ -45,7 +45,7 @@ impl<const N: usize> SortedVecSet<N> {
         sorted_vec
     }
 
-    pub(crate) fn ones(&self) -> impl Iterator<Item = usize> + '_ {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         self.0.iter().copied()
     }
 
