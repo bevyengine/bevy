@@ -162,7 +162,7 @@ impl<'w> EntityCloneBuilder<'w> {
             filter_allows_components: false,
             filter: Default::default(),
             clone_handlers_overrides: Default::default(),
-            attach_required_components: false,
+            attach_required_components: true,
             move_components: false,
         }
     }
@@ -192,32 +192,30 @@ impl<'w> EntityCloneBuilder<'w> {
         world.flush_commands();
     }
 
-    /// Allows for a scoped mode where any changes to the filter that allow/deny components
-    /// will also allow/deny those components' required components, recursively.
-    pub fn with_required_components(
+    /// By default, any components allowed/denied through the filter will automatically
+    /// allow/deny all of their required components.
+    ///
+    /// This method allows for a scoped mode where any changes to the filter
+    /// will not involve required components.
+    pub fn without_required_components(
         &mut self,
         builder: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.attach_required_components = true;
-        builder(self);
         self.attach_required_components = false;
+        builder(self);
+        self.attach_required_components = true;
         self
     }
 
-    /// Sets the cloner to remove any components that were cloned,
+    /// Sets whether the cloner should remove any components that were cloned,
     /// effectively moving them from the source entity to the target.
     ///
-    /// This only applies to components that are allowed through the filter
+    /// This is disabled by default.
+    ///
+    /// The setting only applies to components that are allowed through the filter
     /// at the time [`EntityCloneBuilder::clone_entity`] is called.
-    pub fn enable_move_on_clone(&mut self) -> &mut Self {
-        self.move_components = true;
-        self
-    }
-
-    /// The default setting for the cloner. The source entity will keep
-    /// all components that are cloned.
-    pub fn disable_move_on_clone(&mut self) -> &mut Self {
-        self.move_components = false;
+    pub fn move_components(&mut self, enable: bool) -> &mut Self {
+        self.move_components = enable;
         self
     }
 
@@ -588,7 +586,7 @@ mod tests {
 
         let mut builder = EntityCloneBuilder::new(&mut world);
         builder.deny_all();
-        builder.with_required_components(|builder| {
+        builder.without_required_components(|builder| {
             builder.allow::<B>();
         });
         builder.clone_entity(e, e_clone);

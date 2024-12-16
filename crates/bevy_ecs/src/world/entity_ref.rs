@@ -2140,10 +2140,20 @@ impl<'w> EntityWorldMut<'w> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// Configure through [`EntityCloneBuilder`] as follows:
-    /// ```ignore
-    /// world.entity_mut(entity).clone_with(|builder| {
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # let target = world.spawn_empty().id();
+    /// world.entity_mut(entity).clone_with(target, |builder| {
     ///     builder.deny::<ComponentB>();
     /// });
+    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(target), None);
     /// ```
     ///
     /// See the following for more options:
@@ -2192,19 +2202,20 @@ impl<'w> EntityWorldMut<'w> {
     /// By default, the clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
-    /// To exclude specific components, use [`EntityCloneBuilder::deny`]:
-    /// ```ignore
-    /// world.entity_mut(entity).clone_and_spawn_with(|builder| {
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with(|builder| {
     ///     builder.deny::<ComponentB>();
     /// });
-    /// ```
-    ///
-    /// To only include specific components, use [`EntityCloneBuilder::deny_all`]
-    /// followed by [`EntityCloneBuilder::allow`]:
-    /// ```ignore
-    /// world.entity_mut(entity).clone_and_spawn_with(|builder| {
-    ///     builder.deny_all().allow::<ComponentB>();
-    /// });
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
     /// ```
     ///
     /// See the following for more options:
@@ -2269,7 +2280,7 @@ impl<'w> EntityWorldMut<'w> {
 
         let mut builder = EntityCloneBuilder::new(self.world);
         builder.deny_all().allow::<B>();
-        builder.enable_move_on_clone();
+        builder.move_components(true);
         builder.clone_entity(self.entity, target);
 
         self.world.flush();
@@ -4998,10 +5009,9 @@ mod tests {
         let entity_b = world.spawn_empty().id();
 
         world.entity_mut(entity_a).clone_with(entity_b, |builder| {
-            builder.deny_all();
-            builder.enable_move_on_clone();
-            builder.with_required_components(|builder| {
-                builder.allow::<B>();
+            builder.move_components(true);
+            builder.without_required_components(|builder| {
+                builder.deny::<A>();
             });
         });
 

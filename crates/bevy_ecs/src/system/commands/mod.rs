@@ -1745,16 +1745,37 @@ impl<'a> EntityCommands<'a> {
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
     /// Configure through [`EntityCloneBuilder`] as follows:
-    /// ```ignore
-    /// commands.entity(entity).clone_with(|builder| {
-    ///     builder.deny::<ComponentB>();
-    /// });
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component, Clone)]
+    /// struct ComponentA(u32);
+    /// #[derive(Component, Clone)]
+    /// struct ComponentB(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create an empty entity
+    ///     let target = commands.spawn_empty().id();
+    ///
+    ///     // Create a new entity and keep its EntityCommands
+    ///     let mut entity = commands.spawn((ComponentA(10), ComponentB(20)));
+    ///
+    ///     // Clone only ComponentA onto the target
+    ///     entity.clone_with(target, |builder| {
+    ///         builder.deny::<ComponentB>();
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
     ///
     /// See the following for more options:
     /// - [`EntityCloneBuilder`]
     /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
     /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if either of the entities do not exist.
     pub fn clone_with(
         &mut self,
         target: Entity,
