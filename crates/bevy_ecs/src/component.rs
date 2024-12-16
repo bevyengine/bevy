@@ -2094,11 +2094,20 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
             let registry = registry.read();
             let component_info = ctx.components().get_info(ctx.component_id())?;
             let type_id = component_info.type_id()?;
-            let reflect_default =
-                registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)?;
-            let mut component = reflect_default.default();
-            component.apply(source_component_reflect.as_partial_reflect());
-            component
+
+            if let Some(reflect_from_reflect) =
+                registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
+            {
+                reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+            } else if let Some(reflect_default) =
+                registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)
+            {
+                let mut component = reflect_default.default();
+                component.apply(source_component_reflect.as_partial_reflect());
+                Some(component)
+            } else {
+                None
+            }?
         };
         ctx.write_target_component_reflect(component);
 

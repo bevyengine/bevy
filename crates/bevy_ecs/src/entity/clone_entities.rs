@@ -612,13 +612,22 @@ mod tests {
     // TODO: remove this when 13432 lands
     #[cfg(feature = "bevy_reflect")]
     #[test]
-    fn clone_entity_using_reflect_with_default() {
+    fn clone_entity_using_reflect_fast_path() {
         use crate::reflect::{AppTypeRegistry, ReflectComponent};
         use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
+        // `ReflectDefault`-based fast path
         #[derive(Component, Reflect, Clone, PartialEq, Eq, Default)]
         #[reflect(Component, Default)]
+        #[reflect(from_reflect = false)]
         struct A {
+            field: usize,
+            field2: Vec<usize>,
+        }
+
+        // `ReflectFromReflect`-based fast path
+        #[derive(Component, Reflect, Clone, PartialEq, Eq, Default)]
+        struct B {
             field: usize,
             field2: Vec<usize>,
         }
@@ -626,25 +635,34 @@ mod tests {
         let mut world = World::default();
         world.init_resource::<AppTypeRegistry>();
         let registry = world.get_resource::<AppTypeRegistry>().unwrap();
-        registry.write().register::<A>();
+        registry.write().register::<(A, B)>();
 
-        world.register_component::<A>();
-        let id = world.component_id::<A>().unwrap();
-        world
-            .get_component_clone_handlers_mut()
-            .set_component_handler(id, ComponentCloneHandler::reflect_handler());
+        let a_id = world.register_component::<A>();
+        let b_id = world.register_component::<B>();
+        let handlers = world.get_component_clone_handlers_mut();
+        handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
+        handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
 
-        let component = A {
+        let component_a = A {
             field: 5,
             field2: vec![1, 2, 3, 4, 5],
         };
+        let component_b = B {
+            field: 6,
+            field2: vec![1, 2, 3, 4, 5],
+        };
 
-        let e = world.spawn(component.clone()).id();
+        let e = world.spawn((component_a.clone(), component_b.clone())).id();
         let e_clone = world.spawn_empty().id();
 
         EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
 
-        assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
+        assert!(world
+            .get::<A>(e_clone)
+            .is_some_and(|c| *c == *world.get::<A>(e).unwrap()));
+        assert!(world
+            .get::<B>(e_clone)
+            .is_some_and(|c| *c == *world.get::<B>(e).unwrap()));
     }
 
     #[test]

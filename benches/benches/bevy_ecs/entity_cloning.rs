@@ -11,42 +11,43 @@ criterion_group!(benches, reflect_benches, clone_benches);
 criterion_main!(benches);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C1(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C2(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C3(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C4(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C5(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C6(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C7(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C8(Mat4);
+
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C9(Mat4);
 
 #[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 struct C10(Mat4);
 
 type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
