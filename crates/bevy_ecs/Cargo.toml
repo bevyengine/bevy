@@ -43,7 +43,7 @@ nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
 smallvec = { version = "1", features = ["union"] }
 indexmap = { version = "2.5.0", default-features = false, features = ["std"] }
-variadics_please = "1.0"
+variadics_please = "1.1"
 
 [dev-dependencies]
 rand = "0.8"
