@@ -18,7 +18,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // example instructions
     commands.spawn((
-        Text::new("-/=: Volume Down/Up\nSpace: Pause Playback\nM: Toggle Mute"),
+        Text::new("-/=: Volume Down/Up\nSpace: Toggle Playback\nM: Toggle Mute"),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -40,7 +40,7 @@ fn update_speed(sink: Single<&AudioSink, With<MyMusic>>, time: Res<Time>) {
 
 fn pause(keyboard_input: Res<ButtonInput<KeyCode>>, sink: Single<&AudioSink, With<MyMusic>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        sink.toggle();
+        sink.toggle_playback();
     }
 }
 
