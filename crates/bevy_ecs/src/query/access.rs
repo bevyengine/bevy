@@ -1017,7 +1017,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        if self.access.is_compatible(&other.access) {
+        // Resources are read from the world rather than the filtered archetypes,
+        // so they must be compatible even if the filters are disjoint.
+        if !self.access.is_resources_compatible(&other.access) {
+            return false;
+        }
+
+        if self.access.is_components_compatible(&other.access) {
             return true;
         }
 
