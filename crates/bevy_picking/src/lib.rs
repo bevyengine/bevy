@@ -128,12 +128,12 @@
 //! This crate provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
-//! #### Focus ([`focus`])
+//! #### Hover ([`hover`])
 //!
 //! The next step is to use the data from the backends, combine and sort the results, and determine
-//! what each cursor is hovering over, producing a [`HoverMap`](`crate::focus::HoverMap`). Note that
+//! what each cursor is hovering over, producing a [`HoverMap`](`crate::hover::HoverMap`). Note that
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
-//! multiple backends may be reporting that a pointer is hitting an entity, the focus system needs
+//! multiple backends may be reporting that a pointer is hitting an entity, the hover system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
 //! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
 //! if one entity is in front of another, usually only the topmost one will be hovered.
@@ -154,7 +154,7 @@ extern crate alloc;
 
 pub mod backend;
 pub mod events;
-pub mod focus;
+pub mod hover;
 pub mod input;
 #[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
@@ -201,9 +201,9 @@ pub struct PickingBehavior {
     ///
     /// For example, if a pointer is over a UI element, as well as a 3d mesh, backends will report
     /// hits for both of these entities. Additionally, the hits will be sorted by the camera order,
-    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When focus
+    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When hovering
     /// is computed, the UI element will be checked first to see if it this field is set to block
-    /// lower entities. If it does (default), the focus system will stop there, and only the UI
+    /// lower entities. If it does (default), the hovering system will stop there, and only the UI
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
@@ -393,10 +393,10 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use focus::{generate_hovermap, update_interactions};
+        use hover::{generate_hovermap, update_interactions};
 
-        app.init_resource::<focus::HoverMap>()
-            .init_resource::<focus::PreviousHoverMap>()
+        app.init_resource::<hover::HoverMap>()
+            .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
