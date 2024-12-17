@@ -3819,8 +3819,6 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "track_change_detection")]
-    use crate::world::DeferredWorld;
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
     #[cfg(feature = "track_change_detection")]
