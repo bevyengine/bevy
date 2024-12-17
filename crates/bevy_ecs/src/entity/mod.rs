@@ -49,9 +49,6 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
-use alloc::vec::Vec;
-use log::warn;
-
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
@@ -62,7 +59,9 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use core::{fmt, hash::Hash, mem, num::NonZero};
+use log::warn;
 
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
