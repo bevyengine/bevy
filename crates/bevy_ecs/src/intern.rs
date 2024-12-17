@@ -8,12 +8,12 @@ use alloc::{borrow::ToOwned, boxed::Box};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
 
 #[cfg(feature = "std")]
-use std::sync::{OnceLock, PoisonError, RwLock};
+use std::sync::{PoisonError, RwLock};
 
 #[cfg(not(feature = "std"))]
-use spin::{once::Once as OnceLock, rwlock::RwLock};
+use spin::rwlock::RwLock;
 
-use bevy_utils::HashSet;
+use bevy_utils::{FixedHasher, HashSet};
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -126,12 +126,12 @@ impl Internable for str {
 /// The implementation ensures that two equal values return two equal [`Interned<T>`] values.
 ///
 /// To use an [`Interner<T>`], `T` must implement [`Internable`].
-pub struct Interner<T: ?Sized + 'static>(OnceLock<RwLock<HashSet<&'static T>>>);
+pub struct Interner<T: ?Sized + 'static>(RwLock<HashSet<&'static T>>);
 
 impl<T: ?Sized> Interner<T> {
     /// Creates a new empty interner
     pub const fn new() -> Self {
-        Self(OnceLock::new())
+        Self(RwLock::new(HashSet::with_hasher(FixedHasher)))
     }
 }
 
@@ -142,18 +142,12 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
-        #[cfg(feature = "std")]
-        let lock = self.0.get_or_init(Default::default);
-
-        #[cfg(not(feature = "std"))]
-        let lock = self.0.call_once(Default::default);
-
         {
             #[cfg(feature = "std")]
-            let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+            let set = self.0.read().unwrap_or_else(PoisonError::into_inner);
 
             #[cfg(not(feature = "std"))]
-            let set = lock.read();
+            let set = self.0.read();
 
             if let Some(value) = set.get(value) {
                 return Interned(*value);
@@ -162,10 +156,10 @@ impl<T: Internable + ?Sized> Interner<T> {
 
         {
             #[cfg(feature = "std")]
-            let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
+            let mut set = self.0.write().unwrap_or_else(PoisonError::into_inner);
 
             #[cfg(not(feature = "std"))]
-            let mut set = lock.write();
+            let mut set = self.0.write();
 
             if let Some(value) = set.get(value) {
                 Interned(*value)

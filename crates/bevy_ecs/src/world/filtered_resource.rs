@@ -1,9 +1,3 @@
-#[cfg(feature = "std")]
-use std::sync::OnceLock;
-
-#[cfg(not(feature = "std"))]
-use spin::once::Once as OnceLock;
-
 use crate::{
     change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
     component::{ComponentId, Tick},
@@ -220,21 +214,13 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        static READ_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
-        let access = {
-            let init = || {
+        const READ_ALL_RESOURCES: &Access<ComponentId> = {
+            const ACCESS: Access<ComponentId> = {
                 let mut access = Access::new();
                 access.read_all_resources();
                 access
             };
-
-            #[cfg(feature = "std")]
-            let access = READ_ALL_RESOURCES.get_or_init(init);
-
-            #[cfg(not(feature = "std"))]
-            let access = READ_ALL_RESOURCES.call_once(init);
-
-            access
+            &ACCESS
         };
 
         let last_run = value.last_change_tick();
@@ -243,7 +229,7 @@ impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
         unsafe {
             Self::new(
                 value.as_unsafe_world_cell_readonly(),
-                access,
+                READ_ALL_RESOURCES,
                 last_run,
                 this_run,
             )
@@ -507,22 +493,13 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        static WRITE_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
-
-        let access = {
-            let init = || {
+        const WRITE_ALL_RESOURCES: &Access<ComponentId> = {
+            const ACCESS: Access<ComponentId> = {
                 let mut access = Access::new();
                 access.write_all_resources();
                 access
             };
-
-            #[cfg(feature = "std")]
-            let access = WRITE_ALL_RESOURCES.get_or_init(init);
-
-            #[cfg(not(feature = "std"))]
-            let access = WRITE_ALL_RESOURCES.call_once(init);
-
-            access
+            &ACCESS
         };
 
         let last_run = value.last_change_tick();
@@ -531,7 +508,7 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
         unsafe {
             Self::new(
                 value.as_unsafe_world_cell_readonly(),
-                access,
+                WRITE_ALL_RESOURCES,
                 last_run,
                 this_run,
             )
