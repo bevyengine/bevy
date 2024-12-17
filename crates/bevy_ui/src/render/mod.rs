@@ -1052,7 +1052,7 @@ pub fn prepare_uinodes(
                                 );
                                 // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                                 let atlas_extent = atlas_scaling
-                                    .map(|scaling| image.size.as_vec2() * scaling)
+                                    .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
                                 if *flip_x {
                                     core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -1127,7 +1127,7 @@ pub fn prepare_uinodes(
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size.as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
