@@ -314,8 +314,11 @@ pub struct MeshUniform {
     pub current_skin_index: u32,
     /// The previous skin index, or `u32::MAX` if there's no previous skin.
     pub previous_skin_index: u32,
-    /// Index of the material inside the bind group data.
-    pub material_bind_group_slot: u32,
+    /// The material and lightmap indices, packed into 32 bits.
+    ///
+    /// Low 16 bits: index of the material inside the bind group data.
+    /// High 16 bits: index of the lightmap in the binding array.
+    pub material_and_lightmap_bind_group_slot: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -356,8 +359,11 @@ pub struct MeshInputUniform {
     pub current_skin_index: u32,
     /// The previous skin index, or `u32::MAX` if there's no previous skin.
     pub previous_skin_index: u32,
-    /// Index of the material inside the bind group data.
-    pub material_bind_group_slot: u32,
+    /// The material and lightmap indices, packed into 32 bits.
+    ///
+    /// Low 16 bits: index of the material inside the bind group data.
+    /// High 16 bits: index of the lightmap in the binding array.
+    pub material_and_lightmap_bind_group_slot: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -388,23 +394,29 @@ impl MeshUniform {
         mesh_transforms: &MeshTransforms,
         first_vertex_index: u32,
         material_bind_group_slot: MaterialBindGroupSlot,
-        maybe_lightmap_uv_rect: Option<Rect>,
+        maybe_lightmap: Option<(LightmapSlotIndex, Rect)>,
         current_skin_index: Option<u32>,
         previous_skin_index: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
+        let lightmap_bind_group_slot = match maybe_lightmap {
+            None => u16::MAX,
+            Some((slot_index, _)) => slot_index.into(),
+        };
+
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
-            lightmap_uv_rect: pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
+            lightmap_uv_rect: pack_lightmap_uv_rect(maybe_lightmap.map(|(_, uv_rect)| uv_rect)),
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
             previous_skin_index: previous_skin_index.unwrap_or(u32::MAX),
-            material_bind_group_slot: *material_bind_group_slot,
+            material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
+                | ((lightmap_bind_group_slot as u32) << 16),
         }
     }
 }
@@ -887,6 +899,7 @@ impl RenderMeshInstanceGpuQueue {
 impl RenderMeshInstanceGpuBuilder {
     /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
+    #[allow(clippy::too_many_arguments)]
     fn update(
         self,
         entity: MainEntity,
@@ -894,6 +907,7 @@ impl RenderMeshInstanceGpuBuilder {
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
+        render_lightmaps: &RenderLightmaps,
         skin_indices: &SkinIndices,
     ) -> u32 {
         let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
@@ -911,6 +925,11 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
+        let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
+            Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
+            None => u16::MAX,
+        };
+
         // Create the mesh input uniform.
         let mut mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
@@ -920,7 +939,9 @@ impl RenderMeshInstanceGpuBuilder {
             first_vertex_index,
             current_skin_index,
             previous_skin_index,
-            material_bind_group_slot: *self.shared.material_bindings_index.slot,
+            material_and_lightmap_bind_group_slot: u32::from(
+                self.shared.material_bindings_index.slot,
+            ) | ((lightmap_slot as u32) << 16),
         };
 
         // Did the last frame contain this entity as well?
@@ -1345,6 +1366,7 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
+    render_lightmaps: Res<RenderLightmaps>,
     skin_indices: Res<SkinIndices>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
@@ -1381,6 +1403,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &render_lightmaps,
                         &skin_indices,
                     );
                 }
@@ -1405,6 +1428,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &render_lightmaps,
                         &skin_indices,
                     );
                     mesh_culling_builder
@@ -1588,7 +1612,7 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 first_vertex_index,
                 material_bind_group_index.slot,
-                maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+                maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
                 previous_skin_index,
             ),
@@ -1655,7 +1679,7 @@ impl GetFullBatchData for MeshPipeline {
             &mesh_instance.transforms,
             first_vertex_index,
             mesh_instance.material_bindings_index.slot,
-            maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
             previous_skin_index,
         ))
@@ -2245,6 +2269,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
@@ -2328,7 +2353,7 @@ pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
     skinned: Option<MeshBindGroupPair>,
     morph_targets: HashMap<AssetId<Mesh>, MeshBindGroupPair>,
-    lightmaps: HashMap<AssetId<Image>, BindGroup>,
+    lightmaps: HashMap<LightmapSlabIndex, BindGroup>,
 }
 
 pub struct MeshBindGroupPair {
@@ -2348,7 +2373,7 @@ impl MeshBindGroups {
     pub fn get(
         &self,
         asset_id: AssetId<Mesh>,
-        lightmap: Option<AssetId<Image>>,
+        lightmap: Option<LightmapSlabIndex>,
         is_skinned: bool,
         morph: bool,
         motion_vectors: bool,
@@ -2362,7 +2387,7 @@ impl MeshBindGroups {
                 .skinned
                 .as_ref()
                 .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
-            (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
+            (false, false, Some(lightmap_slab)) => self.lightmaps.get(&lightmap_slab),
             (false, false, None) => self.model_only.as_ref(),
         }
     }
@@ -2381,7 +2406,6 @@ impl MeshBindGroupPair {
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<RenderMesh>>,
-    images: Res<RenderAssets<GpuImage>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
@@ -2393,7 +2417,7 @@ pub fn prepare_mesh_bind_group(
     >,
     skins_uniform: Res<SkinUniforms>,
     weights_uniform: Res<MorphUniforms>,
-    render_lightmaps: Res<RenderLightmaps>,
+    mut render_lightmaps: ResMut<RenderLightmaps>,
 ) {
     groups.reset();
 
@@ -2475,13 +2499,13 @@ pub fn prepare_mesh_bind_group(
         }
     }
 
-    // Create lightmap bindgroups.
-    for &image_id in &render_lightmaps.all_lightmap_images {
-        if let (Entry::Vacant(entry), Some(image)) =
-            (groups.lightmaps.entry(image_id), images.get(image_id))
-        {
-            entry.insert(layouts.lightmapped(&render_device, &model, image));
-        }
+    // Create lightmap bindgroups. There will be one bindgroup for each slab.
+    let bindless_supported = render_lightmaps.bindless_supported;
+    for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
+        groups.lightmaps.insert(
+            LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
+            layouts.lightmapped(&render_device, &model, lightmap_slab, bindless_supported),
+        );
     }
 }
 
@@ -2581,14 +2605,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let is_skinned = current_skin_index.is_some();
         let is_morphed = current_morph_index.is_some();
 
-        let lightmap = lightmaps
+        let lightmap_slab_index = lightmaps
             .render_lightmaps
             .get(entity)
-            .map(|render_lightmap| render_lightmap.image);
+            .map(|render_lightmap| render_lightmap.slab_index);
 
         let Some(bind_group) = bind_groups.get(
             mesh_asset_id,
-            lightmap,
+            lightmap_slab_index,
             is_skinned,
             is_morphed,
             has_motion_vector_prepass,
