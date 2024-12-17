@@ -354,8 +354,12 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let accesses = conflicts.format_conflict_list(world);
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
+    let mut accesses = conflicts.format_conflict_list(world);
+    // Access list may be empty (if access to all components requested)
+    if !accesses.is_empty() {
+        accesses.push(' ');
+    }
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
