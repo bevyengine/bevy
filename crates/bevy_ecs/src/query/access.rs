@@ -1,6 +1,7 @@
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
@@ -1017,7 +1018,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        if self.access.is_compatible(&other.access) {
+        // Resources are read from the world rather than the filtered archetypes,
+        // so they must be compatible even if the filters are disjoint.
+        if !self.access.is_resources_compatible(&other.access) {
+            return false;
+        }
+
+        if self.access.is_components_compatible(&other.access) {
             return true;
         }
 

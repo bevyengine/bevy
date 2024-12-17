@@ -11,11 +11,13 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-use bevy_utils::tracing::warn;
+
+use alloc::vec::Vec;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use core::{fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
+use log::warn;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -187,6 +189,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
         state.archetype_generation = world.archetypes.generation();
+
+        // Resource access is not part of any archetype and must be handled separately
+        if state.component_access.access().has_read_all_resources() {
+            access.read_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_reads() {
+                access.add_resource_read(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
+        if state.component_access.access().has_write_all_resources() {
+            access.write_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_writes() {
+                access.add_resource_write(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
         state
     }
 
@@ -251,7 +271,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -277,7 +297,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 data = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -640,7 +660,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),
@@ -762,7 +782,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables,
             matched_archetypes,
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),
@@ -823,7 +843,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_many(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -903,7 +923,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -1000,7 +1020,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let location = world
             .entities()
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity(entity))?;
+            .ok_or(QueryEntityError::NoSuchEntity(entity, world))?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())
@@ -1582,7 +1602,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw(57);
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```

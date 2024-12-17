@@ -525,7 +525,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -602,7 +602,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
+                        extra_index: PhaseItemExtraIndex::None,
                     });
                 }
             }

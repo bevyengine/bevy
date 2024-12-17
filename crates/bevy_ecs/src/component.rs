@@ -11,7 +11,7 @@ use crate::{
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
@@ -27,7 +27,14 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use derive_more::derive::{Display, Error};
+use disqualified::ShortName;
+use thiserror::Error;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 pub use bevy_ecs_macros::require;
 
@@ -75,12 +82,18 @@ pub use bevy_ecs_macros::require;
 ///
 /// # Component and data access
 ///
+/// Components can be marked as immutable by adding the `#[component(immutable)]`
+/// attribute when using the derive macro.
+/// See the documentation for [`ComponentMutability`] for more details around this
+/// feature.
+///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
 /// See the documentation for [`Query`] to learn how to access component data from a system.
 ///
 /// [`entity`]: crate::entity#usage
 /// [`Query`]: crate::system::Query
+/// [`ComponentMutability`]: crate::component::ComponentMutability
 ///
 /// # Choosing a storage type
 ///
@@ -380,6 +393,14 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    /// A marker type to assist Bevy with determining if this component is
+    /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
+    /// while immutable components will instead have [`Component<Mutability = Immutable>`].
+    ///
+    /// * For a component to be mutable, this type must be [`Mutable`].
+    /// * For a component to be immutable, this type must be [`Immutable`].
+    type Mutability: ComponentMutability;
+
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 
@@ -390,6 +411,7 @@ pub trait Component: Send + Sync + 'static {
         _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
+        _recursion_check_stack: &mut Vec<ComponentId>,
     ) {
     }
 
@@ -399,6 +421,61 @@ pub trait Component: Send + Sync + 'static {
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::default()
     }
+}
+
+mod private {
+    pub trait Seal {}
+}
+
+/// The mutability option for a [`Component`]. This can either be:
+/// * [`Mutable`]
+/// * [`Immutable`]
+///
+/// This is controlled through either [`Component::Mutability`] or `#[component(immutable)]`
+/// when using the derive macro.
+///
+/// Immutable components are guaranteed to never have an exclusive reference,
+/// `&mut ...`, created while inserted onto an entity.
+/// In all other ways, they are identical to mutable components.
+/// This restriction allows hooks to observe all changes made to an immutable
+/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// `OnMutate` hook.
+/// This is not practical for mutable components, as the runtime cost of invoking
+/// a hook for every exclusive reference created would be far too high.
+///
+/// # Examples
+///
+/// ```rust
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct ImmutableFoo;
+/// ```
+pub trait ComponentMutability: private::Seal + 'static {
+    /// Boolean to indicate if this mutability setting implies a mutable or immutable
+    /// component.
+    const MUTABLE: bool;
+}
+
+/// Parameter indicating a [`Component`] is immutable.
+///
+/// See [`ComponentMutability`] for details.
+pub struct Immutable;
+
+impl private::Seal for Immutable {}
+impl ComponentMutability for Immutable {
+    const MUTABLE: bool = false;
+}
+
+/// Parameter indicating a [`Component`] is mutable.
+///
+/// See [`ComponentMutability`] for details.
+pub struct Mutable;
+
+impl private::Seal for Mutable {}
+impl ComponentMutability for Mutable {
+    const MUTABLE: bool = true;
 }
 
 /// The storage used for a specific component type.
@@ -626,6 +703,12 @@ impl ComponentInfo {
         &self.descriptor.name
     }
 
+    /// Returns `true` if the current component is mutable.
+    #[inline]
+    pub fn mutable(&self) -> bool {
+        self.descriptor.mutable
+    }
+
     /// Returns the [`TypeId`] of the underlying component type.
     /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
@@ -778,6 +861,7 @@ pub struct ComponentDescriptor {
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    mutable: bool,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -789,6 +873,7 @@ impl Debug for ComponentDescriptor {
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
+            .field("mutable", &self.mutable)
             .finish()
     }
 }
@@ -813,6 +898,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: T::Mutability::MUTABLE,
         }
     }
 
@@ -826,6 +912,7 @@ impl ComponentDescriptor {
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+        mutable: bool,
     ) -> Self {
         Self {
             name: name.into(),
@@ -834,6 +921,7 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
+            mutable,
         }
     }
 
@@ -850,6 +938,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: true,
         }
     }
 
@@ -861,6 +950,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: true,
         }
     }
 
@@ -881,6 +971,12 @@ impl ComponentDescriptor {
     #[inline]
     pub fn name(&self) -> &str {
         self.name.as_ref()
+    }
+
+    /// Returns whether this component is mutable.
+    #[inline]
+    pub fn mutable(&self) -> bool {
+        self.mutable
     }
 }
 
@@ -987,7 +1083,16 @@ impl Components {
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        let mut registered = false;
+        self.register_component_internal::<T>(storages, &mut Vec::new())
+    }
+
+    #[inline]
+    fn register_component_internal<T: Component>(
+        &mut self,
+        storages: &mut Storages,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) -> ComponentId {
+        let mut is_new_registration = false;
         let id = {
             let Components {
                 indices,
@@ -1001,13 +1106,20 @@ impl Components {
                     storages,
                     ComponentDescriptor::new::<T>(),
                 );
-                registered = true;
+                is_new_registration = true;
                 id
             })
         };
-        if registered {
+        if is_new_registration {
             let mut required_components = RequiredComponents::default();
-            T::register_required_components(id, self, storages, &mut required_components, 0);
+            T::register_required_components(
+                id,
+                self,
+                storages,
+                &mut required_components,
+                0,
+                recursion_check_stack,
+            );
             let info = &mut self.components[id.index()];
             T::register_component_hooks(&mut info.hooks);
             info.required_components = required_components;
@@ -1270,6 +1382,9 @@ impl Components {
     /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
     /// Lower depths are more specific requirements, and can override existing less specific registrations.
     ///
+    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
+    /// own (indirect) required component.
+    ///
     /// This method does *not* register any components as required by components that require `T`.
     ///
     /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
@@ -1283,9 +1398,10 @@ impl Components {
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component::<T>(storages);
-        let required = self.register_component::<R>(storages);
+        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
+        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -1748,18 +1864,14 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 /// An error returned when the registration of a required component fails.
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[display("Component {0:?} already directly requires component {_1:?}")]
-    #[error(ignore)]
+    #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[display(
-        "An archetype with the component {_0:?} that requires other components already exists"
-    )]
-    #[error(ignore)]
+    #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
 }
 
@@ -1899,35 +2011,69 @@ impl RequiredComponents {
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
-            move |table,
-                  sparse_sets,
-                  change_tick,
-                  table_row,
-                  entity,
-                  #[cfg(feature = "track_change_detection")] caller| {
-                OwningPtr::make(constructor(), |ptr| {
-                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
-                    // pass in a valid table_row and entity requiring a C constructor
-                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
-                    unsafe {
-                        BundleInfo::initialize_required_component(
-                            table,
-                            sparse_sets,
-                            change_tick,
-                            table_row,
-                            entity,
-                            component_id,
-                            C::STORAGE_TYPE,
-                            ptr,
-                            #[cfg(feature = "track_change_detection")]
-                            caller,
-                        );
-                    }
-                });
-            },
-        ));
+        let erased: RequiredComponentConstructor = RequiredComponentConstructor({
+            // `portable-atomic-util` `Arc` is not able to coerce an unsized
+            // type like `std::sync::Arc` can. Creating a `Box` first does the
+            // coercion.
+            //
+            // This would be resolved by https://github.com/rust-lang/rust/issues/123430
+
+            #[cfg(feature = "portable-atomic")]
+            use alloc::boxed::Box;
+
+            #[cfg(feature = "track_change_detection")]
+            type Constructor = dyn for<'a, 'b> Fn(
+                &'a mut Table,
+                &'b mut SparseSets,
+                Tick,
+                TableRow,
+                Entity,
+                &'static Location<'static>,
+            );
+
+            #[cfg(not(feature = "track_change_detection"))]
+            type Constructor =
+                dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
+
+            #[cfg(feature = "portable-atomic")]
+            type Intermediate<T> = Box<T>;
+
+            #[cfg(not(feature = "portable-atomic"))]
+            type Intermediate<T> = Arc<T>;
+
+            let boxed: Intermediate<Constructor> = Intermediate::new(
+                move |table,
+                      sparse_sets,
+                      change_tick,
+                      table_row,
+                      entity,
+                      #[cfg(feature = "track_change_detection")] caller| {
+                    OwningPtr::make(constructor(), |ptr| {
+                        // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                        // pass in a valid table_row and entity requiring a C constructor
+                        // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                        // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                        unsafe {
+                            BundleInfo::initialize_required_component(
+                                table,
+                                sparse_sets,
+                                change_tick,
+                                table_row,
+                                entity,
+                                component_id,
+                                C::STORAGE_TYPE,
+                                ptr,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            );
+                        }
+                    });
+                },
+            );
+
+            Arc::from(boxed)
+        });
+
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that
@@ -1956,6 +2102,40 @@ impl RequiredComponents {
     pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
         for (id, constructor) in &required_components.0 {
             self.0.entry(*id).or_insert_with(|| constructor.clone());
+        }
+    }
+}
+
+// NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
+// This exists as a standalone function instead of being inlined into the component derive macro so as
+// to reduce the amount of generated code.
+#[doc(hidden)]
+pub fn enforce_no_required_components_recursion(
+    components: &Components,
+    recursion_check_stack: &[ComponentId],
+) {
+    if let Some((&requiree, check)) = recursion_check_stack.split_last() {
+        if let Some(direct_recursion) = check
+            .iter()
+            .position(|&id| id == requiree)
+            .map(|index| index == check.len() - 1)
+        {
+            panic!(
+                "Recursive required components detected: {}\nhelp: {}",
+                recursion_check_stack
+                    .iter()
+                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
+                    .collect::<Vec<_>>()
+                    .join(" → "),
+                if direct_recursion {
+                    format!(
+                        "Remove require({})",
+                        ShortName(components.get_name(requiree).unwrap())
+                    )
+                } else {
+                    "If this is intentional, consider merging the components.".into()
+                }
+            );
         }
     }
 }

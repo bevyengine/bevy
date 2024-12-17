@@ -1,5 +1,6 @@
 use crate::serde::de::error_utils::make_custom_error;
 use crate::{FromType, PartialReflect, TypeRegistry};
+use alloc::boxed::Box;
 use serde::Deserializer;
 
 /// Trait used to provide finer control when deserializing a reflected type with one of

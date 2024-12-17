@@ -4,8 +4,14 @@
 //! speed up code by shrinking the stack size of large types,
 //! and make comparisons for any type as fast as integers.
 
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
+
+#[cfg(feature = "std")]
 use std::sync::{OnceLock, PoisonError, RwLock};
+
+#[cfg(not(feature = "std"))]
+use spin::{once::Once as OnceLock, rwlock::RwLock};
 
 use bevy_utils::HashSet;
 
@@ -136,15 +142,31 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
+        #[cfg(feature = "std")]
         let lock = self.0.get_or_init(Default::default);
+
+        #[cfg(not(feature = "std"))]
+        let lock = self.0.call_once(Default::default);
+
         {
+            #[cfg(feature = "std")]
             let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+
+            #[cfg(not(feature = "std"))]
+            let set = lock.read();
+
             if let Some(value) = set.get(value) {
                 return Interned(*value);
             }
         }
+
         {
+            #[cfg(feature = "std")]
             let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
+
+            #[cfg(not(feature = "std"))]
+            let mut set = lock.write();
+
             if let Some(value) = set.get(value) {
                 Interned(*value)
             } else {
@@ -164,8 +186,8 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use core::hash::{Hash, Hasher};
-    use std::collections::hash_map::DefaultHasher;
+    use bevy_utils::FixedHasher;
+    use core::hash::{BuildHasher, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};
 
@@ -250,13 +272,8 @@ mod tests {
 
         assert_eq!(a, b);
 
-        let mut hasher = DefaultHasher::default();
-        a.hash(&mut hasher);
-        let hash_a = hasher.finish();
-
-        let mut hasher = DefaultHasher::default();
-        b.hash(&mut hasher);
-        let hash_b = hasher.finish();
+        let hash_a = FixedHasher.hash_one(a);
+        let hash_b = FixedHasher.hash_one(b);
 
         assert_eq!(hash_a, hash_b);
     }

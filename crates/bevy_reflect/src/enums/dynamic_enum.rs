@@ -6,6 +6,7 @@ use crate::{
     Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 
+use alloc::{boxed::Box, string::String};
 use core::fmt::Formatter;
 use derive_more::derive::From;
 

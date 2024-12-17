@@ -53,8 +53,6 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
-use bevy_utils::tracing::warn;
-
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
@@ -65,20 +63,36 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use core::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use core::{fmt, hash::Hash, mem, num::NonZero};
+use log::warn;
+
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(target_has_atomic = "64")]
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::Ordering;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::Ordering;
+
+#[cfg(all(target_has_atomic = "64", not(feature = "portable-atomic")))]
 use core::sync::atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(all(target_has_atomic = "64", feature = "portable-atomic"))]
+use portable_atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(not(target_has_atomic = "64"))]
+#[cfg(all(not(target_has_atomic = "64"), not(feature = "portable-atomic")))]
 use core::sync::atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(all(not(target_has_atomic = "64"), feature = "portable-atomic"))]
+use portable_atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -945,6 +959,46 @@ impl Entities {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Sets the source code location from which this entity has last been spawned
+    /// or despawned.
+    #[cfg(feature = "track_change_detection")]
+    #[inline]
+    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
+        let meta = self
+            .meta
+            .get_mut(index as usize)
+            .expect("Entity index invalid");
+        meta.spawned_or_despawned_by = Some(caller);
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    #[cfg(feature = "track_change_detection")]
+    pub fn entity_get_spawned_or_despawned_by(
+        &self,
+        entity: Entity,
+    ) -> Option<&'static Location<'static>> {
+        self.meta
+            .get(entity.index() as usize)
+            .and_then(|meta| meta.spawned_or_despawned_by)
+    }
+
+    /// Constructs a message explaining why an entity does not exists, if known.
+    pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
+        #[cfg(feature = "track_change_detection")]
+        {
+            if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
+                format!("was despawned by {location}",)
+            } else {
+                "was never spawned".to_owned()
+            }
+        }
+        #[cfg(not(feature = "track_change_detection"))]
+        {
+            "does not exist (enable `track_change_detection` feature for more details)".to_owned()
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -953,6 +1007,9 @@ struct EntityMeta {
     pub generation: NonZero<u32>,
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
+    /// Location of the last spawn or despawn of this entity
+    #[cfg(feature = "track_change_detection")]
+    spawned_or_despawned_by: Option<&'static Location<'static>>,
 }
 
 impl EntityMeta {
@@ -960,10 +1017,12 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
+        #[cfg(feature = "track_change_detection")]
+        spawned_or_despawned_by: None,
     };
 }
 
-/// Records where an entity's data is stored.
+/// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
@@ -989,7 +1048,7 @@ pub struct EntityLocation {
 
 impl EntityLocation {
     /// location for **pending entity** and **invalid entity**
-    const INVALID: EntityLocation = EntityLocation {
+    pub(crate) const INVALID: EntityLocation = EntityLocation {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
         table_id: TableId::INVALID,

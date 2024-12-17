@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![deny(unsafe_code)]
 #![doc(
@@ -133,7 +132,7 @@ use bevy_render::{
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
-    view::{check_visibility, VisibilitySystems},
+    view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -407,7 +406,6 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
                     (
                         check_dir_light_mesh_visibility,
                         check_point_light_mesh_visibility,

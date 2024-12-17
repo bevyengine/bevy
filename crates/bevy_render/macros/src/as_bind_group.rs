@@ -40,7 +40,7 @@ enum BindingState<'a> {
 }
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
-    let manifest = BevyManifest::default();
+    let manifest = BevyManifest::shared();
     let render_path = manifest.get_path("bevy_render");
     let image_path = manifest.get_path("bevy_image");
     let asset_path = manifest.get_path("bevy_asset");
@@ -443,7 +443,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     if render_device.features().contains(
                         #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
                         #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
-                    ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+                    ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
+                    !force_no_bindless {
                         (
                             #render_path::render_resource::BufferBindingType::Storage { read_only: true },
                             #render_path::render_resource::BufferUsages::STORAGE,
@@ -482,7 +483,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -528,7 +529,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -566,12 +567,17 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // limitations into account.
     let (bindless_slot_count, actual_bindless_slot_count_declaration) = match attr_bindless_count {
         Some(bindless_count) => (
-            quote! { const BINDLESS_SLOT_COUNT: Option<u32> = Some(#bindless_count); },
+            quote! {
+                fn bindless_slot_count() -> Option<u32> {
+                    Some(#bindless_count)
+                }
+            },
             quote! {
                 let #actual_bindless_slot_count = if render_device.features().contains(
                     #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
                     #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
-                ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+                ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
+                !force_no_bindless {
                     ::core::num::NonZeroU32::new(#bindless_count)
                 } else {
                     None
@@ -607,6 +613,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
                 (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
+                force_no_bindless: bool,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 #uniform_binding_type_declarations
 
@@ -618,7 +625,10 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 })
             }
 
-            fn bind_group_layout_entries(render_device: &#render_path::renderer::RenderDevice) -> Vec<#render_path::render_resource::BindGroupLayoutEntry> {
+            fn bind_group_layout_entries(
+                render_device: &#render_path::renderer::RenderDevice,
+                force_no_bindless: bool
+            ) -> Vec<#render_path::render_resource::BindGroupLayoutEntry> {
                 #actual_bindless_slot_count_declaration
                 #uniform_binding_type_declarations
 

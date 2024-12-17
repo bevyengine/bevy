@@ -8,7 +8,7 @@ use core::{
     fmt::{Debug, Formatter},
     hash::Hash,
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
@@ -32,7 +32,7 @@ use derive_more::derive::{Display, Error};
 /// # Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
@@ -163,12 +163,12 @@ impl<T: Typed> DynamicTyped for T {
 }
 
 /// A [`TypeInfo`]-specific error.
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum TypeInfoError {
     /// Caused when a type was expected to be of a certain [kind], but was not.
     ///
     /// [kind]: ReflectKind
-    #[display("kind mismatch: expected {expected:?}, received {received:?}")]
+    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
         expected: ReflectKind,
         received: ReflectKind,
@@ -498,7 +498,7 @@ macro_rules! impl_type_methods {
 
         /// The [`TypeId`] of this type.
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
             self.ty().id()
         }
@@ -528,7 +528,7 @@ macro_rules! impl_type_methods {
         /// and does not verify they share the same [`TypePath`]
         /// (though it implies they do).
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn is<T: ::core::any::Any>(&self) -> bool {
             self.ty().is::<T>()

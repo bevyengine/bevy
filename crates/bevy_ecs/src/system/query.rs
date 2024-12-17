@@ -1488,7 +1488,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    /// This will panic if `NewD` is not a subset of the original fetch `D`
     ///
     /// ## Example
     ///
@@ -1529,19 +1529,108 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Allowed Transmutes
     ///
-    /// Besides removing parameters from the query, you can also
-    /// make limited changes to the types of parameters.
+    /// Besides removing parameters from the query,
+    /// you can also make limited changes to the types of parameters.
+    /// The new query must have a subset of the *read*, *write*, and *required* access of the original query.
     ///
-    /// * Can always add/remove [`Entity`]
-    /// * Can always add/remove [`EntityLocation`]
-    /// * Can always add/remove [`&Archetype`]
-    /// * `Ref<T>` <-> `&T`
-    /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
-    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
+    /// * `&mut T` and [`Mut<T>`](crate::change_detection::Mut) have read, write, and required access to `T`
+    /// * `&T` and [`Ref<T>`](crate::change_detection::Ref) have read and required access to `T`
+    /// * [`Option<D>`] and [`AnyOf<(D, ...)>`](crate::query::AnyOf) have the read and write access of the subqueries, but no required access
+    /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
+    /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
+    /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
+    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    ///   so can be added to any query
+    /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
+    ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
+    ///   Any query can be transmuted to them, and they will receive the access of the source query,
+    ///   but only if they are the top-level query and not nested
+    /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
+    /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
+    ///   so can be added to any query
+    /// * Tuples of query filters and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
+    /// * [`Or<(F, ...)>`](crate::query::Or) filters have the read access of the subqueries, but no required access
+    ///
+    /// ### Examples of valid transmutes
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{
+    /// #     prelude::*,
+    /// #     archetype::Archetype,
+    /// #     entity::EntityLocation,
+    /// #     query::{QueryData, QueryFilter},
+    /// #     world::{FilteredEntityMut, FilteredEntityRef},
+    /// # };
+    /// # use std::marker::PhantomData;
+    /// #
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
+    /// # }
+    /// #
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// #     let mut world = World::new();
+    /// #     // Make sure all components in the new query are initialized
+    /// #     let state = world.query_filtered::<NewD, NewF>();
+    /// #     let state = world.query_filtered::<OldD, OldF>();
+    /// #     state.transmute_filtered::<NewD, NewF>(&world);
+    /// # }
+    /// #
+    /// # #[derive(Component)]
+    /// # struct T;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct U;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct V;
+    /// #
+    /// // `&mut T` and `Mut<T>` access the same data and can be transmuted to each other,
+    /// // `&T` and `Ref<T>` access the same data and can be transmuted to each other,
+    /// // and mutable versions can be transmuted to read-only versions
+    /// assert_valid_transmute::<&mut T, &T>();
+    /// assert_valid_transmute::<&mut T, Mut<T>>();
+    /// assert_valid_transmute::<Mut<T>, &mut T>();
+    /// assert_valid_transmute::<&T, Ref<T>>();
+    /// assert_valid_transmute::<Ref<T>, &T>();
+    ///
+    /// // The structure can be rearranged, or subqueries dropped
+    /// assert_valid_transmute::<(&T, &U), &T>();
+    /// assert_valid_transmute::<((&T, &U), &V), (&T, (&U, &V))>();
+    /// assert_valid_transmute::<Option<(&T, &U)>, (Option<&T>, Option<&U>)>();
+    ///
+    /// // Queries with no access can be freely added
+    /// assert_valid_transmute::<
+    ///     &T,
+    ///     (&T, Entity, EntityLocation, &Archetype, Has<U>, PhantomData<T>),
+    /// >();
+    ///
+    /// // Required access can be transmuted to optional,
+    /// // and optional access can be transmuted to other optional access
+    /// assert_valid_transmute::<&T, Option<&T>>();
+    /// assert_valid_transmute::<AnyOf<(&mut T, &mut U)>, Option<&T>>();
+    /// // Note that removing subqueries from `AnyOf` will result
+    /// // in an `AnyOf` where all subqueries can yield `None`!
+    /// assert_valid_transmute::<AnyOf<(&T, &U, &V)>, AnyOf<(&T, &U)>>();
+    /// assert_valid_transmute::<EntityMut, Option<&mut T>>();
+    ///
+    /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
+    /// // This will create a `FilteredEntityMut` that only has read access to `T`
+    /// assert_valid_transmute::<&T, FilteredEntityMut>();
+    /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
+    /// // It must be the top-level query to be given access, but here it is nested in a tuple.
+    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    ///
+    /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
+    /// // Remember that they are only evaluated on the transmuted query, not the original query!
+    /// assert_valid_transmute_filtered::<Entity, Changed<T>, &T, ()>();
+    /// assert_valid_transmute_filtered::<&mut T, (), &T, Added<T>>();
+    /// // Nested inside of an `Or` filter, they have the same access as `Option<&T>`.
+    /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
+    /// ```
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
+    /// [`Has<T>`]: crate::query::Has
     #[track_caller]
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()

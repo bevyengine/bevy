@@ -95,7 +95,7 @@ impl Screenshot {
 
     /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
-        Self(RenderTarget::Image(image))
+        Self(RenderTarget::Image(image.into()))
     }
 
     /// Capture a screenshot of the provided manual texture view.
@@ -297,18 +297,13 @@ fn prepare_screenshots(
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = images.get(image) else {
+                let Some(gpu_image) = images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
                 let format = gpu_image.texture_format;
-                let size = Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    ..default()
-                };
                 let (texture_view, state) = prepare_screenshot_state(
-                    size,
+                    gpu_image.size,
                     format,
                     &render_device,
                     &screenshot_pipeline,
@@ -410,7 +405,7 @@ impl Plugin for ScreenshotPlugin {
             First,
             clear_screenshots
                 .after(event_update_system)
-                .before(apply_deferred),
+                .before(ApplyDeferred),
         )
         .add_systems(Update, trigger_screenshots)
         .register_type::<Screenshot>()
@@ -538,12 +533,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = gpu_images.get(image) else {
+                let Some(gpu_image) = gpu_images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.x;
-                let height = gpu_image.size.y;
+                let width = gpu_image.size.width;
+                let height = gpu_image.size.height;
                 let texture_format = gpu_image.texture_format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
