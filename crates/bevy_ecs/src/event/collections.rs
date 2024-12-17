@@ -1,9 +1,9 @@
 use crate as bevy_ecs;
+use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
-use bevy_utils::detailed_trace;
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{
@@ -142,7 +142,8 @@ impl<E: Event> Events<E> {
             caller,
             _marker: PhantomData,
         };
-        detailed_trace!("Events::send() -> id: {}", event_id);
+        #[cfg(feature = "detailed_trace")]
+        tracing::trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -318,7 +319,8 @@ impl<E: Event> Extend<E> for Events<E> {
         self.events_b.extend(events);
 
         if old_count != event_count {
-            detailed_trace!(
+            #[cfg(feature = "detailed_trace")]
+            tracing::trace!(
                 "Events::extend() -> ids: ({}..{})",
                 self.event_count,
                 event_count

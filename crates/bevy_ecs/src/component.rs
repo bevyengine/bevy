@@ -11,7 +11,7 @@ use crate::{
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
@@ -29,6 +29,12 @@ use core::{
 };
 use disqualified::ShortName;
 use thiserror::Error;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 pub use bevy_ecs_macros::require;
 
@@ -2005,35 +2011,69 @@ impl RequiredComponents {
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
-            move |table,
-                  sparse_sets,
-                  change_tick,
-                  table_row,
-                  entity,
-                  #[cfg(feature = "track_change_detection")] caller| {
-                OwningPtr::make(constructor(), |ptr| {
-                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
-                    // pass in a valid table_row and entity requiring a C constructor
-                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
-                    unsafe {
-                        BundleInfo::initialize_required_component(
-                            table,
-                            sparse_sets,
-                            change_tick,
-                            table_row,
-                            entity,
-                            component_id,
-                            C::STORAGE_TYPE,
-                            ptr,
-                            #[cfg(feature = "track_change_detection")]
-                            caller,
-                        );
-                    }
-                });
-            },
-        ));
+        let erased: RequiredComponentConstructor = RequiredComponentConstructor({
+            // `portable-atomic-util` `Arc` is not able to coerce an unsized
+            // type like `std::sync::Arc` can. Creating a `Box` first does the
+            // coercion.
+            //
+            // This would be resolved by https://github.com/rust-lang/rust/issues/123430
+
+            #[cfg(feature = "portable-atomic")]
+            use alloc::boxed::Box;
+
+            #[cfg(feature = "track_change_detection")]
+            type Constructor = dyn for<'a, 'b> Fn(
+                &'a mut Table,
+                &'b mut SparseSets,
+                Tick,
+                TableRow,
+                Entity,
+                &'static Location<'static>,
+            );
+
+            #[cfg(not(feature = "track_change_detection"))]
+            type Constructor =
+                dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
+
+            #[cfg(feature = "portable-atomic")]
+            type Intermediate<T> = Box<T>;
+
+            #[cfg(not(feature = "portable-atomic"))]
+            type Intermediate<T> = Arc<T>;
+
+            let boxed: Intermediate<Constructor> = Intermediate::new(
+                move |table,
+                      sparse_sets,
+                      change_tick,
+                      table_row,
+                      entity,
+                      #[cfg(feature = "track_change_detection")] caller| {
+                    OwningPtr::make(constructor(), |ptr| {
+                        // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                        // pass in a valid table_row and entity requiring a C constructor
+                        // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                        // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                        unsafe {
+                            BundleInfo::initialize_required_component(
+                                table,
+                                sparse_sets,
+                                change_tick,
+                                table_row,
+                                entity,
+                                component_id,
+                                C::STORAGE_TYPE,
+                                ptr,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            );
+                        }
+                    });
+                },
+            );
+
+            Arc::from(boxed)
+        });
+
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that

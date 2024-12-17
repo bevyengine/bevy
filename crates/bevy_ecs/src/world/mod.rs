@@ -51,13 +51,16 @@ use crate::{
         error::{EntityFetchError, TryRunScheduleError},
     },
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::warn;
-use core::{
-    any::TypeId,
-    fmt,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use core::{any::TypeId, fmt};
+use log::warn;
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::{AtomicU32, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicU32, Ordering};
 
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
@@ -2764,7 +2767,7 @@ impl World {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
+            log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
                 core::any::type_name::<E>()
             );
@@ -3093,7 +3096,7 @@ impl World {
         } = self.storages;
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
+        let _span = tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(change_tick);
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
