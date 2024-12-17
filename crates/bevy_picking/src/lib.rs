@@ -298,7 +298,7 @@ pub struct PickingPlugin {
     /// Enables and disables input collection.
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
-    pub is_focus_enabled: bool,
+    pub is_hover_enabled: bool,
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
 }
@@ -312,7 +312,7 @@ impl PickingPlugin {
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
     pub fn hover_should_run(state: Res<Self>) -> bool {
-        state.is_focus_enabled && state.is_enabled
+        state.is_hover_enabled && state.is_enabled
     }
 
     /// Whether or not window entities should receive pick events.
@@ -326,7 +326,7 @@ impl Default for PickingPlugin {
         Self {
             is_enabled: true,
             is_input_enabled: true,
-            is_focus_enabled: true,
+            is_hover_enabled: true,
             is_window_picking_enabled: true,
         }
     }
