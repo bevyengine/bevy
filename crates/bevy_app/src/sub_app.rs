@@ -176,7 +176,7 @@ impl SubApp {
     /// ```
     /// # use bevy_app::SubApp;
     /// # let mut app = SubApp::new();
-    /// let default_fn = app.take_extract();
+    /// let mut default_fn = app.take_extract();
     /// app.set_extract(move |main, render| {
     ///     // Do pre-extract custom logic
     ///     // [...]
