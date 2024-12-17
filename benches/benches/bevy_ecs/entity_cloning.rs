@@ -3,7 +3,6 @@ use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
-use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
 
