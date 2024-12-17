@@ -12,6 +12,54 @@ rust-version = "1.81.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor"]
+
+# Functionality
+
+## Enables multithreading support. Schedules will attempt to run systems on
+## multiple threads whenever possible.
+multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
+
+## Adds serialization support through `serde`.
+serialize = ["dep:serde", "bevy_utils/serde"]
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = ["dep:bevy_reflect"]
+
+## Extends reflection support to functions.
+reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
+
+# Debugging Features
+
+## Enables `tracing` integration, allowing spans and other metrics to be reported
+## through that framework.
+trace = ["std", "dep:tracing", "bevy_utils/tracing"]
+
+## Enables a more detailed set of traces which may be noisy if left on by default.
+detailed_trace = ["trace"]
+
+## Provides system stepping support, allowing them to be paused, stepped, and
+## other debug operations which can help with diagnosing certain behaviors.
+bevy_debug_stepping = []
+
+## Provides more detailed tracking of the cause of various effects within the ECS.
+## This will often provide more detailed error messages.
+track_change_detection = []
+
+# Executor Backend
+
+## Uses `async-executor` as a task execution backend.
+## This backend is incompatible with `no_std` targets.
+async_executor = ["std", "bevy_tasks/async_executor"]
+
+## Uses `edge-executor` as a task execution backend.
+## Use this instead of `async-executor` if working on a `no_std` target.
+edge_executor = ["bevy_tasks/edge_executor"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
 std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
@@ -26,21 +74,17 @@ std = [
   "arrayvec?/std",
   "log/std",
 ]
-trace = ["std", "dep:tracing", "bevy_utils/tracing"]
-multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
-bevy_debug_stepping = []
-serialize = ["dep:serde", "bevy_utils/serde"]
-track_change_detection = []
-reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
-detailed_trace = ["trace"]
-arrayvec = ["dep:arrayvec"]
-async_executor = ["bevy_tasks/async_executor"]
-edge_executor = ["bevy_tasks/edge_executor"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
 critical-section = [
   "dep:critical-section",
   "bevy_tasks/critical-section",
   "portable-atomic?/critical-section",
 ]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
 portable-atomic = [
   "dep:portable-atomic",
   "dep:portable-atomic-util",
