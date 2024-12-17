@@ -192,28 +192,6 @@ impl<E: Event> Events<E> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader` has been deprecated. Please use `get_cursor` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> EventCursor<E> {
-        EventCursor::default()
-    }
-
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader_current` has been replaced. Please use `get_cursor_current` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
-    /// It will read all future events.
-    pub fn get_reader_current(&self) -> EventCursor<E> {
-        EventCursor {
-            last_event_count: self.event_count,
-            ..Default::default()
-        }
-    }
-
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     ///
