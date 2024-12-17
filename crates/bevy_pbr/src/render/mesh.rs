@@ -1523,7 +1523,7 @@ impl FromWorld for MeshPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
