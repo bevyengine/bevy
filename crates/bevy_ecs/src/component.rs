@@ -2140,81 +2140,87 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for any registered component,
 /// but only reflected components will be cloned.
 ///
-/// See [`ComponentCloneHandlers`] for more details.
+/// To clone a component using this handler, the following must be true:
+/// - World has [`AppTypeRegistry`](crate::reflect::AppTypeRegistry)
+/// - Component has [`TypeId`]
+/// - Component is registered
+/// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
+/// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
+///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
+///   
+/// If any of the conditions is not satisfied, the component will be skipped.
+///
+/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
     // This path will be selected if:
     // 1. Component has ReflectFromReflect or ReflectDefault registered.
     // 2. Component has ReflectFromPtr registered.
     // Otherwise, it will fallback to clone_slow.
-    fn clone_fast(ctx: &mut ComponentCloneCtx) -> Option<()> {
-        let registry = ctx.type_registry()?;
-        let component = {
-            let source_component_reflect = ctx.read_source_component_reflect()?;
-            let registry = registry.read();
-            let component_info = ctx.components().get_info(ctx.component_id())?;
-            let type_id = component_info.type_id()?;
-
-            if let Some(reflect_from_reflect) =
-                registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
-            {
-                reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
-            } else if let Some(reflect_default) =
-                registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)
-            {
-                let mut component = reflect_default.default();
-                component.apply(source_component_reflect.as_partial_reflect());
-                Some(component)
-            } else {
-                None
-            }?
-        };
-        ctx.write_target_component_reflect(component);
-
-        Some(())
-    }
-
-    // This will try to clone component using ReflectComponent.
-    // If the component does not have this type data registered, it will be ignored.
-    fn clone_slow(
-        component_id: ComponentId,
-        source: Entity,
-        target: Entity,
-        registry: &crate::reflect::AppTypeRegistry,
-        world: &mut World,
-    ) -> Option<()> {
-        let registry = registry.read();
-
-        let component_info = world.components().get_info(component_id)?;
-        let type_id = component_info.type_id()?;
-        let reflect_component =
-            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)?;
-        let source_component = reflect_component
-            .reflect(world.get_entity(source).ok()?)?
-            .clone_value();
-        let mut target = world.get_entity_mut(target).ok()?;
-        reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
-        Some(())
-    }
-
-    // Try to clone fast first, if it doesn't work use the slow path
-    if clone_fast(ctx).is_some() {
+    let Some(registry) = ctx.type_registry() else {
         return;
     };
+    let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
+        return;
+    };
+    let Some(component_info) = ctx.components().get_info(ctx.component_id()) else {
+        return;
+    };
+    let Some(type_id) = component_info.type_id() else {
+        return;
+    };
+    let registry = registry.read();
 
-    let component_id = ctx.component_id();
-    let source = ctx.source();
-    let target = ctx.target();
-    world.commands().queue(move |world: &mut World| {
-        world.resource_scope(|world, registry| {
-            clone_slow(component_id, source, target, &registry, world);
+    // Try to clone using ReflectFromReflect
+    if let Some(reflect_from_reflect) =
+        registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
+    {
+        if let Some(component) =
+            reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+        {
+            drop(registry);
+            ctx.write_target_component_reflect(component);
+            return;
+        }
+    }
+    // Else, try to clone using ReflectDefault
+    if let Some(reflect_default) =
+        registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)
+    {
+        let mut component = reflect_default.default();
+        component.apply(source_component_reflect.as_partial_reflect());
+        drop(registry);
+        ctx.write_target_component_reflect(component);
+        return;
+    }
+    // Otherwise, try to clone using ReflectFromWorld
+    if let Some(reflect_from_world) =
+        registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
+    {
+        let reflect_from_world = reflect_from_world.clone();
+        let source_component_cloned = source_component_reflect.clone_value();
+        let target = ctx.target();
+        let component_id = ctx.component_id();
+        world.commands().queue(move |world: &mut World| {
+            let mut component = reflect_from_world.from_world(world);
+            component.apply(source_component_cloned.as_partial_reflect());
+            // SAFETY:
+            // - component_id is from the same world as target entity
+            // - component is a valid value represented by component_id
+            unsafe {
+                let raw_component =
+                    core::ptr::NonNull::new_unchecked(Box::into_raw(component).cast::<u8>());
+                world
+                    .entity_mut(target)
+                    .insert_by_id(component_id, OwningPtr::new(raw_component));
+            }
         });
-    });
+    }
 }
 
 /// Noop implementation of component clone handler function.
 ///
-/// See [`ComponentCloneHandlers`] for more details.
+/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
 pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
