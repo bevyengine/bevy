@@ -63,6 +63,8 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_sprite` feature is enabled.
+///
 /// Adds support for 2D sprite rendering.
 pub struct SpritePlugin {
     /// Whether to add the sprite picking backend to the app.

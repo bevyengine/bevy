@@ -166,6 +166,8 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
 const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_pbr` feature is enabled.
+///
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the [`StandardMaterial`].

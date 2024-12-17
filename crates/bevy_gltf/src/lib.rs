@@ -120,6 +120,8 @@ pub mod prelude {
     pub use crate::{Gltf, GltfAssetLabel, GltfExtras};
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_gltf` feature is enabled.
+///
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin {

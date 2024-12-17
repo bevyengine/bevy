@@ -53,6 +53,8 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_scene` feature is enabled.
+///
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
 pub struct ScenePlugin;

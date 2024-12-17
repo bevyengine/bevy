@@ -76,7 +76,9 @@ use {
 #[derive(Resource)]
 pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
-/// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
+/// Adds logging to Apps. Adding
 /// this plugin will setup a collector appropriate to your target platform:
 /// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
 ///     logging to `stdout`.

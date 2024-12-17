@@ -9,6 +9,8 @@ pub use ctrlc;
 /// Indicates that all [`App`]'s should exit.
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `wasm32` is not the target.
+///
 /// Gracefully handles `Ctrl+C` by emitting a [`AppExit`] event. This plugin is part of the `DefaultPlugins`.
 ///
 /// ```no_run

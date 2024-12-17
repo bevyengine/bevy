@@ -219,6 +219,8 @@ compile_error!(
     Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
 );
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_asset` feature is enabled.
+///
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
 /// which can be something like a filesystem, a network, etc.
 ///

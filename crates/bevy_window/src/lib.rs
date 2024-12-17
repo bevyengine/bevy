@@ -59,6 +59,8 @@ impl Default for WindowPlugin {
     }
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_window` feature is enabled.
+///
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
     /// Settings for the primary window.

@@ -42,6 +42,8 @@ pub mod experimental {
     }
 }
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_core_pipeline` feature is enabled.
+///
 /// The core pipeline prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.

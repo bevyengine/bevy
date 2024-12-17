@@ -83,6 +83,8 @@ use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group when `bevy_ui` feature is enabled.
+///
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.

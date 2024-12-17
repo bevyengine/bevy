@@ -29,6 +29,8 @@ pub use system_information_diagnostics_plugin::{SystemInfo, SystemInformationDia
 
 use bevy_app::prelude::*;
 
+/// - Is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html) plugin group.
+///
 /// Adds core diagnostics resources to an App.
 #[derive(Default)]
 pub struct DiagnosticsPlugin;
