@@ -182,8 +182,8 @@ impl SubApp {
     ///     // [...]
     ///
     ///     // Call Bevy's default, which executes the Extract phase
-    ///     if let Some(fn) = default_fn.as_mut() {
-    ///         fn(main, render);
+    ///     if let Some(f) = default_fn.as_mut() {
+    ///         f(main, render);
     ///     }
     ///
     ///     // Do post-extract custom logic
