@@ -684,7 +684,20 @@ pub struct RenderMeshMaterialIds {
     pub(crate) mesh_to_material: MainEntityHashMap<UntypedAssetId>,
     /// Maps the material ID to the binding ID, which describes the location of
     /// that material bind group data in memory.
-    pub(crate) material_to_binding: HashMap<UntypedAssetId, MaterialBindingId>,
+    pub(crate) material_to_binding: HashMap<UntypedAssetId, RenderMaterialBinding>,
+}
+
+/// A handle to the GPU data for a material.
+///
+/// When the reference count equals 0, the material GPU data is freed.
+pub(crate) struct RenderMaterialBinding {
+    /// The ID of the material GPU data.
+    pub(crate) id: MaterialBindingId,
+
+    /// The number of mesh instances that reference that GPU data.
+    ///
+    /// The GPU data is freed when this reaches zero.
+    pub(crate) ref_count: u32,
 }
 
 impl RenderMeshMaterialIds {
@@ -697,11 +710,8 @@ impl RenderMeshMaterialIds {
     fn mesh_material_binding_id(&self, entity: MainEntity) -> MaterialBindingId {
         self.mesh_to_material
             .get(&entity)
-            .and_then(|mesh_material_asset_id| {
-                self.material_to_binding
-                    .get(mesh_material_asset_id)
-                    .cloned()
-            })
+            .and_then(|mesh_material_asset_id| self.material_to_binding.get(mesh_material_asset_id))
+            .map(|binding| binding.id)
             .unwrap_or_default()
     }
 }
