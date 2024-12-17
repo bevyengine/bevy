@@ -142,26 +142,18 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
-        let lock = {
-            #[cfg(feature = "std")]
-            let lock = self.0.get_or_init(Default::default);
+        #[cfg(feature = "std")]
+        let lock = self.0.get_or_init(Default::default);
 
-            #[cfg(not(feature = "std"))]
-            let lock = self.0.call_once(Default::default);
-
-            lock
-        };
+        #[cfg(not(feature = "std"))]
+        let lock = self.0.call_once(Default::default);
 
         {
-            let set = {
-                #[cfg(feature = "std")]
-                let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+            #[cfg(feature = "std")]
+            let set = lock.read().unwrap_or_else(PoisonError::into_inner);
 
-                #[cfg(not(feature = "std"))]
-                let set = lock.read();
-
-                set
-            };
+            #[cfg(not(feature = "std"))]
+            let set = lock.read();
 
             if let Some(value) = set.get(value) {
                 return Interned(*value);
@@ -169,15 +161,11 @@ impl<T: Internable + ?Sized> Interner<T> {
         }
 
         {
-            let mut set = {
-                #[cfg(feature = "std")]
-                let set = lock.write().unwrap_or_else(PoisonError::into_inner);
+            #[cfg(feature = "std")]
+            let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
 
-                #[cfg(not(feature = "std"))]
-                let set = lock.write();
-
-                set
-            };
+            #[cfg(not(feature = "std"))]
+            let mut set = lock.write();
 
             if let Some(value) = set.get(value) {
                 Interned(*value)
