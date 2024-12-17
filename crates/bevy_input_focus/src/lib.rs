@@ -322,6 +322,7 @@ mod tests {
         key_code: KeyCode::KeyA,
         logical_key: Key::Character(SmolStr::new_static("A")),
         state: ButtonState::Pressed,
+        text: Some(SmolStr::new_static("A")),
         repeat: false,
         window: Entity::PLACEHOLDER,
     };
