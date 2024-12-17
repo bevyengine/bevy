@@ -385,6 +385,9 @@ mod tests {
         };
         app.world_mut().spawn((window, PrimaryWindow));
 
+        // Run the world for a single frame to set up the initial focus
+        app.update();
+
         let entity_a = app
             .world_mut()
             .spawn((GatherKeyboardEvents::default(), SetFocusOnAdd))
