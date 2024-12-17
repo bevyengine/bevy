@@ -302,13 +302,8 @@ fn prepare_screenshots(
                     continue;
                 };
                 let format = gpu_image.texture_format;
-                let size = Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    ..default()
-                };
                 let (texture_view, state) = prepare_screenshot_state(
-                    size,
+                    gpu_image.size,
                     format,
                     &render_device,
                     &screenshot_pipeline,
@@ -542,8 +537,8 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.x;
-                let height = gpu_image.size.y;
+                let width = gpu_image.size.width;
+                let height = gpu_image.size.height;
                 let texture_format = gpu_image.texture_format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
