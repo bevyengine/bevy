@@ -1,3 +1,6 @@
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+
 use crate::{
     component::ComponentId,
     entity::Entity,
@@ -12,19 +15,37 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
 
     /// The targets to trigger the event for.
     pub targets: Targets,
+
+    /// The source code that emitted this command.
+    #[cfg(feature = "track_change_detection")]
+    pub caller: &'static Location<'static>,
 }
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
     pub(super) fn trigger(mut self, world: &mut World) {
         let event_type = world.register_component::<E>();
-        trigger_event(world, event_type, &mut self.event, self.targets);
+        trigger_event(
+            world,
+            event_type,
+            &mut self.event,
+            self.targets,
+            #[cfg(feature = "track_change_detection")]
+            self.caller,
+        );
     }
 }
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<&mut E, Targets> {
     pub(super) fn trigger_ref(self, world: &mut World) {
         let event_type = world.register_component::<E>();
-        trigger_event(world, event_type, self.event, self.targets);
+        trigger_event(
+            world,
+            event_type,
+            self.event,
+            self.targets,
+            #[cfg(feature = "track_change_detection")]
+            self.caller,
+        );
     }
 }
 
@@ -41,17 +62,22 @@ pub struct EmitDynamicTrigger<T, Targets: TriggerTargets = ()> {
     event_type: ComponentId,
     event_data: T,
     targets: Targets,
+    #[cfg(feature = "track_change_detection")]
+    caller: &'static Location<'static>,
 }
 
 impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
     /// Sets the event type of the resulting trigger, used for dynamic triggers
     /// # Safety
     /// Caller must ensure that the component associated with `event_type` is accessible as E
+    #[track_caller]
     pub unsafe fn new_with_id(event_type: ComponentId, event_data: E, targets: Targets) -> Self {
         Self {
             event_type,
             event_data,
             targets,
+            #[cfg(feature = "track_change_detection")]
+            caller: Location::caller(),
         }
     }
 }
@@ -60,7 +86,14 @@ impl<E: Event, Targets: TriggerTargets + Send + Sync + 'static> Command
     for EmitDynamicTrigger<E, Targets>
 {
     fn apply(mut self, world: &mut World) {
-        trigger_event(world, self.event_type, &mut self.event_data, self.targets);
+        trigger_event(
+            world,
+            self.event_type,
+            &mut self.event_data,
+            self.targets,
+            #[cfg(feature = "track_change_detection")]
+            self.caller,
+        );
     }
 }
 
@@ -70,6 +103,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     event_type: ComponentId,
     event_data: &mut E,
     targets: Targets,
+    #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
 ) {
     let mut world = DeferredWorld::from(world);
     if targets.entities().is_empty() {
@@ -81,6 +115,8 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
                 targets.components(),
                 event_data,
                 false,
+                #[cfg(feature = "track_change_detection")]
+                caller,
             );
         };
     } else {
@@ -93,6 +129,8 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
                     targets.components(),
                     event_data,
                     E::AUTO_PROPAGATE,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
                 );
             };
         }

@@ -33,7 +33,7 @@ impl<C: Component> Plugin for SyncComponentPlugin<C> {
         app.register_required_components::<C, SyncToRenderWorld>();
 
         app.world_mut().register_component_hooks::<C>().on_remove(
-            |mut world, entity, _component_id| {
+            |mut world, entity, _component_id, _caller| {
                 let mut pending = world.resource_mut::<PendingSyncEntity>();
                 pending.push(EntityRecord::ComponentRemoved(entity));
             },

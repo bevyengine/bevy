@@ -26,6 +26,8 @@
 //!
 //! This module also provides `AutoFocus`, a component which can be added to an entity to
 //! automatically focus it when it is added to the world.
+use core::panic::Location;
+
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
     component::{Component, ComponentId},
@@ -292,7 +294,12 @@ pub fn handle_tab_navigation(
     }
 }
 
-fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn on_auto_focus_added(
+    mut world: DeferredWorld,
+    entity: Entity,
+    _: ComponentId,
+    _: Option<&Location>,
+) {
     if world.entity(entity).contains::<TabIndex>() {
         world.set_input_focus(entity);
     }
