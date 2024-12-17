@@ -764,6 +764,48 @@ mod tests {
             .is_some_and(|comp| *comp == A { field: 10 }));
     }
 
+    #[cfg(feature = "bevy_reflect")]
+    #[test]
+    fn clone_entity_using_reflect_should_skip_without_panic() {
+        use crate::reflect::{AppTypeRegistry, ReflectComponent};
+        use bevy_reflect::Reflect;
+
+        // Not reflected
+        #[derive(Component, PartialEq, Eq, Default, Debug)]
+        struct A;
+
+        // No valid type data
+        #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
+        #[reflect(Component)]
+        #[reflect(from_reflect = false)]
+        struct B;
+
+        let mut world = World::default();
+        let a_id = world.register_component::<A>();
+        let b_id = world.register_component::<B>();
+        let handlers = world.get_component_clone_handlers_mut();
+        handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
+        handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
+
+        // No AppTypeRegistry
+        let e = world.spawn((A, B)).id();
+        let e_clone = world.spawn_empty().id();
+        EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
+        assert_eq!(world.get::<A>(e_clone), None);
+        assert_eq!(world.get::<B>(e_clone), None);
+
+        // With AppTypeRegistry
+        world.init_resource::<AppTypeRegistry>();
+        let registry = world.get_resource::<AppTypeRegistry>().unwrap();
+        registry.write().register::<B>();
+
+        let e = world.spawn((A, B)).id();
+        let e_clone = world.spawn_empty().id();
+        EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
+        assert_eq!(world.get::<A>(e_clone), None);
+        assert_eq!(world.get::<B>(e_clone), None);
+    }
+
     #[test]
     fn clone_entity_with_allow_filter() {
         #[derive(Component, Clone, PartialEq, Eq)]
