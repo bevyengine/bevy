@@ -130,7 +130,6 @@ portable-atomic-util = { version = "0.2.4", features = [
 spin = { version = "0.9.8", default-features = false, features = [
   "spin_mutex",
   "rwlock",
-  "once",
 ] }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
