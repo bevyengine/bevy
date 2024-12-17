@@ -9,15 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "serde"]
-std = ["alloc", "tracing/std", "foldhash/std", "dep:thread_local"]
+default = ["std", "serde", "tracing"]
+std = ["alloc", "tracing?/std", "foldhash/std", "dep:thread_local"]
 alloc = ["hashbrown"]
 detailed_trace = []
 serde = ["hashbrown/serde"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 foldhash = { version = "0.1.3", default-features = false }
-tracing = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false, optional = true }
 hashbrown = { version = "0.15.1", features = [
   "equivalent",
   "raw-entry",

@@ -356,7 +356,7 @@ impl<'w> DeferredWorld<'w> {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
+            log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
                 core::any::type_name::<E>()
             );

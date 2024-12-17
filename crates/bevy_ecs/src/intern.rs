@@ -4,8 +4,14 @@
 //! speed up code by shrinking the stack size of large types,
 //! and make comparisons for any type as fast as integers.
 
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
+
+#[cfg(feature = "std")]
 use std::sync::{OnceLock, PoisonError, RwLock};
+
+#[cfg(not(feature = "std"))]
+use spin::{once::Once as OnceLock, rwlock::RwLock};
 
 use bevy_utils::HashSet;
 
@@ -136,15 +142,31 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// [`Interned<T>`] using the obtained static reference. Subsequent calls for the same `value`
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
+        #[cfg(feature = "std")]
         let lock = self.0.get_or_init(Default::default);
+
+        #[cfg(not(feature = "std"))]
+        let lock = self.0.call_once(Default::default);
+
         {
+            #[cfg(feature = "std")]
             let set = lock.read().unwrap_or_else(PoisonError::into_inner);
+
+            #[cfg(not(feature = "std"))]
+            let set = lock.read();
+
             if let Some(value) = set.get(value) {
                 return Interned(*value);
             }
         }
+
         {
+            #[cfg(feature = "std")]
             let mut set = lock.write().unwrap_or_else(PoisonError::into_inner);
+
+            #[cfg(not(feature = "std"))]
+            let mut set = lock.write();
+
             if let Some(value) = set.get(value) {
                 Interned(*value)
             } else {

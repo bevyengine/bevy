@@ -11,11 +11,12 @@ use crate::{
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-use bevy_utils::tracing::warn;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
+use alloc::vec::Vec;
 use core::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
+use log::warn;
+#[cfg(feature = "trace")]
+use tracing::Span;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -269,7 +270,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -295,7 +296,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 data = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -658,7 +659,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),
@@ -780,7 +781,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables,
             matched_archetypes,
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),

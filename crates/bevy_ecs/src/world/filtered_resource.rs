@@ -1,4 +1,8 @@
+#[cfg(feature = "std")]
 use std::sync::OnceLock;
+
+#[cfg(not(feature = "std"))]
+use spin::once::Once as OnceLock;
 
 use crate::{
     change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
@@ -217,11 +221,21 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
         static READ_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
-        let access = READ_ALL_RESOURCES.get_or_init(|| {
-            let mut access = Access::new();
-            access.read_all_resources();
+        let access = {
+            let init = || {
+                let mut access = Access::new();
+                access.read_all_resources();
+                access
+            };
+
+            #[cfg(feature = "std")]
+            let access = READ_ALL_RESOURCES.get_or_init(init);
+
+            #[cfg(not(feature = "std"))]
+            let access = READ_ALL_RESOURCES.call_once(init);
+
             access
-        });
+        };
 
         let last_run = value.last_change_tick();
         let this_run = value.read_change_tick();
@@ -494,11 +508,22 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
         static WRITE_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
-        let access = WRITE_ALL_RESOURCES.get_or_init(|| {
-            let mut access = Access::new();
-            access.write_all_resources();
+
+        let access = {
+            let init = || {
+                let mut access = Access::new();
+                access.write_all_resources();
+                access
+            };
+
+            #[cfg(feature = "std")]
+            let access = WRITE_ALL_RESOURCES.get_or_init(init);
+
+            #[cfg(not(feature = "std"))]
+            let access = WRITE_ALL_RESOURCES.call_once(init);
+
             access
-        });
+        };
 
         let last_run = value.last_change_tick();
         let this_run = value.change_tick();

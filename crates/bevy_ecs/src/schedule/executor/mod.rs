@@ -1,15 +1,15 @@
+#[cfg(feature = "std")]
 mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
-pub use self::{
-    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
-    simple::SimpleExecutor,
-    single_threaded::SingleThreadedExecutor,
-};
+pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+
+#[cfg(feature = "std")]
+pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 
 use fixedbitset::FixedBitSet;
 
@@ -53,6 +53,7 @@ pub enum ExecutorKind {
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
+    #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
     MultiThreaded,
 }
@@ -72,9 +73,17 @@ pub struct SystemSchedule {
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
     /// Number of systems that the system immediately depends on.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependencies: Vec<usize>,
     /// Indexed by system node id.
     /// List of systems that immediately depend on the system.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
     /// List of sets containing the system that have conditions
@@ -265,6 +274,10 @@ mod __rust_begin_short_backtrace {
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,

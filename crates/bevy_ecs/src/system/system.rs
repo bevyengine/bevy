@@ -1,5 +1,5 @@
-use bevy_utils::tracing::warn;
 use core::fmt::Debug;
+use log::warn;
 use thiserror::Error;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
 use super::IntoSystem;

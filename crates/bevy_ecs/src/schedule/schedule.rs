@@ -1,16 +1,19 @@
-use alloc::collections::BTreeSet;
-use core::fmt::{Debug, Write};
-
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    default,
-    tracing::{error, info, warn},
-    HashMap, HashSet,
+use alloc::{
+    boxed::Box,
+    collections::BTreeSet,
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
 };
+use bevy_utils::{default, HashMap, HashSet};
+use core::fmt::{Debug, Write};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
+use log::{error, info, warn};
 use thiserror::Error;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 use crate::{
     self as bevy_ecs,
@@ -205,6 +208,7 @@ fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
     match kind {
         ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
         ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
+        #[cfg(feature = "std")]
         ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
     }
 }

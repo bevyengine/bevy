@@ -1,3 +1,4 @@
+use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
@@ -6,6 +7,7 @@ use crate::{
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use alloc::vec::Vec;
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -14,8 +16,6 @@ use core::{
     mem::MaybeUninit,
     ops::Range,
 };
-
-use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///

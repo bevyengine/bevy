@@ -2366,7 +2366,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
                 #[cfg(debug_assertions)]
                 unreachable!();
                 #[cfg(not(debug_assertions))]
-                std::hint::unreachable_unchecked()
+                core::hint::unreachable_unchecked()
             }
         }
     }

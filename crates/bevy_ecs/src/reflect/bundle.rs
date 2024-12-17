@@ -4,6 +4,7 @@
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
 //! Same as [`super::component`], but for bundles.
+use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use crate::{

@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, format};
 use core::ops::Not;
 
 use crate::system::{
@@ -401,6 +401,7 @@ pub mod common_conditions {
         removal_detection::RemovedComponents,
         system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
+    use alloc::format;
 
     /// A [`Condition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
