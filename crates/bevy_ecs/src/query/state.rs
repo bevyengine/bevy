@@ -3,6 +3,7 @@ use crate::{
     batching::BatchingStrategy,
     component::{ComponentId, Tick},
     entity::Entity,
+    entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
@@ -256,7 +257,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
         // of its static type parameters.
-        let is_dense = D::IS_DENSE && F::IS_DENSE;
+        let mut is_dense = D::IS_DENSE && F::IS_DENSE;
+
+        if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
+            default_filters.apply(&mut component_access);
+            is_dense &= default_filters.is_dense(world.components());
+        }
 
         Self {
             world_id,
@@ -283,15 +289,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
 
+        let mut component_access = builder.access().clone();
+
+        // For dynamic queries the dense-ness is given by the query builder.
+        let mut is_dense = builder.is_dense();
+
+        if let Some(default_filters) = builder.world().get_resource::<DefaultQueryFilters>() {
+            default_filters.apply(&mut component_access);
+            is_dense &= default_filters.is_dense(builder.world().components());
+        }
+
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
-            // For dynamic queries the dense-ness is given by the query builder.
-            is_dense: builder.is_dense(),
+            is_dense,
             fetch_state,
             filter_state,
-            component_access: builder.access().clone(),
+            component_access,
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
@@ -1774,7 +1789,8 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 mod tests {
     use crate as bevy_ecs;
     use crate::{
-        component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
+        component::Component, entity_disabling::DefaultQueryFilters, prelude::*,
+        query::QueryEntityError, world::FilteredEntityRef,
     };
 
     #[test]
@@ -2206,5 +2222,77 @@ mod tests {
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+    }
+
+    #[test]
+    fn query_respects_default_filters() {
+        let mut world = World::new();
+        world.spawn((A(0), B(0)));
+        world.spawn((B(0), C(0)));
+        world.spawn(C(0));
+
+        let mut df = DefaultQueryFilters::default();
+        df.set_disabled(world.register_component::<C>());
+        world.insert_resource(df);
+
+        // Without<C> only matches the first entity
+        let mut query = QueryState::<()>::new(&mut world);
+        assert_eq!(1, query.iter(&world).count());
+
+        // With<C> matches the last two entities
+        let mut query = QueryState::<(), With<C>>::new(&mut world);
+        assert_eq!(2, query.iter(&world).count());
+
+        // Has should bypass the filter entirely
+        let mut query = QueryState::<Has<C>>::new(&mut world);
+        assert_eq!(3, query.iter(&world).count());
+
+        // Other filters should still be respected
+        let mut query = QueryState::<Has<C>, Without<B>>::new(&mut world);
+        assert_eq!(1, query.iter(&world).count());
+    }
+
+    #[derive(Component)]
+    struct Table;
+
+    #[derive(Component)]
+    #[component(storage = "SparseSet")]
+    struct Sparse;
+
+    #[test]
+    fn query_default_filters_updates_is_dense() {
+        let mut world = World::new();
+        world.spawn((Table, Sparse));
+        world.spawn(Table);
+        world.spawn(Sparse);
+
+        let mut query = QueryState::<()>::new(&mut world);
+        // There are no sparse components involved thus the query is dense
+        assert!(query.is_dense);
+        assert_eq!(3, query.iter(&world).count());
+
+        let mut df = DefaultQueryFilters::default();
+        df.set_disabled(world.register_component::<Sparse>());
+        world.insert_resource(df);
+
+        let mut query = QueryState::<()>::new(&mut world);
+        // The query doesn't ask for sparse components, but the default filters adds
+        // a sparse components thus it is NOT dense
+        assert!(!query.is_dense);
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut df = DefaultQueryFilters::default();
+        df.set_disabled(world.register_component::<Table>());
+        world.insert_resource(df);
+
+        let mut query = QueryState::<()>::new(&mut world);
+        // If the filter is instead a table components, the query can still be dense
+        assert!(query.is_dense);
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = QueryState::<&Sparse>::new(&mut world);
+        // But only if the original query was dense
+        assert!(!query.is_dense);
+        assert_eq!(1, query.iter(&world).count());
     }
 }
