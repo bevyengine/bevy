@@ -16,6 +16,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -68,15 +69,19 @@ pub mod prelude {
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
-            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
+            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
+            WithParamWarnPolicy,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "std")]
+    pub use crate::system::ParallelCommands;
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
@@ -87,6 +92,17 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
+}
+
+/// Exports used by macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
+#[doc(hidden)]
+pub mod __macro_exports {
+    // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
+    // included `extern crate alloc;`. This re-export ensures we have access
+    // to `Vec` in `no_std` and `std` contexts.
+    pub use alloc::vec::Vec;
 }
 
 #[cfg(test)]
