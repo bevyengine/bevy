@@ -890,7 +890,13 @@ impl<'w> EntityWorldMut<'w> {
     #[inline(never)]
     #[cold]
     fn panic_despawned(&self) -> ! {
-        panic!("Entity {} has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn.", self.entity);
+        panic!(
+            "Entity {} {}",
+            self.entity,
+            self.world
+                .entities()
+                .entity_does_not_exist_error_details_message(self.entity)
+        );
     }
 
     #[inline(always)]
@@ -4830,9 +4836,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Entity 1v1 has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn."
-    )]
+    #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(
