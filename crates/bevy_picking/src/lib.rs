@@ -309,7 +309,7 @@ impl PickingPlugin {
         state.is_input_enabled && state.is_enabled
     }
 
-    /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
+    /// Whether or not systems updating entities' [`PickingInteraction`](hover::PickingInteraction)
     /// component should be running.
     pub fn hover_should_run(state: Res<Self>) -> bool {
         state.is_hover_enabled && state.is_enabled
