@@ -697,6 +697,8 @@ impl World {
     ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
     /// }
     /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
@@ -833,6 +835,8 @@ impl World {
     ///     assert_eq!(pos.y, 2.0);
     /// }
     /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
@@ -935,6 +939,8 @@ impl World {
     /// # Examples
     ///
     /// For examples, see [`World::entity`].
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
         let cell = self.as_unsafe_world_cell_readonly();
@@ -971,6 +977,8 @@ impl World {
     /// # Examples
     ///
     /// For examples, see [`World::entity_mut`].
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
