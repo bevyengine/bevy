@@ -41,7 +41,7 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
-smallvec = { version = "1", features = ["union"] }
+smallvec = { version = "1.13", features = ["union", "const_generics", "const_new"] }
 indexmap = { version = "2.5.0", default-features = false, features = ["std"] }
 variadics_please = "1.0"
 
