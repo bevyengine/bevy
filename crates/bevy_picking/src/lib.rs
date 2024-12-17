@@ -393,7 +393,7 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use focus::{update_focus, update_interactions};
+        use focus::{generate_hovermap, update_interactions};
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
@@ -414,7 +414,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, update_interactions, pointer_events)
+                (generate_hovermap, update_interactions, pointer_events)
                     .chain()
                     .in_set(PickSet::Focus),
             );
