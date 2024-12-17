@@ -6,17 +6,6 @@ use bevy_ecs::event::{
 use bevy_ecs::event::{EventMutParIter, EventParIter};
 use core::marker::PhantomData;
 
-// Deprecated in favor of `EventCursor`, there is no nice way to deprecate this
-// because generic constraints are not allowed in type aliases, so this will always
-// 'dead code'. Hence the `#[allow(dead_code)]`.
-#[deprecated(
-    since = "0.14.0",
-    note = "`ManualEventReader` has been replaced. Please use `EventCursor` instead."
-)]
-#[doc(alias = "EventCursor")]
-#[allow(dead_code)]
-pub type ManualEventReader<E> = EventCursor<E>;
-
 /// Stores the state for an [`EventReader`] or [`EventMutator`].
 ///
 /// Access to the [`Events<E>`] resource is required to read any incoming events.

@@ -50,7 +50,7 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
