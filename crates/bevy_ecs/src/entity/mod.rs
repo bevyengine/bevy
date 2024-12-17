@@ -61,6 +61,8 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -938,6 +940,46 @@ impl Entities {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Sets the source code location from which this entity has last been spawned
+    /// or despawned.
+    #[cfg(feature = "track_change_detection")]
+    #[inline]
+    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
+        let meta = self
+            .meta
+            .get_mut(index as usize)
+            .expect("Entity index invalid");
+        meta.spawned_or_despawned_by = Some(caller);
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    #[cfg(feature = "track_change_detection")]
+    pub fn entity_get_spawned_or_despawned_by(
+        &self,
+        entity: Entity,
+    ) -> Option<&'static Location<'static>> {
+        self.meta
+            .get(entity.index() as usize)
+            .and_then(|meta| meta.spawned_or_despawned_by)
+    }
+
+    /// Constructs a message explaining why an entity does not exists, if known.
+    pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
+        #[cfg(feature = "track_change_detection")]
+        {
+            if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
+                format!("was despawned by {location}",)
+            } else {
+                "was never spawned".to_owned()
+            }
+        }
+        #[cfg(not(feature = "track_change_detection"))]
+        {
+            "does not exist (enable `track_change_detection` feature for more details)".to_owned()
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -946,6 +988,9 @@ struct EntityMeta {
     pub generation: NonZero<u32>,
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
+    /// Location of the last spawn or despawn of this entity
+    #[cfg(feature = "track_change_detection")]
+    spawned_or_despawned_by: Option<&'static Location<'static>>,
 }
 
 impl EntityMeta {
@@ -953,10 +998,12 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
+        #[cfg(feature = "track_change_detection")]
+        spawned_or_despawned_by: None,
     };
 }
 
-/// Records where an entity's data is stored.
+/// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.

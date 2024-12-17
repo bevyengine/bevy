@@ -8,7 +8,7 @@ fn easing(c: &mut Criterion) {
         b.iter(|| {
             (0..1000).map(|i| i as f32 / 1000.0).for_each(|t| {
                 black_box(cubic_bezier.ease(black_box(t)));
-            })
+            });
         });
     });
 }

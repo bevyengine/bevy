@@ -180,7 +180,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }
@@ -211,7 +211,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }
@@ -242,7 +242,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }

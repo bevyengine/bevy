@@ -3,8 +3,13 @@
 // TODO: remove once Edition 2024 is released
 #![allow(dependency_on_unit_never_type_fallback)]
 #![doc = include_str!("../README.md")]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![allow(unsafe_code)]
 #![doc(

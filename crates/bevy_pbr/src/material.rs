@@ -283,12 +283,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_mesh_materials::<M>
-                        .before(extract_meshes_for_cpu_building)
-                        .before(extract_meshes_for_gpu_building),
-                )
+                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -780,7 +775,7 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -809,11 +804,11 @@ pub fn queue_material_meshes<M: Material>(
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | mesh_pipeline_key_bits;
 
-            let lightmap_image = render_lightmaps
+            let lightmap_slab_index = render_lightmaps
                 .render_lightmaps
                 .get(visible_entity)
-                .map(|lightmap| lightmap.image);
-            if lightmap_image.is_some() {
+                .map(|lightmap| lightmap.slab_index);
+            if lightmap_slab_index.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -881,7 +876,8 @@ pub fn queue_material_meshes<M: Material>(
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
                                 index_slab,
-                                lightmap_image,
+                                lightmap_slab: lightmap_slab_index
+                                    .map(|lightmap_slab_index| *lightmap_slab_index),
                             },
                             asset_id: mesh_instance.mesh_asset_id.into(),
                         };
