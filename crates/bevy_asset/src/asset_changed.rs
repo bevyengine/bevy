@@ -168,8 +168,14 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
-        // SAFETY: `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
-        let Some(changes) = (unsafe { world.get_resource::<AssetChanges<A::Asset>>() }) else {
+        // SAFETY:
+        // - `AssetChanges` is private and only accessed mutably in the `AssetEvents` schedule
+        // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
+        let Some(changes) = (unsafe {
+            world
+                .get_resource_by_id(state.resource_id)
+                .map(|ptr| ptr.deref::<AssetChanges<A::Asset>>())
+        }) else {
             error!(
                 "AssetChanges<{ty}> resource was removed, please do not remove \
                 AssetChanges<{ty}> when using the AssetChanged<{ty}> world query",
