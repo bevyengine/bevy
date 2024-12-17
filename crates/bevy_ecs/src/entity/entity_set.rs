@@ -1,4 +1,5 @@
 use alloc::{
+    boxed::Box,
     collections::{btree_map, btree_set},
     rc::Rc,
     sync::Arc,
