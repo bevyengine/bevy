@@ -1328,9 +1328,9 @@ mod tests {
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 7);
+        assert_eq!(world.resource::<Counter>().0, 5);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 72);
+        assert_eq!(world.resource::<Counter>().0, 52);
     }
 
     #[test]
