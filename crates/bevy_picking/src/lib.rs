@@ -257,12 +257,12 @@ pub enum PickSet {
     ProcessInput,
     /// Reads inputs and produces [`backend::PointerHits`]s. In the [`PreUpdate`] schedule.
     Backend,
-    /// Reads [`backend::PointerHits`]s, and updates focus, selection, and highlighting states. In
+    /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
     /// the [`PreUpdate`] schedule.
-    Focus,
-    /// Runs after all the focus systems are done, before event listeners are triggered. In the
+    Hover,
+    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
     /// [`PreUpdate`] schedule.
-    PostFocus,
+    PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
@@ -370,8 +370,8 @@ impl Plugin for PickingPlugin {
                 (
                     PickSet::ProcessInput.run_if(Self::input_should_run),
                     PickSet::Backend,
-                    PickSet::Focus.run_if(Self::focus_should_run),
-                    PickSet::PostFocus,
+                    PickSet::Hover.run_if(Self::focus_should_run),
+                    PickSet::PostHover,
                     PickSet::Last,
                 )
                     .chain(),
@@ -416,7 +416,7 @@ impl Plugin for InteractionPlugin {
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)
                     .chain()
-                    .in_set(PickSet::Focus),
+                    .in_set(PickSet::Hover),
             );
     }
 }
