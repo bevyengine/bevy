@@ -6,7 +6,7 @@ use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    view::Visibility,
+    view::{self, Visibility, VisibilityClass},
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -328,9 +328,11 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
+    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
+#[component(on_add = view::add_visibility_class::<Node>)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

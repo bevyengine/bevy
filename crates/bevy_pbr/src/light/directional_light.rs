@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility};
 
 use super::*;
 
@@ -57,8 +57,10 @@ use super::*;
     CascadeShadowConfig,
     CascadesVisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    VisibilityClass
 )]
+#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///

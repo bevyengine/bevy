@@ -27,7 +27,6 @@ use super::{check_visibility, VisibilitySystems};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     camera::Camera,
-    mesh::Mesh3d,
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
@@ -59,7 +58,7 @@ impl Plugin for VisibilityRangePlugin {
                 PostUpdate,
                 check_visibility_ranges
                     .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility::<With<Mesh3d>>),
+                    .before(check_visibility),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

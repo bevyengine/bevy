@@ -72,11 +72,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{
-    camera::CameraUpdateSystem,
-    view::{check_visibility, VisibilitySystems},
-    RenderApp,
-};
+use bevy_render::{camera::CameraUpdateSystem, RenderApp};
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -203,7 +199,6 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                check_visibility::<With<Node>>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
