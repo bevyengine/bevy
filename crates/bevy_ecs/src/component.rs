@@ -2153,10 +2153,6 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
-    // This path will be selected if:
-    // 1. Component has ReflectFromReflect or ReflectDefault registered.
-    // 2. Component has ReflectFromPtr registered.
-    // Otherwise, it will fallback to clone_slow.
     let Some(registry) = ctx.type_registry() else {
         return;
     };
