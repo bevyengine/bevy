@@ -59,7 +59,7 @@ use bevy_render::{
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{check_visibility, NoFrustumCulling, VisibilitySystems},
+    view::{self, NoFrustumCulling, VisibilityClass, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -96,11 +96,9 @@ pub enum SpriteSystem {
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
 #[reflect(Component, Default, Debug)]
+#[require(VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct SpriteSource;
-
-/// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -139,11 +137,6 @@ impl Plugin for SpritePlugin {
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
-                    (
-                        check_visibility::<With<Mesh2d>>,
-                        check_visibility::<WithSprite>,
-                    )
-                        .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 
