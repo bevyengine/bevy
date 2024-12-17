@@ -396,7 +396,7 @@ mod tests {
 
         fn query_system(
             mut ran: ResMut<SystemRan>,
-            entities_array: Res<EntitiesArray>,
+            entities_array: &EntitiesArray,
             q: Query<&W<usize>>,
         ) {
             let entities_array: [Entity; ENTITIES_COUNT] =
@@ -1063,9 +1063,9 @@ mod tests {
 
     #[test]
     fn get_system_conflicts() {
-        fn sys_x(_: Res<A>, _: Res<B>, _: Query<(&C, &D)>) {}
+        fn sys_x(_: &A, _: &B, _: Query<(&C, &D)>) {}
 
-        fn sys_y(_: Res<A>, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
+        fn sys_y(_: &A, _: ResMut<B>, _: Query<(&C, &mut D)>) {}
 
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);

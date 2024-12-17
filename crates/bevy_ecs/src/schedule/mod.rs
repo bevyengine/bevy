@@ -60,7 +60,7 @@ mod tests {
         world.resource_mut::<SystemOrder>().0.push(u32::MAX);
     }
 
-    fn counting_system(counter: Res<Counter>) {
+    fn counting_system(counter: &Counter) {
         counter.0.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -741,6 +741,7 @@ mod tests {
 
         fn empty_system() {}
         fn res_system(_res: Res<R>) {}
+        fn res_ref_system(_res: &R) {}
         fn resmut_system(_res: ResMut<R>) {}
         fn nonsend_system(_ns: NonSend<R>) {}
         fn nonsendmut_system(_ns: NonSendMut<R>) {}
@@ -788,6 +789,7 @@ mod tests {
                 empty_system,
                 res_system,
                 res_system,
+                res_ref_system,
                 nonsend_system,
                 nonsend_system,
                 read_component_system,

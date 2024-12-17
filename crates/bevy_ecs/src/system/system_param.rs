@@ -688,7 +688,7 @@ impl_param_set!();
 ///
 /// world.insert_resource(MyResource { value: 42 });
 ///
-/// fn read_resource_system(resource: Res<MyResource>) {
+/// fn read_resource_system(resource: &MyResource) {
 ///     assert_eq!(resource.value, 42);
 /// }
 ///
@@ -814,6 +814,47 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             #[cfg(feature = "track_change_detection")]
             changed_by: _caller.deref(),
         }
+    }
+}
+
+// SAFETY: Only reads a single World resource
+unsafe impl<'a, T: Resource> ReadOnlySystemParam for &'a T {}
+
+// SAFETY: this impl defers to `Res`, which initializes and validates the correct world access.
+unsafe impl<'a, T: Resource> SystemParam for &'a T {
+    type State = ComponentId;
+    type Item<'w, 's> = &'w T;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Res::<T>::init_state(world, system_meta)
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        component_id: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Same safety conditions as `Res::validate_param`
+        Res::<T>::validate_param(component_id, system_meta, world)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        &mut component_id: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        let ptr = world.get_resource_by_id(component_id).unwrap_or_else(|| {
+            panic!(
+                "Resource requested by {} does not exist: {}",
+                system_meta.name,
+                core::any::type_name::<T>()
+            )
+        });
+
+        ptr.deref()
     }
 }
 
@@ -2523,6 +2564,11 @@ mod tests {
         }
 
         #[derive(SystemParam)]
+        pub struct ResByRef<'w, T: Resource> {
+            _res: &'w T,
+        }
+
+        #[derive(SystemParam)]
         pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
             _local: Local<'s, T>,
         }
@@ -2530,7 +2576,7 @@ mod tests {
         #[derive(Resource)]
         struct R;
 
-        fn my_system(_: SpecialRes<R>, _: SpecialLocal<u32>) {}
+        fn my_system(_: SpecialRes<R>, _: ResByRef<R>, _: SpecialLocal<u32>) {}
         assert_is_system(my_system);
     }
 
