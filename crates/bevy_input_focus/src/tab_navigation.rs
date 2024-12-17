@@ -266,6 +266,9 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 }
 
 /// Observer function which handles tab navigation.
+///
+/// This observer responds to [`KeyCode::Tab`] events and Shift+Tab events,
+/// cycling through focusable entities in the order determined by their tab index.
 pub fn handle_tab_navigation(
     mut trigger: Trigger<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
