@@ -1,7 +1,4 @@
-use alloc::{
-    boxed::Box,
-    vec::{self, Vec},
-};
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::any::Any;
 
 use crate::{

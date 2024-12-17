@@ -1,9 +1,5 @@
 use alloc::{
-    boxed::Box,
-    collections::BTreeSet,
-    format,
-    string::{String, ToString},
-    vec::{self, Vec},
+    boxed::Box, collections::BTreeSet, format, string::String, string::ToString, vec, vec::Vec,
 };
 use bevy_utils::{default, HashMap, HashSet};
 use core::fmt::{Debug, Write};

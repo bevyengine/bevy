@@ -8,10 +8,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
 };
-use alloc::{
-    boxed::Box,
-    vec::{self, Vec},
-};
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},

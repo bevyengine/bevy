@@ -45,7 +45,7 @@
     unsafe_code
 )]
 
-use alloc::vec::{self, Vec};
+use alloc::{vec, vec::Vec};
 use core::ptr::{self, null_mut};
 
 use glam::Vec3;
