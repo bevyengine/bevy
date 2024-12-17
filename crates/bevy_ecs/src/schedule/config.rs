@@ -1,4 +1,7 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{
+    boxed::Box,
+    vec::{self, Vec},
+};
 use variadics_please::all_tuples;
 
 use crate::{

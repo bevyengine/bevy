@@ -3,7 +3,10 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{
+    borrow::Cow,
+    vec::{self, Vec},
+};
 use core::any::TypeId;
 
 pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};

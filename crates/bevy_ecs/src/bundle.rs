@@ -20,7 +20,10 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{
+    boxed::Box,
+    vec::{self, Vec},
+};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]

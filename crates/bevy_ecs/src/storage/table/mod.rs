@@ -5,7 +5,10 @@ use crate::{
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{
+    boxed::Box,
+    vec::{self, Vec},
+};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;

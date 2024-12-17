@@ -1,4 +1,4 @@
-use alloc::{vec, vec::Vec};
+use alloc::vec::{self, Vec};
 use core::fmt::Debug;
 use smallvec::SmallVec;
 
