@@ -49,11 +49,11 @@ track_change_detection = []
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "bevy_tasks/async_executor"]
+async_executor = ["dep:bevy_tasks", "std", "bevy_tasks/async_executor"]
 
 ## Uses `edge-executor` as a task execution backend.
 ## Use this instead of `async-executor` if working on a `no_std` target.
-edge_executor = ["bevy_tasks/edge_executor"]
+edge_executor = ["dep:bevy_tasks", "bevy_tasks/edge_executor"]
 
 # Platform Compatibility
 
@@ -95,7 +95,7 @@ portable-atomic = [
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev", default-features = false }
+bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev", default-features = false, optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
   "alloc",
 ] }
