@@ -68,13 +68,12 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
-    component::{require, Component, ComponentId},
+    component::{require, Component},
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
-    world::DeferredWorld,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -90,7 +89,6 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
-use core::any::TypeId;
 use derive_more::From;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
