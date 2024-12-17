@@ -1,27 +1,43 @@
+//! This example demonstrates how to write a custom phase
+//!
+//! Render phases in bevy are used whenever you need to draw a groud of neshes in a specific way.
+//! For example, bevy's main pass has an opaque phase, a transparent phase for both 2d and 3d.
+//! Sometimes, you may want to only draw a subset of meshes before or after the builtin phase. In
+//! those situations you need to write your own phase.
+
 use std::ops::Range;
 
 use bevy::{
-    asset::UntypedAssetId,
-    core_pipeline::{
-        core_2d::Opaque2dBinKey,
-        tonemapping::{DebandDither, Tonemapping},
+    ecs::{
+        entity::EntityHashSet,
+        query::ROQueryItem,
+        system::{
+            lifetimeless::{Read, SRes},
+            SystemParamItem,
+        },
     },
-    ecs::entity::{EntityHash, EntityHashSet},
-    pbr::tonemapping_pipeline_key,
+    math::FloatOrd,
+    pbr::{DrawMesh, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
-    sprite::{Material2dKey, Mesh2dPipelineKey, RenderMesh2dInstances},
 };
 use bevy_render::{
-    mesh::RenderMesh,
-    render_asset::RenderAssets,
+    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseType, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, PhaseItem, PhaseItemExtraIndex, ViewBinnedRenderPhases,
+        sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, SortedPhaseItem, TrackedRenderPass, ViewSortedRenderPhases,
     },
-    render_resource::{BindGroupId, CachedRenderPipelineId, PipelineCache},
-    sync_world::MainEntity,
-    view::{ExtractedView, VisibleEntities},
-    Extract, Render, RenderApp,
+    render_resource::{
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, BindingResources,
+        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    },
+    renderer::RenderDevice,
+    sync_world::{MainEntity, RenderEntity},
+    view::{check_visibility, ExtractedView, RenderVisibleEntities, VisibilitySystems},
+    Extract, Render, RenderApp, RenderSet,
 };
 
 fn main() {
@@ -31,84 +47,211 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_draw: ResMut<Assets<CustomDrawData>>,
+) {
+    // circular base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+    // cube
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+        CustomDrawDataHandle(custom_draw.add(CustomDrawData {
+            // Set it to red
+            color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+        })),
+    ));
+    // light
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
+
+#[derive(Component, ExtractComponent, Clone, Copy)]
+struct CustomDrawMarker;
+
+/// A query filter that tells [`view::check_visibility`] about our custom
+/// rendered entity.
+type WithCustomDraw = With<CustomDrawMarker>;
 
 struct CustomPhasPlugin;
 impl Plugin for CustomPhasPlugin {
     fn build(&self, app: &mut App) {
+        app.init_asset::<CustomDrawData>().add_plugins((
+            RenderAssetPlugin::<PreparedCustomDrawData>::default(),
+            ExtractComponentPlugin::<CustomDrawMarker>::default(),
+        ));
+        // Make sure to tell Bevy to check our entity for visibility. Bevy won't
+        // do this by default, for efficiency reasons.
+        app.add_systems(
+            PostUpdate,
+            check_visibility::<WithCustomDraw>.in_set(VisibilitySystems::CheckVisibility),
+        );
         // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
+            .init_resource::<SpecializedMeshPipelines<CustomDrawPipeline>>()
             .init_resource::<DrawFunctions<CustomPhase>>()
-            .init_resource::<ViewBinnedRenderPhases<CustomPhase>>()
-            .add_systems(Render, extract_camera_phases);
-        //.add_systems(
-        //    Render,
-        //    (batch_and_prepare_binned_render_phase::<CustomPhase>,),
-        //);
+            .add_render_command::<CustomPhase, DrawCustom>()
+            .init_resource::<ViewSortedRenderPhases<CustomPhase>>()
+            .add_systems(ExtractSchedule, extract_camera_phases)
+            .add_systems(
+                Render,
+                (
+                    sort_phase_system::<CustomPhase>.in_set(RenderSet::PhaseSort),
+                    queue_custom_meshes.in_set(RenderSet::QueueMeshes),
+                ),
+            );
     }
+
     fn finish(&self, app: &mut App) {
         // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        render_app.init_resource::<CustomDrawPipeline>();
     }
 }
 
-// TODO Phase
-// TODO Phase Item
-// TODO ViewNode
-
-pub struct CustomPhase {
-    /// The key, which determines which can be batched.
-    pub key: CustomPhaseBinKey,
-    /// An entity from which data will be fetched, including the mesh if
-    /// applicable.
-    pub representative_entity: (Entity, MainEntity),
-    /// The ranges of instances.
-    pub batch_range: Range<u32>,
-    /// An extra index, which is either a dynamic offset or an index in the
-    /// indirect parameters list.
-    pub extra_index: PhaseItemExtraIndex,
+#[derive(AsBindGroup, Asset, Clone, TypePath)]
+struct CustomDrawData {
+    #[uniform(0)]
+    color: Vec4,
 }
 
-/// Data that must be identical in order to batch phase items together.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CustomPhaseBinKey {
-    /// The identifier of the render pipeline.
+#[derive(Resource)]
+struct CustomDrawPipeline {
+    layout: BindGroupLayout,
+}
+impl FromWorld for CustomDrawPipeline {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            layout: CustomDrawData::bind_group_layout(world.resource::<RenderDevice>()),
+        }
+    }
+}
+impl SpecializedMeshPipeline for CustomDrawPipeline {
+    type Key = u32;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayoutRef,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        todo!()
+    }
+}
+
+/// Data prepared for a custom draw
+struct PreparedCustomDrawData {
+    bindings: BindingResources,
+    bind_group: BindGroup,
+}
+impl RenderAsset for PreparedCustomDrawData {
+    type SourceAsset = CustomDrawData;
+
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<CustomDrawPipeline>,
+        <CustomDrawData as AsBindGroup>::Param,
+    );
+
+    fn prepare_asset(
+        material: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
+        (render_device, pipeline, data_param): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        match material.as_bind_group(&pipeline.layout, render_device, data_param) {
+            Ok(prepared) => Ok(PreparedCustomDrawData {
+                bindings: prepared.bindings,
+                bind_group: prepared.bind_group,
+            }),
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                Err(PrepareAssetError::RetryNextUpdate(material))
+            }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
+        }
+    }
+}
+
+type DrawCustom = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMeshBindGroup<1>,
+    SetCustomBindGroup<2>,
+    DrawMesh,
+);
+
+#[derive(Component)]
+struct CustomDrawDataHandle(Handle<CustomDrawData>);
+
+struct SetCustomBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCustomBindGroup<I> {
+    type Param = SRes<RenderAssets<PreparedCustomDrawData>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<CustomDrawDataHandle>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        assets: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(material) = handle.and_then(|handle| assets.into_inner().get(&handle.0)) else {
+            return RenderCommandResult::Failure("invalid item query");
+        };
+        pass.set_bind_group(I, &material.bind_group, &[]);
+        RenderCommandResult::Success
+    }
+}
+
+// TODO ViewNode
+
+struct CustomPhase {
+    pub sort_key: FloatOrd,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
-    /// The function used to draw.
     pub draw_function: DrawFunctionId,
-    /// The asset that this phase item is associated with.
-    ///
-    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
-    /// the ID of another type of asset.
-    pub asset_id: UntypedAssetId,
-    /// The ID of a bind group specific to the material.
-    pub material_bind_group_id: Option<BindGroupId>,
+    pub batch_range: Range<u32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for CustomPhase {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity.0
+        self.entity.0
     }
 
+    #[inline]
     fn main_entity(&self) -> MainEntity {
-        self.representative_entity.1
+        self.entity.1
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.draw_function
     }
 
     #[inline]
@@ -121,44 +264,44 @@ impl PhaseItem for CustomPhase {
         &mut self.batch_range
     }
 
+    #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
+    #[inline]
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
         (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
-impl BinnedPhaseItem for CustomPhase {
-    type BinKey = CustomPhaseBinKey;
+impl SortedPhaseItem for CustomPhase {
+    type SortKey = FloatOrd;
 
-    fn new(
-        key: Self::BinKey,
-        representative_entity: (Entity, MainEntity),
-        batch_range: Range<u32>,
-        extra_index: PhaseItemExtraIndex,
-    ) -> Self {
-        CustomPhase {
-            key,
-            representative_entity,
-            batch_range,
-            extra_index,
-        }
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        // bevy normally uses radsort instead of the std slice::sort_by_key
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
+        // Since it is not re-exported by bevy, we just use the std sort for the purpose of the example
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 
 impl CachedRenderPipelinePhaseItem for CustomPhase {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.pipeline
     }
 }
 
 fn extract_camera_phases(
-    mut commands: Commands,
-    mut custom_phases: ResMut<ViewBinnedRenderPhases<CustomPhase>>,
-    cameras: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    mut custom_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
+    cameras: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -166,72 +309,45 @@ fn extract_camera_phases(
         if !camera.is_active {
             continue;
         }
-        commands.get_or_spawn(entity);
         custom_phases.insert_or_clear(entity);
         live_entities.insert(entity);
+        //println!("phase extracted");
     }
     // Clear out all dead views.
     custom_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_material2d_meshes(
-    opaque_draw_functions: Res<DrawFunctions<CustomPhase>>,
+fn queue_custom_meshes(
+    custom_draw_functions: Res<DrawFunctions<CustomPhase>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<CustomDrawPipeline>>,
     pipeline_cache: Res<PipelineCache>,
+    custom_draw_pipeline: Res<CustomDrawPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<CustomPhase>>,
-    mut views: Query<(
-        Entity,
-        &ExtractedView,
-        &VisibleEntities,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    mut custom_render_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
+    mut views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
 ) {
-    if render_material_instances.is_empty() {
-        return;
-    }
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &mut views {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+    for (view_entity, view, visible_entities, _msaa) in &mut views {
+        let Some(custom_phase) = custom_render_phases.get_mut(&view_entity) else {
             continue;
         };
-        let draw_opaque_2d = opaque_draw_functions.read().id::<DrawMaterial2d<M>>();
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
-            if let Some(DebandDither::Enabled) = dither {
-                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
-            }
-        }
-        for visible_entity in visible_entities.iter::<WithMesh2d>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
-                continue;
-            };
-            let Some(material_2d) = render_materials.get(*material_asset_id) else {
+        let draw_custom = custom_draw_functions.read().id::<DrawCustom>();
+
+        let rangefinder = view.rangefinder3d();
+        for (render_entity, visible_entity) in visible_entities.iter::<WithCustomDraw>() {
+            println!("queue entities");
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let mesh_key = view_key
-                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
-                | material_2d.properties.mesh_pipeline_key_bits;
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
-                &material2d_pipeline,
-                Material2dKey {
-                    mesh_key,
-                    bind_group_data: material_2d.key.clone(),
-                },
+                &custom_draw_pipeline,
+                0, // TODO key
                 &mesh.layout,
             );
             let pipeline_id = match pipeline_id {
@@ -241,20 +357,17 @@ pub fn queue_material2d_meshes(
                     continue;
                 }
             };
-            mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
-            let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
-
-            let bin_key = Opaque2dBinKey {
+            let distance = rangefinder.distance_translation(&mesh_instance.translation);
+            custom_phase.add(CustomPhase {
+                // Sort the data based on the distance to the view
+                sort_key: FloatOrd(distance),
+                entity: (*render_entity, *visible_entity),
                 pipeline: pipeline_id,
-                draw_function: draw_opaque_2d,
-                asset_id: mesh_instance.mesh_asset_id.into(),
-                material_bind_group_id: material_2d.get_bind_group_id().0,
-            };
-            opaque_phase.add(
-                bin_key,
-                *visible_entity,
-                BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
-            );
+                draw_function: draw_custom,
+                // Sorted phase items aren't batched
+                batch_range: 0..1,
+                extra_index: PhaseItemExtraIndex::None,
+            });
         }
     }
 }
