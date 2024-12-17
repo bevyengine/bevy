@@ -109,7 +109,7 @@ impl SystemSchedule {
 
 /// See [`ApplyDeferred`].
 #[deprecated(
-    since = "0.15.0",
+    since = "0.16.0",
     note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
 )]
 #[expect(non_upper_case_globals)]
