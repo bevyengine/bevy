@@ -67,8 +67,8 @@ fn update(
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
-    let material = materials.get_mut(&material_handle.0).unwrap();
-    let buffer = buffers.get_mut(&material.colors).unwrap();
+    let material = materials.get_cloned_mut(&material_handle.0).unwrap();
+    let buffer = buffers.get_cloned_mut(&material.colors).unwrap();
     buffer.set_data(
         (0..5)
             .map(|i| {

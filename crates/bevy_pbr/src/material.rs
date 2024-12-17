@@ -6,6 +6,7 @@ use crate::meshlet::{
     InstanceManager,
 };
 use crate::*;
+use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
@@ -1026,7 +1027,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
     );
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Arc<Self::SourceAsset>,
         material_id: AssetId<Self::SourceAsset>,
         (
             render_device,
