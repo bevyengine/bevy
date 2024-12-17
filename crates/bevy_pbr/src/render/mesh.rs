@@ -28,7 +28,7 @@ use bevy_render::{
     camera::Camera,
     mesh::*,
     primitives::Aabb,
-    render_asset::{ExtractAssetsSet, RenderAssets},
+    render_asset::RenderAssets,
     render_phase::{
         BinnedRenderPhasePlugin, PhaseItem, PhaseItemExtraIndex, RenderCommand,
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
@@ -44,6 +44,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{
+    default,
     hashbrown::hash_map::Entry,
     tracing::{error, warn},
     HashMap, Parallel,
@@ -208,8 +209,7 @@ impl Plugin for MeshRenderPlugin {
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_gpu_building
-                            .in_set(ExtractMeshesSet)
-                            .after(ExtractAssetsSet),
+                            .in_set(ExtractMeshesSet),
                     )
                     .add_systems(
                         Render,
@@ -237,9 +237,7 @@ impl Plugin for MeshRenderPlugin {
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
                         ExtractSchedule,
-                        extract_meshes_for_cpu_building
-                            .in_set(ExtractMeshesSet)
-                            .after(ExtractAssetsSet),
+                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
                     )
                     .add_systems(
                         Render,
@@ -624,7 +622,6 @@ impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
-        material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -642,7 +639,8 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
-            material_bindings_index,
+            // This gets filled in later, during `RenderMeshGpuBuilder::update`.
+            material_bindings_index: default(),
         }
     }
 
@@ -901,12 +899,13 @@ impl RenderMeshInstanceGpuBuilder {
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
     #[allow(clippy::too_many_arguments)]
     fn update(
-        self,
+        mut self,
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
+        mesh_material_ids: &RenderMeshMaterialIds,
         render_lightmaps: &RenderLightmaps,
         skin_indices: &SkinIndices,
     ) -> u32 {
@@ -924,6 +923,10 @@ impl RenderMeshInstanceGpuBuilder {
             Some(skin_indices) => skin_indices.index(),
             None => u32::MAX,
         };
+
+        // Look up the material index.
+        let mesh_material_binding_id = mesh_material_ids.mesh_material_binding_id(entity);
+        self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
@@ -1067,7 +1070,6 @@ pub struct ExtractMeshesSet;
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mesh_material_ids: Res<RenderMeshMaterialIds>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
         Query<(
@@ -1105,9 +1107,6 @@ pub fn extract_meshes_for_cpu_building(
                 return;
             }
 
-            let mesh_material_binding_id =
-                mesh_material_ids.mesh_material_binding_id(MainEntity::from(entity));
-
             let mut lod_index = None;
             if visibility_range {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
@@ -1124,7 +1123,6 @@ pub fn extract_meshes_for_cpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
-                mesh_material_binding_id,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1176,7 +1174,6 @@ pub fn extract_meshes_for_cpu_building(
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mesh_material_ids: Res<RenderMeshMaterialIds>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     changed_meshes_query: Extract<
         Query<
@@ -1256,9 +1253,6 @@ pub fn extract_meshes_for_gpu_building(
                 return;
             }
 
-            let mesh_material_binding_id =
-                mesh_material_ids.mesh_material_binding_id(MainEntity::from(entity));
-
             let mut lod_index = None;
             if visibility_range {
                 lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
@@ -1275,7 +1269,6 @@ pub fn extract_meshes_for_gpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
-                mesh_material_binding_id,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1358,6 +1351,7 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
+#[allow(clippy::too_many_arguments)]
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
     batched_instance_buffers: ResMut<
@@ -1366,6 +1360,7 @@ pub fn collect_meshes_for_gpu_building(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
+    mesh_material_ids: Res<RenderMeshMaterialIds>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_indices: Res<SkinIndices>,
 ) {
@@ -1403,6 +1398,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &mesh_material_ids,
                         &render_lightmaps,
                         &skin_indices,
                     );
@@ -1428,6 +1424,7 @@ pub fn collect_meshes_for_gpu_building(
                         current_input_buffer,
                         previous_input_buffer,
                         &mesh_allocator,
+                        &mesh_material_ids,
                         &render_lightmaps,
                         &skin_indices,
                     );
