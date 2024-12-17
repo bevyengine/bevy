@@ -656,7 +656,7 @@ mod tests {
             assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
         }
 
-        // TODO: remove this when 13432 lands
+        // TODO: remove this when https://github.com/bevyengine/bevy/pull/13432 lands
         #[test]
         fn clone_entity_using_reflect_fast_path() {
             // `ReflectDefault`-based fast path
