@@ -311,7 +311,7 @@ impl PickingPlugin {
 
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
-    pub fn focus_should_run(state: Res<Self>) -> bool {
+    pub fn hover_should_run(state: Res<Self>) -> bool {
         state.is_focus_enabled && state.is_enabled
     }
 
@@ -370,7 +370,7 @@ impl Plugin for PickingPlugin {
                 (
                     PickSet::ProcessInput.run_if(Self::input_should_run),
                     PickSet::Backend,
-                    PickSet::Hover.run_if(Self::focus_should_run),
+                    PickSet::Hover.run_if(Self::hover_should_run),
                     PickSet::PostHover,
                     PickSet::Last,
                 )
