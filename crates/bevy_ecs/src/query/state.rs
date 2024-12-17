@@ -187,6 +187,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
         state.archetype_generation = world.archetypes.generation();
+
+        // Resource access is not part of any archetype and must be handled separately
+        if state.component_access.access().has_read_all_resources() {
+            access.read_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_reads() {
+                access.add_resource_read(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
+        if state.component_access.access().has_write_all_resources() {
+            access.write_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_writes() {
+                access.add_resource_write(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
         state
     }
 

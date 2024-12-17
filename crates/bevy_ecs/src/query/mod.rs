@@ -105,14 +105,19 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::Component,
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
-        query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData},
+        archetype::Archetype,
+        component::{Component, ComponentId, Components, Tick},
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
+        query::{
+            ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
+            ReadOnlyQueryData, WorldQuery,
+        },
         schedule::{IntoSystemConfigs, Schedule},
-        system::{IntoSystem, Query, System, SystemState},
-        world::World,
+        storage::{Table, TableRow},
+        system::{assert_is_system, IntoSystem, Query, System, SystemState},
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
-    use bevy_ecs_macros::{QueryData, QueryFilter};
+    use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::collections::HashSet;
 
@@ -791,5 +796,236 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
+    }
+
+    #[derive(Resource)]
+    struct R;
+
+    /// `QueryData` that performs read access on R to test that resource access is tracked
+    struct ReadsRData;
+
+    /// `QueryData` that performs write access on R to test that resource access is tracked
+    struct WritesRData;
+
+    /// SAFETY:
+    /// `update_component_access` adds resource read access for `R`.
+    /// `update_archetype_component_access` does nothing, as this accesses no components.
+    unsafe impl WorldQuery for ReadsRData {
+        type Item<'w> = ();
+        type Fetch<'w> = ();
+        type State = ComponentId;
+
+        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
+        unsafe fn init_fetch<'w>(
+            _world: UnsafeWorldCell<'w>,
+            _state: &Self::State,
+            _last_run: Tick,
+            _this_run: Tick,
+        ) -> Self::Fetch<'w> {
+        }
+
+        const IS_DENSE: bool = true;
+
+        #[inline]
+        unsafe fn set_archetype<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _state: &Self::State,
+            _archetype: &'w Archetype,
+            _table: &Table,
+        ) {
+        }
+
+        #[inline]
+        unsafe fn set_table<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _state: &Self::State,
+            _table: &'w Table,
+        ) {
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> Self::Item<'w> {
+        }
+
+        fn update_component_access(
+            &component_id: &Self::State,
+            access: &mut FilteredAccess<ComponentId>,
+        ) {
+            assert!(
+                !access.access().has_resource_write(component_id),
+                "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
+            );
+            access.add_resource_read(component_id);
+        }
+
+        fn init_state(world: &mut World) -> Self::State {
+            world.components.register_resource::<R>()
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            components.resource_id::<R>()
+        }
+
+        fn matches_component_set(
+            _state: &Self::State,
+            _set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            true
+        }
+    }
+
+    /// SAFETY: `Self` is the same as `Self::ReadOnly`
+    unsafe impl QueryData for ReadsRData {
+        type ReadOnly = Self;
+    }
+
+    /// SAFETY: access is read only
+    unsafe impl ReadOnlyQueryData for ReadsRData {}
+
+    /// SAFETY:
+    /// `update_component_access` adds resource read access for `R`.
+    /// `update_archetype_component_access` does nothing, as this accesses no components.
+    unsafe impl WorldQuery for WritesRData {
+        type Item<'w> = ();
+        type Fetch<'w> = ();
+        type State = ComponentId;
+
+        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
+        unsafe fn init_fetch<'w>(
+            _world: UnsafeWorldCell<'w>,
+            _state: &Self::State,
+            _last_run: Tick,
+            _this_run: Tick,
+        ) -> Self::Fetch<'w> {
+        }
+
+        const IS_DENSE: bool = true;
+
+        #[inline]
+        unsafe fn set_archetype<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _state: &Self::State,
+            _archetype: &'w Archetype,
+            _table: &Table,
+        ) {
+        }
+
+        #[inline]
+        unsafe fn set_table<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _state: &Self::State,
+            _table: &'w Table,
+        ) {
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> Self::Item<'w> {
+        }
+
+        fn update_component_access(
+            &component_id: &Self::State,
+            access: &mut FilteredAccess<ComponentId>,
+        ) {
+            assert!(
+                !access.access().has_resource_read(component_id),
+                "WritesRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+            );
+            access.add_resource_write(component_id);
+        }
+
+        fn init_state(world: &mut World) -> Self::State {
+            world.components.register_resource::<R>()
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            components.resource_id::<R>()
+        }
+
+        fn matches_component_set(
+            _state: &Self::State,
+            _set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            true
+        }
+    }
+
+    /// SAFETY: `Self` is the same as `Self::ReadOnly`
+    unsafe impl QueryData for WritesRData {
+        type ReadOnly = ReadsRData;
+    }
+
+    #[test]
+    fn read_res_read_res_no_conflict() {
+        fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn read_res_write_res_conflict() {
+        fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<WritesRData, Without<A>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn write_res_read_res_conflict() {
+        fn system(_q1: Query<WritesRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn write_res_write_res_conflict() {
+        fn system(_q1: Query<WritesRData, With<A>>, _q2: Query<WritesRData, Without<A>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    fn read_write_res_sets_archetype_component_access() {
+        let mut world = World::new();
+
+        fn read_query(_q: Query<ReadsRData, With<A>>) {}
+        let mut read_query = IntoSystem::into_system(read_query);
+        read_query.initialize(&mut world);
+
+        fn write_query(_q: Query<WritesRData, With<A>>) {}
+        let mut write_query = IntoSystem::into_system(write_query);
+        write_query.initialize(&mut world);
+
+        fn read_res(_r: Res<R>) {}
+        let mut read_res = IntoSystem::into_system(read_res);
+        read_res.initialize(&mut world);
+
+        fn write_res(_r: ResMut<R>) {}
+        let mut write_res = IntoSystem::into_system(write_res);
+        write_res.initialize(&mut world);
+
+        assert!(read_query
+            .archetype_component_access()
+            .is_compatible(read_res.archetype_component_access()));
+        assert!(!write_query
+            .archetype_component_access()
+            .is_compatible(read_res.archetype_component_access()));
+        assert!(!read_query
+            .archetype_component_access()
+            .is_compatible(write_res.archetype_component_access()));
+        assert!(!write_query
+            .archetype_component_access()
+            .is_compatible(write_res.archetype_component_access()));
     }
 }
