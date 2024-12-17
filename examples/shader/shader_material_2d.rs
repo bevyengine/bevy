@@ -59,6 +59,6 @@ impl Material2d for CustomMaterial {
     }
 
     fn alpha_mode(&self) -> AlphaMode2d {
-        AlphaMode2d::Blend
+        AlphaMode2d::Mask(0.5)
     }
 }
