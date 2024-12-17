@@ -14,6 +14,8 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 use thiserror::Error;
 
@@ -271,6 +273,12 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
     }
 }
 
@@ -802,6 +810,12 @@ impl<'w> EntityMut<'w> {
         // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut(self.0) }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
+    }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
@@ -876,7 +890,13 @@ impl<'w> EntityWorldMut<'w> {
     #[inline(never)]
     #[cold]
     fn panic_despawned(&self) -> ! {
-        panic!("Entity {} has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn.", self.entity);
+        panic!(
+            "Entity {} {}",
+            self.entity,
+            self.world
+                .entities()
+                .entity_does_not_exist_error_details_message(self.entity)
+        );
     }
 
     #[inline(always)]
@@ -1304,7 +1324,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1322,7 +1342,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1333,7 +1353,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1873,7 +1893,18 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
     pub fn despawn(self) {
+        self.despawn_with_caller(
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    pub(crate) fn despawn_with_caller(
+        self,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) {
         self.assert_not_despawned();
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
@@ -1962,6 +1993,16 @@ impl<'w> EntityWorldMut<'w> {
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
+
+        #[cfg(feature = "track_change_detection")]
+        {
+            // SAFETY: No structural changes
+            unsafe {
+                world
+                    .entities_mut()
+                    .set_spawned_or_despawned_by(self.entity.index(), caller);
+            }
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -2286,6 +2327,15 @@ impl<'w> EntityWorldMut<'w> {
         self.world.flush();
         self.update_location();
         self
+    }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
@@ -2820,6 +2870,12 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -3141,6 +3197,12 @@ impl<'w> FilteredEntityMut<'w> {
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -3279,6 +3341,12 @@ where
             unsafe { self.entity.get_ref() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
@@ -3387,6 +3455,12 @@ where
             unsafe { self.entity.get_mut() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
@@ -3445,7 +3519,7 @@ unsafe fn insert_dynamic_bundle<
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 }
@@ -3747,6 +3821,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+    #[cfg(feature = "track_change_detection")]
+    use core::panic::Location;
+    #[cfg(feature = "track_change_detection")]
+    use std::sync::OnceLock;
 
     use crate::{
         self as bevy_ecs,
@@ -4756,9 +4834,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Entity 1v1 has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn."
-    )]
+    #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(
@@ -5026,5 +5102,56 @@ mod tests {
 
         assert_eq!(world.entity(entity_a).get::<D>(), None);
         assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
+    }
+
+    #[test]
+    #[cfg(feature = "track_change_detection")]
+    fn update_despawned_by_after_observers() {
+        let mut world = World::new();
+
+        #[derive(Component)]
+        #[component(on_remove = get_tracked)]
+        struct C;
+
+        static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
+        fn get_tracked(world: DeferredWorld, entity: Entity, _: ComponentId) {
+            TRACKED.get_or_init(|| {
+                world
+                    .entities
+                    .entity_get_spawned_or_despawned_by(entity)
+                    .unwrap()
+            });
+        }
+
+        #[track_caller]
+        fn caller_spawn(world: &mut World) -> (Entity, &'static Location<'static>) {
+            let caller = Location::caller();
+            (world.spawn(C).id(), caller)
+        }
+        let (entity, spawner) = caller_spawn(&mut world);
+
+        assert_eq!(
+            spawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
+
+        #[track_caller]
+        fn caller_despawn(world: &mut World, entity: Entity) -> &'static Location<'static> {
+            world.despawn(entity);
+            Location::caller()
+        }
+        let despawner = caller_despawn(&mut world, entity);
+
+        assert_eq!(spawner, *TRACKED.get().unwrap());
+        assert_eq!(
+            despawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
     }
 }

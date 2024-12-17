@@ -321,7 +321,7 @@ where
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::NoSuchEntity(_, _) => return Err(DrawError::ViewEntityNotFound),
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

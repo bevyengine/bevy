@@ -677,7 +677,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -703,13 +703,18 @@ impl World {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
+        fn panic_no_entity(world: &World, entity: Entity) -> ! {
+            panic!(
+                "Entity {entity:?} {}",
+                world
+                    .entities
+                    .entity_does_not_exist_error_details_message(entity)
+            );
         }
 
         match self.get_entity(entities) {
             Ok(fetched) => fetched,
-            Err(entity) => panic_no_entity(entity),
+            Err(entity) => panic_no_entity(self, entity),
         }
     }
 
@@ -724,7 +729,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
@@ -806,7 +811,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -947,6 +952,19 @@ impl World {
     #[inline]
     #[deprecated(since = "0.15.0", note = "use `World::spawn` instead")]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
+        self.get_or_spawn_with_caller(
+            entity,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    #[inline]
+    pub(crate) fn get_or_spawn_with_caller(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Option<EntityWorldMut> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
@@ -955,7 +973,13 @@ impl World {
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_empty_internal(entity) })
+                Some(unsafe {
+                    self.spawn_at_empty_internal(
+                        entity,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
         }
@@ -970,7 +994,7 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
@@ -1063,7 +1087,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
@@ -1178,7 +1202,9 @@ impl World {
         entities: [Entity; N],
     ) -> Result<[EntityMut<'_>; N], QueryEntityError<'_>> {
         self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
+            EntityFetchError::NoSuchEntity(entity, world) => {
+                QueryEntityError::NoSuchEntity(entity, world)
+            }
             EntityFetchError::AliasedMutability(entity) => {
                 QueryEntityError::AliasedMutability(entity)
             }
@@ -1215,7 +1241,9 @@ impl World {
         entities: &[Entity],
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
         self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
+            EntityFetchError::NoSuchEntity(entity, world) => {
+                QueryEntityError::NoSuchEntity(entity, world)
+            }
             EntityFetchError::AliasedMutability(entity) => {
                 QueryEntityError::AliasedMutability(entity)
             }
@@ -1259,7 +1287,9 @@ impl World {
         self.get_entity_mut(entities)
             .map(|fetched| fetched.into_values().collect())
             .map_err(|e| match e {
-                EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
+                EntityFetchError::NoSuchEntity(entity, world) => {
+                    QueryEntityError::NoSuchEntity(entity, world)
+                }
                 EntityFetchError::AliasedMutability(entity) => {
                     QueryEntityError::AliasedMutability(entity)
                 }
@@ -1291,11 +1321,18 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity) }
+        unsafe {
+            self.spawn_at_empty_internal(
+                entity,
+                #[cfg(feature = "track_change_detection")]
+                Location::caller(),
+            )
+        }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1376,23 +1413,33 @@ impl World {
             }
         };
 
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
+    unsafe fn spawn_at_empty_internal(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        // SAFETY: entity index was just allocated
-        unsafe {
-            self.entities.set(entity.index(), location);
-        }
+        self.entities.set(entity.index(), location);
+
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_or_despawned_by(entity.index(), caller);
+
         EntityWorldMut::new(self, entity, location)
     }
 
@@ -1528,11 +1575,14 @@ impl World {
     ) -> bool {
         self.flush();
         if let Ok(entity) = self.get_entity_mut(entity) {
-            entity.despawn();
+            entity.despawn_with_caller(
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
             true
         } else {
             if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+                warn!("error[B0003]: {caller}: Could not despawn entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details_message(entity));
             }
             false
         }
@@ -2694,11 +2744,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(first_entity));
             }
         }
     }
@@ -4531,29 +4581,26 @@ mod tests {
 
         world.entity_mut(e1).despawn();
 
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut(e1).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut([e1, e2]).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
+        assert!(matches!(
+            world.get_entity_mut(e1).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1
+        ));
+        assert!(matches!(
+            world.get_entity_mut([e1, e2]).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e,..)) if e == e1));
+        assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
-                .map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
+                .map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+        assert!(matches!(
+            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1,
+        ));
+        assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
-                .map(|_| {})
-        );
+                .map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
     }
 }
