@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.82.0"
+rust-version = "1.83.0"
 
 [workspace]
 exclude = [
@@ -3850,6 +3850,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "mixed_lighting"
+path = "examples/3d/mixed_lighting.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.mixed_lighting]
+name = "Mixed lighting"
+description = "Demonstrates how to combine baked and dynamic lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "animated_ui"
 path = "examples/animation/animated_ui.rs"
 doc-scrape-examples = true
@@ -3935,3 +3947,14 @@ doc-scrape-examples = true
 
 [package.metadata.example.testbed_ui_layout_rounding]
 hidden = true
+
+[[example]]
+name = "tab_navigation"
+path = "examples/ui/tab_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tab_navigation]
+name = "Tab Navigation"
+description = "Demonstration of Tab Navigation"
+category = "UI (User Interface)"
+wasm = true

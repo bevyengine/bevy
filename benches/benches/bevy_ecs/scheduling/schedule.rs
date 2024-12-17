@@ -120,7 +120,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
 }
 
 pub fn empty_schedule_run(criterion: &mut Criterion) {
-    let mut app = bevy_app::App::default();
+    let mut app = App::default();
 
     let mut group = criterion.benchmark_group("run_empty_schedule");
 

@@ -156,11 +156,17 @@ impl From<u32> for MaterialBindGroupIndex {
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
-pub struct MaterialBindGroupSlot(pub u32);
+pub struct MaterialBindGroupSlot(pub u16);
 
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
-        MaterialBindGroupSlot(value)
+        MaterialBindGroupSlot(value as u16)
+    }
+}
+
+impl From<MaterialBindGroupSlot> for u32 {
+    fn from(value: MaterialBindGroupSlot) -> Self {
+        value.0 as u32
     }
 }
 
@@ -440,7 +446,7 @@ where
 {
     /// Returns a new bind group.
     fn new() -> MaterialBindlessBindGroup<M> {
-        let count = M::BINDLESS_SLOT_COUNT.unwrap_or(1);
+        let count = M::bindless_slot_count().unwrap_or(1);
 
         MaterialBindlessBindGroup {
             bind_group: None,
@@ -789,7 +795,7 @@ pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,
 {
-    M::BINDLESS_SLOT_COUNT.is_some()
+    M::bindless_slot_count().is_some()
         && render_device
             .features()
             .contains(WgpuFeatures::BUFFER_BINDING_ARRAY | WgpuFeatures::TEXTURE_BINDING_ARRAY)
