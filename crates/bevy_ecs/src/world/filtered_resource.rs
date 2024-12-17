@@ -214,7 +214,7 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        const READ_ALL_RESOURCES: &'static Access<ComponentId> = {
+        const READ_ALL_RESOURCES: &Access<ComponentId> = {
             const ACCESS: Access<ComponentId> = {
                 let mut access = Access::new();
                 access.read_all_resources();
@@ -493,7 +493,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        const WRITE_ALL_RESOURCES: &'static Access<ComponentId> = {
+        const WRITE_ALL_RESOURCES: &Access<ComponentId> = {
             const ACCESS: Access<ComponentId> = {
                 let mut access = Access::new();
                 access.write_all_resources();
