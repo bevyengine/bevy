@@ -464,12 +464,11 @@
 //! typically require manual monomorphization (i.e. manually specifying the types the generic method can
 //! take).
 //!
-//! ## Manual Registration
+//! ## Manual Registration of Generic Types
 //!
-//! Since Rust doesn't provide built-in support for running initialization code before `main`,
-//! there is no way for `bevy_reflect` to automatically register types into the [type registry].
-//! This means types must manually be registered, including their desired monomorphized
-//! representations if generic.
+//! `bevy_reflect` automatically collects all types that derive [`Reflect`] on startup,
+//! and [`TypeRegistry::register_derived_types`] can be used to register these types at any point in the program.
+//! However, this does not apply to types with generics: their desired monomorphized representations must be registered manually.
 //!
 //! # Features
 //!
@@ -706,6 +705,83 @@ pub mod __macro_exports {
     impl RegisterForReflection for DynamicArray {}
 
     impl RegisterForReflection for DynamicTuple {}
+
+    /// Automatic reflect registration implementation
+    #[cfg(feature = "auto_register")]
+    pub mod auto_register {
+        pub use super::*;
+
+        /// Stores registration functions of all reflect types that can be automatically registered.
+        ///
+        /// Intended to be used as follows:
+        /// ```rs
+        /// // Adding a type
+        /// auto_register_function!{
+        ///     AutomaticReflectRegistrations::add(<type_registration_function>)
+        /// }
+        ///
+        /// // Registering collected types
+        /// let mut registry = TypeRegistry::default();
+        /// AutomaticReflectRegistrations::register(&mut registry);
+        /// ```
+        pub struct AutomaticReflectRegistrations;
+
+        #[cfg(not(target_family = "wasm"))]
+        mod __automatic_type_registration_impl {
+            use super::*;
+
+            pub use inventory::submit as auto_register_function;
+
+            pub struct AutomaticReflectRegistrationsImpl(fn(&mut TypeRegistry));
+
+            impl AutomaticReflectRegistrations {
+                // Must be const to allow usage in static context
+                pub const fn add(func: fn(&mut TypeRegistry)) -> AutomaticReflectRegistrationsImpl {
+                    AutomaticReflectRegistrationsImpl(func)
+                }
+                pub fn register(registry: &mut TypeRegistry) {
+                    for registration_fn in inventory::iter::<AutomaticReflectRegistrationsImpl> {
+                        registration_fn.0(registry);
+                    }
+                }
+            }
+
+            inventory::collect!(AutomaticReflectRegistrationsImpl);
+        }
+
+        #[cfg(target_family = "wasm")]
+        mod __automatic_type_registration_impl {
+            use super::*;
+            pub use wasm_init::wasm_init as auto_register_function;
+
+            static AUTOMATIC_REFLECT_REGISTRATIONS: std::sync::RwLock<Vec<fn(&mut TypeRegistry)>> =
+                std::sync::RwLock::new(Vec::new());
+
+            impl AutomaticReflectRegistrations {
+                pub fn add(func: fn(&mut TypeRegistry)) {
+                    AUTOMATIC_REFLECT_REGISTRATIONS
+                        .write()
+                        .expect("Failed to get write lock for automatic reflect type registration")
+                        .push(func);
+                }
+                pub fn register(registry: &mut TypeRegistry) {
+                    // wasm_init must be called at least once to run all init code.
+                    // Calling it multiple times is ok and doesn't do anything.
+                    wasm_init::wasm_init();
+
+                    for registration_fn in AUTOMATIC_REFLECT_REGISTRATIONS
+                        .read()
+                        .expect("Failed to get read lock for automatic reflect type registration")
+                        .iter()
+                    {
+                        registration_fn(registry);
+                    }
+                }
+            }
+        }
+
+        pub use __automatic_type_registration_impl::*;
+    }
 }
 
 #[cfg(test)]
@@ -2993,6 +3069,76 @@ bevy_reflect::tests::Test {
             },
             output
         );
+    }
+
+    #[cfg(feature = "auto_register")]
+    mod auto_register_reflect {
+        use super::*;
+
+        #[test]
+        fn should_ignore_auto_reflect_registration() {
+            #[derive(Reflect)]
+            #[reflect(no_auto_register)]
+            struct NoAutomaticStruct {
+                a: usize,
+            }
+
+            let mut registry = TypeRegistry::default();
+            registry.register_derived_types();
+
+            assert!(!registry.contains(TypeId::of::<NoAutomaticStruct>()));
+        }
+
+        #[test]
+        fn should_auto_register_reflect_for_all_supported_types() {
+            // Struct
+            #[derive(Reflect)]
+            struct StructReflect {
+                a: usize,
+            }
+
+            // ZST struct
+            #[derive(Reflect)]
+            struct ZSTStructReflect;
+
+            // Tuple struct
+            #[derive(Reflect)]
+            struct TupleStructReflect(pub u32);
+
+            // Enum
+            #[derive(Reflect)]
+            enum EnumReflect {
+                A,
+                B,
+            }
+
+            // ZST enum
+            #[derive(Reflect)]
+            enum ZSTEnumReflect {}
+
+            // Opaque struct
+            #[derive(Reflect, Clone)]
+            #[reflect(opaque)]
+            struct OpaqueStructReflect {
+                _a: usize,
+            }
+
+            // ZST opaque struct
+            #[derive(Reflect, Clone)]
+            #[reflect(opaque)]
+            struct ZSTOpaqueStructReflect;
+
+            let mut registry = TypeRegistry::default();
+            registry.register_derived_types();
+
+            assert!(registry.contains(TypeId::of::<StructReflect>()));
+            assert!(registry.contains(TypeId::of::<ZSTStructReflect>()));
+            assert!(registry.contains(TypeId::of::<TupleStructReflect>()));
+            assert!(registry.contains(TypeId::of::<EnumReflect>()));
+            assert!(registry.contains(TypeId::of::<ZSTEnumReflect>()));
+            assert!(registry.contains(TypeId::of::<OpaqueStructReflect>()));
+            assert!(registry.contains(TypeId::of::<ZSTOpaqueStructReflect>()));
+        }
     }
 
     #[cfg(feature = "glam")]
