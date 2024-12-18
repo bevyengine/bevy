@@ -102,11 +102,15 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
     /// - Component is not registered.
     /// - Component does not have [`TypeId`]
+    /// - Registered [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr)'s [`TypeId`] does not match component's [`TypeId`]
     #[cfg(feature = "bevy_reflect")]
     pub fn read_source_component_reflect(&self) -> Option<&dyn bevy_reflect::Reflect> {
         let registry = self.type_registry?.read();
         let type_id = self.components.get_info(self.component_id)?.type_id()?;
         let reflect_from_ptr = registry.get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)?;
+        if reflect_from_ptr.type_id() != type_id {
+            return None;
+        }
         // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
         unsafe { Some(reflect_from_ptr.as_reflect(self.source_component_ptr)) }
     }
@@ -613,11 +617,12 @@ impl<'w> EntityCloneBuilder<'w> {
 
 #[cfg(test)]
 mod tests {
+    use super::ComponentCloneCtx;
     use crate::{
         self as bevy_ecs,
         component::{Component, ComponentCloneHandler},
         entity::EntityCloneBuilder,
-        world::World,
+        world::{DeferredWorld, World},
     };
     use bevy_ecs_macros::require;
 
@@ -625,7 +630,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
-        use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -658,7 +663,7 @@ mod tests {
 
         // TODO: remove this when https://github.com/bevyengine/bevy/pull/13432 lands
         #[test]
-        fn clone_entity_using_reflect_fast_path() {
+        fn clone_entity_using_reflect_all_paths() {
             // `ReflectDefault`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(Default)]
@@ -718,6 +723,41 @@ mod tests {
             assert_eq!(world.get::<A>(e_clone), Some(world.get::<A>(e).unwrap()));
             assert_eq!(world.get::<B>(e_clone), Some(world.get::<B>(e).unwrap()));
             assert_eq!(world.get::<C>(e_clone), Some(world.get::<C>(e).unwrap()));
+        }
+
+        #[test]
+        fn read_source_component_reflect_should_return_none_on_invalid_reflect_from_ptr() {
+            #[derive(Component, Reflect)]
+            struct A;
+
+            #[derive(Component, Reflect)]
+            struct B;
+
+            fn test_handler(_world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+                assert!(ctx.read_source_component_reflect().is_none())
+            }
+
+            let mut world = World::default();
+            world.init_resource::<AppTypeRegistry>();
+            let registry = world.get_resource::<AppTypeRegistry>().unwrap();
+            {
+                let mut registry = registry.write();
+                registry.register::<A>();
+                registry
+                    .get_mut(core::any::TypeId::of::<A>())
+                    .unwrap()
+                    .insert(<ReflectFromPtr as FromType<B>>::from_type());
+            }
+
+            let a_id = world.register_component::<A>();
+            let handlers = world.get_component_clone_handlers_mut();
+            handlers
+                .set_component_handler(a_id, ComponentCloneHandler::custom_handler(test_handler));
+
+            let e = world.spawn(A).id();
+            let e_clone = world.spawn_empty().id();
+
+            EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
         }
 
         #[test]
