@@ -38,10 +38,10 @@ use crate::{
         ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
         RequiredComponentsError, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -51,13 +51,16 @@ use crate::{
         error::{EntityFetchError, TryRunScheduleError},
     },
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::warn;
-use core::{
-    any::TypeId,
-    fmt,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use core::{any::TypeId, fmt};
+use log::warn;
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::{AtomicU32, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicU32, Ordering};
 
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
@@ -677,7 +680,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -697,19 +700,26 @@ impl World {
     ///     assert_eq!(eref.get::<Position>().unwrap().y, 1.0);
     /// }
     /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
+        fn panic_no_entity(world: &World, entity: Entity) -> ! {
+            panic!(
+                "Entity {entity:?} {}",
+                world
+                    .entities
+                    .entity_does_not_exist_error_details_message(entity)
+            );
         }
 
         match self.get_entity(entities) {
             Ok(fetched) => fetched,
-            Err(entity) => panic_no_entity(entity),
+            Err(entity) => panic_no_entity(self, entity),
         }
     }
 
@@ -724,7 +734,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
@@ -806,7 +816,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -828,6 +838,8 @@ impl World {
     ///     assert_eq!(pos.y, 2.0);
     /// }
     /// ```
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
@@ -842,76 +854,6 @@ impl World {
             Ok(fetched) => fetched,
             Err(e) => panic_on_err(e),
         }
-    }
-
-    /// Gets an [`EntityRef`] for multiple entities at once.
-    ///
-    /// # Panics
-    ///
-    /// If any entity does not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let [entity1, entity2] = world.many_entities([id1, id2]);
-    /// ```
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// world.many_entities([id1, id2]);
-    /// ```
-    #[deprecated(since = "0.15.0", note = "Use `World::entity::<[Entity; N]>` instead")]
-    pub fn many_entities<const N: usize>(&mut self, entities: [Entity; N]) -> [EntityRef<'_>; N] {
-        self.entity(entities)
-    }
-
-    /// Gets mutable access to multiple entities at once.
-    ///
-    /// # Panics
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// Disjoint mutable access.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.many_entities_mut([id1, id2]);
-    /// ```
-    ///
-    /// Trying to access the same entity multiple times will fail.
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id = world.spawn_empty().id();
-    /// world.many_entities_mut([id, id]);
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::entity_mut::<[Entity; N]>` instead"
-    )]
-    pub fn many_entities_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> [EntityMut<'_>; N] {
-        self.entity_mut(entities)
     }
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
@@ -947,6 +889,19 @@ impl World {
     #[inline]
     #[deprecated(since = "0.15.0", note = "use `World::spawn` instead")]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
+        self.get_or_spawn_with_caller(
+            entity,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    #[inline]
+    pub(crate) fn get_or_spawn_with_caller(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Option<EntityWorldMut> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
@@ -955,7 +910,13 @@ impl World {
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_empty_internal(entity) })
+                Some(unsafe {
+                    self.spawn_at_empty_internal(
+                        entity,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
         }
@@ -970,7 +931,7 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
@@ -981,75 +942,13 @@ impl World {
     /// # Examples
     ///
     /// For examples, see [`World::entity`].
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
         let cell = self.as_unsafe_world_cell_readonly();
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
         unsafe { entities.fetch_ref(cell) }
-    }
-
-    /// Gets an [`EntityRef`] for multiple entities at once.
-    ///
-    /// # Errors
-    ///
-    /// If any entity does not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let [entity1, entity2] = world.get_many_entities([id1, id2]).unwrap();
-    ///
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// assert!(world.get_many_entities([id1, id2]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity::<[Entity; N]>` instead"
-    )]
-    pub fn get_many_entities<const N: usize>(
-        &self,
-        entities: [Entity; N],
-    ) -> Result<[EntityRef<'_>; N], Entity> {
-        self.get_entity(entities)
-    }
-
-    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
-    ///
-    /// # Errors
-    ///
-    /// If any entity does not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let entities = world.get_many_entities_dynamic(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get(0).unwrap();
-    /// let entity2 = entities.get(1).unwrap();
-    ///
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// assert!(world.get_many_entities_dynamic(&[id1, id2]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity::<&[Entity]>` instead"
-    )]
-    pub fn get_many_entities_dynamic<'w>(
-        &'w self,
-        entities: &[Entity],
-    ) -> Result<Vec<EntityRef<'w>>, Entity> {
-        self.get_entity(entities)
     }
 
     /// Returns [`EntityMut`]s that expose read and write operations for the
@@ -1063,7 +962,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
@@ -1081,6 +980,8 @@ impl World {
     /// # Examples
     ///
     /// For examples, see [`World::entity_mut`].
+    ///
+    /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -1149,123 +1050,6 @@ impl World {
         })
     }
 
-    /// Gets mutable access to multiple entities.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.get_many_entities_mut([id1, id2]).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<[Entity; N]>` instead"
-    )]
-    pub fn get_many_entities_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError<'_>> {
-        self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-            EntityFetchError::AliasedMutability(entity) => {
-                QueryEntityError::AliasedMutability(entity)
-            }
-        })
-    }
-
-    /// Gets mutable access to multiple entities, whose number is determined at runtime.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_dynamic_mut(&[id1, id1]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<&[Entity]>` instead"
-    )]
-    pub fn get_many_entities_dynamic_mut<'w>(
-        &'w mut self,
-        entities: &[Entity],
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
-        self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-            EntityFetchError::AliasedMutability(entity) => {
-                QueryEntityError::AliasedMutability(entity)
-            }
-        })
-    }
-
-    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
-    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::entity::EntityHash;
-    /// # use bevy_ecs::entity::EntityHashSet;
-    /// # use bevy_utils::HashSet;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// let s = EntityHash::default();
-    /// let mut set = EntityHashSet::with_hasher(s);
-    /// set.insert(id1);
-    /// set.insert(id2);
-    ///
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_from_set_mut(&set).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<&EntityHashSet>` instead."
-    )]
-    pub fn get_many_entities_from_set_mut<'w>(
-        &'w mut self,
-        entities: &EntityHashSet,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
-        self.get_entity_mut(entities)
-            .map(|fetched| fetched.into_values().collect())
-            .map_err(|e| match e {
-                EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-                EntityFetchError::AliasedMutability(entity) => {
-                    QueryEntityError::AliasedMutability(entity)
-                }
-            })
-    }
-
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
@@ -1291,11 +1075,18 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity) }
+        unsafe {
+            self.spawn_at_empty_internal(
+                entity,
+                #[cfg(feature = "track_change_detection")]
+                Location::caller(),
+            )
+        }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1376,23 +1167,33 @@ impl World {
             }
         };
 
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
+    unsafe fn spawn_at_empty_internal(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        // SAFETY: entity index was just allocated
-        unsafe {
-            self.entities.set(entity.index(), location);
-        }
+        self.entities.set(entity.index(), location);
+
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_or_despawned_by(entity.index(), caller);
+
         EntityWorldMut::new(self, entity, location)
     }
 
@@ -1528,11 +1329,14 @@ impl World {
     ) -> bool {
         self.flush();
         if let Ok(entity) = self.get_entity_mut(entity) {
-            entity.despawn();
+            entity.despawn_with_caller(
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
             true
         } else {
             if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+                warn!("error[B0003]: {caller}: Could not despawn entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details_message(entity));
             }
             false
         }
@@ -2694,11 +2498,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(first_entity));
             }
         }
     }
@@ -2963,7 +2767,7 @@ impl World {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
+            log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
                 core::any::type_name::<E>()
             );
@@ -3292,7 +3096,7 @@ impl World {
         } = self.storages;
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
+        let _span = tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(change_tick);
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
@@ -4531,29 +4335,26 @@ mod tests {
 
         world.entity_mut(e1).despawn();
 
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut(e1).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut([e1, e2]).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
+        assert!(matches!(
+            world.get_entity_mut(e1).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1
+        ));
+        assert!(matches!(
+            world.get_entity_mut([e1, e2]).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e,..)) if e == e1));
+        assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
-                .map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
-            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {})
-        );
-        assert_eq!(
-            Err(EntityFetchError::NoSuchEntity(e1)),
+                .map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+        assert!(matches!(
+            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1,
+        ));
+        assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
-                .map(|_| {})
-        );
+                .map(|_| {}),
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
     }
 }

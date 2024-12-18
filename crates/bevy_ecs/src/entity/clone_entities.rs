@@ -1,9 +1,15 @@
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, vec::Vec};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 
 use bevy_utils::{HashMap, HashSet};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 use crate::{
     bundle::Bundle,

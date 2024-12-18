@@ -16,18 +16,16 @@
 //! This crate does *not* provide any integration with UI widgets, or provide functions for
 //! tab navigation or gamepad-based focus navigation, as those are typically application-specific.
 
-use bevy_app::{App, Plugin, PreUpdate};
+pub mod tab_navigation;
+
+use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    event::{Event, EventReader},
-    query::With,
-    system::{Commands, Query, Res, Resource, SystemParam},
-    world::{Command, DeferredWorld, World},
+    prelude::*, query::QueryData, system::SystemParam, traversal::Traversal, world::DeferredWorld,
 };
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
-use bevy_input::keyboard::KeyboardInput;
-use bevy_window::PrimaryWindow;
+use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
+use bevy_window::{PrimaryWindow, Window};
+use core::fmt::Debug;
 
 /// Resource representing which entity has input focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
@@ -42,10 +40,17 @@ pub struct InputFocus(pub Option<Entity>);
 pub struct InputFocusVisible(pub bool);
 
 /// Helper functions for [`World`],  [`DeferredWorld`] and [`Commands`] to set and clear input focus.
+///
+/// These methods are equivalent to modifying the [`InputFocus`] resource directly,
+/// but only take effect when commands are applied.
 pub trait SetInputFocus {
     /// Set input focus to the given entity.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `Some(entity)`.
     fn set_input_focus(&mut self, entity: Entity);
     /// Clear input focus.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `None`.
     fn clear_input_focus(&mut self);
 }
 
@@ -78,6 +83,8 @@ impl<'w> SetInputFocus for DeferredWorld<'w> {
 }
 
 /// Command to set input focus to the given entity.
+///
+/// Generated via the methods in [`SetInputFocus`].
 pub struct SetFocusCommand(Option<Entity>);
 
 impl Command for SetFocusCommand {
@@ -98,16 +105,50 @@ impl SetInputFocus for Commands<'_, '_> {
     }
 }
 
-/// A bubble-able event for keyboard input. This event is normally dispatched to the current
-/// input focus entity, if any. If no entity has input focus, then the event is dispatched to
-/// the main window.
+/// A bubble-able user input event that starts at the currently focused entity.
+///
+/// This event is normally dispatched to the current input focus entity, if any.
+/// If no entity has input focus, then the event is dispatched to the main window.
+///
+/// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
+/// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
-pub struct FocusKeyboardInput(pub KeyboardInput);
+pub struct FocusedInput<E: Event + Clone> {
+    /// The underlying input event.
+    pub input: E,
+    /// The primary window entity.
+    window: Entity,
+}
 
-impl Event for FocusKeyboardInput {
-    type Traversal = &'static Parent;
+impl<E: Event + Clone> Event for FocusedInput<E> {
+    type Traversal = WindowTraversal;
 
     const AUTO_PROPAGATE: bool = true;
+}
+
+#[derive(QueryData)]
+/// These are for accessing components defined on the targeted entity
+pub struct WindowTraversal {
+    parent: Option<&'static Parent>,
+    window: Option<&'static Window>,
+}
+
+impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
+    fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
+        let WindowTraversalItem { parent, window } = item;
+
+        // Send event to parent, if it has one.
+        if let Some(parent) = parent {
+            return Some(parent.get());
+        };
+
+        // Otherwise, send it to the window entity (unless this is a window entity).
+        if window.is_none() {
+            return Some(event.window);
+        }
+
+        None
+    }
 }
 
 /// Plugin which registers the system for dispatching keyboard events based on focus and
@@ -116,31 +157,69 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(InputFocus(None))
+        app.add_systems(Startup, set_initial_focus)
+            .insert_resource(InputFocus(None))
             .insert_resource(InputFocusVisible(false))
-            .add_systems(PreUpdate, dispatch_keyboard_input);
+            .add_systems(
+                PreUpdate,
+                (
+                    dispatch_focused_input::<KeyboardInput>,
+                    dispatch_focused_input::<GamepadButtonChangedEvent>,
+                    dispatch_focused_input::<MouseWheel>,
+                )
+                    .in_set(InputFocusSet::Dispatch),
+            );
     }
 }
 
-/// System which dispatches keyboard input events to the focused entity, or to the primary window
+/// System sets for [`bevy_input_focus`](crate).
+///
+/// These systems run in the [`PreUpdate`] schedule.
+#[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
+pub enum InputFocusSet {
+    /// System which dispatches bubbled input events to the focused entity, or to the primary window.
+    Dispatch,
+}
+
+/// Sets the initial focus to the primary window, if any.
+pub fn set_initial_focus(
+    mut input_focus: ResMut<InputFocus>,
+    window: Single<Entity, With<PrimaryWindow>>,
+) {
+    input_focus.0 = Some(*window);
+}
+
+/// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
-fn dispatch_keyboard_input(
-    mut key_events: EventReader<KeyboardInput>,
+pub fn dispatch_focused_input<E: Event + Clone>(
+    mut key_events: EventReader<E>,
     focus: Res<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    // If an element has keyboard focus, then dispatch the key event to that element.
-    if let Some(focus_elt) = focus.0 {
-        for ev in key_events.read() {
-            commands.trigger_targets(FocusKeyboardInput(ev.clone()), focus_elt);
-        }
-    } else {
-        // If no element has input focus, then dispatch the key event to the primary window.
-        // There should be only one primary window.
-        if let Ok(window) = windows.get_single() {
+    if let Ok(window) = windows.get_single() {
+        // If an element has keyboard focus, then dispatch the key event to that element.
+        if let Some(focus_elt) = focus.0 {
             for ev in key_events.read() {
-                commands.trigger_targets(FocusKeyboardInput(ev.clone()), window);
+                commands.trigger_targets(
+                    FocusedInput {
+                        input: ev.clone(),
+                        window,
+                    },
+                    focus_elt,
+                );
+            }
+        } else {
+            // If no element has input focus, then dispatch the key event to the primary window.
+            // There should be only one primary window.
+            for ev in key_events.read() {
+                commands.trigger_targets(
+                    FocusedInput {
+                        input: ev.clone(),
+                        window,
+                    },
+                    window,
+                );
             }
         }
     }
@@ -248,6 +327,7 @@ mod tests {
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
     };
+    use bevy_window::WindowResolution;
     use smol_str::SmolStr;
 
     #[derive(Component)]
@@ -262,11 +342,11 @@ mod tests {
     struct GatherKeyboardEvents(String);
 
     fn gather_keyboard_events(
-        trigger: Trigger<FocusKeyboardInput>,
+        trigger: Trigger<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
         if let Ok(mut gather) = query.get_mut(trigger.target()) {
-            if let Key::Character(c) = &trigger.0.logical_key {
+            if let Key::Character(c) = &trigger.input.logical_key {
                 gather.0.push_str(c.as_str());
             }
         }
@@ -276,6 +356,7 @@ mod tests {
         key_code: KeyCode::KeyA,
         logical_key: Key::Character(SmolStr::new_static("A")),
         state: ButtonState::Pressed,
+        text: Some(SmolStr::new_static("A")),
         repeat: false,
         window: Entity::PLACEHOLDER,
     };
@@ -323,6 +404,15 @@ mod tests {
 
         app.add_plugins((InputPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
+
+        let window = Window {
+            resolution: WindowResolution::new(800., 600.),
+            ..Default::default()
+        };
+        app.world_mut().spawn((window, PrimaryWindow));
+
+        // Run the world for a single frame to set up the initial focus
+        app.update();
 
         let entity_a = app
             .world_mut()
