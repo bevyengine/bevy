@@ -17,7 +17,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
+    visit_mut::VisitMut, ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -414,9 +414,37 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+// replace 'world with 'w and 'state with 's
+fn replace_lifetimes(stream: TokenStream, f: Box<dyn Fn(&str) -> &str>) -> TokenStream {
+    struct LifetimeReplacer {
+        f: Box<dyn Fn(&str) -> &str>,
+    }
+    impl VisitMut for LifetimeReplacer {
+        fn visit_lifetime_mut(&mut self, lifetime: &mut syn::Lifetime) {
+            lifetime.ident = syn::Ident::new(
+                (self.f)(lifetime.ident.to_string().as_str()),
+                lifetime.ident.span(),
+            );
+        }
+    }
+
+    let mut ast = parse_macro_input!(stream as DeriveInput);
+    LifetimeReplacer { f }.visit_derive_input_mut(&mut ast);
+
+    quote! {#ast}.into()
+}
+
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
+    let input = replace_lifetimes(
+        input,
+        Box::new(|s| match s {
+            "world" => "w",
+            "state" => "s",
+            other => other,
+        }),
+    );
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
     let syn::Data::Struct(syn::DataStruct {
@@ -461,7 +489,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
  'w -- refers to data stored in the World.
- 's -- refers to data stored in the SystemParam's state.'"#,
+ 's -- refers to data stored in the SystemParam's state.
+ using `'world` or `'state` is permitted aswell"#,
             )
             .into_compile_error()
             .into();
