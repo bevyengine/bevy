@@ -126,7 +126,6 @@ jobs:
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
-  
   check-compiles-no-std:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -295,7 +294,6 @@ jobs:
         with:
           name: example-run-macos
           path: example-run/
-        
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30
