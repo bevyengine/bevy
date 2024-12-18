@@ -9,22 +9,22 @@
 //! * An index < 0 means that the entity is not focusable via sequential navigation, but
 //!   can still be focused via direct selection.
 //!
-//! Tabbable entities must be descendants of a `TabGroup` entity, which is a component that
+//! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
-//! is determined by the `order` field, with lower orders being tabbed first. Modal tab groups
+//! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab groups
 //! are used for ui elements that should only tab within themselves, such as modal dialog boxes.
 //!
-//! There are several different ways to use this module. To enable automatic tabbing, add the
-//! `TabNavigationPlugin` to your app. (Make sure you also have `InputDispatchPlugin` installed).
+//! To enable automatic tabbing, add the
+//! [`TabNavigationPlugin`] and [`InputDispatchPlugin`](crate::InputDispatchPlugin) to your app.
 //! This will install a keyboard event observer on the primary window which automatically handles
 //! tab navigation for you.
 //!
-//! Alternatively, if you want to have more control over tab navigation, or are using an event
-//! mapping framework such as LWIM, you can use the `TabNavigation` helper object directly instead.
-//! This object can be injected into your systems, and provides a `navigate` method which can be
+//! Alternatively, if you want to have more control over tab navigation, or are using an input-action-mapping framework,
+//! you can use the [`TabNavigation`] system parameter directly instead.
+//! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
 //!
-//! This module also provides `AutoFocus`, a component which can be added to an entity to
+//! This module also provides [`AutoFocus`], a component which can be added to an entity to
 //! automatically focus it when it is added to the world.
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
@@ -87,7 +87,9 @@ impl TabGroup {
     }
 }
 
-/// Navigation action for tabbing.
+/// A navigation action for tabbing.
+///
+/// These values are consumed by the [`TabNavigation`] system param.
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     Next,
@@ -119,6 +121,8 @@ pub struct TabNavigation<'w, 's> {
 
 impl TabNavigation<'_, '_> {
     /// Navigate to the next focusable entity.
+    ///
+    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
     ///
     /// Arguments:
     /// * `focus`: The current focus entity, or `None` if no entity has focus.
@@ -247,7 +251,7 @@ fn compare_tab_indices(a: &(Entity, TabIndex), b: &(Entity, TabIndex)) -> core::
     a.1 .0.cmp(&b.1 .0)
 }
 
-/// Plugin for handling keyboard input.
+/// Plugin for navigating between focusable entities using keyboard input.
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
