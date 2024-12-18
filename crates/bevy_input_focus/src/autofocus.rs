@@ -2,15 +2,19 @@
 
 use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
 
-use crate::{tab_navigation::TabIndex, SetInputFocus};
+use crate::SetInputFocus;
 
-/// Indicates that this widget should automatically receive focus when it's added.
+/// Indicates that this widget should automatically receive [`InputFocus`](crate::InputFocus).
+///
+/// This can be useful for things like dialog boxes, the first text input in a form,
+/// or the first button in a game menu.
+///
+/// The focus is swapped when this component is added
+/// or an entity with this component is spawned.
 #[derive(Debug, Default, Component, Copy, Clone)]
 #[component(on_add = on_auto_focus_added)]
 pub struct AutoFocus;
 
 fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-    if world.entity(entity).contains::<TabIndex>() {
-        world.set_input_focus(entity);
-    }
+    world.set_input_focus(entity);
 }
