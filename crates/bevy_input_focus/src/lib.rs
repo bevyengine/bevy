@@ -111,7 +111,7 @@ impl SetInputFocus for Commands<'_, '_> {
 /// If no entity has input focus, then the event is dispatched to the main window.
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
-/// in the [`InputFocus::Dispatch`] system set during [`PreUpdate`].
+/// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
