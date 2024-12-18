@@ -58,10 +58,11 @@ pub trait AudioSinkPlayback {
     /// A paused sink can be resumed with [`play`](Self::play).
     fn pause(&self);
 
-    /// Toggles the playback of this sink.
+    /// Toggles playback of the sink.
     ///
-    /// Will pause if playing, and will be resumed if paused.
-    fn toggle(&self) {
+    /// If the sink is paused, toggling playback resumes it. If the sink is
+    /// playing, toggling playback pauses it.
+    fn toggle_playback(&self) {
         if self.is_paused() {
             self.play();
         } else {
@@ -69,7 +70,7 @@ pub trait AudioSinkPlayback {
         }
     }
 
-    /// Is this sink paused?
+    /// Returns true if the sink is paused.
     ///
     /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
     fn is_paused(&self) -> bool;
@@ -338,12 +339,19 @@ mod tests {
         audio_sink.set_speed(1.0);
         assert_eq!(audio_sink.speed(), 1.0);
 
-        // Test pause
+        // Test playback
         assert!(!audio_sink.is_paused()); // default pause state
         audio_sink.pause();
         assert!(audio_sink.is_paused());
         audio_sink.play();
         assert!(!audio_sink.is_paused());
+
+        // Test toggle playback
+        audio_sink.pause(); // start paused
+        audio_sink.toggle_playback();
+        assert!(!audio_sink.is_paused());
+        audio_sink.toggle_playback();
+        assert!(audio_sink.is_paused());
 
         // Test mute
         assert!(!audio_sink.is_muted()); // default mute state

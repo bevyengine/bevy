@@ -1,14 +1,12 @@
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::any::Any;
 use std::sync::{Mutex, MutexGuard};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use core::panic::AssertUnwindSafe;
+#[cfg(feature = "trace")]
+use tracing::{info_span, Span};
 
 use concurrent_queue::ConcurrentQueue;
 use fixedbitset::FixedBitSet;

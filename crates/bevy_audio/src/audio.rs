@@ -1,36 +1,10 @@
 #![expect(deprecated)]
 
-use crate::{AudioSource, Decodable};
+use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
-use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
-
-/// A volume level equivalent to a non-negative float.
-#[derive(Clone, Copy, Deref, Debug, Reflect)]
-pub struct Volume(pub(crate) f32);
-
-impl Default for Volume {
-    fn default() -> Self {
-        Self(1.0)
-    }
-}
-
-impl Volume {
-    /// Create a new volume level.
-    pub fn new(volume: f32) -> Self {
-        debug_assert!(volume >= 0.0);
-        Self(f32::max(volume, 0.))
-    }
-    /// Get the value of the volume level.
-    pub fn get(&self) -> f32 {
-        self.0
-    }
-
-    /// Zero (silent) volume level
-    pub const ZERO: Self = Volume(0.0);
-}
 
 /// The way Bevy manages the sound playback.
 #[derive(Debug, Clone, Copy, Reflect)]
@@ -193,25 +167,6 @@ impl SpatialListener {
         SpatialListener {
             left_ear_offset: Vec3::X * gap / -2.0,
             right_ear_offset: Vec3::X * gap / 2.0,
-        }
-    }
-}
-
-/// Use this [`Resource`] to control the global volume of all audio.
-///
-/// Note: changing this value will not affect already playing audio.
-#[derive(Resource, Default, Clone, Copy, Reflect)]
-#[reflect(Resource, Default)]
-pub struct GlobalVolume {
-    /// The global volume of all audio.
-    pub volume: Volume,
-}
-
-impl GlobalVolume {
-    /// Create a new [`GlobalVolume`] with the given volume.
-    pub fn new(volume: f32) -> Self {
-        Self {
-            volume: Volume::new(volume),
         }
     }
 }
