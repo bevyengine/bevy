@@ -53,7 +53,9 @@ pub enum GizmoLineStyle {
         line_scale: f32,
     },
 }
+
 impl Eq for GizmoLineStyle {}
+
 impl Hash for GizmoLineStyle {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         match self {

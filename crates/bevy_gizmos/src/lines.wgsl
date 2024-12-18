@@ -175,6 +175,7 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
+
 @fragment
 fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
 #ifdef PERSPECTIVE
