@@ -18,13 +18,13 @@
 
 pub mod tab_navigation;
 
-use bevy_app::{App, Plugin, PreUpdate};
+use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader},
     query::{QueryData, With},
-    system::{Commands, Query, Res, Resource, SystemParam},
+    system::{Commands, Query, Res, ResMut, Resource, Single, SystemParam},
     traversal::Traversal,
     world::{Command, DeferredWorld, World},
 };
@@ -149,10 +149,19 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(InputFocus(None))
+        app.add_systems(Startup, set_initial_focus)
+            .insert_resource(InputFocus(None))
             .insert_resource(InputFocusVisible(false))
             .add_systems(PreUpdate, dispatch_keyboard_input);
     }
+}
+
+/// Sets the initial focus to the primary window, if any.
+pub fn set_initial_focus(
+    mut input_focus: ResMut<InputFocus>,
+    window: Single<Entity, With<PrimaryWindow>>,
+) {
+    input_focus.0 = Some(*window);
 }
 
 /// System which dispatches keyboard input events to the focused entity, or to the primary window
@@ -376,6 +385,9 @@ mod tests {
             ..Default::default()
         };
         app.world_mut().spawn((window, PrimaryWindow));
+
+        // Run the world for a single frame to set up the initial focus
+        app.update();
 
         let entity_a = app
             .world_mut()
