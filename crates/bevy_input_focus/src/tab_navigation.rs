@@ -275,7 +275,7 @@ pub fn handle_tab_navigation(
         && !key_event.repeat
     {
         let next = nav.navigate(
-            &*focus,
+            &focus,
             if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
                 NavAction::Previous
             } else {

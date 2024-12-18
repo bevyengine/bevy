@@ -8,7 +8,7 @@
 //! Keyboard focus system for Bevy.
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
-//! * [`InputFocus], a resource for tracking which entity has input focus.
+//! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`SetInputFocus`], [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
 //!
