@@ -675,7 +675,10 @@ fn extract_mesh_materials<M: Material>(
     ) where
         M: Material,
     {
-        if material_instances.remove(&MainEntity::from(entity)).is_none() {
+        if material_instances
+            .remove(&MainEntity::from(entity))
+            .is_none()
+        {
             return;
         }
 
