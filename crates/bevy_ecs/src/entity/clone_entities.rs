@@ -667,9 +667,9 @@ mod tests {
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
-    use alloc::alloc::Layout;
     use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
+    use core::alloc::Layout;
 
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
@@ -779,7 +779,7 @@ mod tests {
             struct B;
 
             fn test_handler(_world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
-                assert!(ctx.read_source_component_reflect().is_none())
+                assert!(ctx.read_source_component_reflect().is_none());
             }
 
             let mut world = World::default();
@@ -1047,6 +1047,7 @@ mod tests {
     fn clone_entity_with_dynamic_components() {
         const COMPONENT_SIZE: usize = 10;
         fn test_handler(_world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+            // SAFETY: this handler is only going to be used with a component represented by [u8; COMPONENT_SIZE]
             unsafe {
                 ctx.write_target_component_ptr(move |source_ptr, target_ptr| {
                     core::ptr::copy_nonoverlapping(
@@ -1062,6 +1063,9 @@ mod tests {
         let mut world = World::default();
 
         let layout = Layout::array::<u8>(COMPONENT_SIZE).unwrap();
+        // SAFETY:
+        // - No drop command is required
+        // - The component will store [u8; COMPONENT_SIZE], which is Send + Sync
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "DynamicComp",
@@ -1082,6 +1086,9 @@ mod tests {
         let mut entity = world.spawn_empty();
         let data = [5u8; COMPONENT_SIZE];
 
+        // SAFETY:
+        // - ptr points to data represented by component_id ([u8; COMPONENT_SIZE])
+        // - component_id is from the same world as entity
         OwningPtr::make(data, |ptr| unsafe {
             entity.insert_by_id(component_id, ptr);
         });
@@ -1093,6 +1100,7 @@ mod tests {
 
         let ptr = world.get_by_id(entity, component_id).unwrap();
         let clone_ptr = world.get_by_id(entity_clone, component_id).unwrap();
+        // SAFETY: ptr and clone_ptr store component represented by [u8; COMPONENT_SIZE]
         unsafe {
             assert_eq!(
                 core::slice::from_raw_parts(ptr.as_ptr(), COMPONENT_SIZE),
