@@ -3,7 +3,7 @@
 //! 2d text is pickable even in its transparent areas.
 //!
 //! **Note:** This backend is pretty much a 1:1 port of the [`bevy_sprite`] picking backend,
-//! and *is not reposible for handling the picking of UI Text*. For that, please refer to the
+//! and *is not responsible for handling the picking of UI Text*. For that, please refer to the
 //! picking backend implementation under the `bevy_ui` crate.
 
 use core::cmp::Reverse;
