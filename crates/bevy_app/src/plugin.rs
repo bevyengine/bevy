@@ -4,6 +4,8 @@ use downcast_rs::{impl_downcast, Downcast};
 use crate::App;
 use core::any::Any;
 
+/// Dummy trait with the same name as `downcast_rs::Downcast`. This is to ensure
+/// the `Plugin: Downcast` bound can remain even when `downcast` isn't enabled.
 #[cfg(not(feature = "downcast"))]
 #[doc(hidden)]
 pub trait Downcast {}
