@@ -1,5 +1,6 @@
 // TODO: Upstream `portable-atomic` support to `downcast_rs` and unconditionally
 // include it as a dependency.
+// See https://github.com/marcianx/downcast-rs/pull/22 for details
 #[cfg(feature = "downcast")]
 use downcast_rs::{impl_downcast, Downcast};
 
