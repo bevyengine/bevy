@@ -931,8 +931,8 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
             "long_name": t.type_path(),
             "type": "object",
             "typeInfo": "Map",
-            "valueType": info.value_ty().ref_type(),
             "keyType": info.key_ty().ref_type(),
+            "valueType": info.value_ty().ref_type(),
         }),
         TypeInfo::Tuple(info) => json!({
             "long_name": t.type_path(),
