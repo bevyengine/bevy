@@ -1,15 +1,15 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::Entity,
+    entity::{Entity, EntityBorrow, EntitySet},
     query::{
         QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        QueryManyUniqueIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::{
-    borrow::Borrow,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -631,7 +631,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many<EntityList: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
@@ -682,13 +682,137 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: EntityBorrow>>(
         &mut self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::{EntitySet, UniqueEntityIter}};
+    /// # use core::slice;
+    /// # #[derive(Component)]
+    /// # struct Counter {
+    /// #     value: i32
+    /// # }
+    /// #
+    /// // `Friends` ensures that it only lists unique entities.
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     unique_list: Vec<Entity>,
+    /// }
+    ///
+    /// impl<'a> IntoIterator for &'a Friends {
+    ///
+    ///     type Item = &'a Entity;
+    ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
+    ///  
+    ///     fn into_iter(self) -> Self::IntoIter {
+    ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
+    ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///     }
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for counter in counter_query.iter_many_unique(friends) {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_unique_mut`](Self::iter_many_unique_mut) to get mutable query items.
+    #[inline]
+    pub fn iter_many_unique<EntityList: EntitySet>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        unsafe {
+            self.state.as_readonly().iter_many_unique_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an iterator over the unique query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::{EntitySet, UniqueEntityIter}};
+    /// # use core::slice;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// // `Friends` ensures that it only lists unique entities.
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     unique_list: Vec<Entity>,
+    /// }
+    ///
+    /// impl<'a> IntoIterator for &'a Friends {
+    ///     type Item = &'a Entity;
+    ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
+    ///
+    ///     fn into_iter(self) -> Self::IntoIter {
+    ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
+    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///     }
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     mut counter_query: Query<&mut Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for mut counter in counter_query.iter_many_unique_mut(friends) {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             counter.value += 1;
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_many_unique_mut<EntityList: EntitySet>(
+        &mut self,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+        // SAFETY: `self.world` has permission to access the required components.
+        unsafe {
+            self.state.iter_many_unique_unchecked_manual(
                 entities,
                 self.world,
                 self.last_run,
@@ -761,7 +885,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
@@ -770,6 +894,35 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
         unsafe {
             self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the unique query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Safety
+    ///
+    /// This allows aliased mutability.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
+    pub unsafe fn iter_many_unique_unsafe<EntityList: EntitySet>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The caller ensures that this operation will not result in any aliased mutable accesses.
+        unsafe {
+            self.state.iter_many_unique_unchecked_manual(
                 entities,
                 self.world,
                 self.last_run,
