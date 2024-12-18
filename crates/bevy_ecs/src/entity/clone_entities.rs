@@ -133,7 +133,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     ///
     /// # Panics
     /// This will panic if:
-    /// - `write_target_component` called more than once.
+    /// - Component has already been written once.
     /// - Component being written is not registered in the world.
     /// - `ComponentId` of component being written does not match expected `ComponentId`.
     pub fn write_target_component<T: Component>(&mut self, component: T) {
@@ -154,27 +154,33 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.target_component_written = true;
     }
 
-    /// Writes component data to target entity by providing a pointer to source component data and to uninitialized target component data.
+    /// Writes component data to target entity by providing a pointer to source component data and a pointer to uninitialized target component data.
     ///
-    /// Source component pointer points to a component described [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
-    ///
-    /// The uninitialized pointer points to a buffer with layout described by [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
+    /// This method allows caller to provide a function (`clone_fn`) to clone component using untyped pointers.
+    /// First argument to `clone_fn` points to source component data ([`Ptr`]), second argument points to uninitialized buffer ([`NonNull`]) allocated with layout
+    /// described by [`ComponentInfo`] stored in this [`ComponentCloneCtx`]. If cloning is successful and uninitialized buffer contains a valid clone of
+    /// source component, `clone_fn` should return `true`, otherwise it should return `false`.
     ///
     /// # Safety
-    /// Caller must ensure that after `clone_fn` is called the second argument ([`NonNull`] pointer) points to a valid component data
+    /// Caller must ensure that if `clone_fn` is called and returns `true`, the second argument ([`NonNull`] pointer) points to a valid component data
     /// described by [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
-    pub unsafe fn write_target_component_ptr(&mut self, clone_fn: impl FnOnce(Ptr, NonNull<u8>)) {
+    /// # Panics
+    /// This will panic if component has already been written once.
+    pub unsafe fn write_target_component_ptr(
+        &mut self,
+        clone_fn: impl FnOnce(Ptr, NonNull<u8>) -> bool,
+    ) {
         if self.target_component_written {
             panic!("Trying to write component multiple times")
         }
         let layout = self.component_info.layout();
         let target_component_data_ptr = self.target_components_buffer.alloc_layout(layout);
 
-        clone_fn(self.source_component_ptr, target_component_data_ptr);
-
-        self.target_components_ptrs
-            .push(PtrMut::new(target_component_data_ptr));
-        self.target_component_written = true;
+        if clone_fn(self.source_component_ptr, target_component_data_ptr) {
+            self.target_components_ptrs
+                .push(PtrMut::new(target_component_data_ptr));
+            self.target_component_written = true;
+        }
     }
 
     /// Writes component data to target entity.
@@ -185,6 +191,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
     /// - Source component does not have [`TypeId`].
     /// - Passed component's [`TypeId`] does not match source component [`TypeId`].
+    /// - Component has already been written once.
     #[cfg(feature = "bevy_reflect")]
     pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
         if self.target_component_written {
@@ -1047,6 +1054,7 @@ mod tests {
                         target_ptr.as_ptr(),
                         COMPONENT_SIZE,
                     );
+                    true
                 });
             }
         }
