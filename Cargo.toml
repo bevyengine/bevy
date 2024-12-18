@@ -121,6 +121,7 @@ default = [
   "bevy_sprite_picking_backend",
   "bevy_state",
   "bevy_text",
+  "bevy_text2d_picking_backend",
   "bevy_ui",
   "bevy_ui_picking_backend",
   "bevy_window",
@@ -154,6 +155,12 @@ bevy_sprite_picking_backend = [
 bevy_ui_picking_backend = [
   "bevy_picking",
   "bevy_internal/bevy_ui_picking_backend",
+]
+
+# Provides an implementation for picking Text2d
+bevy_text2d_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_text2d_picking_backend",
 ]
 
 # Provides a debug overlay for bevy UI
