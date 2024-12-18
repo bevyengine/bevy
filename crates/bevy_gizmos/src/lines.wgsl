@@ -8,9 +8,12 @@ struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
+    _joints_resolution: u32,
+    gap_scale: f32,
+    line_scale: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec2<f32>,
+    _padding: vec3<f32>,
 #endif
 }
 
@@ -28,6 +31,7 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
+    @location(2) line_fraction: f32,
 };
 
 const EPSILON: f32 = 4.88e-04;
@@ -126,7 +130,9 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    return VertexOutput(clip_position, color, uv);
+    let line_fraction = 2.0 * line_gizmo.line_scale / (line_gizmo.gap_scale + line_gizmo.line_scale);
+    uv /= (line_gizmo.gap_scale + line_gizmo.line_scale) / 2.0;
+    return VertexOutput(clip_position, color, uv, line_fraction);
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
@@ -147,6 +153,7 @@ struct FragmentInput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
+    @location(2) line_fraction: f32,
 };
 
 struct FragmentOutput {
@@ -165,6 +172,18 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
 #else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
 #endif
+    
+    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
+}
+
+@fragment
+fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
+#ifdef PERSPECTIVE
+    let uv = in.uv;
+#else
+    let uv = in.uv * in.position.w;
+#endif
+    let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
