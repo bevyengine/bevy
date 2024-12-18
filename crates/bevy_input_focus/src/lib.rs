@@ -31,6 +31,41 @@ use core::fmt::Debug;
 
 /// Resource representing which entity has input focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
+///
+/// Changing the input focus is as easy as modifying this resource.
+///
+/// # Examples
+///
+/// From within a system:
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_input_focus::InputFocus;
+///
+/// fn clear_focus(mut input_focus: ResMut<InputFocus>) {
+///   input_focus.clear();
+/// }
+/// ```
+///
+/// With exclusive (or deferred) world access:
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_input_focus::InputFocus;
+///
+/// fn set_focus_from_world(world: &mut World) {
+///     let entity = world.spawn().id();
+///
+///     // Fetch the resource from the world
+///     let mut input_focus = world.resource_mut::<InputFocus>();
+///     // Then mutate it!
+///     input_focus.set(entity);
+///
+///     // Or you can just insert a fresh copy of the resource
+///     // which will overwrite the existing one.
+///     world.insert_resource(InputFocus::from_entity(entity));
+/// }
+/// ```
 #[derive(Clone, Debug, Default, Resource)]
 pub struct InputFocus(pub Option<Entity>);
 
