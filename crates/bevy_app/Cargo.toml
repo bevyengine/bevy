@@ -74,7 +74,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev", default-features 
 # other
 downcast-rs = { version = "1.2.0", default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
-variadics_please = "1.0"
+variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 
