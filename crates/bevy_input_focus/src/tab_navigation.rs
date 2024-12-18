@@ -36,11 +36,14 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
-use bevy_input::{keyboard::KeyCode, ButtonInput, ButtonState};
+use bevy_input::{
+    keyboard::{KeyCode, KeyboardInput},
+    ButtonInput, ButtonState,
+};
 use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
 
-use crate::{FocusKeyboardInput, InputFocus, InputFocusVisible, SetInputFocus};
+use crate::{FocusedInput, InputFocus, InputFocusVisible, SetInputFocus};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
@@ -263,8 +266,11 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 }
 
 /// Observer function which handles tab navigation.
+///
+/// This observer responds to [`KeyCode::Tab`] events and Shift+Tab events,
+/// cycling through focusable entities in the order determined by their tab index.
 pub fn handle_tab_navigation(
-    mut trigger: Trigger<FocusKeyboardInput>,
+    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
