@@ -8,15 +8,19 @@
 //! Keyboard focus system for Bevy.
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
-//! * A resource for tracking which entity has input focus.
-//! * Methods for getting and setting input focus.
-//! * Event definitions for triggering bubble-able keyboard input events to the focused entity.
-//! * A system for dispatching keyboard input events to the focused entity.
+//! * [`InputFocus`], a resource for tracking which entity has input focus.
+//! * Methods for getting and setting input focus via [`SetInputFocus`], [`InputFocus`] and [`IsFocusedHelper`].
+//! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
 //!
-//! This crate does *not* provide any integration with UI widgets, or provide functions for
-//! tab navigation or gamepad-based focus navigation, as those are typically application-specific.
+//! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
+//! which should depend on [`bevy_input_focus`](crate).
 
 pub mod tab_navigation;
+
+// This module is too small / specific to be exported by the crate,
+// but it's nice to have it separate for code organization.
+mod autofocus;
+pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{
@@ -29,11 +33,36 @@ use core::fmt::Debug;
 
 /// Resource representing which entity has input focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
-#[derive(Clone, Debug, Resource)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct InputFocus(pub Option<Entity>);
 
-/// Resource representing whether the input focus indicator should be visible. It's up to the
-/// current focus navigation system to set this resource. For a desktop/web style of user interface
+impl InputFocus {
+    /// Create a new [`InputFocus`] resource with the given entity.
+    ///
+    /// This is mostly useful for tests.
+    pub const fn from_entity(entity: Entity) -> Self {
+        Self(Some(entity))
+    }
+
+    /// Set the entity with input focus.
+    pub const fn set(&mut self, entity: Entity) {
+        self.0 = Some(entity);
+    }
+
+    /// Returns the entity with input focus, if any.
+    pub const fn get(&self) -> Option<Entity> {
+        self.0
+    }
+
+    /// Clears input focus.
+    pub const fn clear(&mut self) {
+        self.0 = None;
+    }
+}
+
+/// Resource representing whether the input focus indicator should be visible on UI elements.
+///
+/// It's up to the current focus navigation system to set this resource. For a desktop/web style of user interface
 /// this would be set to true when the user presses the tab key, and set to false when the user
 /// clicks on a different element.
 #[derive(Clone, Debug, Resource)]
@@ -43,6 +72,8 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// These methods are equivalent to modifying the [`InputFocus`] resource directly,
 /// but only take effect when commands are applied.
+///
+/// See [`IsFocused`] for methods to check if an entity has focus.
 pub trait SetInputFocus {
     /// Set input focus to the given entity.
     ///
@@ -151,8 +182,10 @@ impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
     }
 }
 
-/// Plugin which registers the system for dispatching keyboard events based on focus and
-/// hover state.
+/// Plugin which sets up systems for dispatching bubbling keyboard and gamepad button events to the focused entity.
+///
+/// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
+/// as described in the docs for [`FocusedInput`].
 pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
@@ -198,19 +231,19 @@ pub fn dispatch_focused_input<E: Event + Clone>(
     mut commands: Commands,
 ) {
     if let Ok(window) = windows.get_single() {
-        // If an element has keyboard focus, then dispatch the key event to that element.
-        if let Some(focus_elt) = focus.0 {
+        // If an element has keyboard focus, then dispatch the input event to that element.
+        if let Some(focused_entity) = focus.0 {
             for ev in key_events.read() {
                 commands.trigger_targets(
                     FocusedInput {
                         input: ev.clone(),
                         window,
                     },
-                    focus_elt,
+                    focused_entity,
                 );
             }
         } else {
-            // If no element has input focus, then dispatch the key event to the primary window.
+            // If no element has input focus, then dispatch the input event to the primary window.
             // There should be only one primary window.
             for ev in key_events.read() {
                 commands.trigger_targets(
@@ -225,9 +258,14 @@ pub fn dispatch_focused_input<E: Event + Clone>(
     }
 }
 
-/// Trait which defines methods to check if an entity currently has focus. This is implemented
-/// for [`World`] and [`IsFocusedHelper`].
+/// Trait which defines methods to check if an entity currently has focus.
+///
+/// This is implemented for [`World`] and [`IsFocusedHelper`].
 /// [`DeferredWorld`] indirectly implements it through [`Deref`].
+///
+/// For use within systems, use [`IsFocusedHelper`].
+///
+/// See [`SetInputFocus`] for methods to set and clear input focus.
 ///
 /// [`Deref`]: std::ops::Deref
 pub trait IsFocused {
@@ -235,17 +273,21 @@ pub trait IsFocused {
     fn is_focused(&self, entity: Entity) -> bool;
 
     /// Returns true if the given entity or any of its descendants has input focus.
+    ///
+    /// Note that for unusual layouts, the focus may not be within the entity's visual bounds.
     fn is_focus_within(&self, entity: Entity) -> bool;
 
-    /// Returns true if the given entity has input focus and the focus indicator is visible.
+    /// Returns true if the given entity has input focus and the focus indicator should be visible.
     fn is_focus_visible(&self, entity: Entity) -> bool;
 
     /// Returns true if the given entity, or any descendant, has input focus and the focus
-    /// indicator is visible.
+    /// indicator should be visible.
     fn is_focus_within_visible(&self, entity: Entity) -> bool;
 }
 
-/// System param that helps get information about the current focused entity.
+/// A system param that helps get information about the current focused entity.
+///
+/// When working with the entire [`World`], consider using the [`IsFocused`] instead.
 #[derive(SystemParam)]
 pub struct IsFocusedHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static Parent>,
