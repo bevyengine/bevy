@@ -160,7 +160,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             .unwrap()
             .type_id()
             .unwrap();
-        let component_type_id = component.reflect_type_info().type_id();
+        let component_type_id = component.type_id();
         if source_type_id != component_type_id {
             panic!("Passed component TypeId does not match source component TypeId")
         }
