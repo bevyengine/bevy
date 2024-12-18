@@ -475,7 +475,7 @@ mod tests {
 
         app.world_mut()
             .run_system_once(move |mut input_focus: ResMut<InputFocus>| {
-                input_focus.set(entity_b);
+                input_focus.set(child_of_b);
             })
             .unwrap();
         assert!(app.world().is_focus_within(entity_b));
