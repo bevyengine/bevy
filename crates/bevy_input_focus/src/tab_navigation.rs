@@ -145,8 +145,7 @@ impl TabNavigation<'_, '_> {
         });
 
         if focus.is_some() && tabgroup.is_none() {
-            warn!("No tab group found for focus entity");
-            return None;
+            warn!("No tab group found for focus entity. Users will not be able to navigate back to this entity.");
         }
 
         self.navigate_in_group(tabgroup, focus, action)
