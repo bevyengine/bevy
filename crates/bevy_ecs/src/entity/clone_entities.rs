@@ -24,6 +24,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     target_components_ptrs: &'a mut Vec<PtrMut<'b>>,
     target_components_buffer: &'b Bump,
     components: &'a Components,
+    component_info: &'a ComponentInfo,
     entity_cloner: &'a EntityCloner,
     #[cfg(feature = "bevy_reflect")]
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
@@ -52,6 +53,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target_component_written: false,
             target_components_buffer,
             components,
+            component_info: components.get_info_unchecked(component_id),
             entity_cloner,
             #[cfg(feature = "bevy_reflect")]
             type_registry,
@@ -73,9 +75,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.entity_cloner.target
     }
 
-    /// Returns the [`ComponentId`] of currently cloned component.
+    /// Returns the [`ComponentId`] of the component being cloned.
     pub fn component_id(&self) -> ComponentId {
         self.component_id
+    }
+
+    /// Returns the [`ComponentInfo`] of the component being cloned.
+    pub fn component_info(&self) -> &ComponentInfo {
+        self.component_info
     }
 
     /// Returns a reference to the component on the source entity.
