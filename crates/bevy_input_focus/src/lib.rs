@@ -62,9 +62,16 @@ impl InputFocus {
 
 /// Resource representing whether the input focus indicator should be visible on UI elements.
 ///
-/// It's up to the current focus navigation system to set this resource. For a desktop/web style of user interface
-/// this would be set to true when the user presses the tab key, and set to false when the user
-/// clicks on a different element.
+/// Note that this resource is not used by [`bevy_input_focus`](crate) itself, but is provided for
+/// convenience to UI widgets or frameworks that want to display a focus indicator.
+/// [`InputFocus`] may still be `Some` even if the focus indicator is not visible.
+///
+/// The value of this resource should be set by your focus navigation solution.
+/// For a desktop/web style of user interface this would be set to true when the user presses the tab key,
+/// and set to false when the user clicks on a different element.
+/// By contrast, a console-style UI intended to be navigated with a gamepad may always have the focus indicator visible.
+///
+/// To easily access information about whether focus indicators should be shown for a given entity, use the [`IsFocused`] trait.
 #[derive(Clone, Debug, Resource)]
 pub struct InputFocusVisible(pub bool);
 
