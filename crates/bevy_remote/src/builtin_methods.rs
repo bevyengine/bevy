@@ -882,7 +882,7 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
                         "type": "array",
                         "typeInfo": "Tuple",
                         "long_name": v.name(),
-                        "short_name":v.name(),
+                        "short_name": v.name(),
                         "prefixItems": v
                             .iter()
                             .map(SchemaJsonReference::ref_type)
