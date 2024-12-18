@@ -976,7 +976,7 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
 /// Helper trait for generating json schema reference
 trait SchemaJsonReference {
     /// Reference to another type in schema.
-    /// The value `$ref` is a URI-reference that is resolved agains the schema.
+    /// The value `$ref` is a URI-reference that is resolved against the schema.
     fn ref_type(self) -> Value;
 }
 
