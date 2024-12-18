@@ -18,7 +18,7 @@
 
 pub mod tab_navigation;
 
-use bevy_app::{App, Plugin, PreUpdate};
+use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{
     prelude::*, query::QueryData, system::SystemParam, traversal::Traversal, world::DeferredWorld,
 };
@@ -40,10 +40,17 @@ pub struct InputFocus(pub Option<Entity>);
 pub struct InputFocusVisible(pub bool);
 
 /// Helper functions for [`World`],  [`DeferredWorld`] and [`Commands`] to set and clear input focus.
+///
+/// These methods are equivalent to modifying the [`InputFocus`] resource directly,
+/// but only take effect when commands are applied.
 pub trait SetInputFocus {
     /// Set input focus to the given entity.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `Some(entity)`.
     fn set_input_focus(&mut self, entity: Entity);
     /// Clear input focus.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `None`.
     fn clear_input_focus(&mut self);
 }
 
@@ -76,6 +83,8 @@ impl<'w> SetInputFocus for DeferredWorld<'w> {
 }
 
 /// Command to set input focus to the given entity.
+///
+/// Generated via the methods in [`SetInputFocus`].
 pub struct SetFocusCommand(Option<Entity>);
 
 impl Command for SetFocusCommand {
@@ -148,7 +157,8 @@ pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(InputFocus(None))
+        app.add_systems(Startup, set_initial_focus)
+            .insert_resource(InputFocus(None))
             .insert_resource(InputFocusVisible(false))
             .add_systems(
                 PreUpdate,
@@ -169,6 +179,14 @@ impl Plugin for InputDispatchPlugin {
 pub enum InputFocusSet {
     /// System which dispatches bubbled input events to the focused entity, or to the primary window.
     Dispatch,
+}
+
+/// Sets the initial focus to the primary window, if any.
+pub fn set_initial_focus(
+    mut input_focus: ResMut<InputFocus>,
+    window: Single<Entity, With<PrimaryWindow>>,
+) {
+    input_focus.0 = Some(*window);
 }
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
@@ -392,6 +410,9 @@ mod tests {
             ..Default::default()
         };
         app.world_mut().spawn((window, PrimaryWindow));
+
+        // Run the world for a single frame to set up the initial focus
+        app.update();
 
         let entity_a = app
             .world_mut()
