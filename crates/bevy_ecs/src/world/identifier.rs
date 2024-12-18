@@ -4,7 +4,12 @@ use crate::{
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
+
+#[cfg(not(feature = "portable-atomic"))]
 use core::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicUsize, Ordering};
 
 use super::unsafe_world_cell::UnsafeWorldCell;
 

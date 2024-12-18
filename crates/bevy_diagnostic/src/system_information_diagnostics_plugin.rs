@@ -108,8 +108,8 @@ pub mod internal {
     ) {
         let sysinfo = sysinfo.get_or_insert_with(|| {
             Arc::new(Mutex::new(System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                     .with_memory(MemoryRefreshKind::everything()),
             )))
         });
@@ -129,7 +129,7 @@ pub mod internal {
             let task = thread_pool.spawn(async move {
                 let mut sys = sys.lock().unwrap();
 
-                sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 sys.refresh_memory();
                 let current_cpu_usage = sys.global_cpu_usage().into();
                 // `memory()` fns return a value in bytes
@@ -166,9 +166,9 @@ pub mod internal {
     impl Default for SystemInfo {
         fn default() -> Self {
             let sys = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new())
-                    .with_memory(MemoryRefreshKind::new().with_ram()),
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing())
+                    .with_memory(MemoryRefreshKind::nothing().with_ram()),
             );
 
             let system_info = SystemInfo {

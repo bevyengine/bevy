@@ -156,11 +156,17 @@ impl From<u32> for MaterialBindGroupIndex {
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
-pub struct MaterialBindGroupSlot(pub u32);
+pub struct MaterialBindGroupSlot(pub u16);
 
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
-        MaterialBindGroupSlot(value)
+        MaterialBindGroupSlot(value as u16)
+    }
+}
+
+impl From<MaterialBindGroupSlot> for u32 {
+    fn from(value: MaterialBindGroupSlot) -> Self {
+        value.0 as u32
     }
 }
 

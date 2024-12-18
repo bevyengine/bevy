@@ -17,7 +17,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef MAY_DISCARD
 #ifdef BINDLESS
-    let slot = mesh[in.instance_index].material_bind_group_slot;
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     var output_color: vec4<f32> = pbr_bindings::material[slot].base_color;
 #else   // BINDLESS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;

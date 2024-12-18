@@ -61,6 +61,7 @@ pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
 pub use time::*;
+#[cfg(feature = "tracing")]
 pub use tracing;
 
 #[cfg(feature = "alloc")]
@@ -400,16 +401,19 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
 }
 
 /// Calls the [`tracing::info!`] macro on a value.
+#[cfg(feature = "tracing")]
 pub fn info<T: Debug>(data: T) {
     tracing::info!("{:?}", data);
 }
 
 /// Calls the [`tracing::debug!`] macro on a value.
+#[cfg(feature = "tracing")]
 pub fn dbg<T: Debug>(data: T) {
     tracing::debug!("{:?}", data);
 }
 
 /// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+#[cfg(feature = "tracing")]
 pub fn warn<E: Debug>(result: Result<(), E>) {
     if let Err(warn) = result {
         tracing::warn!("{:?}", warn);
@@ -417,6 +421,7 @@ pub fn warn<E: Debug>(result: Result<(), E>) {
 }
 
 /// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+#[cfg(feature = "tracing")]
 pub fn error<E: Debug>(result: Result<(), E>) {
     if let Err(error) = result {
         tracing::error!("{:?}", error);
@@ -424,6 +429,7 @@ pub fn error<E: Debug>(result: Result<(), E>) {
 }
 
 /// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
+#[cfg(feature = "tracing")]
 #[macro_export]
 macro_rules! detailed_trace {
     ($($tts:tt)*) => {
