@@ -2237,7 +2237,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
         let component_id = ctx.component_id();
         world.commands().queue(move |world: &mut World| {
             let mut component = reflect_from_world.from_world(world);
-            assert_eq!(type_id, component.type_id());
+            assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
             // SAFETY:
             // - component_id is from the same world as target entity
