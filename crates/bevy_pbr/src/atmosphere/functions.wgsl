@@ -1,5 +1,7 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
+#import bevy_render::maths::{PI, HALF_PI, PI_2}
+
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::{
@@ -35,9 +37,6 @@
 
 // CONSTANTS
 
-const PI: f32 = 3.141592653589793238462;
-const TAU: f32 = 6.283185307179586476925;
-const FRAC_PI: f32 = 0.31830988618379067153; // 1 / π
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 

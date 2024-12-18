@@ -5,7 +5,7 @@
         bindings::{atmosphere, settings},
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut, isotropic, 
-            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI, TAU,
+            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI,
             max_atmosphere_distance, rayleigh, henyey_greenstein
         },
         bruneton_functions::{
@@ -13,6 +13,8 @@
         }
     }
 }
+
+#import bevy_render::maths::PI_2
 
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
@@ -26,7 +28,7 @@ fn s2_sequence(n: u32) -> vec2<f32> {
 
 //Lambert equal-area projection. 
 fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
-    let phi = TAU * uv.y;
+    let phi = PI_2 * uv.y;
     let sin_lambda = 2 * uv.x - 1;
     let cos_lambda = sqrt(1 - sin_lambda * sin_lambda);
 
