@@ -1,9 +1,12 @@
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 
 use bevy_utils::{HashMap, HashSet};
+
+#[cfg(feature = "bevy_reflect")]
+use alloc::boxed::Box;
 
 #[cfg(feature = "portable-atomic")]
 use portable_atomic_util::Arc;
@@ -34,6 +37,9 @@ pub struct ComponentCloneCtx<'a, 'b> {
     entity_cloner: &'a EntityCloner,
     #[cfg(feature = "bevy_reflect")]
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
+    #[cfg(not(feature = "bevy_reflect"))]
+    #[expect(dead_code)]
+    type_registry: Option<()>,
 }
 
 impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
@@ -51,6 +57,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         components: &'a Components,
         entity_cloner: &'a EntityCloner,
         #[cfg(feature = "bevy_reflect")] type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
+        #[cfg(not(feature = "bevy_reflect"))] type_registry: Option<()>,
     ) -> Self {
         Self {
             component_id,
@@ -61,7 +68,6 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             components,
             component_info: components.get_info_unchecked(component_id),
             entity_cloner,
-            #[cfg(feature = "bevy_reflect")]
             type_registry,
         }
     }
@@ -288,7 +294,7 @@ impl EntityCloner {
             #[cfg(feature = "bevy_reflect")]
             let app_registry = world.get_resource::<crate::reflect::AppTypeRegistry>();
             #[cfg(not(feature = "bevy_reflect"))]
-            let app_registry = None;
+            let app_registry = Option::<()>::None;
 
             (
                 app_registry,
@@ -333,7 +339,6 @@ impl EntityCloner {
                     &component_data,
                     components,
                     self,
-                    #[cfg(feature = "bevy_reflect")]
                     type_registry,
                 )
             };

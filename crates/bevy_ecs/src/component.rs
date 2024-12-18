@@ -11,7 +11,9 @@ use crate::{
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-use alloc::{borrow::Cow, boxed::Box, format, vec::Vec};
+#[cfg(feature = "bevy_reflect")]
+use alloc::boxed::Box;
+use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
@@ -1006,6 +1008,7 @@ impl ComponentCloneHandler {
     }
 
     /// Set clone handler based on `Reflect` trait.
+    #[cfg(feature = "bevy_reflect")]
     pub fn reflect_handler() -> Self {
         Self(Some(component_clone_via_reflect))
     }
