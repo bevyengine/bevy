@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
