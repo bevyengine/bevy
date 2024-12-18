@@ -2195,6 +2195,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
     {
         let reflect_from_world = reflect_from_world.clone();
         let source_component_cloned = source_component_reflect.clone_value();
+        let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
         world.commands().queue(move |world: &mut World| {
@@ -2204,11 +2205,12 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
             // - component_id is from the same world as target entity
             // - component is a valid value represented by component_id
             unsafe {
-                let raw_component =
+                let raw_component_ptr =
                     core::ptr::NonNull::new_unchecked(Box::into_raw(component).cast::<u8>());
                 world
                     .entity_mut(target)
-                    .insert_by_id(component_id, OwningPtr::new(raw_component));
+                    .insert_by_id(component_id, OwningPtr::new(raw_component_ptr));
+                alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
             }
         });
     }
