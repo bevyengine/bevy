@@ -821,17 +821,18 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
     let t = reg.type_info();
     let binding = t.type_path_table();
 
-    let short_name = binding.short_path();
+    let short_path = binding.short_path();
+    let type_path = binding.path();
     let mut schema = match t {
         TypeInfo::Struct(info) => {
             let properties = info
                 .iter()
                 .map(|field| (field.name().to_owned(), field.ty().ref_type()))
                 .collect::<Map<_, _>>();
+
             json!({
                 "type": "object",
-                "typeInfo": "Struct",
-                "long_name": t.type_path(),
+                "kind": "Struct",
                 "properties": properties,
                 "additionalProperties": false,
                 "required": info
@@ -848,8 +849,7 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
             if simple {
                 json!({
                     "type": "string",
-                    "typeInfo": "Enum",
-                    "long_name": t.type_path(),
+                    "kind": "Enum",
                     "oneOf": info
                         .iter()
                         .map(|variant| match variant {
@@ -864,9 +864,9 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
                 .map(|variant| match variant {
                     VariantInfo::Struct(v) => json!({
                         "type": "object",
-                        "typeInfo": "Struct",
-                        "long_name": v.name(),
-                        "short_name": v.name().split("::").last().unwrap_or(v.name()),
+                        "kind": "Struct",
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
                         "properties": v
                             .iter()
                             .map(|field| (field.name().to_owned(), field.ref_type()))
@@ -880,9 +880,9 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
                     }),
                     VariantInfo::Tuple(v) => json!({
                         "type": "array",
-                        "typeInfo": "Tuple",
-                        "long_name": v.name(),
-                        "short_name": v.name(),
+                        "kind": "Tuple",
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
                         "prefixItems": v
                             .iter()
                             .map(SchemaJsonReference::ref_type)
@@ -890,23 +890,22 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
                         "items": false,
                     }),
                     VariantInfo::Unit(v) => json!({
-                        "long_name": v.name(),
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
                     }),
                 })
                 .collect::<Vec<_>>();
 
                 json!({
                     "type": "object",
-                    "typeInfo": "Enum",
-                    "long_name": t.type_path(),
+                    "kind": "Enum",
                     "oneOf": variants,
                 })
             }
         }
         TypeInfo::TupleStruct(info) => json!({
-            "long_name": t.type_path(),
             "type": "array",
-            "typeInfo": "TupleStruct",
+            "kind": "TupleStruct",
             "prefixItems": info
                 .iter()
                 .map(SchemaJsonReference::ref_type)
@@ -915,29 +914,25 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
         }),
         TypeInfo::List(info) => {
             json!({
-                "long_name": t.type_path(),
                 "type": "array",
-                "typeInfo": "List",
+                "kind": "List",
                 "items": info.item_ty().ref_type(),
             })
         }
         TypeInfo::Array(info) => json!({
-            "long_name": t.type_path(),
             "type": "array",
-            "typeInfo": "Array",
+            "kind": "Array",
             "items": info.item_ty().ref_type(),
         }),
         TypeInfo::Map(info) => json!({
-            "long_name": t.type_path(),
             "type": "object",
-            "typeInfo": "Map",
+            "kind": "Map",
             "keyType": info.key_ty().ref_type(),
             "valueType": info.value_ty().ref_type(),
         }),
         TypeInfo::Tuple(info) => json!({
-            "long_name": t.type_path(),
             "type": "array",
-            "typeInfo": "Tuple",
+            "kind": "Tuple",
             "prefixItems": info
                 .iter()
                 .map(SchemaJsonReference::ref_type)
@@ -945,15 +940,13 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
             "items": false,
         }),
         TypeInfo::Set(info) => json!({
-            "long_name": t.type_path(),
             "type": "set",
-            "typeInfo": "Set",
+            "kind": "Set",
             "items": info.value_ty().ref_type(),
         }),
         TypeInfo::Opaque(info) => json!({
-            "long_name": t.type_path(),
             "type": info.map_json_type(),
-            "typeInfo": "Value",
+            "kind": "Value",
         }),
     };
     schema.as_object_mut().unwrap().insert(
@@ -968,7 +961,11 @@ pub fn export_type(reg: &TypeRegistration) -> (String, Value) {
     schema
         .as_object_mut()
         .unwrap()
-        .insert("short_name".to_owned(), short_name.into());
+        .insert("shortPath".to_owned(), short_path.into());
+    schema
+        .as_object_mut()
+        .unwrap()
+        .insert("typePath".to_owned(), type_path.into());
 
     (t.type_path().to_owned(), schema)
 }
@@ -1022,7 +1019,7 @@ impl SchemaJsonReference for &bevy_reflect::UnnamedField {
 impl SchemaJsonReference for &NamedField {
     fn ref_type(self) -> Value {
         let type_path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "long_name": self.name()})
+        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": self.name()})
     }
 }
 
