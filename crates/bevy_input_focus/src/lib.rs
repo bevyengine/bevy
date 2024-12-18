@@ -33,8 +33,32 @@ use core::fmt::Debug;
 
 /// Resource representing which entity has input focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
-#[derive(Clone, Debug, Resource)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct InputFocus(pub Option<Entity>);
+
+impl InputFocus {
+    /// Create a new [`InputFocus`] resource with the given entity.
+    ///
+    /// This is mostly useful for tests.
+    pub const fn from_entity(entity: Entity) -> Self {
+        Self(Some(entity))
+    }
+
+    /// Set the entity with input focus.
+    pub const fn set(&mut self, entity: Entity) {
+        self.0 = Some(entity);
+    }
+
+    /// Returns the entity with input focus, if any.
+    pub const fn get(&self) -> Option<Entity> {
+        self.0
+    }
+
+    /// Clears input focus.
+    pub const fn clear(&mut self) {
+        self.0 = None;
+    }
+}
 
 /// Resource representing whether the input focus indicator should be visible on UI elements.
 ///
