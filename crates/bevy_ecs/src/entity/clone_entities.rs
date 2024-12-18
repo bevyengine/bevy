@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
-use core::any::TypeId;
+use core::{any::TypeId, ptr::NonNull};
 
 use bevy_utils::{HashMap, HashSet};
 
@@ -145,6 +145,29 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         let component_ref = self.target_components_buffer.alloc(component);
         self.target_components_ptrs
             .push(PtrMut::from(component_ref));
+        self.target_component_written = true;
+    }
+
+    /// Writes component data to target entity by providing a pointer to source component data and to uninitialized target component data.
+    ///
+    /// Source component pointer points to a component described [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
+    ///
+    /// The uninitialized pointer points to a buffer with layout described by [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
+    ///
+    /// # Safety
+    /// Caller must ensure that after `clone_fn` is called the second argument ([`NonNull`] pointer) points to a valid component data
+    /// described by [`ComponentInfo`] stored in this [`ComponentCloneCtx`].
+    pub unsafe fn write_target_component_ptr(&mut self, clone_fn: impl FnOnce(Ptr, NonNull<u8>)) {
+        if self.target_component_written {
+            panic!("Trying to write component multiple times")
+        }
+        let layout = self.component_info.layout();
+        let target_component_data_ptr = self.target_components_buffer.alloc_layout(layout);
+
+        clone_fn(self.source_component_ptr, target_component_data_ptr);
+
+        self.target_components_ptrs
+            .push(PtrMut::new(target_component_data_ptr));
         self.target_component_written = true;
     }
 
@@ -627,11 +650,13 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         self as bevy_ecs,
-        component::{Component, ComponentCloneHandler},
+        component::{Component, ComponentCloneHandler, ComponentDescriptor, StorageType},
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
+    use alloc::alloc::Layout;
     use bevy_ecs_macros::require;
+    use bevy_ptr::OwningPtr;
 
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
@@ -1003,5 +1028,62 @@ mod tests {
         assert_eq!(world.entity(e_clone).get::<A>(), None);
         assert_eq!(world.entity(e_clone).get::<B>(), Some(&B));
         assert_eq!(world.entity(e_clone).get::<C>(), Some(&C(5)));
+    }
+
+    #[test]
+    fn clone_entity_with_dynamic_components() {
+        const COMPONENT_SIZE: usize = 10;
+        fn test_handler(_world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+            unsafe {
+                ctx.write_target_component_ptr(move |source_ptr, target_ptr| {
+                    core::ptr::copy_nonoverlapping(
+                        source_ptr.as_ptr(),
+                        target_ptr.as_ptr(),
+                        COMPONENT_SIZE,
+                    );
+                });
+            }
+        }
+
+        let mut world = World::default();
+
+        let layout = Layout::array::<u8>(COMPONENT_SIZE).unwrap();
+        let descriptor = unsafe {
+            ComponentDescriptor::new_with_layout(
+                "DynamicComp",
+                StorageType::Table,
+                layout,
+                None,
+                true,
+            )
+        };
+        let component_id = world.register_component_with_descriptor(descriptor);
+
+        let handlers = world.get_component_clone_handlers_mut();
+        handlers.set_component_handler(
+            component_id,
+            ComponentCloneHandler::custom_handler(test_handler),
+        );
+
+        let mut entity = world.spawn_empty();
+        let data = [5u8; COMPONENT_SIZE];
+
+        OwningPtr::make(data, |ptr| unsafe {
+            entity.insert_by_id(component_id, ptr);
+        });
+        let entity = entity.id();
+
+        let entity_clone = world.spawn_empty().id();
+        let builder = EntityCloneBuilder::new(&mut world);
+        builder.clone_entity(entity, entity_clone);
+
+        let ptr = world.get_by_id(entity, component_id).unwrap();
+        let clone_ptr = world.get_by_id(entity_clone, component_id).unwrap();
+        unsafe {
+            assert_eq!(
+                core::slice::from_raw_parts(ptr.as_ptr(), COMPONENT_SIZE),
+                core::slice::from_raw_parts(clone_ptr.as_ptr(), COMPONENT_SIZE),
+            );
+        }
     }
 }
