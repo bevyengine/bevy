@@ -61,6 +61,11 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [[bench]]
+name = "entity_cloning"
+path = "benches/bevy_ecs/entity_cloning.rs"
+harness = false
+
+[[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/main.rs"
 harness = false
