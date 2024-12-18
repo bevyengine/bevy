@@ -23,9 +23,7 @@ mod autofocus;
 pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
-use bevy_ecs::{
-    prelude::*, query::QueryData, system::SystemParam, traversal::Traversal, world::DeferredWorld,
-};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
@@ -67,74 +65,6 @@ impl InputFocus {
 /// clicks on a different element.
 #[derive(Clone, Debug, Resource)]
 pub struct InputFocusVisible(pub bool);
-
-/// Helper functions for [`World`],  [`DeferredWorld`] and [`Commands`] to set and clear input focus.
-///
-/// These methods are equivalent to modifying the [`InputFocus`] resource directly,
-/// but only take effect when commands are applied.
-///
-/// See [`IsFocused`] for methods to check if an entity has focus.
-pub trait SetInputFocus {
-    /// Set input focus to the given entity.
-    ///
-    /// This is equivalent to setting the [`InputFocus`]'s entity to `Some(entity)`.
-    fn set_input_focus(&mut self, entity: Entity);
-    /// Clear input focus.
-    ///
-    /// This is equivalent to setting the [`InputFocus`]'s entity to `None`.
-    fn clear_input_focus(&mut self);
-}
-
-impl SetInputFocus for World {
-    fn set_input_focus(&mut self, entity: Entity) {
-        if let Some(mut focus) = self.get_resource_mut::<InputFocus>() {
-            focus.0 = Some(entity);
-        }
-    }
-
-    fn clear_input_focus(&mut self) {
-        if let Some(mut focus) = self.get_resource_mut::<InputFocus>() {
-            focus.0 = None;
-        }
-    }
-}
-
-impl<'w> SetInputFocus for DeferredWorld<'w> {
-    fn set_input_focus(&mut self, entity: Entity) {
-        if let Some(mut focus) = self.get_resource_mut::<InputFocus>() {
-            focus.0 = Some(entity);
-        }
-    }
-
-    fn clear_input_focus(&mut self) {
-        if let Some(mut focus) = self.get_resource_mut::<InputFocus>() {
-            focus.0 = None;
-        }
-    }
-}
-
-/// Command to set input focus to the given entity.
-///
-/// Generated via the methods in [`SetInputFocus`].
-pub struct SetFocusCommand(Option<Entity>);
-
-impl Command for SetFocusCommand {
-    fn apply(self, world: &mut World) {
-        if let Some(mut focus) = world.get_resource_mut::<InputFocus>() {
-            focus.0 = self.0;
-        }
-    }
-}
-
-impl SetInputFocus for Commands<'_, '_> {
-    fn set_input_focus(&mut self, entity: Entity) {
-        self.queue(SetFocusCommand(Some(entity)));
-    }
-
-    fn clear_input_focus(&mut self) {
-        self.queue(SetFocusCommand(None));
-    }
-}
 
 /// A bubble-able user input event that starts at the currently focused entity.
 ///
@@ -261,11 +191,11 @@ pub fn dispatch_focused_input<E: Event + Clone>(
 /// Trait which defines methods to check if an entity currently has focus.
 ///
 /// This is implemented for [`World`] and [`IsFocusedHelper`].
-/// [`DeferredWorld`] indirectly implements it through [`Deref`].
+/// [`DeferredWorld`](bevy_ecs::world::DeferredWorld) indirectly implements it through [`Deref`].
 ///
 /// For use within systems, use [`IsFocusedHelper`].
 ///
-/// See [`SetInputFocus`] for methods to set and clear input focus.
+/// Modify the [`InputFocus`] resource to change the focused entity.
 ///
 /// [`Deref`]: std::ops::Deref
 pub trait IsFocused {
@@ -363,7 +293,9 @@ impl IsFocused for World {
 mod tests {
     use super::*;
 
-    use bevy_ecs::{component::ComponentId, observer::Trigger, system::RunSystemOnce};
+    use bevy_ecs::{
+        component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+    };
     use bevy_hierarchy::BuildChildren;
     use bevy_input::{
         keyboard::{Key, KeyCode},
@@ -377,7 +309,8 @@ mod tests {
     struct SetFocusOnAdd;
 
     fn set_focus_on_add(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-        world.set_input_focus(entity);
+        let mut input_focus = world.resource_mut::<InputFocus>();
+        input_focus.set(entity);
     }
 
     #[derive(Component, Default)]
@@ -409,7 +342,9 @@ mod tests {
 
         let entity = app.world_mut().spawn_empty().id();
 
-        app.world_mut().set_input_focus(entity);
+        app.world_mut()
+            .insert_resource(InputFocus::from_entity(entity));
+
         assert!(!app.world().is_focused(entity));
 
         app.world_mut()
@@ -487,7 +422,7 @@ mod tests {
         assert_eq!(get_gathered(&app, entity_b), "");
         assert_eq!(get_gathered(&app, child_of_b), "");
 
-        app.world_mut().clear_input_focus();
+        app.world_mut().insert_resource(InputFocus(None));
 
         assert!(!app.world().is_focused(entity_a));
         assert!(!app.world().is_focus_visible(entity_a));
@@ -500,13 +435,14 @@ mod tests {
         assert_eq!(get_gathered(&app, entity_b), "");
         assert_eq!(get_gathered(&app, child_of_b), "");
 
-        app.world_mut().set_input_focus(entity_b);
+        app.world_mut()
+            .insert_resource(InputFocus::from_entity(entity_b));
         assert!(app.world().is_focused(entity_b));
         assert!(!app.world().is_focused(child_of_b));
 
         app.world_mut()
-            .run_system_once(move |mut commands: Commands| {
-                commands.set_input_focus(child_of_b);
+            .run_system_once(move |mut input_focus: ResMut<InputFocus>| {
+                input_focus.set(entity_b);
             })
             .unwrap();
         assert!(app.world().is_focus_within(entity_b));

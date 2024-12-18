@@ -2,7 +2,7 @@
 
 use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
 
-use crate::SetInputFocus;
+use crate::InputFocus;
 
 /// Indicates that this widget should automatically receive [`InputFocus`](crate::InputFocus).
 ///
@@ -16,5 +16,7 @@ use crate::SetInputFocus;
 pub struct AutoFocus;
 
 fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-    world.set_input_focus(entity);
+    if let Some(mut input_focus) = world.get_resource_mut::<InputFocus>() {
+        input_focus.set(entity);
+    }
 }
