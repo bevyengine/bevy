@@ -241,24 +241,18 @@ impl Frustum {
 
     /// Returns a frustum derived from `clip_from_world`,
     /// but with a custom far plane.
-    /// If `far` is `None` behavior is identical to [`Frustum::from_clip_from_world`]
     #[inline]
     pub fn from_clip_from_world_custom_far(
         clip_from_world: &Mat4,
         view_translation: &Vec3,
         view_backward: &Vec3,
-        far: Option<f32>,
+        far: f32,
     ) -> Self {
-        match far {
-            None => Frustum::from_clip_from_world(clip_from_world),
-            Some(far) => {
-                let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-                let far_center = *view_translation - far * *view_backward;
-                frustum.half_spaces[5] =
-                    HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
-                frustum
-            }
-        }
+        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
+        let far_center = *view_translation - far * *view_backward;
+        frustum.half_spaces[5] =
+            HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
+        frustum
     }
 
     // NOTE: This approach of extracting the frustum half-space from the view
