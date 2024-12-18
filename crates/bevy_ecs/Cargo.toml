@@ -79,7 +79,7 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = [
   "dep:critical-section",
-  "bevy_tasks/critical-section",
+  "bevy_tasks?/critical-section",
   "portable-atomic?/critical-section",
 ]
 
@@ -88,8 +88,9 @@ critical-section = [
 portable-atomic = [
   "dep:portable-atomic",
   "dep:portable-atomic-util",
-  "bevy_tasks/portable-atomic",
+  "bevy_tasks?/portable-atomic",
   "concurrent-queue/portable-atomic",
+  "spin/portable_atomic",
 ]
 
 [dependencies]
