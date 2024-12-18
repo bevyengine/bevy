@@ -14,10 +14,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
+    hash::Hash,
     ops::{Deref, DerefMut},
     panic,
 };
-use std::hash::Hash;
 
 /// An enum configuring how line joints will be drawn.
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
