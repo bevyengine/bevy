@@ -124,7 +124,7 @@ impl TabNavigation<'_, '_> {
     /// or last focusable entity, depending on the direction of navigation. For example, if
     /// `action` is `Next` and no focusable entities are found, then this function will return
     /// the first focusable entity.
-    pub fn navigate(&self, focus: Option<Entity>, action: NavAction) -> Option<Entity> {
+    pub fn navigate(&self, focus: &InputFocus, action: NavAction) -> Option<Entity> {
         // If there are no tab groups, then there are no focusable entities.
         if self.tabgroup_query.is_empty() {
             warn!("No tab groups found");
@@ -133,7 +133,7 @@ impl TabNavigation<'_, '_> {
 
         // Start by identifying which tab group we are in. Mainly what we want to know is if
         // we're in a modal group.
-        let tabgroup = focus.and_then(|focus_ent| {
+        let tabgroup = focus.0.and_then(|focus_ent| {
             self.parent_query
                 .iter_ancestors(focus_ent)
                 .find_map(|entity| {
@@ -144,7 +144,7 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
-        if focus.is_some() && tabgroup.is_none() {
+        if focus.0.is_some() && tabgroup.is_none() {
             warn!("No tab group found for focus entity. Users will not be able to navigate back to this entity.");
         }
 
@@ -154,7 +154,7 @@ impl TabNavigation<'_, '_> {
     fn navigate_in_group(
         &self,
         tabgroup: Option<(Entity, &TabGroup)>,
-        focus: Option<Entity>,
+        focus: &InputFocus,
         action: NavAction,
     ) -> Option<Entity> {
         // List of all focusable entities found.
@@ -196,7 +196,7 @@ impl TabNavigation<'_, '_> {
         // Stable sort by tabindex
         focusable.sort_by(compare_tab_indices);
 
-        let index = focusable.iter().position(|e| Some(e.0) == focus);
+        let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
         let next = match (index, action) {
             (Some(idx), NavAction::Next) => (idx + 1).rem_euclid(count),
@@ -275,7 +275,7 @@ pub fn handle_tab_navigation(
         && !key_event.repeat
     {
         let next = nav.navigate(
-            focus.0,
+            &*focus,
             if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
                 NavAction::Previous
             } else {
@@ -312,16 +312,18 @@ mod tests {
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
 
-        let next_entity = tab_navigation.navigate(Some(tab_entity_1), NavAction::Next);
+        let next_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
         assert_eq!(next_entity, Some(tab_entity_2));
 
-        let prev_entity = tab_navigation.navigate(Some(tab_entity_2), NavAction::Previous);
+        let prev_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
         assert_eq!(prev_entity, Some(tab_entity_1));
 
-        let first_entity = tab_navigation.navigate(None, NavAction::First);
+        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
         assert_eq!(first_entity, Some(tab_entity_1));
 
-        let last_entity = tab_navigation.navigate(None, NavAction::Last);
+        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Some(tab_entity_2));
     }
 }
