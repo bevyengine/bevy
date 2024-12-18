@@ -9,31 +9,27 @@
 //! * An index < 0 means that the entity is not focusable via sequential navigation, but
 //!   can still be focused via direct selection.
 //!
-//! Tabbable entities must be descendants of a `TabGroup` entity, which is a component that
+//! Tabbable entities must be descendants of a [`TabGroup`] entity, which is a component that
 //! marks a tree of entities as containing tabbable elements. The order of tab groups
-//! is determined by the `order` field, with lower orders being tabbed first. Modal tab groups
+//! is determined by the [`TabGroup::order`] field, with lower orders being tabbed first. Modal tab groups
 //! are used for ui elements that should only tab within themselves, such as modal dialog boxes.
 //!
-//! There are several different ways to use this module. To enable automatic tabbing, add the
-//! `TabNavigationPlugin` to your app. (Make sure you also have `InputDispatchPlugin` installed).
+//! To enable automatic tabbing, add the
+//! [`TabNavigationPlugin`] and [`InputDispatchPlugin`](crate::InputDispatchPlugin) to your app.
 //! This will install a keyboard event observer on the primary window which automatically handles
 //! tab navigation for you.
 //!
-//! Alternatively, if you want to have more control over tab navigation, or are using an event
-//! mapping framework such as LWIM, you can use the `TabNavigation` helper object directly instead.
-//! This object can be injected into your systems, and provides a `navigate` method which can be
+//! Alternatively, if you want to have more control over tab navigation, or are using an input-action-mapping framework,
+//! you can use the [`TabNavigation`] system parameter directly instead.
+//! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
-//!
-//! This module also provides `AutoFocus`, a component which can be added to an entity to
-//! automatically focus it when it is added to the world.
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     entity::Entity,
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
-    world::DeferredWorld,
 };
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
@@ -43,7 +39,7 @@ use bevy_input::{
 use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
 
-use crate::{FocusedInput, InputFocus, InputFocusVisible, SetInputFocus};
+use crate::{FocusedInput, InputFocus, InputFocusVisible};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
@@ -51,10 +47,6 @@ use crate::{FocusedInput, InputFocus, InputFocusVisible, SetInputFocus};
 /// for this component to have any effect.
 #[derive(Debug, Default, Component, Copy, Clone)]
 pub struct TabIndex(pub i32);
-
-/// Indicates that this widget should automatically receive focus when it's added.
-#[derive(Debug, Default, Component, Copy, Clone)]
-pub struct AutoFocus;
 
 /// A component used to mark a tree of entities as containing tabbable elements.
 #[derive(Debug, Default, Component, Copy, Clone)]
@@ -87,7 +79,9 @@ impl TabGroup {
     }
 }
 
-/// Navigation action for tabbing.
+/// A navigation action for tabbing.
+///
+/// These values are consumed by the [`TabNavigation`] system param.
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     Next,
@@ -120,6 +114,8 @@ pub struct TabNavigation<'w, 's> {
 impl TabNavigation<'_, '_> {
     /// Navigate to the next focusable entity.
     ///
+    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
+    ///
     /// Arguments:
     /// * `focus`: The current focus entity, or `None` if no entity has focus.
     /// * `action`: Whether to select the next, previous, first, or last focusable entity.
@@ -128,7 +124,7 @@ impl TabNavigation<'_, '_> {
     /// or last focusable entity, depending on the direction of navigation. For example, if
     /// `action` is `Next` and no focusable entities are found, then this function will return
     /// the first focusable entity.
-    pub fn navigate(&self, focus: Option<Entity>, action: NavAction) -> Option<Entity> {
+    pub fn navigate(&self, focus: &InputFocus, action: NavAction) -> Option<Entity> {
         // If there are no tab groups, then there are no focusable entities.
         if self.tabgroup_query.is_empty() {
             warn!("No tab groups found");
@@ -137,7 +133,7 @@ impl TabNavigation<'_, '_> {
 
         // Start by identifying which tab group we are in. Mainly what we want to know is if
         // we're in a modal group.
-        let tabgroup = focus.and_then(|focus_ent| {
+        let tabgroup = focus.0.and_then(|focus_ent| {
             self.parent_query
                 .iter_ancestors(focus_ent)
                 .find_map(|entity| {
@@ -148,9 +144,8 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
-        if focus.is_some() && tabgroup.is_none() {
-            warn!("No tab group found for focus entity");
-            return None;
+        if focus.0.is_some() && tabgroup.is_none() {
+            warn!("No tab group found for focus entity. Users will not be able to navigate back to this entity.");
         }
 
         self.navigate_in_group(tabgroup, focus, action)
@@ -159,7 +154,7 @@ impl TabNavigation<'_, '_> {
     fn navigate_in_group(
         &self,
         tabgroup: Option<(Entity, &TabGroup)>,
-        focus: Option<Entity>,
+        focus: &InputFocus,
         action: NavAction,
     ) -> Option<Entity> {
         // List of all focusable entities found.
@@ -201,7 +196,7 @@ impl TabNavigation<'_, '_> {
         // Stable sort by tabindex
         focusable.sort_by(compare_tab_indices);
 
-        let index = focusable.iter().position(|e| Some(e.0) == focus);
+        let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
         let next = match (index, action) {
             (Some(idx), NavAction::Next) => (idx + 1).rem_euclid(count),
@@ -247,15 +242,12 @@ fn compare_tab_indices(a: &(Entity, TabIndex), b: &(Entity, TabIndex)) -> core::
     a.1 .0.cmp(&b.1 .0)
 }
 
-/// Plugin for handling keyboard input.
+/// Plugin for navigating between focusable entities using keyboard input.
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-        app.world_mut()
-            .register_component_hooks::<AutoFocus>()
-            .on_add(on_auto_focus_added);
     }
 }
 
@@ -283,7 +275,7 @@ pub fn handle_tab_navigation(
         && !key_event.repeat
     {
         let next = nav.navigate(
-            focus.0,
+            &focus,
             if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
                 NavAction::Previous
             } else {
@@ -295,12 +287,6 @@ pub fn handle_tab_navigation(
             focus.0 = next;
             visible.0 = true;
         }
-    }
-}
-
-fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-    if world.entity(entity).contains::<TabIndex>() {
-        world.set_input_focus(entity);
     }
 }
 
@@ -326,16 +312,18 @@ mod tests {
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
 
-        let next_entity = tab_navigation.navigate(Some(tab_entity_1), NavAction::Next);
+        let next_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
         assert_eq!(next_entity, Some(tab_entity_2));
 
-        let prev_entity = tab_navigation.navigate(Some(tab_entity_2), NavAction::Previous);
+        let prev_entity =
+            tab_navigation.navigate(&InputFocus::from_entity(tab_entity_2), NavAction::Previous);
         assert_eq!(prev_entity, Some(tab_entity_1));
 
-        let first_entity = tab_navigation.navigate(None, NavAction::First);
+        let first_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::First);
         assert_eq!(first_entity, Some(tab_entity_1));
 
-        let last_entity = tab_navigation.navigate(None, NavAction::Last);
+        let last_entity = tab_navigation.navigate(&InputFocus::default(), NavAction::Last);
         assert_eq!(last_entity, Some(tab_entity_2));
     }
 }
