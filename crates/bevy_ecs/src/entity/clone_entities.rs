@@ -9,6 +9,7 @@ use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, Components},
     entity::Entity,
+    query::DebugCheckedUnwrap,
     world::World,
 };
 
@@ -275,10 +276,11 @@ impl EntityCloner {
                 None => global_handlers.get_handler(component),
             };
 
-            // SAFETY: There are no other mutable references to source entity.
-            let Some(source_component_ptr) = (unsafe { source_entity.get_by_id(component) }) else {
-                continue;
-            };
+            // SAFETY:
+            // - There are no other mutable references to source entity.
+            // - `component` is from `source_entity`'s archetype
+            let source_component_ptr =
+                unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
 
             // SAFETY:
             // - `components` and `component` are from the same world
