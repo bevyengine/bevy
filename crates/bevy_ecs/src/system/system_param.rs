@@ -17,7 +17,6 @@ use crate::{
     },
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
-use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
@@ -32,7 +31,7 @@ use core::{
 use disqualified::ShortName;
 
 use super::Populated;
-use variadics_please::all_tuples;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -674,7 +673,106 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     change_tick: Tick,
 }
 
-impl_param_set!();
+macro_rules! impl_param_set {
+    ($(($index: tt, $param: ident, $system_meta: ident, $fn_name: ident)),*) => {
+        // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
+        unsafe impl<'w, 's, $($param,)*> ReadOnlySystemParam for ParamSet<'w, 's, ($($param,)*)>
+        where $($param: ReadOnlySystemParam,)*
+        { }
+
+        // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+        // with any prior access, a panic will occur.
+        unsafe impl<'_w, '_s, $($param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, ($($param,)*)>
+        {
+            type State = ($($param::State,)*);
+            type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
+
+            // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
+            #[allow(non_snake_case)]
+            fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+                $(
+                    // Pretend to add each param to the system alone, see if it conflicts
+                    let mut $system_meta = system_meta.clone();
+                    $system_meta.component_access_set.clear();
+                    $system_meta.archetype_component_access.clear();
+                    $param::init_state(world, &mut $system_meta);
+                    // The variable is being defined with non_snake_case here
+                    let $param = $param::init_state(world, &mut system_meta.clone());
+                )*
+                // Make the ParamSet non-send if any of its parameters are non-send.
+                if false $(|| !$system_meta.is_send())* {
+                    system_meta.set_non_send();
+                }
+                $(
+                    system_meta
+                        .component_access_set
+                        .extend($system_meta.component_access_set);
+                    system_meta
+                        .archetype_component_access
+                        .extend(&$system_meta.archetype_component_access);
+                )*
+                ($($param,)*)
+            }
+
+            unsafe fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+                // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                unsafe { <($($param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
+            }
+
+            fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                <($($param,)*) as SystemParam>::apply(state, system_meta, world);
+            }
+
+            fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                <($($param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
+            }
+
+            #[inline]
+            unsafe fn validate_param<'w, 's>(
+                state: &'s Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+            ) -> bool {
+                <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+            }
+
+            #[inline]
+            unsafe fn get_param<'w, 's>(
+                state: &'s mut Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+                change_tick: Tick,
+            ) -> Self::Item<'w, 's> {
+                ParamSet {
+                    param_states: state,
+                    system_meta: system_meta.clone(),
+                    world,
+                    change_tick,
+                }
+            }
+        }
+
+        impl<'w, 's, $($param: SystemParam,)*> ParamSet<'w, 's, ($($param,)*)>
+        {
+            $(
+                /// Gets exclusive access to the parameter at index
+                #[doc = stringify!($index)]
+                /// in this [`ParamSet`].
+                /// No other parameters may be accessed while this one is active.
+                pub fn $fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, $param> {
+                    // SAFETY: systems run without conflicts with other systems.
+                    // Conflicting params in ParamSet are not accessible at the same time
+                    // ParamSets are guaranteed to not conflict with other SystemParams
+                    unsafe {
+                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                    }
+                }
+            )*
+        }
+    }
+}
+
+all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///

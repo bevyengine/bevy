@@ -30,7 +30,7 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 # other
 downcast-rs = "1.2.0"
 thiserror = { version = "2", default-features = false }
-variadics_please = "1.0"
+variadics_please = "1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = "3.4.4"
