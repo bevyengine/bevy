@@ -3834,6 +3834,19 @@ wasm = true
 required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
+name = "text2d_picking"
+path = "examples/picking/text2d_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_text2d_picking_backend"]
+
+[package.metadata.example.text2d_picking]
+name = "Text2d Picking"
+description = "Demonstrates picking 2d text"
+category = "Picking"
+wasm = true
+required-features = ["bevy_text2d_picking_backend"]
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
