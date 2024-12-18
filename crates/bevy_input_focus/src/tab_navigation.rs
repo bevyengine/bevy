@@ -23,17 +23,13 @@
 //! you can use the [`TabNavigation`] system parameter directly instead.
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
-//!
-//! This module also provides [`AutoFocus`], a component which can be added to an entity to
-//! automatically focus it when it is added to the world.
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     entity::Entity,
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
-    world::DeferredWorld,
 };
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
@@ -43,7 +39,7 @@ use bevy_input::{
 use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
 
-use crate::{FocusedInput, InputFocus, InputFocusVisible, SetInputFocus};
+use crate::{FocusedInput, InputFocus, InputFocusVisible};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
@@ -51,10 +47,6 @@ use crate::{FocusedInput, InputFocus, InputFocusVisible, SetInputFocus};
 /// for this component to have any effect.
 #[derive(Debug, Default, Component, Copy, Clone)]
 pub struct TabIndex(pub i32);
-
-/// Indicates that this widget should automatically receive focus when it's added.
-#[derive(Debug, Default, Component, Copy, Clone)]
-pub struct AutoFocus;
 
 /// A component used to mark a tree of entities as containing tabbable elements.
 #[derive(Debug, Default, Component, Copy, Clone)]
@@ -257,9 +249,6 @@ pub struct TabNavigationPlugin;
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-        app.world_mut()
-            .register_component_hooks::<AutoFocus>()
-            .on_add(on_auto_focus_added);
     }
 }
 
@@ -299,12 +288,6 @@ pub fn handle_tab_navigation(
             focus.0 = next;
             visible.0 = true;
         }
-    }
-}
-
-fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-    if world.entity(entity).contains::<TabIndex>() {
-        world.set_input_focus(entity);
     }
 }
 

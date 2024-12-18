@@ -17,6 +17,11 @@
 
 pub mod tab_navigation;
 
+// This module is too small / specific to be exported by the crate,
+// but it's nice to have it separate for code organization.
+mod autofocus;
+pub use autofocus::*;
+
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{
     prelude::*, query::QueryData, system::SystemParam, traversal::Traversal, world::DeferredWorld,
