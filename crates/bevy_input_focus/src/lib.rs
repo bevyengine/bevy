@@ -23,7 +23,7 @@ use bevy_ecs::{
     prelude::*, query::QueryData, system::SystemParam, traversal::Traversal, world::DeferredWorld,
 };
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
-use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput};
+use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -155,6 +155,7 @@ impl Plugin for InputDispatchPlugin {
                 (
                     dispatch_focused_input::<KeyboardInput>,
                     dispatch_focused_input::<GamepadButtonChangedEvent>,
+                    dispatch_focused_input::<MouseWheel>,
                 )
                     .in_set(InputFocusSet::Dispatch),
             );
