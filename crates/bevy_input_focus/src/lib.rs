@@ -46,10 +46,17 @@ pub struct InputFocus(pub Option<Entity>);
 pub struct InputFocusVisible(pub bool);
 
 /// Helper functions for [`World`],  [`DeferredWorld`] and [`Commands`] to set and clear input focus.
+///
+/// These methods are equivalent to modifying the [`InputFocus`] resource directly,
+/// but only take effect when commands are applied.
 pub trait SetInputFocus {
     /// Set input focus to the given entity.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `Some(entity)`.
     fn set_input_focus(&mut self, entity: Entity);
     /// Clear input focus.
+    ///
+    /// This is equivalent to setting the [`InputFocus`]'s entity to `None`.
     fn clear_input_focus(&mut self);
 }
 
@@ -82,6 +89,8 @@ impl<'w> SetInputFocus for DeferredWorld<'w> {
 }
 
 /// Command to set input focus to the given entity.
+///
+/// Generated via the methods in [`SetInputFocus`].
 pub struct SetFocusCommand(Option<Entity>);
 
 impl Command for SetFocusCommand {
