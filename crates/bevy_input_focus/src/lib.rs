@@ -372,13 +372,11 @@ mod tests {
     };
 
     #[test]
-    fn test_without_plugin() {
+    fn test_no_panics_if_resource_missing() {
         let mut app = App::new();
+        // Note that we do not insert InputFocus here!
 
         let entity = app.world_mut().spawn_empty().id();
-
-        app.world_mut()
-            .insert_resource(InputFocus::from_entity(entity));
 
         assert!(!app.world().is_focused(entity));
 
