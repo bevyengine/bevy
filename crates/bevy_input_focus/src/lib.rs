@@ -54,7 +54,7 @@ use core::fmt::Debug;
 /// use bevy_input_focus::InputFocus;
 ///
 /// fn set_focus_from_world(world: &mut World) {
-///     let entity = world.spawn().id();
+///     let entity = world.spawn_empty().id();
 ///
 ///     // Fetch the resource from the world
 ///     let mut input_focus = world.resource_mut::<InputFocus>();
