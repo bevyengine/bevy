@@ -2159,12 +2159,9 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
     let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
         return;
     };
-    let Some(component_info) = ctx.components().get_info(ctx.component_id()) else {
-        return;
-    };
-    let Some(type_id) = component_info.type_id() else {
-        return;
-    };
+    let component_info = ctx.component_info();
+    // checked in read_source_component_reflect
+    let type_id = component_info.type_id().unwrap();
     let registry = registry.read();
 
     // Try to clone using ReflectFromReflect

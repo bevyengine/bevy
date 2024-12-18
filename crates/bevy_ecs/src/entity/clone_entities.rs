@@ -7,7 +7,7 @@ use bevy_utils::{HashMap, HashSet};
 
 use crate::{
     bundle::Bundle,
-    component::{Component, ComponentCloneHandler, ComponentId, Components},
+    component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
     world::World,
@@ -90,9 +90,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
     pub fn read_source_component<T: Component>(&self) -> Option<&T> {
         if self
-            .components
-            .component_id::<T>()
-            .is_some_and(|id| id == self.component_id)
+            .component_info
+            .type_id()
+            .is_some_and(|id| id == TypeId::of::<T>())
         {
             // SAFETY:
             // - Components and ComponentId are from the same world
@@ -114,7 +114,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     #[cfg(feature = "bevy_reflect")]
     pub fn read_source_component_reflect(&self) -> Option<&dyn bevy_reflect::Reflect> {
         let registry = self.type_registry?.read();
-        let type_id = self.components.get_info(self.component_id)?.type_id()?;
+        let type_id = self.component_info.type_id()?;
         let reflect_from_ptr = registry.get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)?;
         if reflect_from_ptr.type_id() != type_id {
             return None;
@@ -135,12 +135,13 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
         }
-        let Some(component_id) = self.components.component_id::<T>() else {
-            panic!("Component '{short_name}' is not registered")
+        if !self
+            .component_info
+            .type_id()
+            .is_some_and(|id| id == TypeId::of::<T>())
+        {
+            panic!("TypeId of component '{short_name}' does not match source component TypeId")
         };
-        if component_id != self.component_id {
-            panic!("Component '{short_name}' does not match ComponentId of this ComponentCloneCtx");
-        }
         let component_ref = self.target_components_buffer.alloc(component);
         self.target_components_ptrs
             .push(PtrMut::from(component_ref));
@@ -153,20 +154,17 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// This will panic if:
     /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
     /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
-    /// - Component is not registered.
-    /// - Component does not have [`TypeId`]
-    /// - Passed component's [`TypeId`] does not match source component [`TypeId`]
+    /// - Source component does not have [`TypeId`].
+    /// - Passed component's [`TypeId`] does not match source component [`TypeId`].
     #[cfg(feature = "bevy_reflect")]
     pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
         if self.target_component_written {
             panic!("Trying to write component multiple times")
         }
         let source_type_id = self
-            .components
-            .get_info(self.component_id)
-            .unwrap()
+            .component_info
             .type_id()
-            .unwrap();
+            .expect("Source component must have TypeId");
         let component_type_id = component.type_id();
         if source_type_id != component_type_id {
             panic!("Passed component TypeId does not match source component TypeId")
