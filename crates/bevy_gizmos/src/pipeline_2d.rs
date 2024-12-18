@@ -118,6 +118,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
             GizmoLineStyle::Dotted => "fragment_dotted",
+            GizmoLineStyle::Dashed { .. } => "fragment_dashed",
         };
 
         RenderPipelineDescriptor {

@@ -1,6 +1,6 @@
 use crate::{
     bundle::{Bundle, BundleSpawner},
-    entity::Entity,
+    entity::{Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
@@ -105,6 +105,14 @@ where
 }
 
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
+}
+
+// SAFETY: Newly spawned entities are unique.
+unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
     T: Bundle,

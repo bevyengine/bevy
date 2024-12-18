@@ -2,6 +2,10 @@ use crate::{
     First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
     SubApps,
 };
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
@@ -11,15 +15,22 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use log::debug;
+use thiserror::Error;
+
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-use thiserror::Error;
+
+#[cfg(feature = "downcast")]
+use alloc::vec::Vec;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -458,12 +469,21 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
-        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+
+        let f = AssertUnwindSafe(|| plugin.build(self));
+
+        #[cfg(feature = "std")]
+        let result = catch_unwind(f);
+
+        #[cfg(not(feature = "std"))]
+        f();
+
         self.main_mut()
             .plugin_names
             .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
+        #[cfg(feature = "std")]
         if let Err(payload) = result {
             resume_unwind(payload);
         }
@@ -499,6 +519,7 @@ impl App {
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
+    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
@@ -1294,7 +1315,7 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
@@ -1364,6 +1385,7 @@ impl From<u8> for AppExit {
     }
 }
 
+#[cfg(feature = "std")]
 impl Termination for AppExit {
     fn report(self) -> ExitCode {
         match self {
