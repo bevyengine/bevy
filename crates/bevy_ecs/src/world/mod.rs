@@ -3155,12 +3155,12 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::entity::ComponentCloneCtx;
     /// use bevy_ecs::world::DeferredWorld;
     ///
     /// fn custom_clone_handler(
     ///     _world: &mut DeferredWorld,
-    ///     _entity_cloner: &EntityCloner,
+    ///     _ctx: &mut ComponentCloneCtx,
     /// ) {
     ///     // Custom cloning logic for component
     /// }
@@ -3173,7 +3173,7 @@ impl World {
     /// let component_id = world.register_component::<ComponentA>();
     ///
     /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
     /// ```
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()
