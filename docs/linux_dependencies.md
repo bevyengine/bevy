@@ -122,7 +122,7 @@ mkShell rec {
     pkg-config
   ];
   buildInputs = [
-    udev alsa-lib vulkan-loader
+    udev alsa-lib-with-plugins vulkan-loader
     xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
@@ -133,6 +133,13 @@ mkShell rec {
 And enter it by just running `nix-shell`.
 You should be able compile Bevy programs using `cargo run` within this nix-shell.
 You can do this in one line with `nix-shell --run "cargo run"`.
+
+If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https://github.com/nix-community/nixGL) is additionally required,
+to link graphics drivers into the context of software installed by nix:
+
+1. Install an appropriate nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
+2. Run `nixGL cargo run` to compile a bevy program. The default `nixGL` often doesn't work,
+   and has to be replaced with a system specific wrapper, for instance: `nixVulkanNvidia` or `nixGLNvidia`.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
