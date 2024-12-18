@@ -205,8 +205,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         if source_type_id != component_type_id {
             panic!("Passed component TypeId does not match source component TypeId")
         }
-        let component_info = self.components.get_info(self.component_id).unwrap();
-        let component_layout = component_info.layout();
+        let component_layout = self.component_info.layout();
 
         let component_data_ptr = Box::into_raw(component).cast::<u8>();
         let target_component_data_ptr =
