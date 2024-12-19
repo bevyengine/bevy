@@ -88,7 +88,6 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
   "bevy_color?/serialize",
-  "bevy_core/serialize",
   "bevy_ecs/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
@@ -270,7 +269,6 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }

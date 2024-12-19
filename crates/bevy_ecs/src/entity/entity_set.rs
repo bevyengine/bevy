@@ -2,7 +2,6 @@ use alloc::{
     boxed::Box,
     collections::{btree_map, btree_set},
     rc::Rc,
-    sync::Arc,
 };
 
 use core::{
@@ -13,6 +12,12 @@ use core::{
 };
 
 use super::Entity;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 /// A trait for entity borrows.
 ///

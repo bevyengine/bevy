@@ -80,7 +80,6 @@ rustls = { version = "0.23", optional = true, default-features = false, features
 ] }
 
 [dev-dependencies]
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
 
 [lints]

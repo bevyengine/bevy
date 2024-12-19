@@ -45,7 +45,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Deserialize, Serialize)
 )]
 pub struct Name {
-    hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
+    hash: u64, // Won't be serialized
     name: Cow<'static, str>,
 }
 

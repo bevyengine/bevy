@@ -639,8 +639,7 @@ mod tests {
         AssetPlugin, AssetServer, Assets,
     };
     use alloc::sync::Arc;
-    use bevy_app::{App, Update};
-    use bevy_core::TaskPoolPlugin;
+    use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
         prelude::*,
