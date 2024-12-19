@@ -36,18 +36,16 @@ struct MorphData {
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
-        the_wave: asset_server
-            .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
+        the_wave: asset_server.load(
+            GltfAssetLabel::animation("TheWave").from_asset("models/animated/MorphStressTest.gltf"),
+        ),
         mesh: asset_server.load(
-            GltfAssetLabel::Primitive {
-                mesh: 0,
-                primitive: 0,
-            }
-            .from_asset("models/animated/MorphStressTest.gltf"),
+            GltfAssetLabel::primitive("Cube.001", 0)
+                .from_asset("models/animated/MorphStressTest.gltf"),
         ),
     });
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"),
+        GltfAssetLabel::scene("Scene").from_asset("models/animated/MorphStressTest.gltf"),
     )));
     commands.spawn((
         DirectionalLight::default(),
