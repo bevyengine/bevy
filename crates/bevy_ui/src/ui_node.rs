@@ -320,6 +320,7 @@ impl From<Vec2> for ScrollPosition {
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
+    ComputedNode,
     BackgroundColor,
     BorderColor,
     BorderRadius,
