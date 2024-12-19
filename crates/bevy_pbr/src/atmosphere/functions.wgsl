@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
 #import bevy_render::maths::{PI, HALF_PI, PI_2}
+#import bevy_pbr::fast_math::{fast_acos, fast_atan2}
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
@@ -37,6 +38,7 @@
 
 // CONSTANTS
 
+const FRAC_PI: f32 = 0.3183098862; // 1 / π
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 
@@ -54,20 +56,18 @@ fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     return vec2(r, mu);
 }
 
-// We squash the ray direction towards the horizon in order to emulate the paper's
-// non-linear latitude parametrization, though we use a cubemap instead.
-
-fn sky_view_lut_squash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
-    let new_y = sqrt(abs(ray_dir_as.y)) * sign(ray_dir_as.y);
-    return normalize(vec3(ray_dir_as.x, new_y, ray_dir_as.z));
+fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
+    let u = long * FRAC_PI + 0.5;
+    let v = sqrt(2 * abs(lat) * FRAC_PI) * -sign(lat) * 0.5 + 0.5;
+    return vec2(u, v);
 }
 
-fn sky_view_lut_unsquash_ray_dir(ray_dir_as: vec3<f32>) -> vec3<f32> {
-    let abs_y = abs(ray_dir_as.y);
-    let new_y = abs_y * abs_y * sign(ray_dir_as.y);
-    return normalize(vec3(ray_dir_as.x, new_y, ray_dir_as.z));
+fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
+    let long = (uv.x - 0.5) * PI_2;
+    let v_minus_half = uv.y - 0.5;
+    let lat = PI_2 * (v_minus_half * v_minus_half) * -sign(v_minus_half);
+    return vec2(lat, long);
 }
-
 
 // LUT SAMPLING
 
@@ -81,9 +81,12 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_sky_view_lut(ray_dir_as: vec3<f32>) -> vec3<f32> {
-    let ray_dir_as_squashed = sky_view_lut_squash_ray_dir(ray_dir_as);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, ray_dir_as_squashed, 0.0).rgb;
+fn sample_sky_view_lut(ray_dir_as: vec3<f32>, horizon_zenith: f32) -> vec3<f32> {
+    // we don't have fast_asin, so use fast_acos and adjust angle
+    let lat = horizon_zenith - fast_acos(ray_dir_as.y);
+    let long = fast_atan2(-ray_dir_as.x, -ray_dir_as.z);
+    let uv = sky_view_lut_lat_long_to_uv(lat, long);
+    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
@@ -166,7 +169,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         let mu_light = dot((*light).direction_to_light, local_up);
 
         // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
-        // instead of towards it (as is the convention)
+        // instead of towards it (as is the convention for V)
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
         // phase functions give the proportion of light
@@ -227,6 +230,16 @@ fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
+fn get_horizon_zenith(r: f32) -> f32 {
+    let altitude_ratio = atmosphere.bottom_radius / r;
+    let mu_horizon = sqrt(1 - altitude_ratio * altitude_ratio);
+    return fast_acos(mu_horizon);
+}
+
+fn zenith_to_altitude(zenith: f32) -> f32 {
+    return -zenith + HALF_PI;
+}
+
 // given a ray starting at radius r, with mu = cos(zenith angle),
 // and a t = distance along the ray, gives the new radius at point t
 fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
@@ -249,7 +262,13 @@ fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
     return world_pos.xyz / world_pos.w;
 }
 
-/// Convert in 
+/// Converts a direction in world space to atmosphere space
+fn direction_world_to_atmosphere(atmo_dir: vec3<f32>) -> vec3<f32> {
+    let world_dir = atmosphere_transforms.atmosphere_from_world * vec4(atmo_dir, 0.0);
+    return world_dir.xyz;
+}
+
+/// Converts a direction in atmosphere space to world space
 fn direction_atmosphere_to_world(atmo_dir: vec3<f32>) -> vec3<f32> {
     let world_dir = atmosphere_transforms.world_from_atmosphere * vec4(atmo_dir, 0.0);
     return world_dir.xyz;
@@ -266,4 +285,31 @@ fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
     let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
     return view_pos.z / view_pos.w;
+}
+
+//Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
+//w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
+fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
+    // Using world positions of the fragment and camera to calculate a ray direction
+    // breaks down at large translations. This code only needs to know the ray direction.
+    // The ray direction is along the direction from the camera to the fragment position.
+    // In view space, the camera is at the origin, so the view space ray direction is
+    // along the direction of the fragment position - (0,0,0) which is just the
+    // fragment position.
+    // Use the position on the near clipping plane to avoid -inf world position
+    // because the far plane of an infinite reverse projection is at infinity.
+    let view_position_homogeneous = view.view_from_clip * vec4(
+        uv_to_ndc(uv),
+        1.0,
+        1.0,
+    );
+
+    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
+    // Transforming the view space ray direction by the inverse view matrix, transforms the
+    // direction to world space. Note that the w element is set to 0.0, as this is a
+    // vector direction, not a position, That causes the matrix multiplication to ignore
+    // the translations from the view matrix.
+    let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
+
+    return vec4(normalize(ray_direction), -view_ray_direction.z);
 }

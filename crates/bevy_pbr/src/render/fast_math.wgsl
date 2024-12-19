@@ -33,7 +33,7 @@ fn fast_acos_4(x: f32) -> f32 {
     return select(PI - s, s, x >= 0.0);
 }
 
-fn fast_atan2(y: f32, x: f32) {
+fn fast_atan2(y: f32, x: f32) -> f32 {
     var t0 = max(abs(x), abs(y));
     var t1 = min(abs(x), abs(y));
     var t3 = t1 / t0;

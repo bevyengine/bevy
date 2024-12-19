@@ -42,10 +42,18 @@ impl FromWorld for AtmosphereBindGroupLayouts {
         let transmittance_lut = render_device.create_bind_group_layout(
             "transmittance_lut_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
-                ShaderStages::FRAGMENT,
+                ShaderStages::COMPUTE,
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (
+                        // transmittance lut storage texture
+                        13,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
                 ),
             ),
         );
@@ -87,7 +95,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                     (8, sampler(SamplerBindingType::Filtering)),
                     (
                         13,
-                        texture_storage_2d_array(
+                        texture_storage_2d(
                             TextureFormat::Rgba16Float,
                             StorageTextureAccess::WriteOnly,
                         ),
@@ -145,11 +153,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
                     (6, sampler(SamplerBindingType::Filtering)),
-                    (
-                        //sky view lut and sampler
-                        9,
-                        texture_cube(TextureSampleType::Float { filterable: true }),
-                    ),
+                    (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
                         // aerial view lut and sampler
@@ -178,11 +182,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
                     (6, sampler(SamplerBindingType::Filtering)),
-                    (
-                        //sky view lut and sampler
-                        9,
-                        texture_cube(TextureSampleType::Float { filterable: true }),
-                    ),
+                    (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
                         // aerial view lut and sampler
@@ -237,6 +237,7 @@ impl FromWorld for AtmosphereSamplers {
 
         let sky_view_lut = render_device.create_sampler(&SamplerDescriptor {
             label: Some("sky_view_lut_sampler"),
+            address_mode_u: AddressMode::Repeat,
             ..base_sampler
         });
 
@@ -256,7 +257,7 @@ impl FromWorld for AtmosphereSamplers {
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereLutPipelines {
-    pub transmittance_lut: CachedRenderPipelineId,
+    pub transmittance_lut: CachedComputePipelineId,
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedComputePipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
@@ -267,25 +268,14 @@ impl FromWorld for AtmosphereLutPipelines {
         let pipeline_cache = world.resource::<PipelineCache>();
         let layouts = world.resource::<AtmosphereBindGroupLayouts>();
 
-        let transmittance_lut = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+        let transmittance_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
             push_constant_ranges: vec![],
-            vertex: fullscreen_shader_vertex_state(),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
+            shader: shaders::TRANSMITTANCE_LUT,
+            shader_defs: vec![],
+            entry_point: "main".into(),
             zero_initialize_workgroup_memory: false,
-            fragment: Some(FragmentState {
-                shader: shaders::TRANSMITTANCE_LUT.clone(),
-                shader_defs: vec![],
-                entry_point: "main".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rgba16Float,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
         });
 
         let multiscattering_lut =
@@ -417,7 +407,6 @@ pub struct AtmosphereTextures {
     pub transmittance_lut: CachedTexture,
     pub multiscattering_lut: CachedTexture,
     pub sky_view_lut: CachedTexture,
-    pub sky_view_lut_cube_view: TextureView,
     pub aerial_view_lut: CachedTexture,
 }
 
@@ -434,14 +423,14 @@ pub(super) fn prepare_atmosphere_textures(
                 label: Some("transmittance_lut"),
                 size: Extent3d {
                     width: lut_settings.transmittance_lut_size.x,
-                    height: lut_settings.multiscattering_lut_size.y,
+                    height: lut_settings.transmittance_lut_size.y,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
         );
@@ -469,9 +458,9 @@ pub(super) fn prepare_atmosphere_textures(
             TextureDescriptor {
                 label: Some("sky_view_lut"),
                 size: Extent3d {
-                    width: lut_settings.sky_view_lut_size,
-                    height: lut_settings.sky_view_lut_size,
-                    depth_or_array_layers: 6,
+                    width: lut_settings.sky_view_lut_size.x,
+                    height: lut_settings.sky_view_lut_size.y,
+                    depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -481,12 +470,6 @@ pub(super) fn prepare_atmosphere_textures(
                 view_formats: &[],
             },
         );
-
-        let sky_view_lut_cube_view = sky_view_lut.texture.create_view(&TextureViewDescriptor {
-            label: Some("sky_view_lut_cube"),
-            dimension: Some(TextureViewDimension::Cube),
-            ..Default::default()
-        });
 
         let aerial_view_lut = texture_cache.get(
             &render_device,
@@ -511,7 +494,6 @@ pub(super) fn prepare_atmosphere_textures(
                 transmittance_lut,
                 multiscattering_lut,
                 sky_view_lut,
-                sky_view_lut_cube_view,
                 aerial_view_lut,
             }
         });
@@ -533,7 +515,7 @@ impl AtmosphereTransforms {
 #[derive(ShaderType)]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
-    atmosphere_from_clip: Mat4,
+    atmosphere_from_world: Mat4,
 }
 
 #[derive(Component)]
@@ -579,21 +561,15 @@ pub(super) fn prepare_atmosphere_transforms(
             atmo_x.extend(0.0),
             atmo_y.extend(0.0),
             atmo_z.extend(0.0),
-            world_from_view.w_axis, //.with_y(0.0),
+            world_from_view.w_axis,
         );
 
-        let world_from_clip = if let Some(clip_from_world) = view.clip_from_world {
-            clip_from_world.inverse()
-        } else {
-            world_from_view * view.clip_from_view.inverse()
-        };
-
-        let atmosphere_from_clip = world_from_atmosphere.inverse() * world_from_clip;
+        let atmosphere_from_world = world_from_atmosphere.inverse();
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
-                atmosphere_from_clip,
+                atmosphere_from_world,
             }),
         });
     }
@@ -656,6 +632,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (13, &textures.transmittance_lut.default_view),
             )),
         );
 
@@ -719,7 +696,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),
                 (6, &samplers.transmittance_lut),
-                (9, &textures.sky_view_lut_cube_view),
+                (9, &textures.sky_view_lut.default_view),
                 (10, &samplers.sky_view_lut),
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &samplers.aerial_view_lut),

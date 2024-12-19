@@ -386,12 +386,11 @@ pub struct AtmosphereSettings {
     /// The size of the multiscattering LUT
     pub multiscattering_lut_size: UVec2,
 
+    /// The size of the sky-view LUT.
+    pub sky_view_lut_size: UVec2,
+
     /// The size of the aerial LUT.
     pub aerial_view_lut_size: UVec3,
-
-    /// The size of the sky-view LUT. This is a cubemap,
-    /// so this field is the length of one edge of the cube
-    pub sky_view_lut_size: u32,
 
     /// The number of points to sample along each ray when
     /// computing the transmittance LUT
@@ -426,7 +425,7 @@ impl Default for AtmosphereSettings {
             multiscattering_lut_size: UVec2::new(32, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
-            sky_view_lut_size: 64,
+            sky_view_lut_size: UVec2::new(400, 200),
             sky_view_lut_samples: 30,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
