@@ -8,10 +8,10 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    name::Name,
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};

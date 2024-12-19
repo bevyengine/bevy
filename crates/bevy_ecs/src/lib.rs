@@ -3,14 +3,20 @@
 // TODO: remove once Edition 2024 is released
 #![allow(dependency_on_unit_never_type_fallback)]
 #![doc = include_str!("../README.md")]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![allow(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -27,6 +33,7 @@ pub mod event;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+pub mod name;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -45,7 +52,7 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -53,6 +60,7 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
@@ -63,15 +71,19 @@ pub mod prelude {
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
-            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, WithParamWarnPolicy,
+            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
+            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
+            WithParamWarnPolicy,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "std")]
+    pub use crate::system::ParallelCommands;
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
@@ -82,6 +94,17 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
+}
+
+/// Exports used by macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
+#[doc(hidden)]
+pub mod __macro_exports {
+    // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
+    // included `extern crate alloc;`. This re-export ensures we have access
+    // to `Vec` in `no_std` and `std` contexts.
+    pub use alloc::vec::Vec;
 }
 
 #[cfg(test)]
