@@ -525,6 +525,8 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
 
     let adapter_name = adapter.get_info().name;
     let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+
+    // Take suffixes into account (like Adreno 642L).
     Some(
         adreno_model
             .chars()
