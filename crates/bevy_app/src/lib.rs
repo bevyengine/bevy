@@ -24,6 +24,7 @@ mod plugin;
 mod plugin_group;
 mod schedule_runner;
 mod sub_app;
+mod task_pool_plugin;
 #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
 mod terminal_ctrl_c_handler;
 
@@ -34,6 +35,7 @@ pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
+pub use task_pool_plugin::*;
 #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
 pub use terminal_ctrl_c_handler::*;
 
@@ -50,6 +52,6 @@ pub mod prelude {
             RunFixedMainLoopSystem, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
-        Plugin, PluginGroup,
+        NonSendMarker, Plugin, PluginGroup, TaskPoolPlugin,
     };
 }
