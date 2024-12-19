@@ -31,6 +31,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
+|bevy_text2d_picking_backend|Provides an implementation for picking Text2d|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_window|Windowing layer|
