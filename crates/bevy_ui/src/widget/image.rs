@@ -1,4 +1,4 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
+use crate::{ComputedNode, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -250,7 +250,7 @@ impl Measure for ImageMeasure {
     }
 }
 
-type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
+type UpdateImageFilter = (With<ComputedNode>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
@@ -258,7 +258,6 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
 ) {

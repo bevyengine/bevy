@@ -265,6 +265,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
+                .after(UiSystem::Stack)
                 .in_set(UiSystem::Prepare)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
