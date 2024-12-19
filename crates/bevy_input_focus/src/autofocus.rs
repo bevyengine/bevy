@@ -4,7 +4,7 @@ use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
 
 use crate::InputFocus;
 
-/// Indicates that this widget should automatically receive [`InputFocus`](crate::InputFocus).
+/// Indicates that this widget should automatically receive [`InputFocus`].
 ///
 /// This can be useful for things like dialog boxes, the first text input in a form,
 /// or the first button in a game menu.
