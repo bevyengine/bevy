@@ -209,6 +209,7 @@ impl UiSurface {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
         };
+        self.taffy.enable_rounding();
         for root_nodes in camera_root_nodes {
             self.taffy
                 .compute_layout_with_measure(
@@ -301,7 +302,6 @@ impl UiSurface {
         self.taffy.disable_rounding();
         let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
         let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
-        self.taffy.enable_rounding();
 
         Ok((layout, unrounded_size))
     }
