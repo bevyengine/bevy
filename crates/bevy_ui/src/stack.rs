@@ -166,7 +166,7 @@ fn remove_computed_nodes_recursive(
 ) {
     commands.entity(node_entity).remove::<ComputedNode>();
     for child in ui_children.iter_ui_children(node_entity) {
-        remove_computed_nodes_recursive(child, commands, ui_children)
+        remove_computed_nodes_recursive(child, commands, ui_children);
     }
 }
 
