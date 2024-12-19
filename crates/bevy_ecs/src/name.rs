@@ -275,9 +275,9 @@ mod tests {
     }
 }
 
-#[cfg(test, feature = "serialize")]
+#[cfg(all(test, feature = "serialize"))]
 mod serde_tests {
-    use super::*;
+    use super::Name;
 
     use serde_test::{assert_tokens, Token};
 
