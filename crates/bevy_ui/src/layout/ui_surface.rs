@@ -209,6 +209,7 @@ impl UiSurface {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
         };
+        self.taffy.enable_rounding();
         for root_nodes in camera_root_nodes {
             self.taffy
                 .compute_layout_with_measure(
@@ -277,10 +278,20 @@ impl UiSurface {
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding
     /// and the size of the node after layout resolution but before rounding.
-    pub fn get_layout(&mut self, entity: Entity) -> Result<(taffy::Layout, Vec2), LayoutError> {
+    pub fn get_layout(
+        &mut self,
+        entity: Entity,
+        use_rounding: bool,
+    ) -> Result<(taffy::Layout, Vec2), LayoutError> {
         let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
             return Err(LayoutError::InvalidHierarchy);
         };
+
+        if use_rounding {
+            self.taffy.enable_rounding();
+        } else {
+            self.taffy.disable_rounding();
+        }
 
         let layout = self
             .taffy
@@ -291,7 +302,6 @@ impl UiSurface {
         self.taffy.disable_rounding();
         let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
         let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
-        self.taffy.enable_rounding();
 
         Ok((layout, unrounded_size))
     }
