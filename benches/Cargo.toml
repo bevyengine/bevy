@@ -16,7 +16,7 @@ bevy_math = { path = "../crates/bevy_math" }
 bevy_picking = { path = "../crates/bevy_picking", features = [
   "bevy_mesh_picking_backend",
 ] }
-bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
+bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
@@ -26,6 +26,11 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 glam = "0.29"
 rand = "0.8"
 rand_chacha = "0.3"
+
+[features]
+# Enabling function reflection currently breaks our `reflection_types` example due to feature-flag
+# merging. Once function reflection is enabled by default this can be removed.
+reflect_functions = ["bevy_reflect/functions"]
 
 # Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
 # because the benches do not actually open any windows.
