@@ -230,15 +230,15 @@ impl Serialize for Name {
 #[cfg(feature = "serialize")]
 impl<'de> Deserialize<'de> for Name {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_str(EntityVisitor)
+        deserializer.deserialize_str(NameVisitor)
     }
 }
 
 #[cfg(feature = "serialize")]
-struct EntityVisitor;
+struct NameVisitor;
 
 #[cfg(feature = "serialize")]
-impl<'de> Visitor<'de> for EntityVisitor {
+impl<'de> Visitor<'de> for NameVisitor {
     type Value = Name;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
