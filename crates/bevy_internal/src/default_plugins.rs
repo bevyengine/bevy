@@ -6,7 +6,6 @@ plugin_group! {
         bevy_app:::PanicHandlerPlugin,
         bevy_log:::LogPlugin,
         bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
         bevy_core:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
@@ -108,7 +107,6 @@ plugin_group! {
     /// This plugin group will add the minimal plugins for a *Bevy* application:
     pub struct MinimalPlugins {
         bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
         bevy_core:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,

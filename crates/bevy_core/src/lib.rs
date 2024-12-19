@@ -21,7 +21,7 @@ pub use task_pool_options::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{FrameCountPlugin, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin};
+    pub use crate::{FrameCountPlugin, TaskPoolOptions, TaskPoolPlugin};
 }
 
 use bevy_app::prelude::*;
@@ -30,18 +30,6 @@ use core::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-
-/// Registration of default types to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
-#[derive(Default)]
-pub struct TypeRegistrationPlugin;
-
-impl Plugin for TypeRegistrationPlugin {
-    #[cfg_attr(not(feature = "bevy_reflect"), allow(unused_variables))]
-    fn build(&self, app: &mut App) {
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<Name>();
-    }
-}
 
 /// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
 /// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
@@ -111,7 +99,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugins((TaskPoolPlugin::default(), TypeRegistrationPlugin));
+        app.add_plugins(TaskPoolPlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -144,11 +132,7 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            TypeRegistrationPlugin,
-            FrameCountPlugin,
-        ));
+        app.add_plugins((TaskPoolPlugin::default(), FrameCountPlugin));
         app.update();
 
         let frame_count = app.world().resource::<FrameCount>();
