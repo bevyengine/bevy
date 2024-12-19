@@ -2,7 +2,10 @@
 
 use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
 
-use alloc::borrow::Cow;
+use alloc::{
+    borrow::{Cow, ToOwned},
+    string::String,
+};
 use bevy_utils::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
