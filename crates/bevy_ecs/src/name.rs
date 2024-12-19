@@ -1,16 +1,24 @@
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
+//! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
+
+use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
 
 use alloc::borrow::Cow;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::std_traits::ReflectDefault;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use bevy_utils::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
+};
+
+#[cfg(feature = "serialize")]
+use serde::{
+    de::{Error, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    crate::reflect::ReflectComponent,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -213,10 +221,44 @@ impl Deref for Name {
     }
 }
 
+#[cfg(feature = "serialize")]
+impl Serialize for Name {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_str(EntityVisitor)
+    }
+}
+
+#[cfg(feature = "serialize")]
+struct EntityVisitor;
+
+#[cfg(feature = "serialize")]
+impl<'de> Visitor<'de> for EntityVisitor {
+    type Value = Name;
+
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+        formatter.write_str(core::any::type_name::<Name>())
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        Ok(Name::new(v.to_string()))
+    }
+
+    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
+        Ok(Name::new(v))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::world::World;
+    use crate::world::World;
 
     #[test]
     fn test_display_of_debug_name() {
