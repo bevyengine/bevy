@@ -111,8 +111,12 @@ fn setup_scene_after_load(
         let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
         info!("Spawning a controllable 3D perspective camera");
+        let min_required_far = size * 10.0;
         let mut projection = PerspectiveProjection::default();
-        projection.far = projection.far.max(size * 10.0);
+        projection.far = projection
+            .far
+            .map(|far| far.max(min_required_far))
+            .or(Some(min_required_far));
 
         let walk_speed = size * 3.0;
         let camera_controller = CameraController {

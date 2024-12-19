@@ -35,7 +35,7 @@ const TRANSFORM_2D: Transform = Transform {
 // The projection used for the camera in 2D
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
     near: -1.0,
-    far: 10.0,
+    far: Some(10.0),
     scale: 1.0,
     viewport_origin: Vec2::new(0.5, 0.5),
     scaling_mode: ScalingMode::AutoMax {
@@ -59,7 +59,7 @@ const TRANSFORM_3D: Transform = Transform {
 const PROJECTION_3D: Projection = Projection::Perspective(PerspectiveProjection {
     fov: PI / 4.0,
     near: 0.1,
-    far: 1000.0,
+    far: Some(1000.0),
     aspect_ratio: 1.0,
 });
 

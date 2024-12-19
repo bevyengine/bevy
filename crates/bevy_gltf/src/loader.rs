@@ -1435,7 +1435,7 @@ fn load_node(
                     let xmag = orthographic.xmag();
                     let orthographic_projection = OrthographicProjection {
                         near: orthographic.znear(),
-                        far: orthographic.zfar(),
+                        far: Some(orthographic.zfar()),
                         scaling_mode: ScalingMode::FixedHorizontal {
                             viewport_width: xmag,
                         },
@@ -1451,7 +1451,7 @@ fn load_node(
                         ..Default::default()
                     };
                     if let Some(zfar) = perspective.zfar() {
-                        perspective_projection.far = zfar;
+                        perspective_projection.far = Some(zfar);
                     }
                     if let Some(aspect_ratio) = perspective.aspect_ratio() {
                         perspective_projection.aspect_ratio = aspect_ratio;

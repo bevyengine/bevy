@@ -542,7 +542,7 @@ mod tests {
             fov: 90.0_f32.to_radians(),
             aspect_ratio: 1.0,
             near: 1.0,
-            far: 100.0,
+            far: Some(100.0),
         };
         proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
     }
@@ -550,7 +550,7 @@ mod tests {
     fn contains_aabb_test_frustum_with_rotation() -> Frustum {
         let half_extent_world = (((49.5 * 49.5) * 0.5) as f32).sqrt() + 0.5f32.sqrt();
         let near = 50.5 - half_extent_world;
-        let far = near + 2.0 * half_extent_world;
+        let far = Some(near + 2.0 * half_extent_world);
         let fov = 2.0 * ops::atan(half_extent_world / near);
         let proj = PerspectiveProjection {
             aspect_ratio: 1.0,
