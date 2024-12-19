@@ -120,7 +120,8 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.batchable_mesh_keys.is_empty()
+            if !opaque_prepass_phase.multidrawable_mesh_keys.is_empty()
+                || !opaque_prepass_phase.batchable_mesh_keys.is_empty()
                 || !opaque_prepass_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
