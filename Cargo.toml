@@ -13,6 +13,7 @@ documentation = "https://docs.rs/bevy"
 rust-version = "1.83.0"
 
 [workspace]
+resolver = "2"
 members = [
   # All of Bevy's official crates are within the `crates` folder!
   "crates/*",
