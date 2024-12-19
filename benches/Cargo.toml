@@ -32,10 +32,6 @@ rand_chacha = "0.3"
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 bevy_winit = { path = "../crates/bevy_winit", features = ["x11"] }
 
-[profile.release]
-opt-level = 3
-lto = true
-
 [lints.clippy]
 doc_markdown = "warn"
 manual_let_else = "warn"
