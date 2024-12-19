@@ -118,7 +118,7 @@ impl core::fmt::Debug for Name {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             bevy_utils::tracing::error!("Score for {name} is invalid");
+///             log::error!("Score for {name} is invalid");
 ///         }
 ///     }
 /// }
