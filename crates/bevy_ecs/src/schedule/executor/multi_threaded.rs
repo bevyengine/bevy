@@ -1,15 +1,19 @@
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use core::any::Any;
-use std::sync::{Mutex, MutexGuard};
-
+use alloc::{boxed::Box, vec::Vec};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
-use core::panic::AssertUnwindSafe;
+use concurrent_queue::ConcurrentQueue;
+use core::{any::Any, panic::AssertUnwindSafe};
+use fixedbitset::FixedBitSet;
+use std::sync::{Mutex, MutexGuard};
+
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-use concurrent_queue::ConcurrentQueue;
-use fixedbitset::FixedBitSet;
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 use crate::{
     archetype::ArchetypeComponentId,

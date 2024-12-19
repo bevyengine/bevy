@@ -1,11 +1,24 @@
+#![cfg_attr(
+    feature = "portable-atomic",
+    expect(
+        clippy::redundant_closure,
+        reason = "portable_atomic_util::Arc has subtly different implicit behavior"
+    )
+)]
+
 use crate::{App, Last, Plugin};
 
-use alloc::sync::Arc;
+use alloc::string::ToString;
 use bevy_ecs::prelude::*;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use bevy_utils::tracing::trace;
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
+use log::trace;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
@@ -72,7 +85,14 @@ impl TaskPoolThreadAssignmentPolicy {
     /// Determine the number of threads to use for this task pool
     fn get_number_of_threads(&self, remaining_threads: usize, total_threads: usize) -> usize {
         assert!(self.percent >= 0.0);
-        let mut desired = (total_threads as f32 * self.percent).round() as usize;
+        let proportion = total_threads as f32 * self.percent;
+        let mut desired = proportion as usize;
+
+        // Equivalent to round() for positive floats without libm requirement for
+        // no_std compatibility
+        if proportion - desired as f32 >= 0.5 {
+            desired += 1;
+        }
 
         // Limit ourselves to the number of cores available
         desired = desired.min(remaining_threads);
