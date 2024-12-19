@@ -1001,7 +1001,7 @@ doc-scrape-examples = true
 name = "Motion Blur"
 description = "Demonstrates per-pixel motion blur"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "order_independent_transparency"
