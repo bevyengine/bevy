@@ -176,7 +176,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
+                    UiSystem::Prepare.after(UiSystem::Stack).after(Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -204,8 +204,8 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
-                    .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(ui_layout_system)
+                    .before(update_clipping_system)
+                    .before(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
