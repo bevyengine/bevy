@@ -41,7 +41,7 @@
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
 //!     # use bevy_transform::components::Transform;
-//!     # use bevy_core::Name;
+//!     # use bevy_ecs::name::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
@@ -144,7 +144,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
-///     # use bevy_core::Name;
+///     # use bevy_ecs::name::Name;
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     # use std::any::TypeId;
