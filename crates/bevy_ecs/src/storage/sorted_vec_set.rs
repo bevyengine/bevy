@@ -16,20 +16,13 @@ impl<const N: usize> IntoIterator for SortedVecSet<N> {
 
 impl<const N: usize> Default for SortedVecSet<N> {
     fn default() -> Self {
-        Self::new_const()
+        Self::new()
     }
 }
 
 impl<const N: usize> SortedVecSet<N> {
     /// Construct an empty vector
-    pub fn new() -> Self {
-        Self(SmallVec::new())
-    }
-
-    /// Construct an empty vector
-    ///
-    /// This is a `const` version of [`SortedSmallVec::new()`]
-    pub(crate) const fn new_const() -> Self {
+    pub(crate) const fn new() -> Self {
         Self(SmallVec::new_const())
     }
 
@@ -37,7 +30,8 @@ impl<const N: usize> SortedVecSet<N> {
     ///
     /// Elements are copied and put in a sorted order if the original `Vec` isn't ordered.
     /// Duplicates are removed.
-    pub fn from_vec(vec: Vec<usize>) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn from_vec(vec: Vec<usize>) -> Self {
         let mut sorted_vec = Self(SmallVec::with_capacity(vec.len()));
         for value in vec {
             sorted_vec.insert(value);
@@ -186,7 +180,7 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     fn next(&mut self) -> Option<Self::Item> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
-            let val_b = self.this.0[self.j];
+            let val_b = self.other.0[self.j];
             if val_a == val_b
             {
                 self.i += 1;

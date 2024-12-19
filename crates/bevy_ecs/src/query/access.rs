@@ -2,7 +2,7 @@ use crate::component::ComponentId;
 use crate::storage::SortedVecSet;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
-use core::{fmt, fmt::Debug, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
 
@@ -12,7 +12,7 @@ const ACCESS_SMALL_VEC_SIZE: usize = 8;
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
@@ -73,25 +73,6 @@ impl<T: SparseSetIndex> Clone for Access<T> {
     }
 }
 
-impl<T: SparseSetIndex + Debug> Debug for Access<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Access")
-            .field("component_read_and_writes", &self.component_read_and_writes)
-            .field("component_writes", &self.component_writes)
-            .field("resource_read_and_writes", &self.resource_read_and_writes)
-            .field("resource_writes", &self.resource_writes)
-            .field(
-                "component_read_and_writes_inverted",
-                &self.component_read_and_writes_inverted,
-            )
-            .field("component_writes_inverted", &self.component_writes_inverted)
-            .field("reads_all_resources", &self.reads_all_resources)
-            .field("writes_all_resources", &self.writes_all_resources)
-            .field("archetypal", &self.archetypal)
-            .finish()
-    }
-}
-
 impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
         Self::new()
@@ -106,11 +87,11 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all_resources: false,
             component_read_and_writes_inverted: false,
             component_writes_inverted: false,
-            component_read_and_writes: SortedVecSet::new_const(),
-            component_writes: SortedVecSet::new_const(),
-            resource_read_and_writes: SortedVecSet::new_const(),
-            resource_writes: SortedVecSet::new_const(),
-            archetypal: SortedVecSet::new_const(),
+            component_read_and_writes: SortedVecSet::new(),
+            component_writes: SortedVecSet::new(),
+            resource_read_and_writes: SortedVecSet::new(),
+            resource_writes: SortedVecSet::new(),
+            archetypal: SortedVecSet::new(),
             marker: PhantomData,
         }
     }
@@ -602,7 +583,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     fn get_component_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = SortedVecSet::new_const();
+        let mut conflicts = SortedVecSet::new();
 
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
@@ -858,13 +839,13 @@ impl AccessConflicts {
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
-        Self::Individual(SortedVecSet::new_const())
+        Self::Individual(SortedVecSet::new())
     }
 }
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        let mut conflicts = SortedVecSet::new_const();
+        let mut conflicts = SortedVecSet::new();
         for index in value.iter().map(|a| T::sparse_set_index(a)) {
             conflicts.insert(index);
         }
@@ -878,7 +859,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_everything() -> Self {
         Self {
             access: Access::default(),
-            required: SortedVecSet::new_const(),
+            required: SortedVecSet::new(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -888,7 +869,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_nothing() -> Self {
         Self {
             access: Access::default(),
-            required: SortedVecSet::new_const(),
+            required: SortedVecSet::new(),
             filter_sets: Vec::new(),
         }
     }
@@ -1070,7 +1051,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) struct AccessFilters<T> {
     pub(crate) with: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
     pub(crate) without: SortedVecSet<ACCESS_SMALL_VEC_SIZE>,
@@ -1093,20 +1074,11 @@ impl<T: SparseSetIndex> Clone for AccessFilters<T> {
     }
 }
 
-impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AccessFilters")
-            .field("with", &self.with)
-            .field("without", &self.without)
-            .finish()
-    }
-}
-
 impl<T: SparseSetIndex> Default for AccessFilters<T> {
     fn default() -> Self {
         Self {
-            with: SortedVecSet::new_const(),
-            without: SortedVecSet::new_const(),
+            with: SortedVecSet::new(),
+            without: SortedVecSet::new(),
             _index_type: PhantomData,
         }
     }
@@ -1284,7 +1256,6 @@ mod tests {
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
     }, storage::SortedVecSet};
     use core::marker::PhantomData;
-    use fixedbitset::FixedBitSet;
 
     fn create_sample_access() -> Access<usize> {
         let mut access = Access::<usize>::default();
@@ -1542,7 +1513,7 @@ mod tests {
         expected.filter_sets = vec![
             AccessFilters {
                 with: SortedVecSet::from_vec(vec![0, 1, 2]),
-                without: SortedVecSet::new_const(),
+                without: SortedVecSet::new(),
                 _index_type: PhantomData,
             },
             AccessFilters {
