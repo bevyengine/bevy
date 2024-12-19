@@ -29,12 +29,12 @@ use bevy::{
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};
 use rand_chacha::ChaCha8Rng;
-use std::{alloc::Layout, num::Wrapping};
+use std::{alloc::Layout, num::Wrapping, ptr::NonNull};
 
 // A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
-    let _span = info_span!("base_system", components = ?access_components.0).entered();
+    let _span = info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();
     for mut filtered_entity in &mut query {
         // We calculate Faulhaber's formula mod 256 with n = value and p = exponent.
         // See https://en.wikipedia.org/wiki/Faulhaber%27s_formula
@@ -114,11 +114,11 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .choose_multiple(&mut rng, num_access_components)
             .copied()
             .collect();
-        let without_components: Vec<ComponentId> = component_ids
-            .iter()
-            .filter(|component_id| !access_components.contains(component_id))
-            .copied()
-            .collect();
+        // let without_components: Vec<ComponentId> = component_ids
+        //     .iter()
+        //     .filter(|component_id| !access_components.contains(component_id))
+        //     .copied()
+        //     .collect();
         let system = (QueryParamBuilder::new(|builder| {
             for &access_component in &access_components {
                 if rand::random::<bool>() {
@@ -128,9 +128,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 }
             }
 
-            for &without_component in &without_components {
-                builder.without_id(without_component);
-            }
+            // for &without_component in &without_components {
+            //     builder.without_id(without_component);
+            // }
         }),)
             .build_state(world)
             .build_any_system(base_system);
@@ -140,23 +140,32 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // spawn a bunch of entities
     for _ in 1..=num_entities {
         let num_components = rng.gen_range(1..10);
-        let components = component_ids.choose_multiple(&mut rng, num_components);
+        let components: Vec<ComponentId> = component_ids
+            .choose_multiple(&mut rng, num_components)
+            .copied()
+            .collect();
 
         let mut entity = world.spawn_empty();
-        for &component_id in components {
-            let value: u8 = rng.gen_range(0..255);
-            OwningPtr::make(value, |ptr| {
-                #[expect(
-                    unsafe_code,
-                    reason = "Used to write to a fake component that we previously set up"
-                )]
-                // SAFETY:
-                // component_id is from the same world
-                // value is u8, so ptr is a valid reference for component_id
+        let values: Vec<OwningPtr> = components
+            .iter()
+            .map(|_id| {
+                let mut value: u8 = rng.gen_range(0..255);
+                let value = &mut value;
+                // SAFETY: value is initialized above
+                #[allow(unsafe_code)]
+                let ptr = unsafe { NonNull::new_unchecked(value as *mut u8) };
+                #[allow(unsafe_code)]
                 unsafe {
-                    entity.insert_by_id(component_id, ptr);
+                    OwningPtr::new(ptr)
                 }
-            });
+            })
+            .collect();
+        // SAFETY:
+        // * component_id is from the same world
+        // * value is u8, so ptr is a valid reference for component_id
+        #[allow(unsafe_code)]
+        unsafe {
+            entity.insert_by_ids(&components, values.into_iter());
         }
     }
 
