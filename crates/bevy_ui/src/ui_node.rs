@@ -2535,7 +2535,10 @@ impl Default for ShadowStyle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+/// This component can be added to any UI node to modify its layout behavior.
 pub struct LayoutConfig {
+    /// If set to true the coordinates for this node and its descendents will be rounded to the nearest physical pixel.
+    /// This can help prevent visual artifacts like blurry images or semi-transparent edges that can occur with sub-pixel positioning.
     pub use_rounding: bool,
 }
 
