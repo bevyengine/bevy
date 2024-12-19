@@ -5,9 +5,8 @@ plugin_group! {
     pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
         bevy_log:::LogPlugin,
-        bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
-        bevy_core:::FrameCountPlugin,
+        bevy_app:::TaskPoolPlugin,
+        bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
         bevy_hierarchy:::HierarchyPlugin,
@@ -107,9 +106,8 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 plugin_group! {
     /// This plugin group will add the minimal plugins for a *Bevy* application:
     pub struct MinimalPlugins {
-        bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
-        bevy_core:::FrameCountPlugin,
+        bevy_app:::TaskPoolPlugin,
+        bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_ci_testing")]

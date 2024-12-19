@@ -55,11 +55,20 @@ std = [
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = ["bevy_tasks?/critical-section", "bevy_ecs/critical-section"]
+critical-section = [
+  "portable-atomic?/critical-section",
+  "bevy_tasks?/critical-section",
+  "bevy_ecs/critical-section",
+]
 
 ## `portable-atomic` provides additional platform support for atomic types and
 ## operations, even on targets without native support. 
-portable-atomic = ["bevy_tasks?/portable-atomic", "bevy_ecs/portable-atomic"]
+portable-atomic = [
+  "dep:portable-atomic",
+  "dep:portable-atomic-util",
+  "bevy_tasks?/portable-atomic",
+  "bevy_ecs/portable-atomic",
+]
 
 [dependencies]
 # bevy
@@ -77,6 +86,12 @@ thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
+portable-atomic = { version = "1", default-features = false, features = [
+  "fallback",
+], optional = true }
+portable-atomic-util = { version = "0.2.4", features = [
+  "alloc",
+], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
@@ -85,6 +100,9 @@ ctrlc = { version = "3.4.4", optional = true }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 console_error_panic_hook = "0.1.6"
+
+[dev-dependencies]
+crossbeam-channel = "0.5.0"
 
 [lints]
 workspace = true

@@ -296,8 +296,7 @@ mod tests {
     use core::num::NonZero;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, Last, Startup, Update};
-    use bevy_core::TaskPoolPlugin;
+    use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::{
         component::Component,

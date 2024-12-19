@@ -1,10 +1,15 @@
-use alloc::sync::Arc;
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
 use crate::executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
+
+#[cfg(feature = "portable-atomic")]
+use {alloc::boxed::Box, portable_atomic_util::Arc};
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 use crate::{
     block_on,
@@ -70,7 +75,17 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block running async tasks on the thread until the callback completes.
     pub fn on_thread_spawn(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_spawn = Some(Arc::new(f));
+        #[cfg(feature = "portable-atomic")]
+        let arc = {
+            let boxed = Box::new(f);
+            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
+            Arc::from(boxed)
+        };
+
+        #[cfg(not(feature = "portable-atomic"))]
+        let arc = Arc::new(f);
+
+        self.on_thread_spawn = Some(arc);
         self
     }
 
@@ -79,7 +94,17 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block thread termination until the callback completes.
     pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_destroy = Some(Arc::new(f));
+        #[cfg(feature = "portable-atomic")]
+        let arc = {
+            let boxed = Box::new(f);
+            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
+            Arc::from(boxed)
+        };
+
+        #[cfg(not(feature = "portable-atomic"))]
+        let arc = Arc::new(f);
+
+        self.on_thread_destroy = Some(arc);
         self
     }
 
