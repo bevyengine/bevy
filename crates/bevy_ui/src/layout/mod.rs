@@ -371,6 +371,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
+            node.bypass_change_detection().content_size = content_size;
+
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
                 left: rect.left,
                 right: rect.right,
@@ -437,14 +440,16 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+            let clamped_scroll_position = scroll_position.clamp(
+                Vec2::ZERO,
+                max_possible_offset * inverse_target_scale_factor,
+            );
 
             if clamped_scroll_position != scroll_position {
                 commands
                     .entity(entity)
-                    .insert(ScrollPosition::from(&clamped_scroll_position));
+                    .insert(ScrollPosition::from(clamped_scroll_position));
             }
 
             // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
@@ -515,6 +520,8 @@ with UI components as a child of an entity without UI components, your UI layout
                 }
                 Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
             };
+            let physical_scroll_position =
+                (clamped_scroll_position / inverse_target_scale_factor).round();
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
@@ -526,7 +533,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
-                    clamped_scroll_position,
+                    physical_scroll_position,
                     children_clip,
                     global_position,
                 );
@@ -820,7 +827,7 @@ mod tests {
             ui_child_entities.len()
         );
 
-        let child_node_map = HashMap::from_iter(
+        let child_node_map = <HashMap<_, _>>::from_iter(
             ui_child_entities
                 .iter()
                 .map(|child_entity| (*child_entity, ui_surface.entity_to_taffy[child_entity])),
@@ -1054,7 +1061,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node).unwrap();
+            world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
@@ -1344,11 +1351,11 @@ mod tests {
         }
 
         let _ = world.run_system_once_with(
+            test_system,
             TestSystemParam {
                 camera_entity,
                 root_node_entity,
             },
-            test_system,
         );
 
         let ui_surface = world.resource::<UiSurface>();

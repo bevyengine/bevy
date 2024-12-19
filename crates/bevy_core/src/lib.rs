@@ -9,13 +9,11 @@
 
 extern crate alloc;
 
-mod name;
 #[cfg(feature = "serialize")]
 mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
-pub use name::*;
 pub use task_pool_options::*;
 
 /// The core prelude.
@@ -23,10 +21,7 @@ pub use task_pool_options::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        FrameCountPlugin, Name, NameOrEntity, TaskPoolOptions, TaskPoolPlugin,
-        TypeRegistrationPlugin,
-    };
+    pub use crate::{FrameCountPlugin, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin};
 }
 
 use bevy_app::prelude::*;

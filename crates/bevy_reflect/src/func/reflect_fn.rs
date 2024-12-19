@@ -5,8 +5,9 @@ use alloc::{boxed::Box, format, vec};
 
 use crate::{
     func::{
-        args::FromArg, macros::count_tokens, ArgList, FunctionError, FunctionResult, IntoReturn,
-        ReflectFnMut,
+        args::{ArgCount, FromArg},
+        macros::count_tokens,
+        ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut,
     },
     Reflect, TypePath,
 };
@@ -96,7 +97,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -125,7 +126,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -155,7 +156,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }
@@ -185,7 +186,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: ArgCount::new(COUNT).unwrap(),
                         received: args.len(),
                     });
                 }

@@ -172,7 +172,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
@@ -400,7 +400,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Pressed>>()
             .add_event::<Pointer<DragDrop>>()
             .add_event::<Pointer<DragEnd>>()
             .add_event::<Pointer<DragEnter>>()
@@ -411,10 +411,10 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, pointer_events, update_interactions)
+                (update_focus, update_interactions, pointer_events)
                     .chain()
                     .in_set(PickSet::Focus),
             );

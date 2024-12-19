@@ -15,6 +15,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
     mesh::allocator::MeshAllocator,
+    view::NoIndirectDrawing,
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -31,7 +32,7 @@ use bevy_render::{
 };
 use bevy_render::{
     mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -58,6 +59,8 @@ pub struct ExtractedPointLight {
     pub spot_light_angles: Option<(f32, f32)>,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
+    /// whether this point light contributes diffuse light to lightmapped meshes
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 #[derive(Component, Debug)]
@@ -67,6 +70,9 @@ pub struct ExtractedDirectionalLight {
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
     pub volumetric: bool,
+    /// whether this directional light contributes diffuse light to lightmapped
+    /// meshes
+    pub affects_lightmapped_mesh_diffuse: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub cascade_shadow_config: CascadeShadowConfig,
@@ -80,11 +86,12 @@ pub struct ExtractedDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
-        const SHADOWS_ENABLED            = 1 << 0;
-        const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
-        const VOLUMETRIC                 = 1 << 2;
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SHADOWS_ENABLED                   = 1 << 0;
+        const SPOT_LIGHT_Y_NEGATIVE             = 1 << 1;
+        const VOLUMETRIC                        = 1 << 2;
+        const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
+        const NONE                              = 0;
+        const UNINITIALIZED                     = 0xFFFF;
     }
 }
 
@@ -114,10 +121,11 @@ pub struct GpuDirectionalLight {
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
-        const SHADOWS_ENABLED            = 1 << 0;
-        const VOLUMETRIC                 = 1 << 1;
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
+        const SHADOWS_ENABLED                   = 1 << 0;
+        const VOLUMETRIC                        = 1 << 1;
+        const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const NONE                              = 0;
+        const UNINITIALIZED                     = 0xFFFF;
     }
 }
 
@@ -134,6 +142,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    ambient_light_affects_lightmapped_meshes: u32,
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -286,7 +295,7 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                .map(|v| create_render_visible_mesh_entities(&mapper, v))
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -310,6 +319,7 @@ pub fn extract_lights(
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
             volumetric: volumetric_light.is_some(),
+            affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadows_enabled: point_light.soft_shadows_enabled,
             #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -343,7 +353,7 @@ pub fn extract_lights(
                 continue;
             }
             let render_visible_entities =
-                create_render_visible_mesh_entities(&mut commands, &mapper, visible_entities);
+                create_render_visible_mesh_entities(&mapper, visible_entities);
 
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -372,6 +382,8 @@ pub fn extract_lights(
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                         volumetric: volumetric_light.is_some(),
+                        affects_lightmapped_mesh_diffuse: spot_light
+                            .affects_lightmapped_mesh_diffuse,
                         #[cfg(feature = "experimental_pbr_pcss")]
                         soft_shadows_enabled: spot_light.soft_shadows_enabled,
                         #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -430,7 +442,7 @@ pub fn extract_lights(
                 cascade_visible_entities.insert(
                     entity,
                     v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
                         .collect(),
                 );
             } else {
@@ -447,6 +459,8 @@ pub fn extract_lights(
                     illuminance: directional_light.illuminance,
                     transform: *transform,
                     volumetric: volumetric_light.is_some(),
+                    affects_lightmapped_mesh_diffuse: directional_light
+                        .affects_lightmapped_mesh_diffuse,
                     #[cfg(feature = "experimental_pbr_pcss")]
                     soft_shadow_size: directional_light.soft_shadow_size,
                     #[cfg(not(feature = "experimental_pbr_pcss"))]
@@ -469,7 +483,6 @@ pub fn extract_lights(
 }
 
 fn create_render_visible_mesh_entities(
-    commands: &mut Commands,
     mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
@@ -477,9 +490,7 @@ fn create_render_visible_mesh_entities(
         entities: visible_entities
             .iter()
             .map(|e| {
-                let render_entity = mapper
-                    .get(*e)
-                    .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
+                let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
                 (render_entity, MainEntity::from(*e))
             })
             .collect(),
@@ -689,6 +700,7 @@ pub fn prepare_lights(
             &ExtractedView,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
+            Has<NoIndirectDrawing>,
         ),
         With<Camera3d>,
     >,
@@ -886,6 +898,10 @@ pub fn prepare_lights(
             flags |= PointLightFlags::VOLUMETRIC;
         }
 
+        if light.affects_lightmapped_mesh_diffuse {
+            flags |= PointLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+        }
+
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
                 let light_direction = light.transform.forward();
@@ -962,6 +978,10 @@ pub fn prepare_lights(
         // Shadow enabled lights are second
         if light.shadows_enabled && (index < directional_shadow_enabled_count) {
             flags |= DirectionalLightFlags::SHADOWS_ENABLED;
+        }
+
+        if light.affects_lightmapped_mesh_diffuse {
+            flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
         }
 
         let num_cascades = light
@@ -1097,13 +1117,19 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity_and_hasher(views_count, EntityHash);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers) in sorted_cameras
+    for (entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
     {
         live_views.insert(entity);
         let mut view_lights = Vec::new();
+
+        let gpu_preprocessing_mode = gpu_preprocessing_support.min(if !no_indirect_drawing {
+            GpuPreprocessingMode::Culling
+        } else {
+            GpuPreprocessingMode::PreprocessingOnly
+        });
 
         let is_orthographic = extracted_view.clip_from_view.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
@@ -1132,6 +1158,8 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            ambient_light_affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes
+                as u32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
@@ -1232,15 +1260,15 @@ pub fn prepare_lights(
                     },
                 ));
 
+                if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                }
+
                 view_lights.push(view_light_entity);
 
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
-                    // TODO: Implement GPU culling for shadow passes.
-                    shadow_render_phases.insert_or_clear(
-                        view_light_entity,
-                        gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                    );
+                    shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                     live_shadow_mapping_lights.insert(view_light_entity);
                 }
             }
@@ -1324,14 +1352,15 @@ pub fn prepare_lights(
                 LightEntity::Spot { light_entity },
             ));
 
+            if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                commands.entity(view_light_entity).insert(NoIndirectDrawing);
+            }
+
             view_lights.push(view_light_entity);
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(
-                    view_light_entity,
-                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                );
+                shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
@@ -1457,15 +1486,17 @@ pub fn prepare_lights(
                         cascade_index,
                     },
                 ));
+
+                if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
+                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                }
+
                 view_lights.push(view_light_entity);
 
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases.insert_or_clear(
-                    view_light_entity,
-                    gpu_preprocessing_support.min(GpuPreprocessingMode::PreprocessingOnly),
-                );
+                shadow_render_phases.insert_or_clear(view_light_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(view_light_entity);
             }
         }

@@ -200,7 +200,7 @@ pub enum PickingInteraction {
     None = 0,
 }
 
-/// Uses pointer events to update [`PointerInteraction`] and [`PickingInteraction`] components.
+/// Uses [`HoverMap`] changes to update [`PointerInteraction`] and [`PickingInteraction`] components.
 pub fn update_interactions(
     // Input
     hover_map: Res<HoverMap>,
@@ -226,7 +226,7 @@ pub fn update_interactions(
     // need to be able to insert the interaction component on entities if they do not exist. To do
     // so we need to know the final aggregated interaction state to avoid the scenario where we set
     // an entity to `Pressed`, then overwrite that with a lower precedent like `Hovered`.
-    let mut new_interaction_state = HashMap::<Entity, PickingInteraction>::new();
+    let mut new_interaction_state = HashMap::<Entity, PickingInteraction>::default();
     for (pointer, pointer_press, mut pointer_interaction) in &mut pointers {
         if let Some(pointers_hovered_entities) = hover_map.get(pointer) {
             // Insert a sorted list of hit entities into the pointer's interaction component.

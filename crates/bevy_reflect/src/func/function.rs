@@ -1,5 +1,8 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    func::{
+        args::{ArgCount, ArgList},
+        DynamicFunction, FunctionInfo, FunctionResult,
+    },
     PartialReflect,
 };
 use alloc::borrow::Cow;
@@ -45,12 +48,15 @@ pub trait Function: PartialReflect + Debug {
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info().name()
-    }
+    fn name(&self) -> Option<&Cow<'static, str>>;
 
-    /// The number of arguments this function accepts.
-    fn arg_count(&self) -> usize {
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    ///
+    /// [overloaded]: crate::func#overloading-functions
+    fn arg_count(&self) -> ArgCount {
         self.info().arg_count()
     }
 

@@ -4,10 +4,11 @@
 //!
 //! [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 
-use bevy_utils::{hashbrown::HashSet, AHasher};
+use alloc::vec::Vec;
+use bevy_utils::{hashbrown::HashSet, FixedHasher};
 use core::{
     fmt,
-    hash::{BuildHasher, BuildHasherDefault, Hash},
+    hash::{BuildHasher, Hash},
 };
 use indexmap::IndexMap;
 use smallvec::SmallVec;
@@ -20,13 +21,13 @@ use Direction::{Incoming, Outgoing};
 ///
 /// For example, an edge between *1* and *2* is equivalent to an edge between
 /// *2* and *1*.
-pub type UnGraph<S = BuildHasherDefault<AHasher>> = Graph<false, S>;
+pub type UnGraph<S = FixedHasher> = Graph<false, S>;
 
 /// A `Graph` with directed edges.
 ///
 /// For example, an edge from *1* to *2* is distinct from an edge from *2* to
 /// *1*.
-pub type DiGraph<S = BuildHasherDefault<AHasher>> = Graph<true, S>;
+pub type DiGraph<S = FixedHasher> = Graph<true, S>;
 
 /// `Graph<DIRECTED>` is a graph datastructure using an associative array
 /// of its node weights `NodeId`.
@@ -45,7 +46,7 @@ pub type DiGraph<S = BuildHasherDefault<AHasher>> = Graph<true, S>;
 ///
 /// `Graph` does not allow parallel edges, but self loops are allowed.
 #[derive(Clone)]
-pub struct Graph<const DIRECTED: bool, S = BuildHasherDefault<AHasher>>
+pub struct Graph<const DIRECTED: bool, S = FixedHasher>
 where
     S: BuildHasher,
 {
@@ -63,14 +64,6 @@ impl<const DIRECTED: bool, S> Graph<DIRECTED, S>
 where
     S: BuildHasher,
 {
-    /// Create a new `Graph`
-    pub(crate) fn new() -> Self
-    where
-        S: Default,
-    {
-        Self::default()
-    }
-
     /// Create a new `Graph` with estimated capacity.
     pub(crate) fn with_capacity(nodes: usize, edges: usize) -> Self
     where
@@ -274,7 +267,7 @@ where
     }
 }
 
-impl<S: BuildHasher> Graph<true, S> {
+impl<S: BuildHasher> DiGraph<S> {
     /// Iterate over all *Strongly Connected Components* in this graph.
     pub(crate) fn iter_sccs(&self) -> impl Iterator<Item = SmallVec<[NodeId; 4]>> + '_ {
         super::tarjan_scc::new_tarjan_scc(self)
@@ -408,7 +401,7 @@ mod tests {
     fn node_order_preservation() {
         use NodeId::System;
 
-        let mut graph = Graph::<true>::new();
+        let mut graph = <DiGraph>::default();
 
         graph.add_node(System(1));
         graph.add_node(System(2));
@@ -450,7 +443,7 @@ mod tests {
     fn strongly_connected_components() {
         use NodeId::System;
 
-        let mut graph = Graph::<true>::new();
+        let mut graph = <DiGraph>::default();
 
         graph.add_edge(System(1), System(2));
         graph.add_edge(System(2), System(1));
