@@ -316,7 +316,7 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
-/// # use bevy_core::Name;
+/// # use bevy_ecs::name::Name;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
 ///     for (name, gamepad) in &gamepads {

@@ -109,7 +109,6 @@ impl core::fmt::Debug for Name {
 /// Convenient query for giving a human friendly name to an entity.
 ///
 /// ```
-/// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
 /// fn increment_score(mut scores: Query<(NameOrEntity, &mut Score)>) {
@@ -273,5 +272,18 @@ mod tests {
         assert_eq!(d1.to_string(), "0v1");
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
+    }
+}
+
+#[cfg(test, feature = "serialize")]
+mod serde_tests {
+    use super::*;
+
+    use serde_test::{assert_tokens, Token};
+
+    #[test]
+    fn test_serde_name() {
+        let name = Name::new("MyComponent");
+        assert_tokens(&name, &[Token::String("MyComponent")]);
     }
 }
