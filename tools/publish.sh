@@ -19,7 +19,6 @@ crates=(
     bevy_asset/macros
     bevy_asset
     bevy_audio
-    bevy_core
     bevy_diagnostic
     bevy_hierarchy
     bevy_transform
