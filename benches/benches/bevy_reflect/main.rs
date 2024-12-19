@@ -21,5 +21,5 @@ criterion_main!(
 // separate function instead.
 fn function_benches() {
     #[cfg(feature = "reflect_functions")]
-    function::benches()
+    function::benches();
 }
