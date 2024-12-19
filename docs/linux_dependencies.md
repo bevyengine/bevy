@@ -137,9 +137,10 @@ You can do this in one line with `nix-shell --run "cargo run"`.
 If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https://github.com/nix-community/nixGL) is additionally required,
 to link graphics drivers into the context of software installed by nix:
 
-1. Install an appropriate nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
-2. Run `nixGL cargo run` to compile a bevy program. The default `nixGL` often doesn't work,
-   and has to be replaced with a system specific wrapper, for instance: `nixVulkanNvidia` or `nixGLNvidia`.
+1. Install an system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
+   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   * Otherwise, choose another wrapper appropriate for your system.
+2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
