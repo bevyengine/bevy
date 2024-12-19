@@ -17,7 +17,7 @@
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or
 //! determining whether to run certain systems, though they can be used more directly as well. This
-//! makes it easier to transition between menus, add loading screens, pause games, and the more.
+//! makes it easier to transition between menus, add loading screens, pause games, and more.
 //!
 //! Specifically, Bevy provides the following utilities:
 //!
@@ -27,8 +27,13 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 
 #[cfg(feature = "bevy_app")]

@@ -4,6 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -19,7 +20,7 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &Children, &mut UiImage),
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
@@ -57,7 +58,7 @@ fn setup(
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(24.0),
+        border: BorderRect::all(24.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -81,13 +82,14 @@ fn setup(
                 parent
                     .spawn((
                         Button,
-                        UiImage::from_atlas_image(
+                        ImageNode::from_atlas_image(
                             texture_handle.clone(),
                             TextureAtlas {
                                 index: idx,
                                 layout: atlas_layout_handle.clone(),
                             },
-                        ),
+                        )
+                        .with_mode(NodeImageMode::Sliced(slicer.clone())),
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
@@ -98,7 +100,6 @@ fn setup(
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        ImageScaleMode::Sliced(slicer.clone()),
                     ))
                     .with_children(|parent| {
                         parent.spawn((

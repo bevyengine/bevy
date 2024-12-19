@@ -1,8 +1,9 @@
 use crate::TextureAtlasLayout;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
-    texture::{GpuImage, Image, TextureFormatPixelInfo},
+    texture::GpuImage,
 };
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
@@ -37,7 +38,7 @@ impl DynamicTextureAtlasBuilder {
     ///
     /// # Arguments
     ///
-    /// * `altas_layout` - The atlas layout to add the texture to.
+    /// * `atlas_layout` - The atlas layout to add the texture to.
     /// * `texture` - The source texture to add to the atlas.
     /// * `atlas_texture` - The destination atlas texture to copy the source texture to.
     pub fn add_texture(

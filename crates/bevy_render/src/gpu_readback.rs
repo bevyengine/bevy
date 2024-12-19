@@ -1,12 +1,11 @@
 use crate::{
     extract_component::ExtractComponentPlugin,
-    prelude::Image,
     render_asset::RenderAssets,
     render_resource::{Buffer, BufferUsages, Extent3d, ImageDataLayout, Texture, TextureFormat},
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
-    texture::{GpuImage, TextureFormatPixelInfo},
+    texture::GpuImage,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};
@@ -21,9 +20,10 @@ use bevy_ecs::{
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::{default, tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
@@ -239,17 +239,16 @@ fn prepare_buffers(
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image) {
-                    let size = Extent3d {
-                        width: gpu_image.size.x,
-                        height: gpu_image.size.y,
-                        ..default()
-                    };
-                    let layout = layout_data(size.width, size.height, gpu_image.texture_format);
+                    let layout = layout_data(
+                        gpu_image.size.width,
+                        gpu_image.size.height,
+                        gpu_image.texture_format,
+                    );
                     let buffer = buffer_pool.get(
                         &render_device,
                         get_aligned_size(
-                            size.width,
-                            size.height,
+                            gpu_image.size.width,
+                            gpu_image.size.height,
                             gpu_image.texture_format.pixel_size() as u32,
                         ) as u64,
                     );
@@ -259,7 +258,7 @@ fn prepare_buffers(
                         src: ReadbackSource::Texture {
                             texture: gpu_image.texture.clone(),
                             layout,
-                            size,
+                            size: gpu_image.size,
                         },
                         buffer,
                         rx,

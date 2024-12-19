@@ -43,31 +43,35 @@ fn prepare_view_upscaling_pipelines(
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
-    let mut output_textures = HashSet::new();
+    let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
-        let blend_state = if let Some(ExtractedCamera {
-            output_mode: CameraOutputMode::Write { blend_state, .. },
-            ..
-        }) = camera
-        {
-            match *blend_state {
-                None => {
-                    // If we've already seen this output for a camera and it doesn't have a output blend
-                    // mode configured, default to alpha blend so that we don't accidentally overwrite
-                    // the output texture
-                    if output_textures.contains(&out_texture_id) {
-                        Some(BlendState::ALPHA_BLENDING)
-                    } else {
-                        None
+        let blend_state = if let Some(extracted_camera) = camera {
+            match extracted_camera.output_mode {
+                CameraOutputMode::Skip => None,
+                CameraOutputMode::Write { blend_state, .. } => {
+                    let already_seen = output_textures.contains(&out_texture_id);
+                    output_textures.insert(out_texture_id);
+
+                    match blend_state {
+                        None => {
+                            // If we've already seen this output for a camera and it doesn't have a output blend
+                            // mode configured, default to alpha blend so that we don't accidentally overwrite
+                            // the output texture
+                            if already_seen {
+                                Some(BlendState::ALPHA_BLENDING)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => blend_state,
                     }
                 }
-                _ => *blend_state,
             }
         } else {
+            output_textures.insert(out_texture_id);
             None
         };
-        output_textures.insert(out_texture_id);
 
         let key = BlitPipelineKey {
             texture_format: view_target.out_texture_format(),

@@ -1,7 +1,7 @@
 use bevy_math::{Dir3, Mat4, Ray3d, Vec2, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
 use bevy_render::mesh::{Indices, Mesh, MeshBuilder, PlaneMeshBuilder, VertexAttributeValues};
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, criterion_group, Criterion, Throughput};
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
     let ij = (p / (size), p % (size));
@@ -316,4 +316,3 @@ criterion_group!(
     ray_mesh_intersection_single_plane,
     ray_mesh_intersection_overlapping_planes,
 );
-criterion_main!(benches);

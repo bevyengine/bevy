@@ -4,8 +4,8 @@ use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
-    utils::hashbrown::HashSet,
 };
+use std::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //
@@ -108,6 +108,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .init_resource::<AppState>()
         .run();
@@ -361,7 +362,7 @@ fn setup_animation_graph_once_loaded(
                         .from_asset("models/animated/Fox.glb"),
                 );
                 let mask = if animation_index == 0 { 0 } else { 0x3f };
-                animation_graph.add_clip_with_mask(handle, mask, 0.0, blend_node)
+                animation_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
             });
 
         // Create each mask group.

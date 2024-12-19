@@ -4,6 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -19,7 +20,7 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &Children, &mut UiImage),
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
@@ -47,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::all(22.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -67,6 +68,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent
                     .spawn((
                         Button,
+                        ImageNode {
+                            image: image.clone(),
+                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                            ..default()
+                        },
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
@@ -77,20 +83,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        UiImage::new(image.clone()),
-                        ImageScaleMode::Sliced(slicer.clone()),
                     ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new("Button"),
-                            TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ));
-                    });
+                    .with_child((
+                        Text::new("Button"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 33.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    ));
             }
         });
 }

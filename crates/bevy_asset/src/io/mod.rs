@@ -29,27 +29,25 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
-use derive_more::derive::{Display, Error, From};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Display, Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[display("Path not found: {}", _0.display())]
-    #[error(ignore)]
+    #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[display("Encountered an I/O error while loading asset: {_0}")]
+    #[error("Encountered an I/O error while loading asset: {0}")]
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
-    #[display("Encountered HTTP status {_0:?} when loading asset")]
-    #[error(ignore)]
+    #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
 }
 
@@ -333,11 +331,11 @@ pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
-    #[display("encountered an io error while loading asset: {_0}")]
-    Io(std::io::Error),
+    #[error("encountered an io error while loading asset: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
@@ -383,6 +381,12 @@ pub trait AssetWriter: Send + Sync + 'static {
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
@@ -460,6 +464,12 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -522,6 +532,12 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
+    }
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(Self::create_directory(self, path))
     }
     fn remove_directory<'a>(
         &'a self,

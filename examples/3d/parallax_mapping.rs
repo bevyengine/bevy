@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
 
 fn main() {
     App::new()

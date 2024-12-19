@@ -1,14 +1,12 @@
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::any::Any;
 use std::sync::{Mutex, MutexGuard};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use core::panic::AssertUnwindSafe;
+#[cfg(feature = "trace")]
+use tracing::{info_span, Span};
 
 use concurrent_queue::ConcurrentQueue;
 use fixedbitset::FixedBitSet;
@@ -18,7 +16,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::BoxedSystem,
+    system::{ScheduleSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -29,7 +27,7 @@ use super::__rust_begin_short_backtrace;
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
-    systems: &'sys [SyncUnsafeCell<BoxedSystem>],
+    systems: &'sys [SyncUnsafeCell<ScheduleSystem>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
@@ -269,7 +267,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         &self,
         system_index: usize,
         res: Result<(), Box<dyn Any + Send>>,
-        system: &BoxedSystem,
+        system: &ScheduleSystem,
     ) {
         // tell the executor that the system finished
         self.environment
@@ -298,7 +296,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
 
     fn tick_executor(&self) {
         // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
-        // If this thread acquires the lock, the exector runs after the push() and they are processed.
+        // If this thread acquires the lock, the executor runs after the push() and they are processed.
         // If this thread does not acquire the lock, then the is_empty() check on the other thread runs
         // after the lock is released, which is after try_lock() failed, which is after the push()
         // on this thread, so the is_empty() check will see the new events and loop.
@@ -459,7 +457,7 @@ impl ExecutorState {
     fn can_run(
         &mut self,
         system_index: usize,
-        system: &mut BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -523,7 +521,7 @@ impl ExecutorState {
     unsafe fn should_run(
         &mut self,
         system_index: usize,
-        system: &mut BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -603,8 +601,9 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    __rust_begin_short_backtrace::run_unsafe(
-                        &mut **system,
+                    // TODO: implement an error-handling API instead of suppressing a possible failure.
+                    let _ = __rust_begin_short_backtrace::run_unsafe(
+                        system,
                         context.environment.world_cell,
                     );
                 };
@@ -650,7 +649,8 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    // TODO: implement an error-handling API instead of suppressing a possible failure.
+                    let _ = __rust_begin_short_backtrace::run(system, world);
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -710,7 +710,7 @@ impl ExecutorState {
 
 fn apply_deferred(
     unapplied_systems: &FixedBitSet,
-    systems: &[SyncUnsafeCell<BoxedSystem>],
+    systems: &[SyncUnsafeCell<ScheduleSystem>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {

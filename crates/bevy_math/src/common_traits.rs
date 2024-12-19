@@ -30,7 +30,7 @@ pub trait VectorSpace:
     + Div<f32, Output = Self>
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
-    + Neg
+    + Neg<Output = Self>
     + Default
     + Debug
     + Clone
@@ -69,6 +69,89 @@ impl VectorSpace for Vec2 {
 
 impl VectorSpace for f32 {
     const ZERO: Self = 0.0;
+}
+
+/// A type consisting of formal sums of elements from `V` and `W`. That is,
+/// each value `Sum(v, w)` is thought of as `v + w`, with no available
+/// simplification. In particular, if `V` and `W` are [vector spaces], then
+/// `Sum<V, W>` is a vector space whose dimension is the sum of those of `V`
+/// and `W`, and the field accessors `.0` and `.1` are vector space projections.
+///
+/// [vector spaces]: VectorSpace
+#[derive(Debug, Clone, Copy)]
+pub struct Sum<V, W>(pub V, pub W);
+
+impl<V, W> Mul<f32> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Sum(self.0 * rhs, self.1 * rhs)
+    }
+}
+
+impl<V, W> Div<f32> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self::Output {
+        Sum(self.0 / rhs, self.1 / rhs)
+    }
+}
+
+impl<V, W> Add<Self> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn add(self, other: Self) -> Self::Output {
+        Sum(self.0 + other.0, self.1 + other.1)
+    }
+}
+
+impl<V, W> Sub<Self> for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn sub(self, other: Self) -> Self::Output {
+        Sum(self.0 - other.0, self.1 - other.1)
+    }
+}
+
+impl<V, W> Neg for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Sum(-self.0, -self.1)
+    }
+}
+
+impl<V, W> Default for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    fn default() -> Self {
+        Sum(V::default(), W::default())
+    }
+}
+
+impl<V, W> VectorSpace for Sum<V, W>
+where
+    V: VectorSpace,
+    W: VectorSpace,
+{
+    const ZERO: Self = Sum(V::ZERO, W::ZERO);
 }
 
 /// A type that supports the operations of a normed vector space; i.e. a norm operation in addition
@@ -157,7 +240,7 @@ impl NormedVectorSpace for Vec2 {
 impl NormedVectorSpace for f32 {
     #[inline]
     fn norm(self) -> f32 {
-        self.abs()
+        ops::abs(self)
     }
 
     #[inline]
@@ -180,7 +263,7 @@ impl NormedVectorSpace for f32 {
 ///
 /// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
 ///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
-///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the original
+///    interpolation curve between `p` and `q` must be the *linear* reparameterization of the original
 ///    interpolation curve restricted to the interval `[t0, t1]`.
 ///
 /// The last of these conditions is very strong and indicates something like constant speed. It
@@ -197,7 +280,7 @@ impl NormedVectorSpace for f32 {
 ///              /               \
 ///            /                   \
 ///          /        linear         \
-///        /     reparametrization     \
+///        /     reparameterization    \
 ///      /   t = t0 * (1 - s) + t1 * s   \
 ///    /                                   \
 ///   |-------------------------------------|
@@ -410,3 +493,48 @@ impl_stable_interpolate_tuple!(
     (T9, 9),
     (T10, 10)
 );
+
+/// A type that has tangents.
+pub trait HasTangent {
+    /// The tangent type.
+    type Tangent: VectorSpace;
+}
+
+/// A value with its derivative.
+pub struct WithDerivative<T>
+where
+    T: HasTangent,
+{
+    /// The underlying value.
+    pub value: T,
+
+    /// The derivative at `value`.
+    pub derivative: T::Tangent,
+}
+
+/// A value together with its first and second derivatives.
+pub struct WithTwoDerivatives<T>
+where
+    T: HasTangent,
+{
+    /// The underlying value.
+    pub value: T,
+
+    /// The derivative at `value`.
+    pub derivative: T::Tangent,
+
+    /// The second derivative at `value`.
+    pub second_derivative: <T::Tangent as HasTangent>::Tangent,
+}
+
+impl<V: VectorSpace> HasTangent for V {
+    type Tangent = V;
+}
+
+impl<M, N> HasTangent for (M, N)
+where
+    M: HasTangent,
+    N: HasTangent,
+{
+    type Tangent = Sum<M::Tangent, N::Tangent>;
+}

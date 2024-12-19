@@ -2,7 +2,7 @@ use super::ExtractedWindows;
 use crate::{
     camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     gpu_readback,
-    prelude::{Image, Shader},
+    prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -11,7 +11,7 @@ use crate::{
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
+    texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
@@ -23,6 +23,7 @@ use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::{
@@ -94,7 +95,7 @@ impl Screenshot {
 
     /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
-        Self(RenderTarget::Image(image))
+        Self(RenderTarget::Image(image.into()))
     }
 
     /// Capture a screenshot of the provided manual texture view.
@@ -296,18 +297,13 @@ fn prepare_screenshots(
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = images.get(image) else {
+                let Some(gpu_image) = images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
                 let format = gpu_image.texture_format;
-                let size = Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    ..default()
-                };
                 let (texture_view, state) = prepare_screenshot_state(
-                    size,
+                    gpu_image.size,
                     format,
                     &render_device,
                     &screenshot_pipeline,
@@ -409,7 +405,7 @@ impl Plugin for ScreenshotPlugin {
             First,
             clear_screenshots
                 .after(event_update_system)
-                .before(apply_deferred),
+                .before(ApplyDeferred),
         )
         .add_systems(Update, trigger_screenshots)
         .register_type::<Screenshot>()
@@ -496,6 +492,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 })],
             }),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -536,12 +533,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = gpu_images.get(image) else {
+                let Some(gpu_image) = gpu_images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.x;
-                let height = gpu_image.size.y;
+                let width = gpu_image.size.width;
+                let height = gpu_image.size.height;
                 let texture_format = gpu_image.texture_format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(

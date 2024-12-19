@@ -4,11 +4,13 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::UiImage;
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_overlay;
+
+use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
-    DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
-    UiScale,
+    experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
+    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -18,7 +20,8 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_image::Image;
+use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
@@ -29,7 +32,6 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::Image,
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
@@ -41,7 +43,9 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteAssetEvents};
+#[cfg(feature = "bevy_ui_debug")]
+pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -75,7 +79,7 @@ pub mod graph {
 /// When this is _not_ possible, pick a suitably unique index unlikely to clash with other things (ex: `0.1826823` not `0.1`).
 ///
 /// Offsets should be unique for a given node entity to avoid z fighting.
-/// These should pretty much _always_ be larger than -1.0 and smaller than 1.0 to avoid clipping into nodes
+/// These should pretty much _always_ be larger than -0.5 and smaller than 0.5 to avoid clipping into nodes
 /// above / below the current node in the stack.
 ///
 /// A z-index of 0.0 is the baseline, which is used as the primary "background color" of the node.
@@ -83,7 +87,9 @@ pub mod graph {
 /// Note that nodes "stack" on each other, so a negative offset on the node above could clip _into_
 /// a positive offset on a node below.
 pub mod stack_z_offsets {
-    pub const BACKGROUND_COLOR: f32 = 0.0;
+    pub const BOX_SHADOW: f32 = -0.1;
+    pub const TEXTURE_SLICE: f32 = 0.0;
+    pub const NODE: f32 = 0.0;
     pub const MATERIAL: f32 = 0.18267;
 }
 
@@ -97,6 +103,7 @@ pub enum RenderUiSystem {
     ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
+    ExtractDebug,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -108,7 +115,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<UiImageBindGroups>()
+        .init_resource::<ImageNodeBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
@@ -124,6 +131,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
+                RenderUiSystem::ExtractDebug,
             )
                 .chain(),
         )
@@ -135,6 +143,8 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                #[cfg(feature = "bevy_ui_debug")]
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
             ),
         )
         .add_systems(
@@ -206,7 +216,7 @@ pub enum ExtractedUiItem {
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.   
+        /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
@@ -309,18 +319,15 @@ pub fn extract_uinode_images(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-            ),
-            Without<ImageScaleMode>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &ImageNode,
+        )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
@@ -338,6 +345,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image_mode.uses_slices()
         {
             continue;
         }
@@ -503,7 +511,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(computed_node.outline_width()),
+                        border: BorderRect::all(computed_node.outline_width()),
                         border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
@@ -532,14 +540,13 @@ pub struct DefaultCameraView(pub Entity);
 pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    ui_scale: Extract<Res<UiScale>>,
     query: Extract<
         Query<
             (
                 RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
-                Option<&UiBoxShadowSamples>,
+                Option<&BoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -548,34 +555,22 @@ pub fn extract_default_ui_camera_view(
 ) {
     live_entities.clear();
 
-    let scale = ui_scale.0.recip();
     for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
-        if let (
-            Some(logical_size),
-            Some(URect {
-                min: physical_origin,
-                ..
-            }),
-            Some(physical_size),
-        ) = (
-            camera.logical_viewport_size(),
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-        ) {
+        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
-                logical_size.x * scale,
-                logical_size.y * scale,
+                physical_viewport_rect.width() as f32,
+                physical_viewport_rect.height() as f32,
                 0.0,
                 0.0,
                 UI_CAMERA_FAR,
@@ -591,12 +586,10 @@ pub fn extract_default_ui_camera_view(
                         ),
                         clip_from_world: None,
                         hdr: camera.hdr,
-                        viewport: UVec4::new(
-                            physical_origin.x,
-                            physical_origin.y,
-                            physical_size.x,
-                            physical_size.y,
-                        ),
+                        viewport: UVec4::from((
+                            physical_viewport_rect.min,
+                            physical_viewport_rect.size(),
+                        )),
                         color_grading: Default::default(),
                     },
                     TemporaryRenderEntity,
@@ -625,10 +618,8 @@ pub fn extract_default_ui_camera_view(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -668,32 +659,12 @@ pub fn extract_text_sections(
             continue;
         }
 
-        let scale_factor = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(Camera::target_scaling_factor)
-            .unwrap_or(1.0)
-            * ui_scale.0;
-        let inverse_scale_factor = scale_factor.recip();
-
         let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
-        // Align the text to the nearest physical pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
-        // * Round the physical position to the nearest physical pixel
-        // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
 
-        let logical_top_left = -0.5 * uinode.size();
-
-        let mut transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation(logical_top_left.extend(0.));
-
-        transform.translation *= scale_factor;
-        transform.translation = transform.translation.round();
-        transform.translation *= inverse_scale_factor;
+        let transform = global_transform.affine()
+            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
@@ -720,15 +691,14 @@ pub fn extract_text_sections(
                     .unwrap_or_default();
                 current_span = *span_index;
             }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
-            rect.min *= inverse_scale_factor;
-            rect.max *= inverse_scale_factor;
-
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
-                transform: transform
-                    * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
             });
 
@@ -752,7 +722,7 @@ pub fn extract_text_sections(
                         camera_entity: render_camera_entity.id(),
                         rect,
                         item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::splat(inverse_scale_factor),
+                            atlas_scaling: Vec2::ONE,
                             range: start..end,
                         },
                         main_entity: entity.into(),
@@ -863,18 +833,18 @@ pub fn queue_uinodes(
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
                 entity.index(),
             ),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }
 
 #[derive(Resource, Default)]
-pub struct UiImageBindGroups {
+pub struct ImageNodeBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
@@ -887,7 +857,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
+    mut image_bind_groups: ResMut<ImageNodeBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
@@ -1082,7 +1052,7 @@ pub fn prepare_uinodes(
                                 );
                                 // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                                 let atlas_extent = atlas_scaling
-                                    .map(|scaling| image.size.as_vec2() * scaling)
+                                    .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
                                 if *flip_x {
                                     core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -1157,7 +1127,7 @@ pub fn prepare_uinodes(
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size.as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {

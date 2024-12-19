@@ -3,6 +3,7 @@
 use super::interval::*;
 use super::Curve;
 
+use crate::ops;
 use crate::VectorSpace;
 use core::any::type_name;
 use core::fmt::{self, Debug};
@@ -362,7 +363,7 @@ where
     }
 }
 
-/// A curve that has had its domain changed by a linear reparametrization (stretching and scaling).
+/// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
 /// Curves of this type are produced by [`Curve::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -619,15 +620,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> RepeatCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
@@ -667,15 +678,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> ForeverCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 

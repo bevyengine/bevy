@@ -93,14 +93,14 @@ impl Plugin for SyncWorldPlugin {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.entity()));
+                pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         app.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.entity()) {
+                if let Ok(e) = query.get(trigger.target()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -117,7 +117,7 @@ impl Plugin for SyncWorldPlugin {
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
@@ -125,7 +125,7 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Component, Deref, Clone, Debug, Copy)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
@@ -165,8 +165,8 @@ pub type MainEntityHashMap<V> = hashbrown::HashMap<MainEntity, V, EntityHash>;
 pub type MainEntityHashSet = hashbrown::HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[component(storage = "SparseSet")]
+#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
@@ -488,14 +488,14 @@ mod tests {
 
         main_world.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.entity()));
+                pending.push(EntityRecord::Added(trigger.target()));
             },
         );
         main_world.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.entity()) {
+                if let Ok(e) = query.get(trigger.target()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

@@ -4,7 +4,6 @@
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
-    animation::animate_targets,
     color::palettes::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
@@ -83,7 +82,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
-        .add_systems(Update, init_animations.before(animate_targets))
+        .add_systems(Update, init_animations)
         .add_systems(
             Update,
             (handle_weight_drag, update_ui, sync_weights).chain(),
@@ -92,6 +91,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .run();
 }

@@ -3,12 +3,12 @@ use bevy_ecs::{
     event::EventReader,
     system::{ResMut, Resource},
 };
+use bevy_image::Image;
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
@@ -200,11 +200,12 @@ impl FontAtlasSet {
             })
     }
 
-    /// Returns the number of font atlases in this set
+    /// Returns the number of font atlases in this set.
     pub fn len(&self) -> usize {
         self.font_atlases.len()
     }
-    /// Returns the number of font atlases in this set
+
+    /// Returns `true` if the set has no font atlases.
     pub fn is_empty(&self) -> bool {
         self.font_atlases.len() == 0
     }

@@ -40,6 +40,6 @@ impl<'w> Benchmark<'w> {
     pub fn run(&mut self) {
         self.1
             .par_iter_mut(&mut self.0)
-            .for_each(|(mut v1, v2)| v1.0 += v2.0)
+            .for_each(|(mut v1, v2)| v1.0 += v2.0);
     }
 }

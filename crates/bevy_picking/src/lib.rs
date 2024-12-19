@@ -18,7 +18,7 @@
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
-//!         // Stop the event from bubbling up the entity hierarchjy
+//!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
 //!     });
 //! ```
@@ -30,8 +30,8 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
+//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
@@ -49,13 +49,13 @@
 //!         // Spawn your entity here, e.g. a Mesh.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
 //!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.entity()).unwrap();
+//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {:?} goes BOOM!", trigger.entity());
-//!             commands.entity(trigger.entity()).despawn();
+//!             println!("Entity {:?} goes BOOM!", trigger.target());
+//!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.send(Greeting);
@@ -73,8 +73,8 @@
 //!
 //! #### Input Agnostic
 //!
-//! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether its the included mouse
+//! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
+//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
 //! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
 //!
 //! ## Robustness
@@ -156,9 +156,10 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
-#[cfg(feature = "bevy_mesh")]
+#[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
 pub mod pointer;
+pub mod window;
 
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
@@ -168,10 +169,10 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh")]
+    #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
@@ -287,7 +288,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
+/// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
@@ -298,6 +299,8 @@ pub struct PickingPlugin {
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
     pub is_focus_enabled: bool,
+    /// Enables or disables picking for window entities.
+    pub is_window_picking_enabled: bool,
 }
 
 impl PickingPlugin {
@@ -305,10 +308,16 @@ impl PickingPlugin {
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
+
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
     pub fn focus_should_run(state: Res<Self>) -> bool {
         state.is_focus_enabled && state.is_enabled
+    }
+
+    /// Whether or not window entities should receive pick events.
+    pub fn window_picking_should_run(state: Res<Self>) -> bool {
+        state.is_window_picking_enabled && state.is_enabled
     }
 }
 
@@ -318,6 +327,7 @@ impl Default for PickingPlugin {
             is_enabled: true,
             is_input_enabled: true,
             is_focus_enabled: true,
+            is_window_picking_enabled: true,
         }
     }
 }
@@ -341,6 +351,12 @@ impl Plugin for PickingPlugin {
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
                     .in_set(PickSet::ProcessInput),
+            )
+            .add_systems(
+                PreUpdate,
+                window::update_window_hits
+                    .run_if(Self::window_picking_should_run)
+                    .in_set(PickSet::Backend),
             )
             .configure_sets(
                 First,
@@ -381,9 +397,10 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Pressed>>()
             .add_event::<Pointer<DragDrop>>()
             .add_event::<Pointer<DragEnd>>()
             .add_event::<Pointer<DragEnter>>()
@@ -394,10 +411,10 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, pointer_events, update_interactions)
+                (update_focus, update_interactions, pointer_events)
                     .chain()
                     .in_set(PickSet::Focus),
             );
