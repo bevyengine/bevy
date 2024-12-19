@@ -2,7 +2,7 @@ mod prepass_bindings;
 
 use crate::material_bind_groups::MaterialBindGroupAllocator;
 use bevy_render::{
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
@@ -11,7 +11,10 @@ pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
+    core_3d::{Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    deferred::*,
+    prelude::Camera3d,
+    prepass::*,
 };
 use bevy_ecs::{
     prelude::*,
@@ -764,7 +767,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
+    (mesh_allocator, material_bind_group_allocator): (
+        Res<MeshAllocator>,
+        Res<MaterialBindGroupAllocator<M>>,
+    ),
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -893,15 +899,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            // Even though we don't use the lightmap in the prepass, the
-            // `SetMeshBindGroup` render command will bind the data for it. So
-            // we need to include the appropriate flag in the mesh pipeline key
-            // to ensure that the necessary bind group layout entries are
-            // present.
-            if render_lightmaps
+            let lightmap_image = render_lightmaps
                 .render_lightmaps
-                .contains_key(visible_entity)
-            {
+                .get(visible_entity)
+                .map(|lightmap| lightmap.image);
+            if lightmap_image.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -949,12 +951,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
             {
                 MeshPipelineKey::BLEND_OPAQUE | MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE => {
                     if deferred {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         opaque_deferred_phase.as_mut().unwrap().add(
-                            OpaqueNoLightmap3dBinKey {
-                                batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                            Opaque3dBinKey {
+                                batch_set_key: Opaque3dBatchSetKey {
                                     draw_function: opaque_draw_deferred,
                                     pipeline: pipeline_id,
                                     material_bind_group_index: Some(material.binding.group.0),
+                                    vertex_slab: vertex_slab.unwrap_or_default(),
+                                    index_slab,
+                                    lightmap_image,
                                 },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
