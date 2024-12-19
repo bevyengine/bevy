@@ -96,9 +96,9 @@ fn setup(
 
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
-    ));
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::scene("Scene").from_asset("models/cubes/Cubes.glb"),
+    )));
 }
 
 // Spawns the camera.
