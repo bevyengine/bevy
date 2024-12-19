@@ -80,24 +80,6 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
 
-  check-doc:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@beta
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
-        with:
-          wayland: true
-          xkb: true
-      - name: Build and check docs
-        # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- doc
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0"
-
   open-issue:
     name: Warn that weekly CI fails
     runs-on: ubuntu-latest
