@@ -9,7 +9,7 @@
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
-//! * Methods for getting and setting input focus via [`SetInputFocus`], [`InputFocus`] and [`IsFocusedHelper`].
+//! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
