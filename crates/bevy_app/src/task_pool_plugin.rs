@@ -1,17 +1,29 @@
+#![cfg_attr(
+    feature = "portable-atomic",
+    expect(
+        clippy::redundant_closure,
+        reason = "portable_atomic_util::Arc has subtly different implicit behavior"
+    )
+)]
+
 use crate::{App, Last, Plugin};
 
-use alloc::sync::Arc;
+use alloc::string::ToString;
 use bevy_ecs::prelude::*;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
-use bevy_utils::tracing::trace;
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
+use log::trace;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-/// Setup of default task pools: [`AsyncComputeTaskPool`](bevy_tasks::AsyncComputeTaskPool),
-/// [`ComputeTaskPool`](bevy_tasks::ComputeTaskPool), [`IoTaskPool`](bevy_tasks::IoTaskPool).
+/// Setup of default task pools: [`AsyncComputeTaskPool`], [`ComputeTaskPool`], [`IoTaskPool`].
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
@@ -72,7 +84,14 @@ impl TaskPoolThreadAssignmentPolicy {
     /// Determine the number of threads to use for this task pool
     fn get_number_of_threads(&self, remaining_threads: usize, total_threads: usize) -> usize {
         assert!(self.percent >= 0.0);
-        let mut desired = (total_threads as f32 * self.percent).round() as usize;
+        let proportion = total_threads as f32 * self.percent;
+        let mut desired = proportion as usize;
+
+        // Equivalent to round() for positive floats without libm requirement for
+        // no_std compatibility
+        if proportion - desired as f32 >= 0.5 {
+            desired += 1;
+        }
 
         // Limit ourselves to the number of cores available
         desired = desired.min(remaining_threads);
@@ -85,7 +104,7 @@ impl TaskPoolThreadAssignmentPolicy {
 }
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
-/// set up [`TaskPoolPlugin`](super::TaskPoolPlugin)
+/// set up [`TaskPoolPlugin`]
 #[derive(Clone, Debug)]
 pub struct TaskPoolOptions {
     /// If the number of physical cores is less than `min_total_threads`, force using
