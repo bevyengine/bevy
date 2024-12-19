@@ -343,7 +343,7 @@ with UI components as a child of an entity without UI components, your UI layout
         )) = node_transform_query.get_mut(entity)
         {
             if style.display == Display::None {
-                hide_uinodes_recursive(entity, node_transform_query, ui_children);
+                remove_uinodes_recursive(entity, node_transform_query, ui_children);
                 return;
             }
 
@@ -541,7 +541,7 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     }
 
-    fn hide_uinodes_recursive(
+    fn remove_uinodes_recursive(
         entity: Entity,
         node_query: &mut Query<(
             &mut ComputedNode,
@@ -562,7 +562,7 @@ with UI components as a child of an entity without UI components, your UI layout
         }
 
         for child_uinode in ui_children.iter_ui_children(entity) {
-            hide_uinodes_recursive(child_uinode, node_query, ui_children);
+            remove_uinodes_recursive(child_uinode, node_query, ui_children);
         }
     }
 }
