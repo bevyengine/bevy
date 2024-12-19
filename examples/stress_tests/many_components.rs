@@ -114,11 +114,6 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .choose_multiple(&mut rng, num_access_components)
             .copied()
             .collect();
-        // let without_components: Vec<ComponentId> = component_ids
-        //     .iter()
-        //     .filter(|component_id| !access_components.contains(component_id))
-        //     .copied()
-        //     .collect();
         let system = (QueryParamBuilder::new(|builder| {
             for &access_component in &access_components {
                 if rand::random::<bool>() {
@@ -127,10 +122,6 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                     builder.ref_id(access_component);
                 }
             }
-
-            // for &without_component in &without_components {
-            //     builder.without_id(without_component);
-            // }
         }),)
             .build_state(world)
             .build_any_system(base_system);
