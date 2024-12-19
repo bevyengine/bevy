@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{Material2d, Material2dPlugin},
+    sprite::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -56,5 +56,9 @@ struct CustomMaterial {
 impl Material2d for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Mask(0.5)
     }
 }
