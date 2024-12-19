@@ -54,6 +54,8 @@ pub enum ImageFormat {
     Jpeg,
     #[cfg(feature = "ktx2")]
     Ktx2,
+    #[cfg(feature = "pcx")]
+    Pcx,
     #[cfg(feature = "png")]
     Png,
     #[cfg(feature = "pnm")]
@@ -104,10 +106,12 @@ impl ImageFormat {
             ImageFormat::Jpeg => &["jpg", "jpeg"],
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => &["ktx2"],
-            #[cfg(feature = "pnm")]
-            ImageFormat::Pnm => &["pam", "pbm", "pgm", "ppm"],
+            #[cfg(feature = "pcx")]
+            ImageFormat::Pcx => &["pcx"],
             #[cfg(feature = "png")]
             ImageFormat::Png => &["png"],
+            #[cfg(feature = "pnm")]
+            ImageFormat::Pnm => &["pam", "pbm", "pgm", "ppm"],
             #[cfg(feature = "qoi")]
             ImageFormat::Qoi => &["qoi"],
             #[cfg(feature = "tga")]
@@ -145,6 +149,8 @@ impl ImageFormat {
             ImageFormat::Jpeg => &["image/jpeg"],
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => &["image/ktx2"],
+            #[cfg(feature = "pcx")]
+            ImageFormat::Pcx => &["image/vnd.zbrush.pcx", "image/x-pcx"],
             #[cfg(feature = "png")]
             ImageFormat::Png => &["image/png"],
             #[cfg(feature = "qoi")]
@@ -182,6 +188,7 @@ impl ImageFormat {
             "image/x-icon" => feature_gate!("ico", Ico),
             "image/jpeg" => feature_gate!("jpeg", Jpeg),
             "image/ktx2" => feature_gate!("ktx2", Ktx2),
+            "image/vnd.zbrush.pcx" | "image/x-pcx" => feature_gate!("pcx", Pcx),
             "image/png" => feature_gate!("png", Png),
             "image/qoi" | "image/x-qoi" => feature_gate!("qoi", Qoi),
             "image/x-exr" => feature_gate!("exr", OpenExr),
@@ -210,6 +217,7 @@ impl ImageFormat {
             "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
             "ktx2" => feature_gate!("ktx2", Ktx2),
             "pam" | "pbm" | "pgm" | "ppm" => feature_gate!("pnm", Pnm),
+            "pcx" => feature_gate!("pcx", Pcx),
             "png" => feature_gate!("png", Png),
             "qoi" => feature_gate!("qoi", Qoi),
             "tga" => feature_gate!("tga", Tga),
@@ -238,6 +246,8 @@ impl ImageFormat {
             ImageFormat::Ico => image::ImageFormat::Ico,
             #[cfg(feature = "jpeg")]
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            #[cfg(feature = "pcx")]
+            ImageFormat::Pcx => image::ImageFormat::Pcx,
             #[cfg(feature = "png")]
             ImageFormat::Png => image::ImageFormat::Png,
             #[cfg(feature = "pnm")]
@@ -271,6 +281,7 @@ impl ImageFormat {
             image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
             image::ImageFormat::Ico => feature_gate!("ico", Ico),
             image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
+            image::ImageFormat::Pcx => feature_gate!("pcx", Pcx),
             image::ImageFormat::Png => feature_gate!("png", Png),
             image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
             image::ImageFormat::Qoi => feature_gate!("qoi", Qoi),
