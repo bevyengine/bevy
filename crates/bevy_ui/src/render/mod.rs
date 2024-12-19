@@ -410,7 +410,6 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
             &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
@@ -427,7 +426,6 @@ pub fn extract_uinode_borders(
 
     for (
         entity,
-        node,
         computed_node,
         global_transform,
         view_visibility,
@@ -447,8 +445,8 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        // Skip invisible borders and removed nodes
-        if !view_visibility.get() || node.display == Display::None {
+        // Skip invisible borders
+        if !view_visibility.get() {
             continue;
         }
 
