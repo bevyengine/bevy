@@ -1,16 +1,27 @@
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
+//! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
 
-use alloc::borrow::Cow;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::std_traits::ReflectDefault;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
+
+use alloc::{
+    borrow::{Cow, ToOwned},
+    string::String,
+};
 use bevy_utils::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
+};
+
+#[cfg(feature = "serialize")]
+use serde::{
+    de::{Error, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    crate::reflect::ReflectComponent,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -101,14 +112,13 @@ impl core::fmt::Debug for Name {
 /// Convenient query for giving a human friendly name to an entity.
 ///
 /// ```
-/// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
 /// fn increment_score(mut scores: Query<(NameOrEntity, &mut Score)>) {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             bevy_utils::tracing::error!("Score for {name} is invalid");
+///             log::error!("Score for {name} is invalid");
 ///         }
 ///     }
 /// }
@@ -213,10 +223,44 @@ impl Deref for Name {
     }
 }
 
+#[cfg(feature = "serialize")]
+impl Serialize for Name {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_str(NameVisitor)
+    }
+}
+
+#[cfg(feature = "serialize")]
+struct NameVisitor;
+
+#[cfg(feature = "serialize")]
+impl<'de> Visitor<'de> for NameVisitor {
+    type Value = Name;
+
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+        formatter.write_str(core::any::type_name::<Name>())
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        Ok(Name::new(v.to_string()))
+    }
+
+    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
+        Ok(Name::new(v))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::world::World;
+    use crate::world::World;
 
     #[test]
     fn test_display_of_debug_name() {
@@ -231,5 +275,18 @@ mod tests {
         assert_eq!(d1.to_string(), "0v1");
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
+    }
+}
+
+#[cfg(all(test, feature = "serialize"))]
+mod serde_tests {
+    use super::Name;
+
+    use serde_test::{assert_tokens, Token};
+
+    #[test]
+    fn test_serde_name() {
+        let name = Name::new("MyComponent");
+        assert_tokens(&name, &[Token::String("MyComponent")]);
     }
 }

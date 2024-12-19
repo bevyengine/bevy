@@ -33,7 +33,6 @@ use crate::{
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets};
-use bevy_core::Name;
 use bevy_ecs::{
     entity::{VisitEntities, VisitEntitiesMut},
     prelude::*,

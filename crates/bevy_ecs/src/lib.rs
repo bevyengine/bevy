@@ -33,6 +33,7 @@ pub mod event;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+pub mod name;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -59,6 +60,7 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,

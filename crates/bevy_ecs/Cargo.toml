@@ -139,6 +139,7 @@ bumpalo = "3"
 [dev-dependencies]
 rand = "0.8"
 static_assertions = "1.1.0"
+serde_test = "1.0"
 
 [[example]]
 name = "events"
