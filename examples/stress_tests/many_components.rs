@@ -21,7 +21,7 @@ use bevy::{
         system::QueryParamBuilder,
         world::FilteredEntityMut,
     },
-    log::LogPlugin,
+    log::{info_span, LogPlugin},
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
     ptr::OwningPtr,
     MinimalPlugins,
@@ -34,6 +34,7 @@ use std::{alloc::Layout, num::Wrapping};
 // A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
+    let _span = info_span!("base_system", components = ?access_components.0).entered();
     for mut filtered_entity in &mut query {
         // We calculate Faulhaber's formula mod 256 with n = value and p = exponent.
         // See https://en.wikipedia.org/wiki/Faulhaber%27s_formula
