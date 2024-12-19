@@ -5,7 +5,7 @@ use crate::{
     system::{EntityCommands, Resource},
     world::{Command, World},
 };
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box};
 use bevy_reflect::{PartialReflect, TypeRegistry};
 use core::marker::PhantomData;
 

@@ -51,13 +51,16 @@ use crate::{
         error::{EntityFetchError, TryRunScheduleError},
     },
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::warn;
-use core::{
-    any::TypeId,
-    fmt,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use core::{any::TypeId, fmt};
+use log::warn;
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::{AtomicU32, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicU32, Ordering};
 
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
@@ -2764,7 +2767,7 @@ impl World {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
+            log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
                 core::any::type_name::<E>()
             );
@@ -3093,7 +3096,7 @@ impl World {
         } = self.storages;
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
+        let _span = tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(change_tick);
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
@@ -3152,12 +3155,12 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::EntityCloner;
+    /// use bevy_ecs::entity::ComponentCloneCtx;
     /// use bevy_ecs::world::DeferredWorld;
     ///
     /// fn custom_clone_handler(
     ///     _world: &mut DeferredWorld,
-    ///     _entity_cloner: &EntityCloner,
+    ///     _ctx: &mut ComponentCloneCtx,
     /// ) {
     ///     // Custom cloning logic for component
     /// }
@@ -3170,7 +3173,7 @@ impl World {
     /// let component_id = world.register_component::<ComponentA>();
     ///
     /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
     /// ```
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()

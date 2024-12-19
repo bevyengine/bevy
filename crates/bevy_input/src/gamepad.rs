@@ -1,7 +1,6 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_core::Name;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
@@ -9,6 +8,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    name::Name,
     prelude::require,
     system::{Commands, Query},
 };
@@ -316,7 +316,7 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
-/// # use bevy_core::Name;
+/// # use bevy_ecs::name::Name;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
 ///     for (name, gamepad) in &gamepads {

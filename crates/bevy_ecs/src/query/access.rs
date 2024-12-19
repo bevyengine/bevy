@@ -1,6 +1,7 @@
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
@@ -337,13 +338,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Sets this as having access to all resources (i.e. `&World`).
     #[inline]
-    pub fn read_all_resources(&mut self) {
+    pub const fn read_all_resources(&mut self) {
         self.reads_all_resources = true;
     }
 
     /// Sets this as having mutable access to all resources (i.e. `&mut World`).
     #[inline]
-    pub fn write_all_resources(&mut self) {
+    pub const fn write_all_resources(&mut self) {
         self.reads_all_resources = true;
         self.writes_all_resources = true;
     }

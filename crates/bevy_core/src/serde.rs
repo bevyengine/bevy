@@ -8,37 +8,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use super::{name::Name, FrameCount};
-
-impl Serialize for Name {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for Name {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_str(EntityVisitor)
-    }
-}
-
-struct EntityVisitor;
-
-impl<'de> Visitor<'de> for EntityVisitor {
-    type Value = Name;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str(any::type_name::<Name>())
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        Ok(Name::new(v.to_string()))
-    }
-
-    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
-        Ok(Name::new(v))
-    }
-}
+use super::FrameCount;
 
 // Manually implementing serialize/deserialize allows us to use a more compact representation as simple integers
 impl Serialize for FrameCount {
@@ -75,12 +45,6 @@ mod tests {
     use super::*;
 
     use serde_test::{assert_tokens, Token};
-
-    #[test]
-    fn test_serde_name() {
-        let name = Name::new("MyComponent");
-        assert_tokens(&name, &[Token::String("MyComponent")]);
-    }
 
     #[test]
     fn test_serde_frame_count() {

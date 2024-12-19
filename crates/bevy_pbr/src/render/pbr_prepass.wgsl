@@ -30,7 +30,7 @@ fn fragment(
 #else   // MESHLET_MESH_MATERIAL_PASS
 
 #ifdef BINDLESS
-    let slot = mesh[in.instance_index].material_bind_group_slot;
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     let flags = pbr_bindings::material[slot].flags;
     let uv_transform = pbr_bindings::material[slot].uv_transform;
 #else   // BINDLESS

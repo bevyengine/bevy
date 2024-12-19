@@ -35,21 +35,23 @@
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+
 mod clone_entities;
+mod entity_set;
 mod map_entities;
 mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 pub use clone_entities::*;
+pub use entity_set::*;
 pub use map_entities::*;
 pub use visit_entities::*;
 
 mod hash;
 pub use hash::*;
-
-use bevy_utils::tracing::warn;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -61,22 +63,36 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use core::{fmt, hash::Hash, mem, num::NonZero};
+use log::warn;
+
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
-use core::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
+
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(target_has_atomic = "64")]
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::Ordering;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::Ordering;
+
+#[cfg(all(target_has_atomic = "64", not(feature = "portable-atomic")))]
 use core::sync::atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(all(target_has_atomic = "64", feature = "portable-atomic"))]
+use portable_atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(not(target_has_atomic = "64"))]
+#[cfg(all(not(target_has_atomic = "64"), not(feature = "portable-atomic")))]
 use core::sync::atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(all(not(target_has_atomic = "64"), feature = "portable-atomic"))]
+use portable_atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -495,6 +511,9 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 
 impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+
+// SAFETY: Newly reserved entity values are unique.
+unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
