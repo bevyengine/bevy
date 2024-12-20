@@ -1,8 +1,8 @@
 use core::{
+    fmt::{self, Debug, Formatter},
     iter::FusedIterator,
     marker::PhantomData,
     ops::{Deref, DerefMut, Index},
-    fmt::{self, Debug, Formatter}
 };
 
 #[cfg(feature = "bevy_reflect")]
