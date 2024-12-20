@@ -139,8 +139,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .collect();
 
         let mut entity = world.spawn_empty();
-        // We need to avoid dropping the u8's when `values` is dropped since ownership of the values
-        // is passed to the world. But we do want to deallocate the memory.
+        // We use `ManuallyDrop` here as we need to avoid dropping the u8's when `values` is dropped
+        // since ownership of the values is passed to the world in `insert_by_ids`. 
+        // But we do want to deallocate the memory when values is dropped.
         let mut values: Vec<ManuallyDrop<u8>> = components
             .iter()
             .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
@@ -154,8 +155,9 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 #[allow(unsafe_code)]
                 let ptr = unsafe { NonNull::new_unchecked(ptr) };
                 // SAFETY:
-                // * ptr was created from a u8, so is valid, aligned, and has correct provenance.
-                // * ptr was created from an exclusive reference, so nothing else can read or write the value
+                // * values is valid until the end of the for block and this pointer is consumed by `insert_by_ids`.
+                // * ptr was created from a u8, so is aligned, and has correct provenance.
+                // * ptr was created from an exclusive reference and nothing else reads or writes to `values`.
                 #[allow(unsafe_code)]
                 unsafe {
                     OwningPtr::new(ptr)
@@ -163,8 +165,8 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             })
             .collect();
         // SAFETY:
-        // * component_id is from the same world
-        // * values was initialized above, so references are valid
+        // * component_id's are from the same world
+        // * `values` was initialized above, so references are valid
         #[allow(unsafe_code)]
         unsafe {
             entity.insert_by_ids(&components, ptrs.into_iter());
