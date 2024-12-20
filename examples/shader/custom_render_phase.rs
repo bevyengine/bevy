@@ -5,6 +5,7 @@
 //! Sometimes, you may want to only draw a subset of meshes before or after the builtin phase. In
 //! those situations you need to write your own phase.
 
+use core::panic;
 use std::ops::Range;
 
 use bevy::{
@@ -54,6 +55,10 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::{
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    view::NoFrustumCulling,
+};
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_draw_phase.wgsl";
@@ -75,6 +80,7 @@ fn setup(
         Mesh3d(meshes.add(Circle::new(4.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        //NoAutomaticBatching,
     ));
     // cube
     commands.spawn((
@@ -83,7 +89,8 @@ fn setup(
         Transform::from_xyz(0.0, 2.5, 0.0),
         CustomDrawMarker,
         // TODO temp
-        NoAutomaticBatching,
+        //NoAutomaticBatching,
+        //NoFrustumCulling,
     ));
     // light
     commands.spawn((
@@ -99,7 +106,7 @@ fn setup(
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
         Msaa::Off,
-        NoIndirectDrawing,
+        //NoIndirectDrawing,
     ));
 }
 
@@ -364,10 +371,24 @@ impl GetFullBatchData for CustomDrawPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (_, _, _): &SystemParamItem<Self::Param>,
-        (_entity, _main_entity): (Entity, MainEntity),
+        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
-        None
+        // This should only be called during GPU building.
+        let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_index_and_compare_data` should never be called in CPU mesh uniform building \
+                mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        Some((
+            mesh_instance.current_uniform_index,
+            mesh_instance
+                .should_batch()
+                .then_some(mesh_instance.mesh_asset_id),
+        ))
     }
 
     fn get_binned_batch_data(
