@@ -21,7 +21,6 @@ use bevy_utils::{HashMap, HashSet};
 use core::panic::Location;
 use core::{
     any::TypeId,
-    borrow::Borrow,
     cmp::Ordering,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -386,9 +385,10 @@ impl PartialEq for EntityRef<'_> {
 
 impl Eq for EntityRef<'_> {}
 
-// We intentionally choose to have EntityRef compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityRef<'_> {
+    /// EntityRef's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -403,12 +403,6 @@ impl Ord for EntityRef<'_> {
 impl Hash for EntityRef<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl Borrow<Entity> for EntityRef<'_> {
-    fn borrow(&self) -> &Entity {
-        &self.0.entity
     }
 }
 
@@ -929,9 +923,10 @@ impl PartialEq for EntityMut<'_> {
 
 impl Eq for EntityMut<'_> {}
 
-// We intentionally choose to have EntityMut compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityMut<'_> {
+    /// EntityMut's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -946,12 +941,6 @@ impl Ord for EntityMut<'_> {
 impl Hash for EntityMut<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl Borrow<Entity> for EntityMut<'_> {
-    fn borrow(&self) -> &Entity {
-        &self.0.entity
     }
 }
 
@@ -3072,9 +3061,10 @@ impl PartialEq for FilteredEntityRef<'_> {
 
 impl Eq for FilteredEntityRef<'_> {}
 
-// We intentionally choose to have FilteredEntityRef compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityRef<'_> {
+    /// FilteredEntityRef's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -3089,12 +3079,6 @@ impl Ord for FilteredEntityRef<'_> {
 impl Hash for FilteredEntityRef<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl Borrow<Entity> for FilteredEntityRef<'_> {
-    fn borrow(&self) -> &Entity {
-        &self.entity.entity
     }
 }
 
@@ -3404,9 +3388,10 @@ impl PartialEq for FilteredEntityMut<'_> {
 
 impl Eq for FilteredEntityMut<'_> {}
 
-// We intentionally choose to have FilteredEntityMut compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityMut<'_> {
+    /// FilteredEntityMut's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -3421,12 +3406,6 @@ impl Ord for FilteredEntityMut<'_> {
 impl Hash for FilteredEntityMut<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl Borrow<Entity> for FilteredEntityMut<'_> {
-    fn borrow(&self) -> &Entity {
-        &self.entity.entity
     }
 }
 
@@ -3550,9 +3529,10 @@ impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
 
-// We intentionally choose to have EntityRefExcept compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+    /// EntityRefExcept's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -3567,12 +3547,6 @@ impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
 impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl<B: Bundle> Borrow<Entity> for EntityRefExcept<'_, B> {
-    fn borrow(&self) -> &Entity {
-        &self.entity.entity
     }
 }
 
@@ -3696,9 +3670,10 @@ impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
 
-// We intentionally choose to have EntityMutExcept compare like Entity.
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+    /// EntityMutExcept's comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
     }
@@ -3713,12 +3688,6 @@ impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
 impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
-    }
-}
-
-impl<B: Bundle> Borrow<Entity> for EntityMutExcept<'_, B> {
-    fn borrow(&self) -> &Entity {
-        &self.entity.entity
     }
 }
 
