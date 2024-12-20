@@ -5,7 +5,6 @@
 //! Sometimes, you may want to only draw a subset of meshes before or after the builtin phase. In
 //! those situations you need to write your own phase.
 
-use core::panic;
 use std::ops::Range;
 
 use bevy::{
@@ -25,7 +24,7 @@ use bevy::{
     render::{
         batching::{
             gpu_preprocessing::{batch_and_prepare_sorted_render_phase, IndirectParametersBuffer},
-            GetBatchData, GetFullBatchData, NoAutomaticBatching,
+            GetBatchData, GetFullBatchData,
         },
         camera::ExtractedCamera,
         diagnostic::RecordDiagnostics,
@@ -48,16 +47,9 @@ use bevy::{
         },
         renderer::RenderContext,
         sync_world::{MainEntity, RenderEntity},
-        view::{
-            check_visibility, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
-            VisibilitySystems,
-        },
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
-};
-use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    view::NoFrustumCulling,
 };
 use nonmax::NonMaxU32;
 
@@ -65,7 +57,7 @@ const SHADER_ASSET_PATH: &str = "shaders/custom_draw_phase.wgsl";
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CustomPhasPlugin))
+        .add_plugins((DefaultPlugins, MeshStencilPhasePlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -80,17 +72,17 @@ fn setup(
         Mesh3d(meshes.add(Circle::new(4.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        //NoAutomaticBatching,
     ));
     // cube
+    // This cube will be rendered by the main pass, but it will also be rendered by our custom
+    // pass. This should result in an unlit red cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 2.5, 0.0),
-        CustomDrawMarker,
-        // TODO temp
-        //NoAutomaticBatching,
-        //NoFrustumCulling,
+        Transform::from_xyz(0.0, 0.5, 0.0),
+        // This marker component is used to identify which mesh will be used in our custom pass
+        // The circle doesn't have it so it won't be rendered in our pass
+        DrawStencil,
     ));
     // light
     commands.spawn((
@@ -106,29 +98,16 @@ fn setup(
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
         Msaa::Off,
-        //NoIndirectDrawing,
     ));
 }
 
 #[derive(Component, ExtractComponent, Clone, Copy, Default)]
-struct CustomDrawMarker;
+struct DrawStencil;
 
-/// A query filter that tells [`view::check_visibility`] about our custom
-/// rendered entity.
-type WithCustomDraw = With<CustomDrawMarker>;
-
-struct CustomPhasPlugin;
-impl Plugin for CustomPhasPlugin {
+struct MeshStencilPhasePlugin;
+impl Plugin for MeshStencilPhasePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ExtractComponentPlugin::<CustomDrawMarker>::default(),));
-        // Make sure to tell Bevy to check our entity for visibility. Bevy won't
-        // do this by default, for efficiency reasons.
-        app.add_systems(
-            PostUpdate,
-            // For this example it isn't stricly necessary, we could rely on the check already done
-            // for the base mesh
-            check_visibility::<WithCustomDraw>.in_set(VisibilitySystems::CheckVisibility),
-        );
+        app.add_plugins((ExtractComponentPlugin::<DrawStencil>::default(),));
         // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -212,9 +191,6 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
                     .clone(),
                 // Bind group 1 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
-                // Bind group 2 is our custom data
-                // TODO
-                //self.layout.clone(),
             ],
             push_constant_ranges: vec![],
             vertex: VertexState {
@@ -449,7 +425,6 @@ fn extract_camera_phases(
         }
         custom_phases.insert_or_clear(entity);
         live_entities.insert(entity);
-        //println!("phase extracted");
     }
     // Clear out all dead views.
     custom_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
@@ -465,6 +440,7 @@ fn queue_custom_meshes(
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
     mut views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    has_marker: Query<(), With<DrawStencil>>,
 ) {
     for (view_entity, view, visible_entities, msaa) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view_entity) else {
@@ -478,7 +454,10 @@ fn queue_custom_meshes(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         let rangefinder = view.rangefinder3d();
-        for (render_entity, visible_entity) in visible_entities.iter::<WithCustomDraw>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            if has_marker.get(*render_entity).is_err() {
+                continue;
+            }
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
