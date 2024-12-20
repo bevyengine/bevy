@@ -387,7 +387,7 @@ impl Eq for EntityRef<'_> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityRef<'_> {
-    /// EntityRef's comparison trait implementations match the underlying [`Entity`],
+    /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -925,7 +925,7 @@ impl Eq for EntityMut<'_> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityMut<'_> {
-    /// EntityMut's comparison trait implementations match the underlying [`Entity`],
+    /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3063,7 +3063,7 @@ impl Eq for FilteredEntityRef<'_> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityRef<'_> {
-    /// FilteredEntityRef's comparison trait implementations match the underlying [`Entity`],
+    /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3390,7 +3390,7 @@ impl Eq for FilteredEntityMut<'_> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityMut<'_> {
-    /// FilteredEntityMut's comparison trait implementations match the underlying [`Entity`],
+    /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3531,7 +3531,7 @@ impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
-    /// EntityRefExcept's comparison trait implementations match the underlying [`Entity`],
+    /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3672,7 +3672,7 @@ impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
-    /// EntityMutExcept's comparison trait implementations match the underlying [`Entity`],
+    /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
