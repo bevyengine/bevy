@@ -4,7 +4,7 @@ use core::hash::{BuildHasher, Hasher};
 use bevy_reflect::Reflect;
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct EntityHash;
 
