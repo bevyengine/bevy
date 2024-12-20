@@ -11,11 +11,8 @@ use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
         entity::EntityHashSet,
-        query::{QueryItem, ROQueryItem},
-        system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
-        },
+        query::QueryItem,
+        system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
     pbr::{
@@ -24,40 +21,38 @@ use bevy::{
         SetMeshBindGroup, SetMeshViewBindGroup,
     },
     prelude::*,
-};
-use bevy_render::{
-    batching::{
-        gpu_preprocessing::{batch_and_prepare_sorted_render_phase, IndirectParametersBuffer},
-        GetBatchData, GetFullBatchData, NoAutomaticBatching,
+    render::{
+        batching::{
+            gpu_preprocessing::{batch_and_prepare_sorted_render_phase, IndirectParametersBuffer},
+            GetBatchData, GetFullBatchData, NoAutomaticBatching,
+        },
+        camera::ExtractedCamera,
+        diagnostic::RecordDiagnostics,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
+        render_asset::RenderAssets,
+        render_graph::{
+            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+        },
+        render_phase::{
+            sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
+            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
+            TrackedRenderPass, ViewSortedRenderPhases,
+        },
+        render_resource::{
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Face,
+            FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
+            RenderPassDescriptor, RenderPipelineDescriptor, SpecializedMeshPipeline,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines, TextureFormat, VertexState,
+        },
+        renderer::RenderContext,
+        sync_world::{MainEntity, RenderEntity},
+        view::{
+            check_visibility, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
+            VisibilitySystems,
+        },
+        Extract, Render, RenderApp, RenderSet,
     },
-    camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
-    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_graph::{
-        NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
-    },
-    render_phase::{
-        sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        SetItemPipeline, SortedPhaseItem, TrackedRenderPass, ViewSortedRenderPhases,
-    },
-    render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, BindingResources,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, CommandEncoderDescriptor,
-        CompareFunction, DepthStencilState, Face, FragmentState, FrontFace, MultisampleState,
-        PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        TextureFormat, VertexState,
-    },
-    renderer::{RenderContext, RenderDevice},
-    sync_world::{MainEntity, RenderEntity},
-    view::{
-        check_visibility, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
-        VisibilitySystems,
-    },
-    Extract, Render, RenderApp, RenderSet,
 };
 use nonmax::NonMaxU32;
 
@@ -74,7 +69,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut custom_draw: ResMut<Assets<CustomDrawData>>,
 ) {
     // circular base
     commands.spawn((
@@ -87,10 +81,7 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
         Transform::from_xyz(0.0, 2.5, 0.0),
-        CustomDrawDataHandle(custom_draw.add(CustomDrawData {
-            // Set it to red
-            color: Vec4::new(1.0, 0.0, 0.0, 1.0),
-        })),
+        CustomDrawMarker,
         // TODO temp
         NoAutomaticBatching,
     ));
@@ -122,10 +113,7 @@ type WithCustomDraw = With<CustomDrawMarker>;
 struct CustomPhasPlugin;
 impl Plugin for CustomPhasPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<CustomDrawData>().add_plugins((
-            RenderAssetPlugin::<PreparedCustomDrawData>::default(),
-            ExtractComponentPlugin::<CustomDrawMarker>::default(),
-        ));
+        app.add_plugins((ExtractComponentPlugin::<CustomDrawMarker>::default(),));
         // Make sure to tell Bevy to check our entity for visibility. Bevy won't
         // do this by default, for efficiency reasons.
         app.add_systems(
@@ -170,15 +158,8 @@ impl Plugin for CustomPhasPlugin {
     }
 }
 
-#[derive(AsBindGroup, Asset, Clone, TypePath)]
-struct CustomDrawData {
-    #[uniform(0)]
-    color: Vec4,
-}
-
 #[derive(Resource)]
 struct CustomDrawPipeline {
-    layout: BindGroupLayout,
     /// The base mesh pipeline defined by bevy
     ///
     /// This isn't required, but if you want to use a bevy `Mesh` it's easier when you
@@ -193,7 +174,6 @@ impl FromWorld for CustomDrawPipeline {
         // Load the shader
         let shader_handle: Handle<Shader> = world.resource::<AssetServer>().load(SHADER_ASSET_PATH);
         Self {
-            layout: CustomDrawData::bind_group_layout(world.resource::<RenderDevice>()),
             mesh_pipeline: MeshPipeline::from_world(world),
             shader_handle,
         }
@@ -263,72 +243,12 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
     }
 }
 
-/// Data prepared for a custom draw
-struct PreparedCustomDrawData {
-    bindings: BindingResources,
-    bind_group: BindGroup,
-}
-impl RenderAsset for PreparedCustomDrawData {
-    type SourceAsset = CustomDrawData;
-
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<CustomDrawPipeline>,
-        <CustomDrawData as AsBindGroup>::Param,
-    );
-
-    fn prepare_asset(
-        material: Self::SourceAsset,
-        _: AssetId<Self::SourceAsset>,
-        (render_device, pipeline, data_param): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(&pipeline.layout, render_device, data_param) {
-            Ok(prepared) => Ok(PreparedCustomDrawData {
-                bindings: prepared.bindings,
-                bind_group: prepared.bind_group,
-            }),
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                Err(PrepareAssetError::RetryNextUpdate(material))
-            }
-            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-        }
-    }
-}
-
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
-    SetCustomBindGroup<2>,
     DrawMesh,
 );
-
-#[derive(Component)]
-#[require(CustomDrawMarker)]
-struct CustomDrawDataHandle(Handle<CustomDrawData>);
-
-struct SetCustomBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCustomBindGroup<I> {
-    type Param = SRes<RenderAssets<PreparedCustomDrawData>>;
-    type ViewQuery = ();
-    type ItemQuery = Read<CustomDrawDataHandle>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: (),
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        assets: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        // TODO
-        //let Some(material) = handle.and_then(|handle| assets.into_inner().get(&handle.0)) else {
-        //    return RenderCommandResult::Failure("invalid item query");
-        //};
-        //pass.set_bind_group(I, &material.bind_group, &[]);
-        RenderCommandResult::Success
-    }
-}
 
 struct CustomPhase {
     pub sort_key: FloatOrd,
@@ -410,7 +330,7 @@ impl GetBatchData for CustomDrawPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
