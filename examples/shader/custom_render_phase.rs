@@ -4,6 +4,11 @@
 //! For example, bevy's main pass has an opaque phase, a transparent phase for both 2d and 3d.
 //! Sometimes, you may want to only draw a subset of meshes before or after the builtin phase. In
 //! those situations you need to write your own phase.
+//!
+//! This examples showcase how writing a custom phase to draw a stencil of a bevy mesh could look
+//! like. Some shortcuts have been used for simplicity.
+//!
+//! This example was made for 3d, but a 2d equivalent would be almost identical.
 
 use std::ops::Range;
 
@@ -53,7 +58,7 @@ use bevy::{
 };
 use nonmax::NonMaxU32;
 
-const SHADER_ASSET_PATH: &str = "shaders/custom_draw_phase.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
 
 fn main() {
     App::new()
@@ -113,16 +118,16 @@ impl Plugin for MeshStencilPhasePlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedMeshPipelines<CustomDrawPipeline>>()
-            .init_resource::<DrawFunctions<CustomPhase>>()
-            .add_render_command::<CustomPhase, DrawCustom>()
-            .init_resource::<ViewSortedRenderPhases<CustomPhase>>()
+            .init_resource::<SpecializedMeshPipelines<StencilPipeline>>()
+            .init_resource::<DrawFunctions<StencilPhase>>()
+            .add_render_command::<StencilPhase, DrawMesh3dStencil>()
+            .init_resource::<ViewSortedRenderPhases<StencilPhase>>()
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<CustomPhase>.in_set(RenderSet::PhaseSort),
-                    batch_and_prepare_sorted_render_phase::<CustomPhase, CustomDrawPipeline>
+                    sort_phase_system::<StencilPhase>.in_set(RenderSet::PhaseSort),
+                    batch_and_prepare_sorted_render_phase::<StencilPhase, StencilPipeline>
                         .in_set(RenderSet::PrepareResources),
                     queue_custom_meshes.in_set(RenderSet::QueueMeshes),
                 ),
@@ -139,33 +144,34 @@ impl Plugin for MeshStencilPhasePlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        render_app.init_resource::<CustomDrawPipeline>();
+        // The pipeline needs the RenderDevice to be created and it's only available once plugins
+        // are intialized
+        render_app.init_resource::<StencilPipeline>();
     }
 }
 
 #[derive(Resource)]
-struct CustomDrawPipeline {
+struct StencilPipeline {
     /// The base mesh pipeline defined by bevy
     ///
-    /// This isn't required, but if you want to use a bevy `Mesh` it's easier when you
-    /// have access to the base `MeshPipeline` that bevy already defines
+    /// Since we want to draw a stencil of an existing bevy mesh we want to reuse the default
+    /// pipeline as much as possible
     mesh_pipeline: MeshPipeline,
     /// Stores the shader used for this pipeline directly on the pipeline.
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
-impl FromWorld for CustomDrawPipeline {
+impl FromWorld for StencilPipeline {
     fn from_world(world: &mut World) -> Self {
-        // Load the shader
-        let shader_handle: Handle<Shader> = world.resource::<AssetServer>().load(SHADER_ASSET_PATH);
         Self {
             mesh_pipeline: MeshPipeline::from_world(world),
-            shader_handle,
+            shader_handle: world.resource::<AssetServer>().load(SHADER_ASSET_PATH),
         }
     }
 }
-impl SpecializedMeshPipeline for CustomDrawPipeline {
+// For more information on how SpecializedMeshPipeline work, please look at the
+// specialized_mesh_pipeline example
+impl SpecializedMeshPipeline for StencilPipeline {
     type Key = MeshPipelineKey;
 
     fn specialize(
@@ -173,7 +179,7 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        // Define the vertex attributes based on a standard bevy [`Mesh`]
+        // We will only use the position of the mesh in our shader so we only need to specify that
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             // Make sure this matches the shader location
@@ -184,6 +190,8 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
 
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
+            // We want to reuse the data from bevy so we use the same bind groups as the default
+            // mesh pipeline
             layout: vec![
                 // Bind group 0 is the view uniform
                 self.mesh_pipeline
@@ -197,7 +205,6 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
                 shader: self.shader_handle.clone(),
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
-                // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
             },
             fragment: Some(FragmentState {
@@ -226,14 +233,25 @@ impl SpecializedMeshPipeline for CustomDrawPipeline {
     }
 }
 
-type DrawCustom = (
+// We will reuse render commands already defined by bevy to draw a 3d mesh
+type DrawMesh3dStencil = (
     SetItemPipeline,
+    // This will set the view bindings in group 0
     SetMeshViewBindGroup<0>,
+    // This will set the mesh bindings in group 1
     SetMeshBindGroup<1>,
+    // This will draw the mesh
     DrawMesh,
 );
 
-struct CustomPhase {
+// This is the data required when you define a custom phase in bevy. More specifically this is the
+// data required when using a ViewSortedRenderPhase. This would look differently if we wanted a
+// batched render phase. Sorted phase are a bit easier to implement, but a batched phased would
+// look similar.
+//
+// If you want to see how a batched phase implementation looks, you should look at the Opaque2d
+// phase.
+struct StencilPhase {
     pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
@@ -242,7 +260,8 @@ struct CustomPhase {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-impl PhaseItem for CustomPhase {
+// For more information about writing a phase item, please look at the custom_phase_item example
+impl PhaseItem for StencilPhase {
     #[inline]
     fn entity(&self) -> Entity {
         self.entity.0
@@ -279,7 +298,7 @@ impl PhaseItem for CustomPhase {
     }
 }
 
-impl SortedPhaseItem for CustomPhase {
+impl SortedPhaseItem for StencilPhase {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -296,14 +315,14 @@ impl SortedPhaseItem for CustomPhase {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for CustomPhase {
+impl CachedRenderPipelinePhaseItem for StencilPhase {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
 }
 
-impl GetBatchData for CustomDrawPipeline {
+impl GetBatchData for StencilPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
         SRes<RenderAssets<RenderMesh>>,
@@ -343,7 +362,7 @@ impl GetBatchData for CustomDrawPipeline {
         ))
     }
 }
-impl GetFullBatchData for CustomDrawPipeline {
+impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
@@ -394,12 +413,12 @@ impl GetFullBatchData for CustomDrawPipeline {
         ))
     }
 
+    // TODO
+
     fn get_binned_index(
         (_, _, _): &SystemParamItem<Self::Param>,
         (_entity, _main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
-        // This should only be called during GPU building.
-        // For this example we don't use GPU building.
         None
     }
 
@@ -409,12 +428,14 @@ impl GetFullBatchData for CustomDrawPipeline {
         _entity: (Entity, MainEntity),
         _instance_index: u32,
     ) -> Option<NonMaxU32> {
-        // We don't use gpu preprocessing for this example
         None
     }
 }
+// When defining a custom phase, we need to extract it from the main world and add it to a resource
+// that will be used by the render world. We need to give that resource all views that will use
+// that phase
 fn extract_camera_phases(
-    mut custom_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
+    mut custom_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
     cameras: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
@@ -430,15 +451,18 @@ fn extract_camera_phases(
     custom_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
+// This is a very important step when writing a custom phase.
+//
+// This system determines which mesh will be added to the phase.
 #[allow(clippy::too_many_arguments)]
 fn queue_custom_meshes(
-    custom_draw_functions: Res<DrawFunctions<CustomPhase>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<CustomDrawPipeline>>,
+    custom_draw_functions: Res<DrawFunctions<StencilPhase>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<StencilPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    custom_draw_pipeline: Res<CustomDrawPipeline>,
+    custom_draw_pipeline: Res<StencilPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    mut custom_render_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
+    mut custom_render_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
     mut views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
@@ -446,7 +470,7 @@ fn queue_custom_meshes(
         let Some(custom_phase) = custom_render_phases.get_mut(&view_entity) else {
             continue;
         };
-        let draw_custom = custom_draw_functions.read().id::<DrawCustom>();
+        let draw_custom = custom_draw_functions.read().id::<DrawMesh3dStencil>();
 
         // Create the key based on the view.
         // In this case we only care about MSAA and HDR
@@ -454,7 +478,9 @@ fn queue_custom_meshes(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         let rangefinder = view.rangefinder3d();
+        // Since our phase can work on any 3d mesh we can reuse the default mesh 2d filter
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
                 continue;
             }
@@ -486,7 +512,9 @@ fn queue_custom_meshes(
                 }
             };
             let distance = rangefinder.distance_translation(&mesh_instance.translation);
-            custom_phase.add(CustomPhase {
+            // At this point we have all the data we need to create a phase item and add it to our
+            // phase
+            custom_phase.add(StencilPhase {
                 // Sort the data based on the distance to the view
                 sort_key: FloatOrd(distance),
                 entity: (*render_entity, *visible_entity),
@@ -500,6 +528,7 @@ fn queue_custom_meshes(
     }
 }
 
+// Render label used to order our render graph node that will render our phase
 #[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
 struct CustomDrawPassLabel;
 
@@ -515,34 +544,42 @@ impl ViewNode for CustomDrawNode {
         (camera, target): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(custom_phases) = world.get_resource::<ViewSortedRenderPhases<CustomPhase>>()
+        // First, we need to get ou phases resource
+        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<StencilPhase>>()
         else {
             return Ok(());
         };
+        // Initiazlie diagnostic recording.
         // not reguired but makes profiling easier
         let diagnostics = render_context.diagnostic_recorder();
 
+        // For the purpose of the example, we will write directly to the view target. A real
+        // stencil pass would write to a custom texture and that texture would be used in later
+        // passes to render custom effects using it.
         let color_attachments = [Some(target.get_color_attachment())];
 
+        // Get the view entity from the graph
         let view_entity = graph.view_entity();
 
-        let Some(custom_phase) = custom_phases.get(&view_entity) else {
+        // Get the phase for the current view running our node
+        let Some(stencil_phase) = stencil_phases.get(&view_entity) else {
             return Ok(());
         };
 
+        // This will generate a task to generate the command buffer in parallel
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
-            let _ = info_span!("custom phase pass").entered();
+            let _ = info_span!("custom_stencil_pass").entered();
 
             // Command encoder setup
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("custom pass encoder"),
+                    label: Some("custom stencil pass encoder"),
                 });
 
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("custom pass"),
+                label: Some("stencil pass"),
                 color_attachments: &color_attachments,
                 // We don't bind any depth buffer for this pass
                 depth_stencil_attachment: None,
@@ -556,11 +593,9 @@ impl ViewNode for CustomDrawNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            // Opaque draws
-            if !custom_phase.items.is_empty() {
-                #[cfg(feature = "trace")]
-                let _ = info_span!("custom pass").entered();
-                if let Err(err) = custom_phase.render(&mut render_pass, world, view_entity) {
+            // Render the phase
+            if !stencil_phase.items.is_empty() {
+                if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
                     error!("Error encountered while rendering the custom phase {err:?}");
                 }
             }
