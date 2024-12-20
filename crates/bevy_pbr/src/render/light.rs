@@ -6,7 +6,7 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::{EntityHash, EntityHashMap, EntityHashSet},
+    entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
 };
@@ -1114,7 +1114,7 @@ pub fn prepare_lights(
                 array_layer_count: None,
             });
 
-    let mut live_views = EntityHashSet::with_capacity_and_hasher(views_count, EntityHash);
+    let mut live_views = EntityHashSet::with_capacity(views_count);
 
     // set up light data for each view
     for (entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in sorted_cameras

@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{Entity, EntityHash, EntityHashMap, EntityHashSet},
+    entity::{Entity, EntityHashMap, EntityHashSet},
     world::{
         error::EntityFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
         EntityWorldMut,
@@ -297,7 +297,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
 
     unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity> {
-        let mut refs = EntityHashMap::with_capacity_and_hasher(self.len(), EntityHash);
+        let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id).ok_or(id)?;
             // SAFETY: caller ensures that the world cell has read-only access to the entity.
@@ -310,7 +310,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityFetchError> {
-        let mut refs = EntityHashMap::with_capacity_and_hasher(self.len(), EntityHash);
+        let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell
                 .get_entity(id)
