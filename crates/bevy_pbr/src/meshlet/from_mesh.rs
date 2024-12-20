@@ -16,7 +16,7 @@ use meshopt::{
     build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi,
     simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
 };
-use metis::Graph;
+use metis::{option::Opt, Graph};
 use smallvec::SmallVec;
 use std::ops::Range;
 use thiserror::Error;
