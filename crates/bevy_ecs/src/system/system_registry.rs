@@ -5,7 +5,7 @@ use crate::{
     bundle::Bundle,
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, System},
+    system::{input::SystemInput, BoxedSystem, IntoSystem},
     world::{Command, World},
 };
 use alloc::boxed::Box;
@@ -118,7 +118,21 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
 ///
 /// This resource is inserted by [`World::register_system_cached`].
 #[derive(Resource)]
-pub struct CachedSystemId<S: System>(pub SystemId<S::In, S::Out>);
+pub struct CachedSystemId<S> {
+    /// The cached `SystemId` as an `Entity`.
+    pub entity: Entity,
+    _marker: PhantomData<fn() -> S>,
+}
+
+impl<S> CachedSystemId<S> {
+    /// Creates a new `CachedSystemId` struct given a `SystemId`.
+    pub fn new<I: SystemInput, O>(id: SystemId<I, O>) -> Self {
+        Self {
+            entity: id.entity(),
+            _marker: PhantomData,
+        }
+    }
+}
 
 /// Creates a [`Bundle`] for a one-shot system entity.
 fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
@@ -157,7 +171,7 @@ impl World {
     /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
-    /// [`System`] trait object and put in a [`Box`].
+    /// [`System`](crate::system::System) trait object and put in a [`Box`].
     pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
     where
         I: SystemInput + 'static,
@@ -392,21 +406,21 @@ impl World {
             );
         }
 
-        if !self.contains_resource::<CachedSystemId<S::System>>() {
+        if !self.contains_resource::<CachedSystemId<S>>() {
             let id = self.register_system(system);
-            self.insert_resource(CachedSystemId::<S::System>(id));
+            self.insert_resource(CachedSystemId::<S>::new(id));
             return id;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
-            if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
+        self.resource_scope(|world, mut id: Mut<CachedSystemId<S>>| {
+            if let Ok(mut entity) = world.get_entity_mut(id.entity) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
             } else {
-                id.0 = world.register_system(system);
+                id.entity = world.register_system(system).entity();
             }
-            id.0
+            SystemId::from_entity(id.entity)
         })
     }
 
@@ -423,9 +437,9 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self
-            .remove_resource::<CachedSystemId<S::System>>()
+            .remove_resource::<CachedSystemId<S>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.unregister_system(id.0)
+        self.unregister_system(SystemId::<I, O>::from_entity(id.entity))
     }
 
     /// Runs a cached system, registering it if necessary.
