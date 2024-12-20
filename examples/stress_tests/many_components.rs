@@ -143,10 +143,13 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .iter()
             .map(|_id| {
                 let mut value: u8 = rng.gen_range(0..255);
-                let value = &mut value;
+                let value = &mut value as *mut u8;
                 // SAFETY: value is non null since it was initialized from an &mut above
                 #[allow(unsafe_code)]
-                let ptr = unsafe { NonNull::new_unchecked(value as *mut u8) };
+                let ptr = unsafe { NonNull::new_unchecked(value) };
+                // SAFETY:
+                // * ptr was created from a u8, so is valid, aligned, and has correct provenance.
+                // * ptr was created from an exclusive reference, so nothing else can read or write the value
                 #[allow(unsafe_code)]
                 unsafe {
                     OwningPtr::new(ptr)
