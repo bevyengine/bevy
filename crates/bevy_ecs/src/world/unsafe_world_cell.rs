@@ -650,9 +650,9 @@ impl Debug for UnsafeWorldCell<'_> {
 /// A interior-mutable reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct UnsafeEntityCell<'w> {
-    world: UnsafeWorldCell<'w>,
-    entity: Entity,
-    location: EntityLocation,
+    pub(crate) world: UnsafeWorldCell<'w>,
+    pub(crate) entity: Entity,
+    pub(crate) location: EntityLocation,
 }
 
 impl<'w> UnsafeEntityCell<'w> {
