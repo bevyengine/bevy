@@ -79,7 +79,7 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = [
   "dep:critical-section",
-  "bevy_tasks/critical-section",
+  "bevy_tasks?/critical-section",
   "portable-atomic?/critical-section",
 ]
 
@@ -88,8 +88,9 @@ critical-section = [
 portable-atomic = [
   "dep:portable-atomic",
   "dep:portable-atomic-util",
-  "bevy_tasks/portable-atomic",
+  "bevy_tasks?/portable-atomic",
   "concurrent-queue/portable-atomic",
+  "spin/portable_atomic",
 ]
 
 [dependencies]
@@ -119,7 +120,7 @@ nonmax = { version = "0.5", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false, optional = true }
 smallvec = { version = "1", features = ["union"] }
 indexmap = { version = "2.5.0", default-features = false }
-variadics_please = { version = "1.0", default-features = false }
+variadics_please = { version = "1.1", default-features = false }
 critical-section = { version = "1.2.0", optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
@@ -133,10 +134,12 @@ spin = { version = "0.9.8", default-features = false, features = [
 ] }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
+bumpalo = "3"
 
 [dev-dependencies]
 rand = "0.8"
 static_assertions = "1.1.0"
+serde_test = "1.0"
 
 [[example]]
 name = "events"

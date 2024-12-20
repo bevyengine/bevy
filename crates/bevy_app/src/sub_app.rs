@@ -1,15 +1,16 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::{SystemId, SystemInput},
 };
-
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
 use core::fmt::Debug;
+
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -332,6 +333,7 @@ impl SubApp {
     }
 
     /// See [`App::get_added_plugins`].
+    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,

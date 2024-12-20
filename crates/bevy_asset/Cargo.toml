@@ -65,7 +65,6 @@ js-sys = "0.3"
 notify-debouncer-full = { version = "0.4.0", optional = true }
 
 [dev-dependencies]
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
 
 [lints]
