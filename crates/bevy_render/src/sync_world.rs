@@ -146,7 +146,6 @@ impl EntityBorrow for RenderEntity {
     }
 }
 
-
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl TrustedEntityBorrow for RenderEntity {}
 
