@@ -11,7 +11,7 @@ use bevy_utils::hashbrown::hash_map::{self, HashMap};
 
 use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
-/// A [`HashMap`](HashMap) pre-configured to use [`EntityHash`] hashing.
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Debug, Clone)]
 pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
@@ -26,16 +26,16 @@ impl<V> EntityHashMap<V> {
         Self(HashMap::with_hasher(EntityHash))
     }
 
-    /// Creates an empty `EntityHashSet` with the specified capacity.
+    /// Creates an empty `EntityHashMap` with the specified capacity.
     ///
-    /// Equivalent to [`HashSet::with_capacity_and_hasher(n, EntityHash)`].
+    /// Equivalent to [`HashMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`HashSet::with_capacity_and_hasher(n, EntityHash)`]: HashSet::with_capacity_and_hasher
+    /// [`HashMap:with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashMap::with_capacity_and_hasher(n, EntityHash))
     }
 
-    /// Returns the inner [`HashSet`](HashMap).
+    /// Returns the inner [`HashMap`].
     pub fn into_inner(self) -> HashMap<Entity, V, EntityHash> {
         self.0
     }

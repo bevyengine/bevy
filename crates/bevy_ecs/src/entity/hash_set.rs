@@ -14,7 +14,7 @@ use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
 use super::{Entity, EntityHash, EntitySetIterator};
 
-/// A [`HashSet`](HashSet) pre-configured to use [`EntityHash`] hashing.
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Debug, Clone, Default)]
 pub struct EntityHashSet(pub(crate) HashSet<Entity, EntityHash>);
@@ -38,7 +38,7 @@ impl EntityHashSet {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
     }
 
-    /// Returns the inner [`HashSet`](HashSet).
+    /// Returns the inner [`HashSet`].
     pub fn into_inner(self) -> HashSet<Entity, EntityHash> {
         self.0
     }
