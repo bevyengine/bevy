@@ -16,7 +16,7 @@ use super::{Entity, EntityHash, EntitySetIterator};
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntityHashSet(pub(crate) HashSet<Entity, EntityHash>);
 
 impl EntityHashSet {
@@ -56,6 +56,14 @@ impl EntityHashSet {
     /// Equivalent to [`HashSet::iter`].
     pub fn iter(&self) -> Iter<'_> {
         Iter(self.0.iter(), PhantomData)
+    }
+
+    /// Drains elements which are true under the given predicate,
+    /// and returns an iterator over the removed items.
+    ///
+    /// Equivalent to [`HashSet::extract_if`].
+    pub fn extract_if<F: FnMut(&Entity) -> bool>(&mut self, f: F) -> ExtractIf<'_, F> {
+        ExtractIf(self.0.extract_if(f), PhantomData)
     }
 }
 
@@ -173,13 +181,6 @@ impl FromIterator<Entity> for EntityHashSet {
     }
 }
 
-impl PartialEq for EntityHashSet {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(other)
-    }
-}
-
-impl Eq for EntityHashSet {}
 /// An iterator over the items of an [`EntityHashSet`].
 ///
 /// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for more.
@@ -350,6 +351,56 @@ impl Debug for Drain<'_> {
 
 // SAFETY: Drain stems from a correctly behaving `HashSet<Entity, EntityHash>`.
 unsafe impl EntitySetIterator for Drain<'_> {}
+
+/// A draining iterator over entries of a [`EntityHashSet`] which don't satisfy the predicate `f`.
+///
+/// This struct is created by the [`extract_if`] method on [`EntityHashSet`]. See its documentation for more.
+///
+/// [`extract_if`]: EntityHashSet::extract_if
+pub struct ExtractIf<'a, F: FnMut(&Entity) -> bool, S = EntityHash>(
+    hash_set::ExtractIf<'a, Entity, F>,
+    PhantomData<S>,
+);
+
+impl<'a, F: FnMut(&Entity) -> bool> ExtractIf<'a, F> {
+    /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).
+    pub fn into_inner(self) -> hash_set::ExtractIf<'a, Entity, F> {
+        self.0
+    }
+}
+
+impl<'a, F: FnMut(&Entity) -> bool> Deref for ExtractIf<'a, F> {
+    type Target = hash_set::ExtractIf<'a, Entity, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<F: FnMut(&Entity) -> bool> DerefMut for ExtractIf<'_, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a, F: FnMut(&Entity) -> bool> Iterator for ExtractIf<'a, F> {
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<F: FnMut(&Entity) -> bool> FusedIterator for ExtractIf<'_, F> {}
+
+impl<F: FnMut(&Entity) -> bool> Debug for ExtractIf<'_, F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("ExtractIf").finish()
+    }
+}
+
+// SAFETY: ExtractIf stems from a correctly behaving `HashSet<Entity, EntityHash>`.
+unsafe impl<F: FnMut(&Entity) -> bool> EntitySetIterator for ExtractIf<'_, F> {}
 
 // SAFETY: Difference stems from two correctly behaving `HashSet<Entity, EntityHash>`s.
 unsafe impl EntitySetIterator for hash_set::Difference<'_, Entity, EntityHash> {}

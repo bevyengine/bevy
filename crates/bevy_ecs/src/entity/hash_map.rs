@@ -13,7 +13,7 @@ use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
 
 impl<V> EntityHashMap<V> {
@@ -141,14 +141,6 @@ impl<V> IntoIterator for EntityHashMap<V> {
         self.0.into_iter()
     }
 }
-
-impl<V: PartialEq> PartialEq for EntityHashMap<V> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-impl<V: Eq> Eq for EntityHashMap<V> {}
 
 /// An iterator over the keys of a [`EntityHashMap`] in arbitrary order.
 /// The iterator element type is `&'a Entity`.
