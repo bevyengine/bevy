@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_phase::PhaseItemBinKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -148,10 +149,13 @@ pub struct Opaque3dPrepass {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-// TODO: Try interning these.
-/// The data used to bin each opaque 3D object in the prepass and deferred pass.
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set* in the prepass and deferred pass.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct OpaqueNoLightmap3dBinKey {
+pub struct OpaqueNoLightmap3dBatchSetKey {
     /// The ID of the GPU pipeline.
     pub pipeline: CachedRenderPipelineId,
 
@@ -162,9 +166,28 @@ pub struct OpaqueNoLightmap3dBinKey {
     ///
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
+}
+
+// TODO: Try interning these.
+/// The data used to bin each opaque 3D object in the prepass and deferred pass.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OpaqueNoLightmap3dBinKey {
+    /// The key of the *batch set*.
+    ///
+    /// As batches belong to a batch set, meshes in a batch must obviously be
+    /// able to be placed in a single batch set.
+    pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
 
     /// The ID of the asset.
     pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItemBinKey for OpaqueNoLightmap3dBinKey {
+    type BatchSetKey = OpaqueNoLightmap3dBatchSetKey;
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        Some(self.batch_set_key.clone())
+    }
 }
 
 impl PhaseItem for Opaque3dPrepass {
@@ -179,7 +202,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -194,7 +217,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -225,7 +248,7 @@ impl BinnedPhaseItem for Opaque3dPrepass {
 impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 
@@ -253,7 +276,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -268,7 +291,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -299,7 +322,7 @@ impl BinnedPhaseItem for AlphaMask3dPrepass {
 impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 

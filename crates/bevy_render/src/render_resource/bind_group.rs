@@ -11,8 +11,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
-use derive_more::derive::{Display, Error};
 use encase::ShaderType;
+use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource, TextureViewDimension};
 
 define_atomic_id!(BindGroupId);
@@ -256,7 +256,8 @@ impl Deref for BindGroup {
 ///       shader Bevy will instead present a *binding array* of `COUNT` elements.
 ///       In your shader, the index of the element of each binding array
 ///       corresponding to the mesh currently being drawn can be retrieved with
-///       `mesh[in.instance_index].material_bind_group_slot`.
+///       `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
+///       0xffffu`.
 ///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
 ///       uniform buffers are automatically replaced with read-only storage
 ///       buffers.
@@ -337,7 +338,9 @@ pub trait AsBindGroup {
     /// Note that the *actual* slot count may be different from this value, due
     /// to platform limitations. For example, if bindless resources aren't
     /// supported on this platform, the actual slot count will be 1.
-    const BINDLESS_SLOT_COUNT: Option<u32> = None;
+    fn bindless_slot_count() -> Option<u32> {
+        None
+    }
 
     /// label
     fn label() -> Option<&'static str> {
@@ -352,7 +355,7 @@ pub trait AsBindGroup {
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
-            Self::unprepared_bind_group(self, layout, render_device, param)?;
+            Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
             .iter()
@@ -372,40 +375,58 @@ pub trait AsBindGroup {
     }
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
-    /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
-    /// an implementor may define `as_bind_group` directly. This may prevent certain features
-    /// from working correctly.
+    ///
+    /// In cases where `OwnedBindingResource` is not available (as for bindless
+    /// texture arrays currently), an implementor may return
+    /// `AsBindGroupError::CreateBindGroupDirectly` from this function and
+    /// instead define `as_bind_group` directly. This may prevent certain
+    /// features, such as bindless mode, from working correctly.
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
-    /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
+    /// Creates the bind group layout matching all bind groups returned by
+    /// [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
     where
         Self: Sized,
     {
         render_device.create_bind_group_layout(
             Self::label(),
-            &Self::bind_group_layout_entries(render_device),
+            &Self::bind_group_layout_entries(render_device, false),
         )
     }
 
     /// Returns a vec of bind group layout entries
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
+    fn bind_group_layout_entries(
+        render_device: &RenderDevice,
+        force_no_bindless: bool,
+    ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
-    #[display("The bind group could not be generated")]
+    #[error("The bind group could not be generated")]
     RetryNextUpdate,
-    #[display("At binding index {_0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
+    #[error("Create the bind group via `as_bind_group()` instead")]
+    CreateBindGroupDirectly,
+    #[error("At binding index {0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 

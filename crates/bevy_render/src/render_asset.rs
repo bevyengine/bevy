@@ -16,13 +16,13 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use core::marker::PhantomData;
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
-    #[display("Failed to prepare asset")]
+    #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
-    #[display("Failed to build bind group: {_0}")]
+    #[error("Failed to build bind group: {0}")]
     AsBindGroupError(AsBindGroupError),
 }
 
@@ -233,8 +233,8 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
-            let mut changed_assets = HashSet::default();
-            let mut removed = HashSet::default();
+            let mut changed_assets = <HashSet<_>>::default();
+            let mut removed = <HashSet<_>>::default();
 
             for event in events.read() {
                 #[allow(clippy::match_same_arms)]
@@ -254,7 +254,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             }
 
             let mut extracted_assets = Vec::new();
-            let mut added = HashSet::new();
+            let mut added = <HashSet<_>>::default();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);

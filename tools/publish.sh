@@ -19,7 +19,6 @@ crates=(
     bevy_asset/macros
     bevy_asset
     bevy_audio
-    bevy_core
     bevy_diagnostic
     bevy_hierarchy
     bevy_transform
@@ -44,6 +43,7 @@ crates=(
     bevy_gizmos
     bevy_text
     bevy_a11y
+    bevy_input_focus
     bevy_ui
     bevy_winit
     bevy_dev_tools

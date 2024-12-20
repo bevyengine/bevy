@@ -126,7 +126,7 @@ impl PhaseItem for TransparentUi {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]

@@ -41,7 +41,7 @@
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
 //!     # use bevy_transform::components::Transform;
-//!     # use bevy_core::Name;
+//!     # use bevy_ecs::name::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
@@ -89,7 +89,7 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::component::Component;
+use bevy_ecs::component::{Component, Mutable};
 use bevy_math::curve::{
     cores::{UnevenCore, UnevenCoreError},
     iterable::IterableCurve,
@@ -144,7 +144,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
-///     # use bevy_core::Name;
+///     # use bevy_ecs::name::Name;
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     # use std::any::TypeId;
@@ -221,7 +221,7 @@ pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
 
 impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
 where
-    C: Component,
+    C: Component<Mutability = Mutable>,
     A: Animatable + Clone + Sync + Debug,
     F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
 {
@@ -243,18 +243,26 @@ where
 
 impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedField<C, P, F> {
     /// Creates a new instance of [`AnimatedField`]. This operates under the assumption that
-    /// `C` is a reflect-able struct with named fields, and that `field_name` is a valid field on that struct.
+    /// `C` is a reflect-able struct, and that `field_name` is a valid field on that struct.
     ///
     /// # Panics
-    /// If the type of `C` is not a struct with named fields or if the `field_name` does not exist.
+    /// If the type of `C` is not a struct or if the `field_name` does not exist.
     pub fn new_unchecked(field_name: &str, func: F) -> Self {
-        let TypeInfo::Struct(struct_info) = C::type_info() else {
+        let field_index;
+        if let TypeInfo::Struct(struct_info) = C::type_info() {
+            field_index = struct_info
+                .index_of(field_name)
+                .expect("Field name should exist");
+        } else if let TypeInfo::TupleStruct(struct_info) = C::type_info() {
+            field_index = field_name
+                .parse()
+                .expect("Field name should be a valid tuple index");
+            if field_index >= struct_info.field_len() {
+                panic!("Field name should be a valid tuple index");
+            }
+        } else {
             panic!("Only structs are supported in `AnimatedField::new_unchecked`")
-        };
-
-        let field_index = struct_info
-            .index_of(field_name)
-            .expect("Field name should exist");
+        }
 
         Self {
             func,
@@ -983,4 +991,22 @@ macro_rules! animated_field {
             &mut component.$field
         })
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_animated_field_tuple_struct_simple_uses() {
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct A(f32);
+        let _ = AnimatedField::new_unchecked("0", |a: &mut A| &mut a.0);
+
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct B(f32, f64, f32);
+        let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
+        let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
+        let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
 }

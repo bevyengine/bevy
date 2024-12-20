@@ -22,7 +22,6 @@ bevy_animation = { path = "../bevy_animation", version = "0.15.0-dev", optional 
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
@@ -54,11 +53,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "names",
   "utils",
 ] }
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }

@@ -1,22 +1,19 @@
-use core::any::TypeId;
-use fixedbitset::FixedBitSet;
-use std::collections::HashMap;
-
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut, Resource, System},
 };
-use bevy_utils::{
-    tracing::{info, warn},
-    TypeIdMap,
-};
-use derive_more::derive::{Display, Error};
+use alloc::vec::Vec;
+use bevy_utils::{HashMap, TypeIdMap};
+use core::any::TypeId;
+use fixedbitset::FixedBitSet;
+use log::{info, warn};
+use thiserror::Error;
 
 #[cfg(not(feature = "bevy_debug_stepping"))]
-use bevy_utils::tracing::error;
+use log::error;
 
 #[cfg(test)]
-use bevy_utils::tracing::debug;
+use log::debug;
 
 use crate as bevy_ecs;
 
@@ -90,8 +87,8 @@ enum Update {
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
-#[derive(Error, Display, Debug)]
-#[display("not available until all configured schedules have been run; try again next frame")]
+#[derive(Error, Debug)]
+#[error("not available until all configured schedules have been run; try again next frame")]
 pub struct NotReady;
 
 #[derive(Resource, Default)]
@@ -423,6 +420,7 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
+                    #[expect(clippy::match_same_arms)]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call

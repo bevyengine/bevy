@@ -29,7 +29,7 @@ use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::hashbrown::HashMap;
+use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -70,7 +70,7 @@ pub fn ui_picking(
     mut output: EventWriter<PointerHits>,
 ) {
     // For each camera, the pointer and its position
-    let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::new();
+    let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
 
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
@@ -107,7 +107,7 @@ pub fn ui_picking(
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::new();
+    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
