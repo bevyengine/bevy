@@ -1,5 +1,5 @@
 use core::{
-    fmt::Debug,
+    fmt::{self, Debug, Formatter},
     iter::FusedIterator,
     marker::PhantomData,
     ops::{
@@ -45,7 +45,7 @@ impl EntityHashSet {
 
     /// Clears the set, returning all elements in an iterator.
     ///
-    /// Equivalent to [HashSet::drain`].
+    /// Equivalent to [`HashSet::drain`].
     pub fn drain(&mut self) -> Drain<'_> {
         Drain(self.0.drain(), PhantomData)
     }
@@ -103,7 +103,7 @@ impl BitAnd for &EntityHashSet {
 
 impl BitAndAssign<&EntityHashSet> for EntityHashSet {
     fn bitand_assign(&mut self, rhs: &Self) {
-        self.0.bitand_assign(&rhs.0)
+        self.0.bitand_assign(&rhs.0);
     }
 }
 
@@ -117,7 +117,7 @@ impl BitOr for &EntityHashSet {
 
 impl BitOrAssign<&EntityHashSet> for EntityHashSet {
     fn bitor_assign(&mut self, rhs: &Self) {
-        self.0.bitor_assign(&rhs.0)
+        self.0.bitor_assign(&rhs.0);
     }
 }
 
@@ -131,7 +131,7 @@ impl BitXor for &EntityHashSet {
 
 impl BitXorAssign<&EntityHashSet> for EntityHashSet {
     fn bitxor_assign(&mut self, rhs: &Self) {
-        self.0.bitxor_assign(&rhs.0)
+        self.0.bitxor_assign(&rhs.0);
     }
 }
 
@@ -145,19 +145,19 @@ impl Sub for &EntityHashSet {
 
 impl SubAssign<&EntityHashSet> for EntityHashSet {
     fn sub_assign(&mut self, rhs: &Self) {
-        self.0.sub_assign(&rhs.0)
+        self.0.sub_assign(&rhs.0);
     }
 }
 
 impl<'a> Extend<&'a Entity> for EntityHashSet {
     fn extend<T: IntoIterator<Item = &'a Entity>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
 impl Extend<Entity> for EntityHashSet {
     fn extend<T: IntoIterator<Item = Entity>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
@@ -180,14 +180,6 @@ impl PartialEq for EntityHashSet {
 }
 
 impl Eq for EntityHashSet {}
-
-// impl From<EntityHashSet> for UniqueEntityVec<Entity> {
-//     fn from(value: EntityHashSet) -> Self {
-//         // SAFETY: All elements in the source set are unique.
-//         unsafe { Self::from_vec_unchecked(value.into_iter().collect::<Vec<Entity>>()) }
-//     }
-// }
-
 /// An iterator over the items of an [`EntityHashSet`].
 ///
 /// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for more.
@@ -235,7 +227,7 @@ impl Clone for Iter<'_> {
 }
 
 impl Debug for Iter<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Iter").field(&self.0).field(&self.1).finish()
     }
 }
@@ -290,7 +282,7 @@ impl ExactSizeIterator for IntoIter {}
 impl FusedIterator for IntoIter {}
 
 impl Debug for IntoIter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("IntoIter")
             .field(&self.0)
             .field(&self.1)
@@ -308,7 +300,7 @@ impl Default for IntoIter {
 unsafe impl EntitySetIterator for IntoIter {}
 
 /// A draining iterator over the items of an [`EntityHashSet`].
-
+///
 /// This struct is created by the [`drain`] method on [`EntityHashSet`]. See its documentation for more.
 ///
 /// [`drain`]: EntityHashSet::drain
@@ -348,7 +340,7 @@ impl ExactSizeIterator for Drain<'_> {}
 impl FusedIterator for Drain<'_> {}
 
 impl Debug for Drain<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain")
             .field(&self.0)
             .field(&self.1)

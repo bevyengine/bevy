@@ -2,9 +2,9 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     ops::{Deref, DerefMut, Index},
+    fmt::{self, Debug, Formatter}
 };
 
-use alloc::fmt::Debug;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::hashbrown::hash_map::{self, HashMap};
@@ -80,19 +80,19 @@ impl<V> DerefMut for EntityHashMap<V> {
 
 impl<'a, V: Copy> Extend<&'a (Entity, V)> for EntityHashMap<V> {
     fn extend<T: IntoIterator<Item = &'a (Entity, V)>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
 impl<'a, V: Copy> Extend<(&'a Entity, &'a V)> for EntityHashMap<V> {
     fn extend<T: IntoIterator<Item = (&'a Entity, &'a V)>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
 impl<V> Extend<(Entity, V)> for EntityHashMap<V> {
     fn extend<T: IntoIterator<Item = (Entity, V)>>(&mut self, iter: T) {
-        self.0.extend(iter)
+        self.0.extend(iter);
     }
 }
 
@@ -198,7 +198,7 @@ impl<V> Clone for Keys<'_, V> {
 }
 
 impl<V: Debug> Debug for Keys<'_, V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Keys").field(&self.0).field(&self.1).finish()
     }
 }
@@ -256,7 +256,7 @@ impl<V> ExactSizeIterator for IntoKeys<V> {}
 impl<V> FusedIterator for IntoKeys<V> {}
 
 impl<V: Debug> Debug for IntoKeys<V> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("IntoKeys")
             .field(&self.0)
             .field(&self.1)
