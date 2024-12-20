@@ -20,7 +20,7 @@ use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::{EntityBorrow, EntityHashMap},
+    entity::EntityHashMap,
     event::event_update_system,
     prelude::*,
     system::SystemState,
