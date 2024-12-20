@@ -93,8 +93,8 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             world.register_component_with_descriptor(
                 #[expect(unsafe_code, reason = "Used to register a bunch of fake components")]
                 // SAFETY:
-                // we don't implement a drop function
-                // u8 is Sync and Send
+                // * We don't implement a drop function
+                // * u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{}", i).to_string(),
@@ -144,7 +144,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .map(|_id| {
                 let mut value: u8 = rng.gen_range(0..255);
                 let value = &mut value;
-                // SAFETY: value is initialized above
+                // SAFETY: value is non null since it was initialized from an &mut above
                 #[allow(unsafe_code)]
                 let ptr = unsafe { NonNull::new_unchecked(value as *mut u8) };
                 #[allow(unsafe_code)]
@@ -155,7 +155,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             .collect();
         // SAFETY:
         // * component_id is from the same world
-        // * value is u8, so ptr is a valid reference for component_id
+        // * values was initialized above, so references are valid
         #[allow(unsafe_code)]
         unsafe {
             entity.insert_by_ids(&components, values.into_iter());
