@@ -386,6 +386,8 @@ impl PartialEq for EntityRef<'_> {
 
 impl Eq for EntityRef<'_> {}
 
+// We intentionally choose to have EntityRef compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -927,6 +929,8 @@ impl PartialEq for EntityMut<'_> {
 
 impl Eq for EntityMut<'_> {}
 
+// We intentionally choose to have EntityMut compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityMut<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3068,6 +3072,8 @@ impl PartialEq for FilteredEntityRef<'_> {
 
 impl Eq for FilteredEntityRef<'_> {}
 
+// We intentionally choose to have FilteredEntityRef compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3398,6 +3404,8 @@ impl PartialEq for FilteredEntityMut<'_> {
 
 impl Eq for FilteredEntityMut<'_> {}
 
+// We intentionally choose to have FilteredEntityMut compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityMut<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3542,6 +3550,8 @@ impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
 
+// We intentionally choose to have EntityRefExcept compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
@@ -3686,6 +3696,8 @@ impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
 
+// We intentionally choose to have EntityMutExcept compare like Entity.
+#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.entity().partial_cmp(&other.entity())
