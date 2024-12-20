@@ -1668,7 +1668,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
             .into_iter()
             .map(|(.., entity)| entity.0)
             .collect::<Vec<_>>()
-            .into_iter();        // SAFETY:
+            .into_iter();
+        // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
         unsafe {
