@@ -8,22 +8,36 @@
 use std::ops::Range;
 
 use bevy::{
+    core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
         entity::EntityHashSet,
-        query::ROQueryItem,
+        query::{QueryItem, ROQueryItem},
         system::{
             lifetimeless::{Read, SRes},
             SystemParamItem,
         },
     },
     math::FloatOrd,
-    pbr::{DrawMesh, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        material_bind_groups::MaterialBindGroupSlot, DrawMesh, MeshInputUniform, MeshPipeline,
+        MeshPipelineKey, MeshPipelineViewLayoutKey, MeshUniform, RenderMeshInstances,
+        SetMeshBindGroup, SetMeshViewBindGroup,
+    },
     prelude::*,
 };
 use bevy_render::{
+    batching::{
+        gpu_preprocessing::{batch_and_prepare_sorted_render_phase, IndirectParametersBuffer},
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
+    },
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_graph::{
+        NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+    },
     render_phase::{
         sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
@@ -31,14 +45,23 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, BindingResources,
-        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, CommandEncoderDescriptor,
+        CompareFunction, DepthStencilState, Face, FragmentState, FrontFace, MultisampleState,
+        PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        TextureFormat, VertexState,
     },
-    renderer::RenderDevice,
+    renderer::{RenderContext, RenderDevice},
     sync_world::{MainEntity, RenderEntity},
-    view::{check_visibility, ExtractedView, RenderVisibleEntities, VisibilitySystems},
+    view::{
+        check_visibility, ExtractedView, NoIndirectDrawing, RenderVisibleEntities, ViewTarget,
+        VisibilitySystems,
+    },
     Extract, Render, RenderApp, RenderSet,
 };
+use nonmax::NonMaxU32;
+
+const SHADER_ASSET_PATH: &str = "shaders/custom_draw_phase.wgsl";
 
 fn main() {
     App::new()
@@ -63,11 +86,13 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform::from_xyz(0.0, 2.5, 0.0),
         CustomDrawDataHandle(custom_draw.add(CustomDrawData {
             // Set it to red
             color: Vec4::new(1.0, 0.0, 0.0, 1.0),
         })),
+        // TODO temp
+        NoAutomaticBatching,
     ));
     // light
     commands.spawn((
@@ -81,10 +106,13 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // disable msaa for simplicity
+        Msaa::Off,
+        NoIndirectDrawing,
     ));
 }
 
-#[derive(Component, ExtractComponent, Clone, Copy)]
+#[derive(Component, ExtractComponent, Clone, Copy, Default)]
 struct CustomDrawMarker;
 
 /// A query filter that tells [`view::check_visibility`] about our custom
@@ -102,6 +130,8 @@ impl Plugin for CustomPhasPlugin {
         // do this by default, for efficiency reasons.
         app.add_systems(
             PostUpdate,
+            // For this example it isn't stricly necessary, we could rely on the check already done
+            // for the base mesh
             check_visibility::<WithCustomDraw>.in_set(VisibilitySystems::CheckVisibility),
         );
         // We need to get the render app from the main app
@@ -118,9 +148,16 @@ impl Plugin for CustomPhasPlugin {
                 Render,
                 (
                     sort_phase_system::<CustomPhase>.in_set(RenderSet::PhaseSort),
+                    batch_and_prepare_sorted_render_phase::<CustomPhase, CustomDrawPipeline>
+                        .in_set(RenderSet::PrepareResources),
                     queue_custom_meshes.in_set(RenderSet::QueueMeshes),
                 ),
             );
+
+        render_app
+            .add_render_graph_node::<ViewNodeRunner<CustomDrawNode>>(Core3d, CustomDrawPassLabel)
+            // Tell the node to run after the main pass
+            .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, CustomDrawPassLabel));
     }
 
     fn finish(&self, app: &mut App) {
@@ -142,23 +179,87 @@ struct CustomDrawData {
 #[derive(Resource)]
 struct CustomDrawPipeline {
     layout: BindGroupLayout,
+    /// The base mesh pipeline defined by bevy
+    ///
+    /// This isn't required, but if you want to use a bevy `Mesh` it's easier when you
+    /// have access to the base `MeshPipeline` that bevy already defines
+    mesh_pipeline: MeshPipeline,
+    /// Stores the shader used for this pipeline directly on the pipeline.
+    /// This isn't required, it's only done like this for simplicity.
+    shader_handle: Handle<Shader>,
 }
 impl FromWorld for CustomDrawPipeline {
     fn from_world(world: &mut World) -> Self {
+        // Load the shader
+        let shader_handle: Handle<Shader> = world.resource::<AssetServer>().load(SHADER_ASSET_PATH);
         Self {
             layout: CustomDrawData::bind_group_layout(world.resource::<RenderDevice>()),
+            mesh_pipeline: MeshPipeline::from_world(world),
+            shader_handle,
         }
     }
 }
 impl SpecializedMeshPipeline for CustomDrawPipeline {
-    type Key = u32;
+    type Key = MeshPipelineKey;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        todo!()
+        // Define the vertex attributes based on a standard bevy [`Mesh`]
+        let mut vertex_attributes = Vec::new();
+        if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
+            // Make sure this matches the shader location
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        }
+        // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
+        let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
+
+        Ok(RenderPipelineDescriptor {
+            label: Some("Specialized Mesh Pipeline".into()),
+            layout: vec![
+                // Bind group 0 is the view uniform
+                self.mesh_pipeline
+                    .get_view_layout(MeshPipelineViewLayoutKey::from(key))
+                    .clone(),
+                // Bind group 1 is the mesh uniform
+                self.mesh_pipeline.mesh_layouts.model_only.clone(),
+                // Bind group 2 is our custom data
+                // TODO
+                //self.layout.clone(),
+            ],
+            push_constant_ranges: vec![],
+            vertex: VertexState {
+                shader: self.shader_handle.clone(),
+                shader_defs: vec![],
+                entry_point: "vertex".into(),
+                // Customize how to store the meshes' vertex attributes in the vertex buffer
+                buffers: vec![vertex_buffer_layout],
+            },
+            fragment: Some(FragmentState {
+                shader: self.shader_handle.clone(),
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format: TextureFormat::bevy_default(),
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState {
+                topology: key.primitive_topology(),
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                ..default()
+            },
+            depth_stencil: None,
+            // It's generally recommended to specialize your pipeline for MSAA,
+            // but it's not always possible
+            multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
+        })
     }
 }
 
@@ -203,6 +304,7 @@ type DrawCustom = (
 );
 
 #[derive(Component)]
+#[require(CustomDrawMarker)]
 struct CustomDrawDataHandle(Handle<CustomDrawData>);
 
 struct SetCustomBindGroup<const I: usize>;
@@ -219,15 +321,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCustomBindGroup<I> {
         assets: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(material) = handle.and_then(|handle| assets.into_inner().get(&handle.0)) else {
-            return RenderCommandResult::Failure("invalid item query");
-        };
-        pass.set_bind_group(I, &material.bind_group, &[]);
+        // TODO
+        //let Some(material) = handle.and_then(|handle| assets.into_inner().get(&handle.0)) else {
+        //    return RenderCommandResult::Failure("invalid item query");
+        //};
+        //pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
     }
 }
-
-// TODO ViewNode
 
 struct CustomPhase {
     pub sort_key: FloatOrd,
@@ -299,6 +400,102 @@ impl CachedRenderPipelinePhaseItem for CustomPhase {
     }
 }
 
+impl GetBatchData for CustomDrawPipeline {
+    type Param = (
+        SRes<RenderMeshInstances>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
+    );
+    type CompareData = AssetId<Mesh>;
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (mesh_instances, render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_batch_data` should never be called in GPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
+        Some((
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                first_vertex_index,
+                // TODO don't hardcode this
+                MaterialBindGroupSlot(0),
+                None,
+                None,
+                None,
+            ),
+            None,
+        ))
+    }
+}
+impl GetFullBatchData for CustomDrawPipeline {
+    type BufferInputData = MeshInputUniform;
+
+    fn get_index_and_compare_data(
+        (_, _, _): &SystemParamItem<Self::Param>,
+        (_entity, _main_entity): (Entity, MainEntity),
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+        None
+    }
+
+    fn get_binned_batch_data(
+        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
+    ) -> Option<Self::BufferData> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            error!(
+                "`get_binned_batch_data` should never be called in GPU mesh uniform building mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
+
+        Some(MeshUniform::new(
+            &mesh_instance.transforms,
+            first_vertex_index,
+            mesh_instance.material_bindings_index.slot,
+            None,
+            None,
+            None,
+        ))
+    }
+
+    fn get_binned_index(
+        (_, _, _): &SystemParamItem<Self::Param>,
+        (_entity, _main_entity): (Entity, MainEntity),
+    ) -> Option<NonMaxU32> {
+        // This should only be called during GPU building.
+        // For this example we don't use GPU building.
+        None
+    }
+
+    fn get_batch_indirect_parameters_index(
+        (_, _, _): &SystemParamItem<Self::Param>,
+        _indirect_parameters_buffer: &mut IndirectParametersBuffer,
+        _entity: (Entity, MainEntity),
+        _instance_index: u32,
+    ) -> Option<NonMaxU32> {
+        // We don't use gpu preprocessing for this example
+        None
+    }
+}
 fn extract_camera_phases(
     mut custom_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
     cameras: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
@@ -328,15 +525,19 @@ fn queue_custom_meshes(
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<CustomPhase>>,
     mut views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
 ) {
-    for (view_entity, view, visible_entities, _msaa) in &mut views {
+    for (view_entity, view, visible_entities, msaa) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view_entity) else {
             continue;
         };
         let draw_custom = custom_draw_functions.read().id::<DrawCustom>();
 
+        // Create the key based on the view.
+        // In this case we only care about MSAA and HDR
+        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<WithCustomDraw>() {
-            println!("queue entities");
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
@@ -344,10 +545,17 @@ fn queue_custom_meshes(
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
+
+            // Specialize the key for the current mesh entity
+            // For this example we only specialize based on the mesh topology
+            // but you could have more complex keys and that's where you'd need to create those keys
+            let mut mesh_key = view_key;
+            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &custom_draw_pipeline,
-                0, // TODO key
+                mesh_key,
                 &mesh.layout,
             );
             let pipeline_id = match pipeline_id {
@@ -369,5 +577,79 @@ fn queue_custom_meshes(
                 extra_index: PhaseItemExtraIndex::None,
             });
         }
+    }
+}
+
+#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
+struct CustomDrawPassLabel;
+
+#[derive(Default)]
+struct CustomDrawNode;
+impl ViewNode for CustomDrawNode {
+    type ViewQuery = (&'static ExtractedCamera, &'static ViewTarget);
+
+    fn run<'w>(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        (camera, target): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        let Some(custom_phases) = world.get_resource::<ViewSortedRenderPhases<CustomPhase>>()
+        else {
+            return Ok(());
+        };
+        // not reguired but makes profiling easier
+        let diagnostics = render_context.diagnostic_recorder();
+
+        let color_attachments = [Some(target.get_color_attachment())];
+
+        let view_entity = graph.view_entity();
+
+        let Some(custom_phase) = custom_phases.get(&view_entity) else {
+            return Ok(());
+        };
+
+        render_context.add_command_buffer_generation_task(move |render_device| {
+            #[cfg(feature = "trace")]
+            let _ = info_span!("custom phase pass").entered();
+
+            // Command encoder setup
+            let mut command_encoder =
+                render_device.create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("custom pass encoder"),
+                });
+
+            // Render pass setup
+            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("custom pass"),
+                color_attachments: &color_attachments,
+                // We don't bind any depth buffer for this pass
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+            let pass_span = diagnostics.pass_span(&mut render_pass, "custom_pass");
+
+            if let Some(viewport) = camera.viewport.as_ref() {
+                render_pass.set_camera_viewport(viewport);
+            }
+
+            // Opaque draws
+            if !custom_phase.items.is_empty() {
+                #[cfg(feature = "trace")]
+                let _ = info_span!("custom pass").entered();
+                if let Err(err) = custom_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the custom phase {err:?}");
+                }
+            }
+
+            pass_span.end(&mut render_pass);
+            drop(render_pass);
+            command_encoder.finish()
+        });
+
+        Ok(())
     }
 }
