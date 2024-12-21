@@ -91,7 +91,7 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
                     .spawn(black_box(C::default()))
                     .set_parent(parent_id)
                     .id();
-                hierarchy_level.push(child_id)
+                hierarchy_level.push(child_id);
             }
         }
     }

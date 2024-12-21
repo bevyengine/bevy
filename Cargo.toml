@@ -13,20 +13,20 @@ documentation = "https://docs.rs/bevy"
 rust-version = "1.83.0"
 
 [workspace]
-exclude = [
-  "benches",
-  "crates/bevy_derive/compile_fail",
-  "crates/bevy_ecs/compile_fail",
-  "crates/bevy_reflect/compile_fail",
-  "tools/compile_fail_utils",
-]
+resolver = "2"
 members = [
+  # All of Bevy's official crates are within the `crates` folder!
   "crates/*",
+  # Several crates with macros have "compile fail" tests nested inside them, also known as UI
+  # tests, that verify diagnostic output does not accidentally change.
+  "crates/*/compile_fail",
+  # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
-  "tools/ci",
-  "tools/build-templated-pages",
-  "tools/build-wasm-example",
-  "tools/example-showcase",
+  # Benchmarks
+  "benches",
+  # Internal tools that are not published.
+  "tools/*",
+  # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
   "errors",
 ]
 

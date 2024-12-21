@@ -124,6 +124,11 @@ fn setup() {
         // implementation. Opaque is implemented for opaque types like String and Instant,
         // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
         ReflectRef::Opaque(_) => {}
+        #[allow(
+            unreachable_patterns,
+            reason = "This example cannot always detect when `bevy_reflect/functions` is enabled."
+        )]
+        _ => {}
     }
 
     let mut dynamic_list = DynamicList::default();
