@@ -1,4 +1,4 @@
-use crate::{Children, HierarchyEvent, Parent};
+use crate::{Children, GetHierarchyComponentsMut, HierarchyEvent, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -21,7 +21,7 @@ fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEven
 /// This might cause unexpected results when removing duplicate children.
 fn add_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
+    if let Some(mut children) = parent.get_children_mut() {
         children.0.push(child);
     } else {
         parent.insert(Children(smallvec![child]));
@@ -31,7 +31,7 @@ fn add_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
 /// Sets [`Parent`] of the `child` to `new_parent`. Inserts [`Parent`] if `child` doesn't have one.
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
-    if let Some(mut parent) = child.get_mut::<Parent>() {
+    if let Some(mut parent) = child.get_parent_mut() {
         let previous = parent.0;
         *parent = Parent(new_parent);
         Some(previous)
@@ -48,7 +48,7 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let Ok(mut parent) = world.get_entity_mut(parent) else {
         return;
     };
-    let Some(mut children) = parent.get_mut::<Children>() else {
+    let Some(mut children) = parent.get_children_mut() else {
         return;
     };
     children.0.retain(|x| *x != child);
@@ -138,7 +138,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     push_events(world, events);
 
     let mut parent = world.entity_mut(parent);
-    if let Some(mut parent_children) = parent.get_mut::<Children>() {
+    if let Some(mut parent_children) = parent.get_children_mut() {
         parent_children
             .0
             .retain(|parent_child| !children.contains(parent_child));
@@ -593,7 +593,7 @@ impl BuildChildren for EntityWorldMut<'_> {
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let parent = self.id();
         let child = self.world_scope(|world| world.spawn((bundle, Parent(parent))).id());
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_children_mut() {
             children_component.0.retain(|value| child != *value);
             children_component.0.push(child);
         } else {
@@ -610,7 +610,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         self.world_scope(|world| {
             update_old_parent(world, child, parent);
         });
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_children_mut() {
             children_component.0.retain(|value| child != *value);
             children_component.0.push(child);
         } else {
@@ -631,7 +631,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_children_mut() {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
@@ -650,7 +650,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_children_mut() {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
