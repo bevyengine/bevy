@@ -3,7 +3,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityBorrow, TrustedEntityBorrow},
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
@@ -140,6 +140,15 @@ impl From<Entity> for RenderEntity {
     }
 }
 
+impl EntityBorrow for RenderEntity {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
+unsafe impl TrustedEntityBorrow for RenderEntity {}
+
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
@@ -157,6 +166,15 @@ impl From<Entity> for MainEntity {
         MainEntity(entity)
     }
 }
+
+impl EntityBorrow for MainEntity {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
+unsafe impl TrustedEntityBorrow for MainEntity {}
 
 /// A [`HashMap`](hashbrown::HashMap) pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
 pub type MainEntityHashMap<V> = hashbrown::HashMap<MainEntity, V, EntityHash>;
