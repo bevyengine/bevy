@@ -53,6 +53,12 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
+mod hash_map;
+mod hash_set;
+
+pub use hash_map::EntityHashMap;
+pub use hash_set::EntityHashSet;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
