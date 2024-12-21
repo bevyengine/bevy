@@ -82,6 +82,28 @@ impl<const N: usize> SortedVecSet<N> {
         self.0.len()
     }
 
+    pub(crate) fn difference_with(&mut self, other: &Self) {
+        let mut j = 0;
+        self.0.retain(|current| {
+            // Advance past any smaller elements in other
+            while j < other.len() && other.0[j] < *current { j += 1; }
+            // It's only in the difference if it's not in other,
+            // and this is the only place in other it could be
+            j < other.len() && !(other.0[j] == *current)
+        });
+    }
+
+    pub(crate) fn intersect_with(&mut self, other: &Self) {
+        let mut j = 0;
+        self.0.retain(|current| {
+            // Advance past any smaller elements in other
+            while j < other.len() && other.0[j] < *current { j += 1; }
+            // It's only in the intersection if it's in other,
+            // and this is the only place in other it could be
+            j < other.len() && other.0[j] == *current
+        });
+    }
+
     /// Adds all the elements from `other` into this vector. (skipping duplicates)
     pub(crate) fn union_with(&mut self, other: &Self) {
         let mut i = 0;
@@ -133,34 +155,6 @@ impl<const N: usize> SortedVecSet<N> {
     /// Returns true if all the elements in `self` are also in `other`.
     pub(crate) fn is_subset(&self, other: &Self) -> bool {
         self.difference(other).next().is_none()
-    }
-}
-
-impl<const N: usize> Extend<usize> for SortedVecSet<N> {
-    fn extend<T: IntoIterator<Item = usize>>(&mut self, other: T) {
-        let mut i = 0;
-        let mut other_iter = other.into_iter();
-        let mut other_val = other_iter.next();
-        while i < self.len() && other_val.is_some() {
-            let val_j = other_val.unwrap();
-            match self.0[i].cmp(&val_j) {
-                Ordering::Less => {
-                    i += 1;
-                }
-                Ordering::Greater => {
-                    self.0.insert(i, val_j);
-                    other_val = other_iter.next();
-                }
-                Ordering::Equal => {
-                    i += 1;
-                    other_val = other_iter.next();
-                }
-            }
-        }
-        while let Some(val_j) = other_val {
-            self.0.push(val_j);
-            other_val = other_iter.next();
-        }
     }
 }
 

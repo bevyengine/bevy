@@ -359,16 +359,10 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_read_and_writes_inverted,
         ) {
             (true, true) => {
-                self.component_read_and_writes = self
-                    .component_read_and_writes
-                    .intersection(&other.component_read_and_writes)
-                    .into();
+                self.component_read_and_writes.intersect_with(&other.component_read_and_writes);
             }
             (true, false) => {
-                self.component_read_and_writes = self
-                    .component_read_and_writes
-                    .difference(&other.component_read_and_writes)
-                    .into();
+                self.component_read_and_writes.difference_with(&other.component_read_and_writes);
             }
             (false, true) => {
                 self.component_read_and_writes = other
@@ -387,16 +381,10 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_writes_inverted,
         ) {
             (true, true) => {
-                self.component_writes = self
-                    .component_writes
-                    .intersection(&other.component_writes)
-                    .into();
+                self.component_writes.intersect_with(&other.component_writes);
             }
             (true, false) => {
-                self.component_writes = self
-                    .component_writes
-                    .difference(&other.component_writes)
-                    .into();
+                self.component_writes.difference_with(&other.component_writes);
             }
             (false, true) => {
                 self.component_writes = other
@@ -632,30 +620,32 @@ impl<T: SparseSetIndex> Access<T> {
             if other.writes_all_resources {
                 return AccessConflicts::All;
             }
-            conflicts.extend(other.resource_writes.iter());
+            conflicts.union_with(&other.resource_writes);
         }
 
         if other.reads_all_resources {
             if self.writes_all_resources {
                 return AccessConflicts::All;
             }
-            conflicts.extend(self.resource_writes.iter());
+            conflicts.union_with(&self.resource_writes);
         }
         if self.writes_all_resources {
-            conflicts.extend(other.resource_read_and_writes.iter());
+            conflicts.union_with(&other.resource_read_and_writes);
         }
 
         if other.writes_all_resources {
-            conflicts.extend(self.resource_read_and_writes.iter());
+            conflicts.union_with(&self.resource_read_and_writes);
         }
 
-        conflicts.extend(
-            self.resource_writes
-                .intersection(&other.resource_read_and_writes),
+        conflicts.union_with(
+            &self.resource_writes
+                 .intersection(&other.resource_read_and_writes)
+                 .into(),
         );
-        conflicts.extend(
-            self.resource_read_and_writes
-                .intersection(&other.resource_writes),
+        conflicts.union_with(
+            &self.resource_read_and_writes
+                 .intersection(&other.resource_writes)
+                 .into(),
         );
         AccessConflicts::Individual(conflicts)
     }
@@ -802,7 +792,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.iter());
+                this.union_with(other);
             }
             _ => {}
         }
