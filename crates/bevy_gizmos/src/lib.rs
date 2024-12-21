@@ -81,7 +81,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;
 
 #[cfg(all(
@@ -419,6 +419,9 @@ fn extract_gizmo_data(
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
+    use bevy_utils::warn_once;
+    use config::GizmoLineStyle;
+
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
@@ -438,12 +441,30 @@ fn extract_gizmo_data(
             0
         };
 
+        let (gap_scale, line_scale) = if let GizmoLineStyle::Dashed {
+            gap_scale,
+            line_scale,
+        } = config.line.style
+        {
+            if gap_scale <= 0.0 {
+                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero.");
+            }
+            if line_scale <= 0.0 {
+                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero.");
+            }
+            (gap_scale, line_scale)
+        } else {
+            (1.0, 1.0)
+        };
+
         commands.spawn((
             LineGizmoUniform {
                 world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
                 line_width: config.line.width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
+                gap_scale,
+                line_scale,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -471,9 +492,12 @@ struct LineGizmoUniform {
     depth_bias: f32,
     // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
     joints_resolution: u32,
+    // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
+    gap_scale: f32,
+    line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: f32,
+    _padding: Vec3,
 }
 
 /// A collection of gizmos.

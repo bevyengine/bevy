@@ -8,10 +8,10 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    name::Name,
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
@@ -923,7 +923,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
@@ -2260,7 +2260,7 @@ mod test {
     use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
-    use bevy_app::App;
+    use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
@@ -2268,7 +2268,6 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_core::TaskPoolPlugin;
     use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};

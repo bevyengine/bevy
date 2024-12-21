@@ -33,7 +33,7 @@ use bevy_render::{
         SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    view::{GpuCulling, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -70,7 +70,7 @@ pub struct GpuPreprocessNode {
             Entity,
             Read<PreprocessBindGroup>,
             Read<ViewUniformOffset>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         ),
         Without<SkipGpuPreprocess>,
     >,
@@ -202,7 +202,7 @@ impl Node for GpuPreprocessNode {
                 });
 
         // Run the compute passes.
-        for (view, bind_group, view_uniform_offset, gpu_culling) in
+        for (view, bind_group, view_uniform_offset, no_indirect_drawing) in
             self.view_query.iter_manual(world)
         {
             // Grab the index buffer for this view.
@@ -213,7 +213,7 @@ impl Node for GpuPreprocessNode {
 
             // Select the right pipeline, depending on whether GPU culling is in
             // use.
-            let maybe_pipeline_id = if gpu_culling {
+            let maybe_pipeline_id = if !no_indirect_drawing {
                 preprocess_pipelines.gpu_culling.pipeline_id
             } else {
                 preprocess_pipelines.direct.pipeline_id
@@ -235,7 +235,7 @@ impl Node for GpuPreprocessNode {
             compute_pass.set_pipeline(preprocess_pipeline);
 
             let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-            if gpu_culling {
+            if !no_indirect_drawing {
                 dynamic_offsets.push(view_uniform_offset.offset);
             }
             compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
@@ -422,7 +422,7 @@ pub fn prepare_preprocess_bind_groups(
         )
         .ok();
 
-        let bind_group = if index_buffer_vec.gpu_culling {
+        let bind_group = if !index_buffer_vec.no_indirect_drawing {
             let (
                 Some(indirect_parameters_buffer),
                 Some(mesh_culling_data_buffer),

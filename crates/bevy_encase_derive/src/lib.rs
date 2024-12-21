@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -13,7 +12,7 @@ use encase_derive_impl::{implement, syn};
 const ENCASE: &str = "encase";
 
 fn bevy_encase_path() -> syn::Path {
-    let bevy_manifest = BevyManifest::default();
+    let bevy_manifest = BevyManifest::shared();
     bevy_manifest
         .get_subcrate("render")
         .map(|bevy_render_path| {

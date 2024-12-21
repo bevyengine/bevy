@@ -6,7 +6,7 @@ description = "Keyboard focus management"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "color"]
+keywords = ["bevy"]
 rust-version = "1.76.0"
 
 [dependencies]
@@ -16,6 +16,9 @@ bevy_input = { path = "../bevy_input", version = "0.15.0-dev", default-features 
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
 bevy_window = { path = "../bevy_window", version = "0.15.0-dev", default-features = false }
+
+[dev-dependencies]
+smol_str = "0.2"
 
 [lints]
 workspace = true

@@ -9,7 +9,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
         RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
@@ -28,11 +28,11 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -281,8 +281,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
 #[component(on_add = warn_on_no_render_graph)]
@@ -718,10 +718,35 @@ pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
+    Image(ImageRenderTarget),
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+}
+
+/// A render target that renders to an [`Image`].
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ImageRenderTarget {
+    /// The image to render to.
+    pub handle: Handle<Image>,
+    /// The scale factor of the render target image, corresponding to the scale
+    /// factor for a window target. This should almost always be 1.0.
+    pub scale_factor: FloatOrd,
+}
+
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle.into())
+    }
+}
+
+impl From<Handle<Image>> for ImageRenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self {
+            handle,
+            scale_factor: FloatOrd(1.0),
+        }
+    }
 }
 
 impl Default for RenderTarget {
@@ -738,7 +763,7 @@ pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
+    Image(ImageRenderTarget),
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
@@ -759,8 +784,8 @@ impl RenderTarget {
     /// Get a handle to the render target's image,
     /// or `None` if the render target is another variant.
     pub fn as_image(&self) -> Option<&Handle<Image>> {
-        if let Self::Image(handle) = self {
-            Some(handle)
+        if let Self::Image(image_target) = self {
+            Some(&image_target.handle)
         } else {
             None
         }
@@ -778,9 +803,9 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_view.as_ref()),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
-            }
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| &image.texture_view),
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| &tex.texture_view)
             }
@@ -798,9 +823,9 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_format),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| image.texture_format)
-            }
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| image.texture_format),
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.format)
             }
@@ -821,11 +846,11 @@ impl NormalizedRenderTarget {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
-            NormalizedRenderTarget::Image(image_handle) => {
-                let image = images.get(image_handle)?;
+            NormalizedRenderTarget::Image(image_target) => {
+                let image = images.get(&image_target.handle)?;
                 Some(RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: 1.0,
+                    scale_factor: image_target.scale_factor.0,
                 })
             }
             NormalizedRenderTarget::TextureView(id) => {
@@ -847,8 +872,8 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
-            NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle.id())
+            NormalizedRenderTarget::Image(image_target) => {
+                changed_image_handles.contains(&image_target.handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -1033,7 +1058,7 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -1053,7 +1078,7 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
-        gpu_culling,
+        no_indirect_drawing,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -1064,7 +1089,7 @@ pub fn extract_cameras(
                 TemporalJitter,
                 RenderLayers,
                 Projection,
-                GpuCulling,
+                NoIndirectDrawing,
                 ViewUniformOffset,
             )>();
             continue;
@@ -1156,14 +1181,13 @@ pub fn extract_cameras(
                 commands.insert(perspective.clone());
             }
 
-            if gpu_culling {
-                if gpu_preprocessing_support.max_supported_mode == GpuPreprocessingMode::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
+            if no_indirect_drawing
+                || !matches!(
+                    gpu_preprocessing_support.max_supported_mode,
+                    GpuPreprocessingMode::Culling
+                )
+            {
+                commands.insert(NoIndirectDrawing);
             }
         };
     }

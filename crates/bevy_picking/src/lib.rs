@@ -414,7 +414,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, pointer_events, update_interactions)
+                (update_focus, update_interactions, pointer_events)
                     .chain()
                     .in_set(PickSet::Focus),
             );

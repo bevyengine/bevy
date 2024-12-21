@@ -11,12 +11,12 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
+use tracing::{info_span, Span};
 
 use super::{In, IntoSystem, ReadOnlySystem, SystemParamBuilder};
 
@@ -213,7 +213,7 @@ impl ParamWarnPolicy {
             return;
         }
 
-        bevy_utils::tracing::warn!(
+        log::warn!(
             "{0} did not run because it requested inaccessible system parameter {1}",
             name,
             disqualified::ShortName::of::<P>()

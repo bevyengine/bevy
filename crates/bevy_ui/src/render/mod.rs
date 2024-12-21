@@ -663,14 +663,8 @@ pub fn extract_text_sections(
             continue;
         };
 
-        // Align the text to the nearest pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Round the position to the nearest physical pixel
-
-        let mut transform = global_transform.affine()
+        let transform = global_transform.affine()
             * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
-        transform.translation = transform.translation.round();
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
@@ -1058,7 +1052,7 @@ pub fn prepare_uinodes(
                                 );
                                 // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                                 let atlas_extent = atlas_scaling
-                                    .map(|scaling| image.size.as_vec2() * scaling)
+                                    .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
                                 if *flip_x {
                                     core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -1133,7 +1127,7 @@ pub fn prepare_uinodes(
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size.as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
