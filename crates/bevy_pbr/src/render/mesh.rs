@@ -1773,7 +1773,8 @@ fn write_batch_indirect_parameters(
             instance_count: 0,
             first_vertex_or_first_index: vertex_buffer_slice.range.start,
             base_vertex_or_first_instance: 0,
-            // Use `0xffffffff` as a placeholder to tell the mesh preprocessing shader that
+            // Use `0xffffffff` as a placeholder to tell the mesh preprocessing
+            // shader that this is a non-indexed mesh.
             first_instance: !0,
         },
     };
