@@ -340,6 +340,7 @@ mod easing_functions {
     const FRAC_1_1023: f32 = 0.00097751710654936461388074291;
     #[inline]
     pub(crate) fn exponential_in(t: f32) -> f32 {
+        // Derived from a rescaled exponential formula `(2^(10*t) - 1) / (2^10 - 1)`
         // See <https://www.wolframalpha.com/input?i=solve+over+the+reals%3A+pow%282%2C+10-A%29+-+pow%282%2C+-A%29%3D+1>
         ops::exp2(10.0 * t - LOG2_1023) - FRAC_1_1023
     }
