@@ -277,6 +277,15 @@ pub struct Window {
     ///
     /// - Only supported on Windows.
     pub skip_taskbar: bool,
+    /// Sets whether the window should clip its child windows to its client area.
+    ///
+    /// If `true`, child windows will be clipped to the client area of this window.
+    /// If `false`, child windows can be drawn outside the client area.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub clip_children: bool,
     /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
     ///
     /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
@@ -427,6 +436,7 @@ impl Default for Window {
             window_theme: None,
             visible: true,
             skip_taskbar: false,
+            clip_children: true,
             desired_maximum_frame_latency: None,
             recognize_pinch_gesture: false,
             recognize_rotation_gesture: false,
