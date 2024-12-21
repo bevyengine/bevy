@@ -1,5 +1,5 @@
-use smallvec::SmallVec;
 use core::cmp::Ordering;
+use smallvec::SmallVec;
 
 /// Stores a sorted list of indices with quick implementation for union, difference, intersection.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -60,7 +60,7 @@ impl<const N: usize> SortedVecSet<N> {
         if let Ok(pos) = self.0.binary_search(&index) {
             self.0.remove(pos);
         }
-   }
+    }
 
     /// Returns true if the vector contains the value.
     pub(crate) fn contains(&self, index: usize) -> bool {
@@ -86,7 +86,9 @@ impl<const N: usize> SortedVecSet<N> {
         let mut j = 0;
         self.0.retain(|current| {
             // Advance past any smaller elements in other
-            while j < other.len() && other.0[j] < *current { j += 1; }
+            while j < other.len() && other.0[j] < *current {
+                j += 1;
+            }
             // It's only in the difference if it's not in other,
             // and this is the only place in other it could be
             j < other.len() && !(other.0[j] == *current)
@@ -97,7 +99,9 @@ impl<const N: usize> SortedVecSet<N> {
         let mut j = 0;
         self.0.retain(|current| {
             // Advance past any smaller elements in other
-            while j < other.len() && other.0[j] < *current { j += 1; }
+            while j < other.len() && other.0[j] < *current {
+                j += 1;
+            }
             // It's only in the intersection if it's in other,
             // and this is the only place in other it could be
             j < other.len() && other.0[j] == *current
@@ -175,8 +179,7 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
             let val_b = self.other.0[self.j];
-            if val_a == val_b
-            {
+            if val_a == val_b {
                 self.i += 1;
                 self.j += 1;
                 return Some(val_a);
@@ -216,8 +219,7 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
             if val_a == val_b {
                 self.i += 1;
                 self.j += 1;
-            } else if val_a < val_b
-            {
+            } else if val_a < val_b {
                 self.i += 1;
                 return Some(val_a);
             } else {

@@ -360,10 +360,12 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_read_and_writes_inverted,
         ) {
             (true, true) => {
-                self.component_read_and_writes.intersect_with(&other.component_read_and_writes);
+                self.component_read_and_writes
+                    .intersect_with(&other.component_read_and_writes);
             }
             (true, false) => {
-                self.component_read_and_writes.difference_with(&other.component_read_and_writes);
+                self.component_read_and_writes
+                    .difference_with(&other.component_read_and_writes);
             }
             (false, true) => {
                 self.component_read_and_writes = other
@@ -382,10 +384,12 @@ impl<T: SparseSetIndex> Access<T> {
             other.component_writes_inverted,
         ) {
             (true, true) => {
-                self.component_writes.intersect_with(&other.component_writes);
+                self.component_writes
+                    .intersect_with(&other.component_writes);
             }
             (true, false) => {
-                self.component_writes.difference_with(&other.component_writes);
+                self.component_writes
+                    .difference_with(&other.component_writes);
             }
             (false, true) => {
                 self.component_writes = other
@@ -597,13 +601,12 @@ impl<T: SparseSetIndex> Access<T> {
         ] {
             // There's no way that I can see to do this without a temporary.
             // Neither CNF nor DNF allows us to avoid one.
-            let temp_conflicts =
-                match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
-                    (true, true) => return AccessConflicts::All,
-                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).into(),
-                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).into(),
-                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).into(),
-                };
+            let temp_conflicts = match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
+                (true, true) => return AccessConflicts::All,
+                (false, true) => lhs_writes.difference(rhs_reads_and_writes).into(),
+                (true, false) => rhs_reads_and_writes.difference(lhs_writes).into(),
+                (false, false) => lhs_writes.intersection(rhs_reads_and_writes).into(),
+            };
             conflicts.union_with(&temp_conflicts);
         }
 
@@ -639,14 +642,16 @@ impl<T: SparseSetIndex> Access<T> {
         }
 
         conflicts.union_with(
-            &self.resource_writes
-                 .intersection(&other.resource_read_and_writes)
-                 .into(),
+            &self
+                .resource_writes
+                .intersection(&other.resource_read_and_writes)
+                .into(),
         );
         conflicts.union_with(
-            &self.resource_read_and_writes
-                 .intersection(&other.resource_writes)
-                 .into(),
+            &self
+                .resource_read_and_writes
+                .intersection(&other.resource_writes)
+                .into(),
         );
         AccessConflicts::Individual(conflicts)
     }
@@ -1249,9 +1254,12 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{query::{
-        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
-    }, storage::SortedVecSet};
+    use crate::{
+        query::{
+            access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+        },
+        storage::SortedVecSet,
+    };
     use core::marker::PhantomData;
 
     fn create_sample_access() -> Access<usize> {
