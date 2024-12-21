@@ -46,7 +46,7 @@
 //!
 //! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
-//! [events]: HierarchyEvent
+//! [events]: OnParentChange
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
@@ -98,8 +98,6 @@ pub struct HierarchyPlugin;
 #[cfg(feature = "bevy_app")]
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Children>()
-            .register_type::<Parent>()
-            .add_event::<HierarchyEvent>();
+        app.register_type::<Children>().register_type::<Parent>();
     }
 }
