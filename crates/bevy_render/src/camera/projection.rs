@@ -78,7 +78,7 @@ pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
-    fn far(&self) -> f32;
+    fn far(&self) -> Option<f32>;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
 
     /// Compute camera frustum for camera with given projection and transform.
@@ -88,12 +88,16 @@ pub trait CameraProjection {
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
         let clip_from_world =
             self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
-        Frustum::from_clip_from_world_custom_far(
-            &clip_from_world,
-            &camera_transform.translation(),
-            &camera_transform.back(),
-            self.far(),
-        )
+
+        match self.far() {
+            None => Frustum::from_clip_from_world(&clip_from_world),
+            Some(far) => Frustum::from_clip_from_world_custom_far(
+                &clip_from_world,
+                &camera_transform.translation(),
+                &camera_transform.back(),
+                far,
+            ),
+        }
     }
 }
 
@@ -127,7 +131,7 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn far(&self) -> f32 {
+    fn far(&self) -> Option<f32> {
         match self {
             Projection::Perspective(projection) => projection.far(),
             Projection::Orthographic(projection) => projection.far(),
@@ -176,8 +180,8 @@ pub struct PerspectiveProjection {
     ///
     /// Objects farther from the camera than this value will not be visible.
     ///
-    /// Defaults to a value of `1000.0`.
-    pub far: f32,
+    /// Defaults to `None` (far plane is ignored for visibility checks)
+    pub far: Option<f32>,
 }
 
 impl CameraProjection for PerspectiveProjection {
@@ -232,7 +236,7 @@ impl CameraProjection for PerspectiveProjection {
             .ratio();
     }
 
-    fn far(&self) -> f32 {
+    fn far(&self) -> Option<f32> {
         self.far
     }
 
@@ -260,7 +264,7 @@ impl Default for PerspectiveProjection {
         PerspectiveProjection {
             fov: core::f32::consts::PI / 4.0,
             near: 0.1,
-            far: 1000.0,
+            far: None,
             aspect_ratio: 1.0,
         }
     }
@@ -354,8 +358,10 @@ pub struct OrthographicProjection {
     ///
     /// Objects further than this will not be rendered.
     ///
-    /// Defaults to `1000.0`
-    pub far: f32,
+    /// Defaults to [`OrthographicProjection::DEFAULT_FAR_PLANE`].
+    ///
+    /// ie: `Some(1000.0)`.
+    pub far: Option<f32>,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
     /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
     ///
@@ -408,7 +414,7 @@ impl CameraProjection for OrthographicProjection {
             self.area.max.y,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
-            self.far,
+            self.far.unwrap_or(Self::DEFAULT_FAR_PLANE),
             self.near,
         )
     }
@@ -451,7 +457,7 @@ impl CameraProjection for OrthographicProjection {
             top_prime,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
-            self.far,
+            self.far.unwrap_or(Self::DEFAULT_FAR_PLANE),
             self.near,
         )
     }
@@ -503,7 +509,7 @@ impl CameraProjection for OrthographicProjection {
         );
     }
 
-    fn far(&self) -> f32 {
+    fn far(&self) -> Option<f32> {
         self.far
     }
 
@@ -530,6 +536,8 @@ impl FromWorld for OrthographicProjection {
 }
 
 impl OrthographicProjection {
+    pub const DEFAULT_FAR_PLANE: f32 = 1000.0;
+
     /// Returns the default orthographic projection for a 2D context.
     ///
     /// The near plane is set to a negative value so that the camera can still
@@ -549,7 +557,7 @@ impl OrthographicProjection {
         OrthographicProjection {
             scale: 1.0,
             near: 0.0,
-            far: 1000.0,
+            far: Some(Self::DEFAULT_FAR_PLANE),
             viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize,
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
