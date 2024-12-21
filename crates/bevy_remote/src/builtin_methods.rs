@@ -1423,6 +1423,8 @@ mod tests {
         );
     }
     use super::*;
+    use bevy_ecs::{component::Component, system::Resource};
+    use bevy_reflect::Reflect;
 
     #[test]
     fn serialization_tests() {
@@ -1434,17 +1436,165 @@ mod tests {
         test_serialize_deserialize(BrpListWatchingResponse::default());
         test_serialize_deserialize(BrpQuery::default());
         test_serialize_deserialize(BrpJsonSchemaQueryFilter::default());
+        test_serialize_deserialize(BrpJsonSchemaQueryFilter {
+            type_limit: JsonSchemaTypeLimit {
+                with: vec!["Resource".to_owned()],
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         test_serialize_deserialize(BrpListParams {
             entity: Entity::from_raw(0),
         });
     }
 
     #[test]
-    fn reflect_export_test() {
-        #[derive(
-            bevy_reflect::Reflect, bevy_ecs::system::Resource, Default, Deserialize, Serialize,
-        )]
+    fn reflect_export_struct() {
+        #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
         #[reflect(Resource, Default, Serialize, Deserialize)]
+        struct Foo {
+            a: f32,
+            b: Option<f32>,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Foo>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<Foo>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
+
+        assert!(
+            !schema.reflect_types.contains(&"Component".to_owned()),
+            "Should not be a component"
+        );
+        assert!(
+            schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should be a resource"
+        );
+        let _ = schema.properties.get("a").expect("Missing `a` field");
+        let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert!(
+            schema.required.contains(&"a".to_owned()),
+            "Field a should be required"
+        );
+        assert!(
+            !schema.required.contains(&"b".to_owned()),
+            "Field b should not be required"
+        );
+    }
+
+    #[test]
+    fn reflect_export_enum() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        #[reflect(Component, Default, Serialize, Deserialize)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        assert!(
+            schema.reflect_types.contains(&"Component".to_owned()),
+            "Should be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
+    fn reflect_export_struct_without_reflect_types() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        assert!(
+            !schema.reflect_types.contains(&"Component".to_owned()),
+            "Should not be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
+    fn reflect_export_tuple_struct() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        #[reflect(Component, Default, Serialize, Deserialize)]
+        struct TupleStructType(usize, i32);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<TupleStructType>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<TupleStructType>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
+        assert!(
+            schema.reflect_types.contains(&"Component".to_owned()),
+            "Should be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.prefix_items.len() == 2, "Should have 2 prefix items");
+    }
+
+    #[test]
+    fn reflect_export_serialization_check() {
+        #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
+        #[reflect(Resource, Default)]
         struct Foo {
             a: f32,
         }
@@ -1460,15 +1610,30 @@ mod tests {
             .expect("SHOULD BE REGISTERED")
             .clone();
         let (_, schema) = export_type(&foo_registration);
-        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
-        assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
-            "Struct should not be a component"
-        );
-        assert!(
-            schema.reflect_types.contains(&"Resource".to_owned()),
-            "Struct should be a resource"
-        );
-        let _field = schema.properties.get("a").expect("Missing `a` field");
+        let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
+        let value = json!({
+          "shortPath": "Foo",
+          "typePath": "bevy_remote::builtin_methods::tests::Foo",
+          "modulePath": "bevy_remote::builtin_methods::tests",
+          "crateName": "bevy_remote",
+          "reflectTypes": [
+            "Resource",
+            "Default",
+          ],
+          "kind": "Struct",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "a": {
+              "type": {
+                "$ref": "#/$defs/f32"
+              }
+            },
+          },
+          "required": [
+            "a"
+          ]
+        });
+        assert_eq!(schema_as_value, value);
     }
 }
