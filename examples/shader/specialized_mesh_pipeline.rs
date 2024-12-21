@@ -325,18 +325,18 @@ fn queue_custom_mesh_pipeline(
 
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
+                Opaque3dBatchSetKey {
+                    draw_function: draw_function_id,
+                    pipeline: pipeline_id,
+                    material_bind_group_index: None,
+                    vertex_slab: default(),
+                    index_slab: None,
+                    lightmap_slab: None,
+                },
+                // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
+                // but you can use anything you like. Note that the asset ID need
+                // not be the ID of a [`Mesh`].
                 Opaque3dBinKey {
-                    batch_set_key: Opaque3dBatchSetKey {
-                        draw_function: draw_function_id,
-                        pipeline: pipeline_id,
-                        material_bind_group_index: None,
-                        vertex_slab: default(),
-                        index_slab: None,
-                        lightmap_slab: None,
-                    },
-                    // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
-                    // but you can use anything you like. Note that the asset ID need
-                    // not be the ID of a [`Mesh`].
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 (render_entity, visible_entity),
