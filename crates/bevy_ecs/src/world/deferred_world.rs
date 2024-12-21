@@ -562,7 +562,7 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
-    pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
+    pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
