@@ -19,10 +19,7 @@ use light_consts::lux;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(
-            Startup,
-            (setup_camera_fog, setup_terrain_scene, setup_instructions),
-        )
+        .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, rotate_sun)
         .add_systems(Update, translate_camera)
         .run();
@@ -72,40 +69,11 @@ fn setup_terrain_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     )));
 }
 
-//TODO: update this
-fn setup_instructions(mut commands: Commands) {
-    // commands.spawn(
-    //     TextBundle::from_section(
-    //         "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-    //         TextStyle::default(),
-    //     )
-    //     .with_style(Style {
-    //         position_type: PositionType::Absolute,
-    //         bottom: Val::Px(12.0),
-    //         left: Val::Px(12.0),
-    //         ..default()
-    //     }),
-    // );
-}
-
-// fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut FogSettings>) {
-//     let mut fog_settings = fog.single_mut();
-//
-//     if keycode.just_pressed(KeyCode::Space) {
-//         let a = fog_settings.color.alpha();
-//         fog_settings.color.set_alpha(1.0 - a);
-//     }
-//
-//     if keycode.just_pressed(KeyCode::KeyS) {
-//         let a = fog_settings.directional_light_color.alpha();
-//         fog_settings.directional_light_color.set_alpha(0.5 - a);
-//     }
-// }
-
 fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
     sun.rotate_z(time.delta_secs() * PI / 30.0);
 }
 
 fn translate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
-    camera.translation.y += time.delta_secs() * 0.05;
+    //camera.translation.y += time.delta_secs() * 0.05;
+    camera.rotate_y(time.delta_secs() * 0.1);
 }

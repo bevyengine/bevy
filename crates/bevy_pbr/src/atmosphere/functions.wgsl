@@ -263,15 +263,15 @@ fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
 }
 
 /// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(atmo_dir: vec3<f32>) -> vec3<f32> {
-    let world_dir = atmosphere_transforms.atmosphere_from_world * vec4(atmo_dir, 0.0);
-    return world_dir.xyz;
+fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
+    let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
+    return dir_as.xyz;
 }
 
 /// Converts a direction in atmosphere space to world space
-fn direction_atmosphere_to_world(atmo_dir: vec3<f32>) -> vec3<f32> {
-    let world_dir = atmosphere_transforms.world_from_atmosphere * vec4(atmo_dir, 0.0);
-    return world_dir.xyz;
+fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
+    let dir_ws = atmosphere_transforms.world_from_atmosphere * vec4(dir_as, 0.0);
+    return dir_ws.xyz;
 }
 
 /// Convert a view space direction to world space
