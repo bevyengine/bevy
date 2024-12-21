@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -40,8 +40,13 @@ pub trait System: Send + Sync + 'static {
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
+
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
+
+    /// Returns the system's component [`FilteredAccessSet`].
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId>;
+
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
