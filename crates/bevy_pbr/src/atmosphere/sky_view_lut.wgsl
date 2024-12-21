@@ -29,7 +29,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     let r = view_radius();
     var lat_long = sky_view_lut_uv_to_lat_long(uv);
-    lat_long.x += zenith_to_altitude(get_horizon_zenith(r));
+    lat_long.x -= zenith_to_altitude(get_horizon_zenith(r));
 
     let ray_dir_as = lat_long_to_ray_dir_as(lat_long.x, lat_long.y);
     let ray_dir = direction_atmosphere_to_world(ray_dir_as);

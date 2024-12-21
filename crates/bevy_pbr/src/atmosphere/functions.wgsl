@@ -41,6 +41,7 @@
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
+const ROOT_2: f32 = 1.41421356; // √2
 
 // LUT UV PARAMATERIZATIONS
 
@@ -82,9 +83,8 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 }
 
 fn sample_sky_view_lut(ray_dir_as: vec3<f32>, horizon_zenith: f32) -> vec3<f32> {
-    // we don't have fast_asin, so use fast_acos and adjust angle
-    let lat = horizon_zenith - fast_acos(ray_dir_as.y);
-    let long = fast_atan2(-ray_dir_as.x, -ray_dir_as.z);
+    let lat = zenith_to_altitude(fast_acos(ray_dir_as.y)) + zenith_to_altitude(horizon_zenith);
+    let long = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
     let uv = sky_view_lut_lat_long_to_uv(lat, long);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
@@ -203,8 +203,10 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_light = acos(neg_LdotV);
-        sun_illuminance += (*light).color.rgb * f32(angle_to_light <= SUN_ANGULAR_SIZE);
+        let angle_to_sun = fast_acos(neg_LdotV);
+        let pixel_size = fwidth(angle_to_sun);
+        let factor = smoothstep(SUN_ANGULAR_SIZE, SUN_ANGULAR_SIZE - pixel_size * ROOT_2, angle_to_sun);
+        sun_illuminance += (*light).color.rgb * factor * ray_dir_ws.y;
     }
     return sun_illuminance * transmittance * view.exposure;
 }
@@ -218,7 +220,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
-/// Assuming y=0 is the planet ground, returns the view altitude in kilometers
+/// Assuming y=0 is the planet ground, returns the view radius in kilometers
 fn view_radius() -> f32 {
     return view.world_position.y * settings.scene_units_to_km + atmosphere.bottom_radius;
 }
@@ -230,12 +232,14 @@ fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
+// Calculates the zenith angle to the horizon using the law of cosines
 fn get_horizon_zenith(r: f32) -> f32 {
     let altitude_ratio = atmosphere.bottom_radius / r;
     let mu_horizon = sqrt(1 - altitude_ratio * altitude_ratio);
     return fast_acos(mu_horizon);
 }
 
+// Converts a zenith angle to an altitude angle
 fn zenith_to_altitude(zenith: f32) -> f32 {
     return -zenith + HALF_PI;
 }

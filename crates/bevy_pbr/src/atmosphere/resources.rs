@@ -555,8 +555,7 @@ pub(super) fn prepare_atmosphere_transforms(
             .try_normalize()
             .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
         let atmo_y = Vec3::Y;
-        let atmo_x = atmo_z.zyx() * Vec3::NEG_Z; //simplified version of cross(atmo_y, atmo_z);
-
+        let atmo_x = atmo_y.cross(atmo_z).normalize();
         let world_from_atmosphere = Mat4::from_cols(
             atmo_x.extend(0.0),
             atmo_y.extend(0.0),
