@@ -91,7 +91,7 @@ impl<const N: usize> SortedVecSet<N> {
             }
             // It's only in the difference if it's not in other,
             // and this is the only place in other it could be
-            j < other.len() && !(other.0[j] == *current)
+            j < other.len() && other.0[j] != *current
         });
     }
 
@@ -179,17 +179,21 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
             let val_b = self.other.0[self.j];
-            if val_a == val_b {
-                self.i += 1;
-                self.j += 1;
-                return Some(val_a);
-            } else if val_a < val_b {
-                self.i += 1;
-            } else {
-                self.j += 1;
+            match val_a.cmp(&val_b) {
+                Ordering::Equal => {
+                    self.i += 1;
+                    self.j += 1;
+                    return Some(val_a);
+                }
+                Ordering::Less => {
+                    self.i += 1;
+                }
+                Ordering::Greater => {
+                    self.j += 1;
+                }
             }
         }
-        return None;
+        None
     }
 }
 
@@ -216,14 +220,18 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
         while self.i < self.this.len() && self.j < self.other.len() {
             let val_a = self.this.0[self.i];
             let val_b = self.other.0[self.j];
-            if val_a == val_b {
-                self.i += 1;
-                self.j += 1;
-            } else if val_a < val_b {
-                self.i += 1;
-                return Some(val_a);
-            } else {
-                self.j += 1;
+            match val_a.cmp(&val_b) {
+                Ordering::Equal => {
+                    self.i += 1;
+                    self.j += 1;
+                }
+                Ordering::Less => {
+                    self.i += 1;
+                    return Some(val_a);
+                }
+                Ordering::Greater => {
+                    self.j += 1;
+                }
             }
         }
         if self.i < self.this.len() {
@@ -231,7 +239,7 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
             self.i += 1;
             return Some(val_a);
         }
-        return None;
+        None
     }
 }
 
