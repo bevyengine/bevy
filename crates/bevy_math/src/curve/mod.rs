@@ -456,8 +456,11 @@ pub trait Curve<T> {
 
     /// Linearly reparametrize this [`Curve`], producing a new curve whose domain is the given
     /// `domain` instead of the current one. This operation is only valid for curves with bounded
-    /// domains; if either this curve's domain or the given `domain` is unbounded, an error is
-    /// returned.
+    /// domains.
+    ///
+    /// # Errors
+    ///
+    /// If either this curve's domain or the given `domain` is unbounded, an error is returned.
     fn reparametrize_linear(
         self,
         domain: Interval,
@@ -519,8 +522,11 @@ pub trait Curve<T> {
     ///
     /// The sample at time `t` in the new curve is `(x, y)`, where `x` is the sample of `self` at
     /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
-    /// intersection of the domains of its constituents. If the domain intersection would be empty,
-    /// an error is returned.
+    /// intersection of the domains of its constituents.
+    ///
+    /// # Errors
+    ///
+    /// If the domain intersection would be empty, an error is returned instead.
     fn zip<S, C>(self, other: C) -> Result<ZipCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
@@ -566,7 +572,7 @@ pub trait Curve<T> {
     /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
     /// same.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`ReverseError`] is returned if this curve's domain isn't bounded.
     fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
@@ -593,7 +599,7 @@ pub trait Curve<T> {
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
     fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
@@ -629,7 +635,7 @@ pub trait Curve<T> {
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
     fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
@@ -649,7 +655,7 @@ pub trait Curve<T> {
     /// another curve with outputs of the same type. The domain of the new curve will be twice as
     /// long. The transition point is guaranteed to not make any jumps.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`PingPongError`] is returned if this curve's domain isn't right-finite.
     fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
@@ -676,7 +682,7 @@ pub trait Curve<T> {
     /// realized by translating the other curve so that its start sample point coincides with the
     /// current curves' end sample point.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
     /// `other`'s domain doesn't have a finite start.
@@ -708,12 +714,16 @@ pub trait Curve<T> {
     /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
     /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
     /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
+    /// the midpoint is taken as well, and so on.
     ///
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Errors
+    ///
+    /// If `segments` is zero or if this curve has unbounded domain, then a [`ResamplingError`] is
+    /// returned.
     ///
     /// # Example
     /// ```
@@ -747,8 +757,11 @@ pub trait Curve<T> {
     /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
     /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
     /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
+    /// the midpoint is taken as well, and so on.
+    ///
+    /// # Errors
+    ///
+    /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
     #[cfg(feature = "alloc")]
@@ -766,8 +779,12 @@ pub trait Curve<T> {
         })
     }
 
-    /// Extract an iterator over evenly-spaced samples from this curve. If `samples` is less than 2
-    /// or if this curve has unbounded domain, then an error is returned instead.
+    /// Extract an iterator over evenly-spaced samples from this curve.
+    ///
+    /// # Errors
+    ///
+    /// If `samples` is less than 2 or if this curve has unbounded domain, a [`ResamplingError`]
+    /// is returned.
     fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError>
     where
         Self: Sized,
@@ -794,7 +811,7 @@ pub trait Curve<T> {
     /// curve's domain interval.
     ///
     /// Redundant sample times, non-finite sample times, and sample times outside of the domain
-    /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
+    /// are filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
     /// returned.
     ///
     /// The domain of the produced curve stretches between the first and last sample times of the
@@ -803,6 +820,11 @@ pub trait Curve<T> {
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Errors
+    ///
+    /// If `sample_times` doesn't contain at least two distinct times after filtering, a
+    /// [`ResamplingError`] is returned.
     #[cfg(feature = "alloc")]
     fn resample_uneven<I>(
         &self,
@@ -840,6 +862,11 @@ pub trait Curve<T> {
     ///
     /// The domain of the produced [`UnevenSampleAutoCurve`] stretches between the first and last
     /// sample times of the iterator.
+    ///
+    /// # Errors
+    ///
+    /// If `sample_times` doesn't contain at least two distinct times after filtering, a
+    /// [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
     #[cfg(feature = "alloc")]
