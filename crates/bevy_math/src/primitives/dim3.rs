@@ -14,6 +14,7 @@ use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
+use no_panic::no_panic;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -226,6 +227,7 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
+    #[no_panic]
     pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
         let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
@@ -235,6 +237,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
+    #[no_panic]
     pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
@@ -264,6 +267,7 @@ impl InfinitePlane3d {
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
     #[inline]
+    #[no_panic]
     pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
         let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
         let transformed_origin = rotation * origin;
@@ -295,6 +299,7 @@ impl InfinitePlane3d {
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
     #[inline]
+    #[no_panic]
     pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
         self.isometry_into_xy(origin).inverse()
     }
@@ -327,6 +332,7 @@ impl InfinitePlane3d {
     /// let triangle_3d = triangle_2d.map(|vec2| vec2.extend(0.0)).map(|vec3| from_xy * vec3);
     /// ```
     #[inline]
+    #[no_panic]
     pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
         let projection = self.isometry_into_xy(origin);
         (projection, projection.inverse())

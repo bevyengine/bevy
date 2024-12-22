@@ -10,6 +10,7 @@ use crate::ops;
 
 use super::interval::Interval;
 use core::fmt::Debug;
+use no_panic::no_panic;
 use thiserror::Error;
 
 #[cfg(feature = "alloc")]
@@ -106,7 +107,7 @@ impl<T> InterpolationDatum<T> {
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
@@ -158,6 +159,7 @@ impl<T> EvenCore<T> {
     /// samples form the boundary of that interval. An error is returned if there are not at
     /// least 2 samples or if the given domain is unbounded.
     #[inline]
+    #[no_panic]
     pub fn new(
         domain: Interval,
         samples: impl IntoIterator<Item = T>,
@@ -188,6 +190,7 @@ impl<T> EvenCore<T> {
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     #[inline]
+    #[no_panic]
     pub fn sample_with<I>(&self, t: f32, interpolation: I) -> T
     where
         T: Clone,
@@ -303,7 +306,7 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample the curve, we just look at the interpolation mode and
 ///         // dispatch accordingly.
@@ -385,6 +388,7 @@ impl<T> UnevenCore<T> {
     /// # Panics
     /// This method may panic if the type's invariants aren't satisfied.
     #[inline]
+    #[no_panic]
     pub fn domain(&self) -> Interval {
         let start = self.times.first().unwrap();
         let end = self.times.last().unwrap();
@@ -398,6 +402,7 @@ impl<T> UnevenCore<T> {
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     #[inline]
+    #[no_panic]
     pub fn sample_with<I>(&self, t: f32, interpolation: I) -> T
     where
         T: Clone,
@@ -608,6 +613,7 @@ impl<T> ChunkedUnevenCore<T> {
     /// # Panics
     /// This may panic if this type's invariants aren't met.
     #[inline]
+    #[no_panic]
     pub fn domain(&self) -> Interval {
         let start = self.times.first().unwrap();
         let end = self.times.last().unwrap();
@@ -616,6 +622,7 @@ impl<T> ChunkedUnevenCore<T> {
 
     /// The sample width: the number of values that are contained in each sample.
     #[inline]
+    #[no_panic]
     pub fn width(&self) -> usize {
         self.values.len() / self.times.len()
     }
@@ -627,6 +634,7 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     #[inline]
+    #[no_panic]
     pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&[T]> {
         uneven_interp(&self.times, t).map(|idx| self.time_index_to_slice(idx))
     }

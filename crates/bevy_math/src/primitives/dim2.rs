@@ -1,6 +1,7 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
 use thiserror::Error;
+use no_panic::no_panic;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -204,6 +205,7 @@ impl Arc2d {
 
     /// Get the midpoint of the arc
     #[inline]
+    #[no_panic]
     pub fn midpoint(&self) -> Vec2 {
         self.radius * Vec2::Y
     }
@@ -1956,6 +1958,7 @@ impl Capsule2d {
 
     /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
     #[inline]
+    #[no_panic]
     pub fn to_inner_rectangle(&self) -> Rectangle {
         Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
     }
