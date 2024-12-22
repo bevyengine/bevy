@@ -269,18 +269,18 @@
 //!
 //! [domain]: Curve::domain
 //! [sampled]: Curve::sample
-//! [changing parametrizations]: Curve::reparametrize
-//! [mapping output]: Curve::map
-//! [rasterization]: Curve::resample
+//! [changing parametrizations]: CurveExt::reparametrize
+//! [mapping output]: CurveExt::map
+//! [rasterization]: CurveResampleExt::resample
 //! [functions]: FunctionCurve
 //! [sample interpolation]: SampleCurve
 //! [splines]: crate::cubic_splines
 //! [easings]: easing
 //! [spline curves]: crate::cubic_splines
 //! [easing curves]: easing
-//! [`chain`]: Curve::chain
-//! [`zip`]: Curve::zip
-//! [`resample`]: Curve::resample
+//! [`chain`]: CurveExt::chain
+//! [`zip`]: CurveExt::zip
+//! [`resample`]: CurveResampleExt::resample
 //!
 //! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `FunctionCurve::new
 //! (curve.domain(), |t| curve.sample_unchecked(t))` is an equivalent function curve.
@@ -446,7 +446,7 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
-    /// [`Curve::reparametrize_linear`], which requires only the desired domain for the new curve.
+    /// [`CurveExt::reparametrize_linear`], which requires only the desired domain for the new curve.
     ///
     /// # Examples
     /// ```

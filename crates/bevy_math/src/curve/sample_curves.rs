@@ -285,11 +285,13 @@ impl<T, I> UnevenSampleCurve<T, I> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
+    ///
+    /// [`CurveExt::reparametrize`]: super::CurveExt::reparametrize
     pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
         Self {
             core: self.core.map_sample_times(f),
@@ -343,11 +345,13 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
+    ///
+    /// [`CurveExt::reparametrize`]: super::CurveExt::reparametrize
     pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
         Self {
             core: self.core.map_sample_times(f),
