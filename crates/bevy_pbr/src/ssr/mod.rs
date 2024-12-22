@@ -25,6 +25,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -233,8 +234,20 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsPipeline>()
-            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
-            .add_render_graph_edges(
+            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>();
+
+        // only reference the default deferred lighting pass
+        // if it has been added
+        let has_default_deferred_lighting_pass = render_app
+            .world_mut()
+            .get_resource_mut::<RenderGraph>()
+            .unwrap()
+            .sub_graph(Core3d)
+            .get_node_state(NodePbr::DeferredLightingPass)
+            .is_ok();
+
+        if has_default_deferred_lighting_pass {
+            render_app.add_render_graph_edges(
                 Core3d,
                 (
                     NodePbr::DeferredLightingPass,
@@ -242,6 +255,12 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                     Node3d::MainOpaquePass,
                 ),
             );
+        } else {
+            render_app.add_render_graph_edges(
+                Core3d,
+                (NodePbr::ScreenSpaceReflections, Node3d::MainOpaquePass),
+            );
+        }
     }
 }
 
