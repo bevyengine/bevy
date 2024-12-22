@@ -813,6 +813,8 @@ mod tests {
         assert_eq!("3.5".parse::<Val>(), Err(ValParseError::UnitMissing));
         assert_eq!("3pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
         assert_eq!("3.5pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
+        assert_eq!("3.5-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
     }
 
     #[test]
