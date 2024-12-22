@@ -414,8 +414,8 @@ impl Default for RemotePlugin {
                 builtin_methods::export_registry_types,
             )
             .with_method(
-                builtin_methods::BRP_MUTATE_METHOD,
-                builtin_methods::process_remote_mutate_request,
+                builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
+                builtin_methods::process_remote_mutate_component_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,

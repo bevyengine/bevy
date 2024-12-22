@@ -51,7 +51,7 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
 /// The method path for a `bevy/reparent` request.
-pub const BRP_MUTATE_METHOD: &str = "bevy/mutate";
+pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
 
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
@@ -712,8 +712,8 @@ pub fn process_remote_insert_request(
     Ok(Value::Null)
 }
 
-/// TODO Handles a `bevy/mutate`
-pub fn process_remote_mutate_request(
+/// TODO Handles a `bevy/mutate_component`
+pub fn process_remote_mutate_component_request(
     In(params): In<Option<Value>>,
     world: &mut World,
 ) -> BrpResult {
@@ -726,12 +726,15 @@ pub fn process_remote_mutate_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
+    // Get the type of the component to be mutated.
+    // E.g. `bevy_transform::components::transform::Transform`
     let component_type: &TypeRegistration = type_registry
         .get_with_type_path(&component)
         .ok_or_else(|| {
             BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
         })?;
 
+    // Get the reflected representation of the component.
     let mut reflected = component_type
         .data::<ReflectComponent>()
         .ok_or_else(|| {
@@ -742,6 +745,8 @@ pub fn process_remote_mutate_request(
             BrpError::component_error(anyhow!("Cannot reflect component `{}`", component))
         })?;
 
+    // Get the type of the field in the component that is to be
+    // mutated.
     let value_type: &TypeRegistration = type_registry
         .get_with_type_path(
             reflected
@@ -750,13 +755,16 @@ pub fn process_remote_mutate_request(
                 .reflect_type_path(),
         )
         .ok_or_else(|| {
-            BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
+            BrpError::component_error(anyhow!("Unknown component field type: `{}`", component))
         })?;
 
+    // Get the reflected representation of the value to be inserted
+    // into the component.
     let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
         .deserialize(&value)
         .map_err(BrpError::component_error)?;
 
+    // Apply the mutation.
     reflected
         .reflect_path_mut(path.as_str())
         .map_err(BrpError::component_error)?
