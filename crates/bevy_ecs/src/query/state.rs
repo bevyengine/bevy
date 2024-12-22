@@ -24,26 +24,85 @@ use super::{
     QueryManyUniqueIter, QuerySingleError, ROQueryItem,
 };
 
-/// An ID for either a table or an archetype. Used for Query iteration.
-///
-/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
-///
-/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
-/// any combination of their values can happen.
-///
-/// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
-/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
-/// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
-/// a safety invariant be verified when disambiguating them.
-///
-/// # Safety
-/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
-/// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
-#[derive(Clone, Copy)]
-pub(super) union StorageId {
-    pub(super) table_id: TableId,
-    pub(super) archetype_id: ArchetypeId,
+#[derive(Copy, Clone)]
+pub(super) enum StorageId {
+    Archetype(ArchetypeId),
+    Table(TableId),
+}
+
+impl StorageId {
+    fn as_archetype_id(&self) -> Option<ArchetypeId> {
+        match self {
+            Self::Archetype(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub(super) unsafe fn debug_checked_as_archetype_id(&self) -> ArchetypeId {
+        self.as_archetype_id().debug_checked_unwrap()
+    }
+
+    fn as_table_id(&self) -> Option<TableId> {
+        match self {
+            Self::Table(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub(super) unsafe fn debug_checked_as_table_id(&self) -> TableId {
+        self.as_table_id().debug_checked_unwrap()
+    }
+}
+
+impl From<TableId> for StorageId {
+    fn from(value: TableId) -> Self {
+        Self::Table(value)
+    }
+}
+
+impl From<ArchetypeId> for StorageId {
+    fn from(value: ArchetypeId) -> Self {
+        Self::Archetype(value)
+    }
+}
+
+pub(super) enum StorageIdIter<'s> {
+    Archetypes(core::slice::Iter<'s, ArchetypeId>),
+    Tables(core::slice::Iter<'s, TableId>),
+}
+
+impl Iterator for StorageIdIter<'_> {
+    type Item = StorageId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Tables(table_ids) => table_ids.next().copied().map(|id| id.into()),
+            Self::Archetypes(archetype_ids) => archetype_ids.next().copied().map(|id| id.into()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(super) enum StorageIds {
+    Archetypes(Vec<ArchetypeId>),
+    Tables(Vec<TableId>),
+}
+
+impl StorageIds {
+    fn new_from_query_types<D: QueryData, F: QueryFilter>() -> Self {
+        Self::new_from_dense_flag(D::IS_DENSE && F::IS_DENSE)
+    }
+
+    fn new_from_dense_flag(dense: bool) -> Self {
+        match dense {
+            true => Self::Tables(vec![]),
+            false => Self::Archetypes(vec![]),
+        }
+    }
+
+    fn is_tables(&self) -> bool {
+        matches!(self, Self::Tables(_))
+    }
 }
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -72,11 +131,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
     pub(crate) component_access: FilteredAccess<ComponentId>,
-    // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
-    pub(super) matched_storage_ids: Vec<StorageId>,
-    // Represents whether this query iteration is dense or not. When this is true
-    // `matched_storage_ids` stores `TableId`s, otherwise it stores `ArchetypeId`s.
-    pub(super) is_dense: bool,
+    pub(super) storage_ids: StorageIds,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
@@ -256,15 +311,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
-        // of its static type parameters.
-        let is_dense = D::IS_DENSE && F::IS_DENSE;
-
         Self {
             world_id,
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_storage_ids: Vec::new(),
-            is_dense,
+            storage_ids: StorageIds::new_from_query_types::<D, F>(),
             fetch_state,
             filter_state,
             component_access,
@@ -288,9 +338,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_storage_ids: Vec::new(),
-            // For dynamic queries the dense-ness is given by the query builder.
-            is_dense: builder.is_dense(),
+            storage_ids: StorageIds::new_from_dense_flag(builder.is_dense()),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),
@@ -519,19 +567,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                if !self.is_dense {
-                    self.matched_storage_ids.push(StorageId {
-                        archetype_id: archetype.id(),
-                    });
+                if let StorageIds::Archetypes(ref mut archetype_ids) = self.storage_ids {
+                    archetype_ids.push(archetype.id());
                 }
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                if self.is_dense {
-                    self.matched_storage_ids.push(StorageId {
-                        table_id: archetype.table_id(),
-                    });
+                if let StorageIds::Tables(ref mut table_ids) = self.storage_ids {
+                    table_ids.push(archetype.table_id());
                 }
             }
             true
@@ -652,8 +696,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
+            storage_ids: self.storage_ids.clone(),
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -748,34 +791,33 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         // the join is dense of both the queries were dense.
-        let is_dense = self.is_dense && other.is_dense;
+        let is_iterating_tables = self.storage_ids.is_tables() && other.storage_ids.is_tables();
 
         // take the intersection of the matched ids
         let mut matched_tables = self.matched_tables.clone();
         let mut matched_archetypes = self.matched_archetypes.clone();
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
-        let matched_storage_ids = if is_dense {
-            matched_tables
-                .ones()
-                .map(|id| StorageId {
-                    table_id: TableId::from_usize(id),
-                })
-                .collect()
+        let storage_ids = if is_iterating_tables {
+            StorageIds::Tables(
+                matched_tables
+                    .ones()
+                    .map(|id| TableId::from_usize(id))
+                    .collect(),
+            )
         } else {
-            matched_archetypes
-                .ones()
-                .map(|id| StorageId {
-                    archetype_id: ArchetypeId::new(id),
-                })
-                .collect()
+            StorageIds::Archetypes(
+                matched_archetypes
+                    .ones()
+                    .map(|id| ArchetypeId::new(id))
+                    .collect(),
+            )
         };
 
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_storage_ids,
-            is_dense,
+            storage_ids,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -1704,14 +1746,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             };
 
             let storage_entity_count = |storage_id: StorageId| -> usize {
-                if self.is_dense {
-                    tables[storage_id.table_id].entity_count()
-                } else {
-                    archetypes[storage_id.archetype_id].len()
+                match storage_id {
+                    StorageId::Table(table_id) => tables[table_id].entity_count(),
+                    StorageId::Archetype(archetype_id) => archetypes[archetype_id].len(),
                 }
             };
 
-            for storage_id in &self.matched_storage_ids {
+            for storage_id in &self.storage_ids {
                 let count = storage_entity_count(*storage_id);
 
                 // skip empty storage
