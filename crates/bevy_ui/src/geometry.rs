@@ -11,7 +11,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
 ///
-/// `Val` also implements [`std::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
+/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
 /// * `px`: logical pixels
 /// * `%`: percentage
 /// * `vw`: percentage of the viewport width
@@ -63,8 +63,8 @@ pub enum ValParseError {
     InvalidUnit,
 }
 
-impl std::fmt::Display for ValParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ValParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ValParseError::UnitMissing => write!(f, "unit missing"),
             ValParseError::ValueMissing => write!(f, "value missing"),
@@ -74,7 +74,7 @@ impl std::fmt::Display for ValParseError {
     }
 }
 
-impl std::str::FromStr for Val {
+impl core::str::FromStr for Val {
     type Err = ValParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -86,7 +86,7 @@ impl std::str::FromStr for Val {
 
         let Some(end_of_number) = s
             .bytes()
-            .position(|c| (c < b'0' || c > b'9') && c != b'.' && c != b'-')
+            .position(|c| !(b'0'..=b'9').contains(&c) && c != b'.' && c != b'-')
         else {
             return Err(ValParseError::UnitMissing);
         };
