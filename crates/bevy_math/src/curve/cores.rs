@@ -361,6 +361,7 @@ impl<T> UnevenCore<T> {
     /// Create a new [`UnevenCore`]. The given samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
+    #[no_panic]
     pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         // Filter out non-finite sample times first so they don't interfere with sorting/deduplication.
         let mut timed_samples = timed_samples
@@ -388,7 +389,6 @@ impl<T> UnevenCore<T> {
     /// # Panics
     /// This method may panic if the type's invariants aren't satisfied.
     #[inline]
-    #[no_panic]
     pub fn domain(&self) -> Interval {
         let start = self.times.first().unwrap();
         let end = self.times.last().unwrap();

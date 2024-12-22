@@ -93,6 +93,7 @@ impl Interval {
 
     /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
     /// intersection would be empty (hence an invalid interval).
+    #[no_panic]
     pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
         let lower = max_by(self.start, other.start, f32::total_cmp);
         let upper = min_by(self.end, other.end, f32::total_cmp);
@@ -101,8 +102,7 @@ impl Interval {
 
     /// Get the length of this interval. Note that the result may be infinite (`f32::INFINITY`).
     #[inline]
-    #[no_panic]
-    pub fn length(self) -> f32 {
+    pub const fn length(self) -> f32 {
         self.end - self.start
     }
 
@@ -110,22 +110,19 @@ impl Interval {
     ///
     /// Equivalently, an interval is bounded if its length is finite.
     #[inline]
-    #[no_panic]
-    pub fn is_bounded(self) -> bool {
+    pub const fn is_bounded(self) -> bool {
         self.length().is_finite()
     }
 
     /// Returns `true` if this interval has a finite start.
     #[inline]
-    #[no_panic]
-    pub fn has_finite_start(self) -> bool {
+    pub const fn has_finite_start(self) -> bool {
         self.start.is_finite()
     }
 
     /// Returns `true` if this interval has a finite end.
     #[inline]
-    #[no_panic]
-    pub fn has_finite_end(self) -> bool {
+    pub const fn has_finite_end(self) -> bool {
         self.end.is_finite()
     }
 
@@ -140,15 +137,13 @@ impl Interval {
     ///
     /// This is non-strict: each interval will contain itself.
     #[inline]
-    #[no_panic]
-    pub fn contains_interval(self, other: Self) -> bool {
+    pub const fn contains_interval(self, other: Self) -> bool {
         self.start <= other.start && self.end >= other.end
     }
 
     /// Clamp the given `value` to lie within this interval.
     #[inline]
-    #[no_panic]
-    pub fn clamp(self, value: f32) -> f32 {
+    pub const fn clamp(self, value: f32) -> f32 {
         value.clamp(self.start, self.end)
     }
 
