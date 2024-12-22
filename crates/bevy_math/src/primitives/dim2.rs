@@ -1,7 +1,7 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
-use thiserror::Error;
 use no_panic::no_panic;
+use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{

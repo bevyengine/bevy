@@ -8,10 +8,10 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use no_panic::no_panic;
 use thiserror::Error;
 #[cfg(feature = "alloc")]
 use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
-use no_panic::no_panic;
 
 /// A spline composed of a single cubic Bezier curve.
 ///

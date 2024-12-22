@@ -5,8 +5,8 @@ use core::{
     ops::RangeInclusive,
 };
 use itertools::Either;
-use thiserror::Error;
 use no_panic::no_panic;
+use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
