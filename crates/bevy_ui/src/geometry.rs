@@ -55,9 +55,10 @@ pub enum Val {
     VMax(f32),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ValParseError {
     UnitMissing,
+    ValueMissing,
     InvalidValue,
     InvalidUnit,
 }
@@ -66,6 +67,7 @@ impl std::fmt::Display for ValParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ValParseError::UnitMissing => write!(f, "unit missing"),
+            ValParseError::ValueMissing => write!(f, "value missing"),
             ValParseError::InvalidValue => write!(f, "invalid value"),
             ValParseError::InvalidUnit => write!(f, "invalid unit"),
         }
@@ -88,6 +90,10 @@ impl std::str::FromStr for Val {
         else {
             return Err(ValParseError::UnitMissing);
         };
+
+        if end_of_number == 0 {
+            return Err(ValParseError::ValueMissing);
+        }
 
         let (value, unit) = s.split_at(end_of_number);
 
@@ -755,6 +761,58 @@ mod tests {
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
         );
+    }
+
+    #[test]
+    fn val_str_parse() {
+        assert_eq!("auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
+
+        assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3.5px".parse::<Val>(), Ok(Val::Px(3.5)));
+        assert_eq!("-3px".parse::<Val>(), Ok(Val::Px(-3.)));
+        assert_eq!("3.5 PX".parse::<Val>(), Ok(Val::Px(3.5)));
+
+        assert_eq!("3%".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3 %".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3.5%".parse::<Val>(), Ok(Val::Percent(3.5)));
+        assert_eq!("-3%".parse::<Val>(), Ok(Val::Percent(-3.)));
+
+        assert_eq!("3vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3 vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3.5vw".parse::<Val>(), Ok(Val::Vw(3.5)));
+        assert_eq!("-3vw".parse::<Val>(), Ok(Val::Vw(-3.)));
+        assert_eq!("3.5 VW".parse::<Val>(), Ok(Val::Vw(3.5)));
+
+        assert_eq!("3vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3 vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3.5vh".parse::<Val>(), Ok(Val::Vh(3.5)));
+        assert_eq!("-3vh".parse::<Val>(), Ok(Val::Vh(-3.)));
+        assert_eq!("3.5 VH".parse::<Val>(), Ok(Val::Vh(3.5)));
+
+        assert_eq!("3vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3 vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3.5vmin".parse::<Val>(), Ok(Val::VMin(3.5)));
+        assert_eq!("-3vmin".parse::<Val>(), Ok(Val::VMin(-3.)));
+        assert_eq!("3.5 VMIN".parse::<Val>(), Ok(Val::VMin(3.5)));
+
+        assert_eq!("3vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3 vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3.5vmax".parse::<Val>(), Ok(Val::VMax(3.5)));
+        assert_eq!("-3vmax".parse::<Val>(), Ok(Val::VMax(-3.)));
+        assert_eq!("3.5 VMAX".parse::<Val>(), Ok(Val::VMax(3.5)));
+
+        assert_eq!("".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!(
+            "hello world".parse::<Val>(),
+            Err(ValParseError::ValueMissing)
+        );
+        assert_eq!("3".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3.5".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3.5pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
     }
 
     #[test]
