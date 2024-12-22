@@ -63,7 +63,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let phi_ms = l_2 * F_ms;
 
     textureStore(multiscattering_lut_out, global_id.xy, vec4(phi_ms, 1.0));
-    //textureStore(multiscattering_lut_out, global_id.xy, vec4(0.0));
 }
 
 struct MultiscatteringSample {

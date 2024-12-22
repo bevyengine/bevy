@@ -119,8 +119,8 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
-    let az = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
-    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, az);
+    let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
+    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -194,10 +194,9 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     return sample;
 }
 
-/// evaluates equation 3 in the paper, called L_scat, which gives the total single-order scattering towards the view at a single point
+/// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
 fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
-    var rayleigh_scattering = vec3(0.0);
-    var mie_scattering = vec3(0.0);
+    var inscattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
 
@@ -211,24 +210,27 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         // scattered towards the camera for each scattering type
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg_LdotV);
+        let scattering_coeff = local_atmosphere.rayleigh_scattering * rayleigh_phase + local_atmosphere.mie_scattering * mie_phase;
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
+        let scattering_factor = transmittance_to_sample * shadow_factor * scattering_coeff;
+
         //Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
+        let multiscattering_factor = psi_ms * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering);
 
-        // Note transmittance_to_sample vs shadow_factor: 
+        // Note wrt transmittance_to_sample vs shadow_factor:
         // A light ray travelling from the sun to the camera follows a
-        // two-segment path (assuming single scattering). Transmittance_to_sample 
-        // handles the transmittance between the view and the sample position, while 
-        // the shadow factor handles the transmittance between the sample position and 
+        // two-segment path (assuming single scattering). Transmittance_to_sample
+        // handles the transmittance between the view and the sample position, while
+        // the shadow factor handles the transmittance between the sample position and
         // the light itself. We check if the ray intersects the ground for the shadow
         // factor *only*, because we assume our primary rays never go below ground.
-        rayleigh_scattering += (transmittance_to_sample * shadow_factor * rayleigh_phase + psi_ms) * (*light).color.rgb;
-        mie_scattering += (transmittance_to_sample * shadow_factor * mie_phase + psi_ms) * (*light).color.rgb;
+        inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
-    return (local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering) * view.exposure;
+    return inscattering * view.exposure;
 }
 
 const SUN_ANGULAR_SIZE: f32 = 0.00872665; //angular radius of sun in radians
@@ -240,7 +242,7 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_sun = fast_acos(neg_LdotV);
         let pixel_size = fwidth(angle_to_sun);
-        let factor = smoothstep(SUN_ANGULAR_SIZE, SUN_ANGULAR_SIZE - pixel_size * ROOT_2, angle_to_sun);
+        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE);
         sun_illuminance += (*light).color.rgb * factor * ray_dir_ws.y;
     }
     return sun_illuminance * transmittance * view.exposure;

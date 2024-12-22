@@ -68,5 +68,8 @@ fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res
 
 fn translate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
     // camera.translation.y += time.delta_secs() * 0.2;
-    camera.rotate_y(time.delta_secs() * 0.1);
+    if time.elapsed_secs() < 5.0 {
+        return;
+    }
+    camera.rotate_z(time.delta_secs() * PI / 30.0);
 }
