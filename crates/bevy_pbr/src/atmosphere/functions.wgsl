@@ -39,6 +39,7 @@
 // CONSTANTS
 
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
+const FRAC_2_PI: f32 = 0.15915494309;
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
@@ -63,11 +64,45 @@ fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
     return vec2(u, v);
 }
 
-fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
-    let long = (uv.x - 0.5) * PI_2;
-    let v_minus_half = uv.y - 0.5;
-    let lat = PI_2 * (v_minus_half * v_minus_half) * -sign(v_minus_half);
-    return vec2(lat, long);
+fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
+    let x = (azimuth * FRAC_2_PI) + 0.5;
+
+    let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+    let cos_beta = v_horizon / r;
+    let beta = fast_acos(cos_beta);
+    let horizon_zenith = PI - beta;
+    let view_zenith = fast_acos(mu);
+
+    var y: f32;
+    if !ray_intersects_ground(r, mu) {
+        let coord = sqrt(1.0 - view_zenith / horizon_zenith);
+        y = (1.0 - coord) * 0.5;
+    } else {
+        let coord = (view_zenith - horizon_zenith) / beta;
+        y = sqrt(coord) * 0.5 + 0.5;
+    }
+
+    return vec2(x, y);
+}
+
+fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
+    let azimuth = (uv.x - 0.5) * PI_2;
+
+    let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
+    let cos_beta = v_horizon / r;
+    let beta = fast_acos(cos_beta);
+    let horizon_zenith = PI - beta;
+
+    var zenith: f32;
+    if uv.y < 0.5 {
+        let coord = 1 - uv.y * 2;
+        zenith = horizon_zenith * (1 - coord * coord);
+    } else {
+        let coord = uv.y * 2.0 - 1.0;
+        zenith = horizon_zenith + beta * coord * coord;
+    }
+
+    return vec2(zenith, azimuth);
 }
 
 // LUT SAMPLING
@@ -82,10 +117,10 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_sky_view_lut(ray_dir_as: vec3<f32>, horizon_zenith: f32) -> vec3<f32> {
-    let lat = zenith_to_altitude(fast_acos(ray_dir_as.y)) + zenith_to_altitude(horizon_zenith);
-    let long = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
-    let uv = sky_view_lut_lat_long_to_uv(lat, long);
+fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
+    let mu = ray_dir_as.y;
+    let az = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
+    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, az);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -230,18 +265,6 @@ fn view_radius() -> f32 {
 //NOTE: this means that if your world is actually spherical, this will be wrong.
 fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
-}
-
-// Calculates the zenith angle to the horizon using the law of cosines
-fn get_horizon_zenith(r: f32) -> f32 {
-    let altitude_ratio = atmosphere.bottom_radius / r;
-    let mu_horizon = sqrt(1 - altitude_ratio * altitude_ratio);
-    return fast_acos(mu_horizon);
-}
-
-// Converts a zenith angle to an altitude angle
-fn zenith_to_altitude(zenith: f32) -> f32 {
-    return -zenith + HALF_PI;
 }
 
 // given a ray starting at radius r, with mu = cos(zenith angle),

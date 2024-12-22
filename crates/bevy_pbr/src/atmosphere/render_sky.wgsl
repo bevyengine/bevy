@@ -5,7 +5,7 @@
         sample_transmittance_lut, sample_sky_view_lut, 
         direction_world_to_atmosphere, uv_to_ray_direction,
         uv_to_ndc, sample_aerial_view_lut, view_radius,
-        sample_sun_illuminance, get_horizon_zenith,
+        sample_sun_illuminance,
     },
 };
 #import bevy_render::view::View;
@@ -27,10 +27,9 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
         let r = view_radius();
         let mu = ray_dir_ws.y;
-        let horizon_zenith = get_horizon_zenith(r);
 
         let transmittance = sample_transmittance_lut(r, mu);
-        let inscattering = sample_sky_view_lut(ray_dir_as, horizon_zenith);
+        let inscattering = sample_sky_view_lut(r, ray_dir_as);
 
         let sun_illuminance = sample_sun_illuminance(ray_dir_ws.xyz, transmittance);
         return vec4(inscattering + sun_illuminance, (transmittance.r + transmittance.g + transmittance.b) / 3.0);

@@ -8,8 +8,7 @@
             sample_atmosphere, get_local_up, AtmosphereSample,
             sample_local_inscattering, get_local_r, view_radius,
             direction_view_to_world, max_atmosphere_distance, 
-            direction_atmosphere_to_world, sky_view_lut_uv_to_lat_long,
-            get_horizon_zenith, zenith_to_altitude
+            direction_atmosphere_to_world, sky_view_lut_uv_to_zenith_azimuth,
         },
     }
 }
@@ -28,13 +27,12 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = (vec2<f32>(idx.xy) + vec2(0.5)) / vec2<f32>(settings.sky_view_lut_size);
 
     let r = view_radius();
-    var lat_long = sky_view_lut_uv_to_lat_long(uv);
-    lat_long.x -= zenith_to_altitude(get_horizon_zenith(r));
+    var zenith_azimuth = sky_view_lut_uv_to_zenith_azimuth(r, uv);
 
-    let ray_dir_as = lat_long_to_ray_dir_as(lat_long.x, lat_long.y);
-    let ray_dir = direction_atmosphere_to_world(ray_dir_as);
+    let ray_dir_as = zenith_azimuth_to_ray_dir(zenith_azimuth.x, zenith_azimuth.y);
+    let ray_dir_ws = direction_atmosphere_to_world(ray_dir_as);
 
-    let mu = ray_dir.y;
+    let mu = ray_dir_ws.y;
 
     let t_max = max_atmosphere_distance(r, mu);
     let dt = t_max / f32(settings.sky_view_lut_samples);
@@ -44,22 +42,22 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     for (var step_i: u32 = 0u; step_i < settings.sky_view_lut_samples; step_i++) {
         let t_i = dt * (f32(step_i) + 0.3);
         let local_r = get_local_r(r, mu, t_i);
-        let local_up = get_local_up(r, t_i, ray_dir);
+        let local_up = get_local_up(r, t_i, ray_dir_ws);
 
         let local_atmosphere = sample_atmosphere(local_r);
         optical_depth += local_atmosphere.extinction * dt;
         let transmittance_to_sample = exp(-optical_depth);
 
-        var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir, local_r, local_up);
+        var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir_ws, local_r, local_up);
         total_inscattering += local_inscattering * dt;
     }
 
     textureStore(sky_view_lut_out, idx.xy, vec4(total_inscattering, 1.0));
 }
 
-fn lat_long_to_ray_dir_as(lat: f32, long: f32) -> vec3<f32> {
-    let sin_lat = sin(lat);
-    let sin_long = sin(long);
-    let cos_long = cos(long);
-    return normalize(vec3(sin_long, sin_lat, -cos_long));
+fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
+    let mu = cos(zenith);
+    let sin_azimuth = sin(azimuth);
+    let cos_azimuth = cos(azimuth);
+    return normalize(vec3(sin_azimuth, mu, -cos_azimuth));
 }
