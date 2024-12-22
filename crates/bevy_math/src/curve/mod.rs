@@ -349,17 +349,30 @@ pub trait Curve<T> {
         let t = self.domain().clamp(t);
         self.sample_unchecked(t)
     }
+}
 
+impl<T, C, D> Curve<T> for D
+where
+    C: Curve<T> + ?Sized,
+    D: Deref<Target = C>,
+{
+    fn domain(&self) -> Interval {
+        <C as Curve<T>>::domain(self)
+    }
+
+    fn sample_unchecked(&self, t: f32) -> T {
+        <C as Curve<T>>::sample_unchecked(self, t)
+    }
+}
+
+pub trait CurveExt<T>: Curve<T> + Sized {
     /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
     /// returning `None` if the point is outside of the curve's domain.
     ///
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>>
-    where
-        Self: Sized,
-    {
+    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>> {
         iter.into_iter().map(|t| self.sample(t))
     }
 
@@ -374,10 +387,10 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_unchecked(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_unchecked(
+        &self,
+        iter: impl IntoIterator<Item = f32>,
+    ) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_unchecked(t))
     }
 
@@ -387,10 +400,7 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_clamped(t))
     }
 
@@ -400,7 +410,6 @@ pub trait Curve<T> {
     #[must_use]
     fn map<S, F>(self, f: F) -> MapCurve<T, S, Self, F>
     where
-        Self: Sized,
         F: Fn(T) -> S,
     {
         MapCurve {
@@ -443,7 +452,6 @@ pub trait Curve<T> {
     #[must_use]
     fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
-        Self: Sized,
         F: Fn(f32) -> f32,
     {
         ReparamCurve {
@@ -464,10 +472,7 @@ pub trait Curve<T> {
     fn reparametrize_linear(
         self,
         domain: Interval,
-    ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError>
-    where
-        Self: Sized,
-    {
+    ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError> {
         if !self.domain().is_bounded() {
             return Err(LinearReparamError::SourceCurveUnbounded);
         }
@@ -491,7 +496,6 @@ pub trait Curve<T> {
     #[must_use]
     fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
-        Self: Sized,
         C: Curve<f32>,
     {
         CurveReparamCurve {
@@ -508,10 +512,7 @@ pub trait Curve<T> {
     /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
     /// is a `Curve<(f32, T)>`.
     #[must_use]
-    fn graph(self) -> GraphCurve<T, Self>
-    where
-        Self: Sized,
-    {
+    fn graph(self) -> GraphCurve<T, Self> {
         GraphCurve {
             base: self,
             _phantom: PhantomData,
@@ -529,7 +530,6 @@ pub trait Curve<T> {
     /// If the domain intersection would be empty, an error is returned instead.
     fn zip<S, C>(self, other: C) -> Result<ZipCurve<T, S, Self, C>, InvalidIntervalError>
     where
-        Self: Sized,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
@@ -551,7 +551,6 @@ pub trait Curve<T> {
     /// `other`'s domain doesn't have a finite start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
-        Self: Sized,
         C: Curve<T>,
     {
         if !self.domain().has_finite_end() {
@@ -575,10 +574,7 @@ pub trait Curve<T> {
     /// # Errors
     ///
     /// A [`ReverseError`] is returned if this curve's domain isn't bounded.
-    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
-    where
-        Self: Sized,
-    {
+    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError> {
         self.domain()
             .is_bounded()
             .then(|| ReverseCurve {
@@ -602,10 +598,7 @@ pub trait Curve<T> {
     /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
-    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
-    where
-        Self: Sized,
-    {
+    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError> {
         self.domain()
             .is_bounded()
             .then(|| {
@@ -638,10 +631,7 @@ pub trait Curve<T> {
     /// # Errors
     ///
     /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
-    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
-    where
-        Self: Sized,
-    {
+    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError> {
         self.domain()
             .is_bounded()
             .then(|| ForeverCurve {
@@ -658,10 +648,7 @@ pub trait Curve<T> {
     /// # Errors
     ///
     /// A [`PingPongError`] is returned if this curve's domain isn't right-finite.
-    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
-    where
-        Self: Sized,
-    {
+    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError> {
         self.domain()
             .has_finite_end()
             .then(|| PingPongCurve {
@@ -688,7 +675,6 @@ pub trait Curve<T> {
     /// `other`'s domain doesn't have a finite start.
     fn chain_continue<C>(self, other: C) -> Result<ContinuationCurve<T, Self, C>, ChainError>
     where
-        Self: Sized,
         T: VectorSpace,
         C: Curve<T>,
     {
@@ -740,7 +726,6 @@ pub trait Curve<T> {
         interpolation: I,
     ) -> Result<SampleCurve<T, I>, ResamplingError>
     where
-        Self: Sized,
         I: Fn(&T, &T, f32) -> T,
     {
         let samples = self.samples(segments + 1)?.collect_vec();
@@ -767,7 +752,6 @@ pub trait Curve<T> {
     #[cfg(feature = "alloc")]
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
-        Self: Sized,
         T: StableInterpolate,
     {
         let samples = self.samples(segments + 1)?.collect_vec();
@@ -785,10 +769,7 @@ pub trait Curve<T> {
     ///
     /// If `samples` is less than 2 or if this curve has unbounded domain, a [`ResamplingError`]
     /// is returned.
-    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError>
-    where
-        Self: Sized,
-    {
+    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError> {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
         }
@@ -832,7 +813,6 @@ pub trait Curve<T> {
         interpolation: I,
     ) -> Result<UnevenSampleCurve<T, I>, ResamplingError>
     where
-        Self: Sized,
         I: Fn(&T, &T, f32) -> T,
     {
         let domain = self.domain();
@@ -875,7 +855,6 @@ pub trait Curve<T> {
         sample_times: impl IntoIterator<Item = f32>,
     ) -> Result<UnevenSampleAutoCurve<T>, ResamplingError>
     where
-        Self: Sized,
         T: StableInterpolate,
     {
         let domain = self.domain();
@@ -910,10 +889,7 @@ pub trait Curve<T> {
     /// // Do something else with `my_curve` since we retained ownership:
     /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
     /// ```
-    fn by_ref(&self) -> &Self
-    where
-        Self: Sized,
-    {
+    fn by_ref(&self) -> &Self {
         self
     }
 
@@ -921,25 +897,13 @@ pub trait Curve<T> {
     #[must_use]
     fn flip<U, V>(self) -> impl Curve<(V, U)>
     where
-        Self: Sized + Curve<(U, V)>,
+        Self: CurveExt<(U, V)>,
     {
         self.map(|(u, v)| (v, u))
     }
 }
 
-impl<T, C, D> Curve<T> for D
-where
-    C: Curve<T> + ?Sized,
-    D: Deref<Target = C>,
-{
-    fn domain(&self) -> Interval {
-        <C as Curve<T>>::domain(self)
-    }
-
-    fn sample_unchecked(&self, t: f32) -> T {
-        <C as Curve<T>>::sample_unchecked(self, t)
-    }
-}
+impl<C, T> CurveExt<T> for C where C: Curve<T> {}
 
 /// An error indicating that a linear reparameterization couldn't be performed because of
 /// malformed inputs.

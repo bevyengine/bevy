@@ -4,8 +4,8 @@
 //! [easing functions]: EaseFunction
 
 use crate::{
-    curve::{FunctionCurve, Interval},
-    Curve, Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+    curve::{Curve, CurveExt, FunctionCurve, Interval},
+    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
 };
 
 // TODO: Think about merging `Ease` with `StableInterpolate`
