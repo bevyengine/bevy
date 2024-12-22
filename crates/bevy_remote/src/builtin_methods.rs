@@ -17,8 +17,8 @@ use bevy_hierarchy::BuildChildren as _;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize, TypeInfo,
-    TypeRegistration, TypeRegistry, VariantInfo,
+    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
+    TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
@@ -49,6 +49,9 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
+
+/// The method path for a `bevy/reparent` request.
+pub const BRP_MUTATE_METHOD: &str = "bevy/mutate";
 
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
@@ -195,6 +198,21 @@ pub struct BrpReparentParams {
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
+}
+
+/// `bevy/mutate`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpMutateParams {
+    /// TODO
+    pub entity: Entity,
+    /// TODO
+    pub component: String,
+    /// TODO
+    pub path: String,
+    /// TODO
+    pub value: Value,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -690,6 +708,60 @@ pub fn process_remote_insert_request(
         reflect_components,
     )
     .map_err(BrpError::component_error)?;
+
+    Ok(Value::Null)
+}
+
+/// TODO Handles a `bevy/mutate`
+pub fn process_remote_mutate_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpMutateParams {
+        entity,
+        component,
+        path,
+        value,
+    } = parse_some(params)?;
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    let component_type: &TypeRegistration = type_registry
+        .get_with_type_path(&component)
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
+        })?;
+
+    let mut reflected = component_type
+        .data::<ReflectComponent>()
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Component `{}` isn't registered.", component))
+        })?
+        .reflect_mut(world.entity_mut(entity))
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Cannot reflect component `{}`", component))
+        })?;
+
+    let value_type: &TypeRegistration = type_registry
+        .get_with_type_path(
+            reflected
+                .reflect_path(path.as_str())
+                .unwrap()
+                .reflect_type_path(),
+        )
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
+        })?;
+
+    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
+        .deserialize(&value)
+        .map_err(BrpError::component_error)?;
+
+    reflected
+        .reflect_path_mut(path.as_str())
+        .map_err(BrpError::component_error)?
+        .try_apply(value.as_ref())
+        .map_err(BrpError::component_error)?;
 
     Ok(Value::Null)
 }
