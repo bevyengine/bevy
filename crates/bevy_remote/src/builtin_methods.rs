@@ -205,13 +205,20 @@ pub struct BrpListParams {
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpMutateParams {
-    /// TODO
+    /// The entity of the component to mutate.
     pub entity: Entity,
-    /// TODO
+
+    /// The [full path] of component to mutate.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     pub component: String,
-    /// TODO
+
+    /// The [path] of the field within the component.
+    ///
+    /// [path]: bevy_reflect::GetPath
     pub path: String,
-    /// TODO
+
+    /// The value to insert at `path`.
     pub value: Value,
 }
 
@@ -712,7 +719,10 @@ pub fn process_remote_insert_request(
     Ok(Value::Null)
 }
 
-/// TODO Handles a `bevy/mutate_component`
+/// Handles a `bevy/mutate_component` request coming from a client.
+///
+/// This method allows you to mutate a single field inside an Entity's
+/// component.
 pub fn process_remote_mutate_component_request(
     In(params): In<Option<Value>>,
     world: &mut World,

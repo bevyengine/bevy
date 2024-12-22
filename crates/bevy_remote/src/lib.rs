@@ -194,6 +194,18 @@
 //!
 //! `result`: null.
 //!
+//! ### bevy/mutate_component
+//!
+//! Mutate a field in a component.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to with the component to mutate.
+//! - `component`: The component's [fully-qualified type name].
+//! - `path`: The path of the field within the component.
+//! - `value`: The value to insert at `path`.
+//!
+//! `result`: null.
+//!
 //! ### bevy/reparent
 //!
 //! Assign a new parent to one or more entities.
