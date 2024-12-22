@@ -366,6 +366,17 @@ where
     }
 }
 
+/// Extension trait implemented by [curves], allowing access to a number of adaptors and
+/// convenience methods.
+///
+/// This trait is automatically implemented for all curves that are `Sized`. In particular,
+/// it is implemented for types like `Box<dyn Curve<T>>`. `CurveExt` is not dyn-compatible
+/// itself.
+///
+/// For more information, see the [module-level documentation].
+///
+/// [curves]: Curve
+/// [module-level documentation]: self
 pub trait CurveExt<T>: Curve<T> + Sized {
     /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
     /// returning `None` if the point is outside of the curve's domain.
@@ -752,6 +763,16 @@ pub trait CurveExt<T>: Curve<T> + Sized {
 
 impl<C, T> CurveExt<T> for C where C: Curve<T> {}
 
+/// Extension trait implemented by [curves], allowing access to generic resampling methods as
+/// well as those based on [stable interpolation].
+///
+/// This trait is automatically implemented for all curves.
+///
+/// For more information, see the [module-level documentation].
+///
+/// [curves]: Curve
+/// [stable interpolation]: crate::StableInterpolate
+/// [module-level documentation]: self
 #[cfg(feature = "alloc")]
 pub trait CurveResampleExt<T>: Curve<T> {
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
@@ -863,6 +884,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
             interpolation,
         })
     }
+
     /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation] over
     /// samples taken at the given set of times. The given `sample_times` are expected to contain at least
     /// two valid times within the curve's domain interval.
