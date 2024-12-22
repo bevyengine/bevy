@@ -217,7 +217,7 @@ fn dynamic_map_get(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     for i in 0..size as u64 {
                         let key = black_box(i);
-                        black_box(assert!(map.get(&key).is_some()));
+                        black_box(map.get(&key));
                     }
                 });
             },
