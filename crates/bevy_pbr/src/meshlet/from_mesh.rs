@@ -13,11 +13,8 @@ use core::iter;
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
-    ffi::{
-        meshopt_Meshlet, meshopt_buildMeshlets, meshopt_buildMeshletsBound, meshopt_optimizeMeshlet,
-    },
-    generate_vertex_remap_multi, simplify_with_attributes_and_locks, Meshlets, SimplifyOptions,
-    VertexDataAdapter, VertexStream,
+    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi,
+    simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
 };
 use metis::{option::Opt, Graph};
 use smallvec::SmallVec;
@@ -262,8 +259,6 @@ fn compute_meshlets(
     position_only_vertex_remap: &[u32],
     position_only_vertex_count: usize,
 ) -> Meshlets {
-    // return build_meshlets(indices, vertices, 255, 128, 0.0); // Meshoptimizer won't currently let us do 256 vertices
-
     // For each vertex, build a list of all triangles that use it
     let mut vertices_to_triangles = vec![Vec::new(); position_only_vertex_count];
     for (i, index) in indices.iter().enumerate() {
@@ -342,7 +337,7 @@ fn compute_meshlets(
         triangles: Vec::new(),
     };
     for meshlet_indices in &indices_per_meshlet {
-        let meshlet = build_meshlets_meshopt(vertices, meshlet_indices);
+        let meshlet = build_meshlets(meshlet_indices, vertices, 255, 128, 0.0); // Meshoptimizer won't currently let us do 256 vertices
         let vertex_offset = meshlets.vertices.len() as u32;
         let triangle_offset = meshlets.triangles.len() as u32;
         meshlets.vertices.extend_from_slice(&meshlet.vertices);
@@ -356,55 +351,6 @@ fn compute_meshlets(
             }));
     }
     meshlets
-}
-
-#[allow(unsafe_code)]
-fn build_meshlets_meshopt(vertices: &VertexDataAdapter, meshlet_indices: &[u32]) -> Meshlets {
-    let max_vertices = 255;
-    let max_triangles = 128;
-    let meshlet_count =
-        unsafe { meshopt_buildMeshletsBound(meshlet_indices.len(), max_vertices, max_triangles) };
-    let mut meshlets: Vec<meshopt_Meshlet> = vec![unsafe { ::std::mem::zeroed() }; meshlet_count];
-
-    let mut meshlet_verts: Vec<u32> = vec![0; meshlet_count * max_vertices];
-    let mut meshlet_tris: Vec<u8> = vec![0; meshlet_count * max_triangles * 3];
-
-    let count = unsafe {
-        meshopt_buildMeshlets(
-            meshlets.as_mut_ptr(),
-            meshlet_verts.as_mut_ptr(),
-            meshlet_tris.as_mut_ptr(),
-            meshlet_indices.as_ptr(),
-            meshlet_indices.len(),
-            vertices.pos_ptr(),
-            vertices.vertex_count,
-            vertices.vertex_stride,
-            max_vertices,
-            max_triangles,
-            0.0,
-        )
-    };
-    let last = meshlets[count - 1];
-    meshlet_verts.truncate((last.vertex_offset + last.vertex_count) as usize);
-    meshlet_tris.truncate((last.triangle_offset + ((last.triangle_count * 3 + 3) & !3)) as usize);
-    meshlets.truncate(count);
-
-    for meshlet in meshlets.iter_mut().take(count) {
-        unsafe {
-            meshopt_optimizeMeshlet(
-                &mut meshlet_verts[meshlet.vertex_offset as usize],
-                &mut meshlet_tris[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        };
-    }
-
-    Meshlets {
-        meshlets,
-        vertices: meshlet_verts,
-        triangles: meshlet_tris,
-    }
 }
 
 fn find_connected_meshlets(
