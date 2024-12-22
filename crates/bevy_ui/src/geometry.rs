@@ -10,6 +10,16 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
+///
+/// `Val` also implements [`std::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
+/// * `px`: logical pixels
+/// * `%`: percentage
+/// * `vw`: percentage of the viewport width
+/// * `vh`: percentage of the viewport height
+/// * `vmin`: percentage of the viewport's smaller dimension
+/// * `vmax`: percentage of the viewport's larger dimension
+///
+/// Additionally, `auto` will be parsed as [`Val::Auto`].
 #[derive(Copy, Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -43,6 +53,64 @@ pub enum Val {
     VMin(f32),
     /// Set this value in percent of the viewport's larger dimension.
     VMax(f32),
+}
+
+#[derive(Debug, Error)]
+pub enum ValParseError {
+    UnitMissing,
+    InvalidValue,
+    InvalidUnit,
+}
+
+impl std::fmt::Display for ValParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValParseError::UnitMissing => write!(f, "unit missing"),
+            ValParseError::InvalidValue => write!(f, "invalid value"),
+            ValParseError::InvalidUnit => write!(f, "invalid unit"),
+        }
+    }
+}
+
+impl std::str::FromStr for Val {
+    type Err = ValParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+
+        if s.eq_ignore_ascii_case("auto") {
+            return Ok(Val::Auto);
+        }
+
+        let Some(end_of_number) = s
+            .bytes()
+            .position(|c| (c < b'0' || c > b'9') && c != b'.' && c != b'-')
+        else {
+            return Err(ValParseError::UnitMissing);
+        };
+
+        let (value, unit) = s.split_at(end_of_number);
+
+        let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
+
+        let unit = unit.trim();
+
+        if unit.eq_ignore_ascii_case("px") {
+            Ok(Val::Px(value))
+        } else if unit.eq_ignore_ascii_case("%") {
+            Ok(Val::Percent(value))
+        } else if unit.eq_ignore_ascii_case("vw") {
+            Ok(Val::Vw(value))
+        } else if unit.eq_ignore_ascii_case("vh") {
+            Ok(Val::Vh(value))
+        } else if unit.eq_ignore_ascii_case("vmin") {
+            Ok(Val::VMin(value))
+        } else if unit.eq_ignore_ascii_case("vmax") {
+            Ok(Val::VMax(value))
+        } else {
+            Err(ValParseError::InvalidUnit)
+        }
+    }
 }
 
 impl PartialEq for Val {
