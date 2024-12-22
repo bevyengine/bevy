@@ -86,7 +86,7 @@ impl core::str::FromStr for Val {
 
         let Some(end_of_number) = s
             .bytes()
-            .position(|c| !(b'0'..=b'9').contains(&c) && c != b'.' && c != b'-')
+            .position(|c| !(c.is_ascii_digit() || c == b'.' || c == b'-' || c == b'+'))
         else {
             return Err(ValParseError::UnitMissing);
         };
