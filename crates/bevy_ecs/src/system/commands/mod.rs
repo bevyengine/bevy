@@ -1394,7 +1394,6 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         let caller = Location::caller();
-        // SAFETY: same invariants as parent call
         self.queue(move |entity: Entity, world: &mut World| {
             if let Ok(mut entity) = world.get_entity_mut(entity) {
                 // SAFETY:
@@ -1422,7 +1421,6 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        // SAFETY: same invariants as parent call
         self.queue(move |entity: Entity, world: &mut World| {
             if let Ok(mut entity) = world.get_entity_mut(entity) {
                 // SAFETY:
