@@ -926,6 +926,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<C, T> CurveResampleExt<T> for C where C: Curve<T> + ?Sized {}
 
 /// An error indicating that a linear reparameterization couldn't be performed because of
