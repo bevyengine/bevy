@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
-serialize = ["dep:serde"]
 webgl = []
 webgpu = []
 
@@ -36,14 +35,10 @@ bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
 # other
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
 fixedbitset = "0.5"
-guillotiere = "0.6.0"
-thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-rectangle-pack = "0.4"
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
-serde = { version = "1", features = ["derive"], optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]

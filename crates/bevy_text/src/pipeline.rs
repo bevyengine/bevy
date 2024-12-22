@@ -9,10 +9,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{ResMut, Resource},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
