@@ -18,8 +18,7 @@ mod paths {
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
 
-// Import `CurveExt` just for doc links.
-#[expect(unused)]
+#[expect(unused, reason = "imported just for doc links")]
 use super::CurveExt;
 
 // NOTE ON REFLECTION:
