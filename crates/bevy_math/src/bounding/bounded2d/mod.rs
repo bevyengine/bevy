@@ -6,9 +6,9 @@ use crate::{
     prelude::{Mat2, Rot2, Vec2},
     FloatPow, Isometry2d,
 };
-use no_panic::no_panic;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+use no_panic::no_panic;
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
