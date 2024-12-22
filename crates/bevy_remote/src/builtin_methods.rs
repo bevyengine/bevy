@@ -751,7 +751,7 @@ pub fn process_remote_mutate_component_request(
         .get_with_type_path(
             reflected
                 .reflect_path(path.as_str())
-                .unwrap()
+                .map_err(BrpError::component_error)?
                 .reflect_type_path(),
         )
         .ok_or_else(|| {
