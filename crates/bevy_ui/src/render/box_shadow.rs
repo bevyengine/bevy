@@ -341,18 +341,18 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
+    mut views: Query<(&ExtractedView, Option<&BoxShadowSamples>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
-        let Ok((view_entity, view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity)
-        else {
+        let Ok((view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity) else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 

@@ -69,7 +69,7 @@ use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     mesh::allocator::SlabId,
     render_phase::PhaseItemBinKey,
-    view::NoIndirectDrawing,
+    view::{NoIndirectDrawing, RetainedViewEntity},
 };
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -78,7 +78,7 @@ pub use main_transparent_pass_3d_node::*;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
 use bevy_render::{
@@ -101,7 +101,7 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use nonmax::NonMaxU32;
 
 use crate::{
@@ -571,13 +571,13 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    cameras_3d: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, no_indirect_drawing) in &cameras_3d {
+    for (main_entity, camera, no_indirect_drawing) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
@@ -590,18 +590,21 @@ pub fn extract_core_3d_camera_phases(
             GpuPreprocessingMode::PreprocessingOnly
         });
 
-        opaque_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-        alpha_mask_3d_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-        transmissive_3d_phases.insert_or_clear(entity);
-        transparent_3d_phases.insert_or_clear(entity);
+        // This is the main 3D camera, so use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
 
-        live_entities.insert(entity);
+        opaque_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+        alpha_mask_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+        transmissive_3d_phases.insert_or_clear(retained_view_entity);
+        transparent_3d_phases.insert_or_clear(retained_view_entity);
+
+        live_entities.insert(retained_view_entity);
     }
 
-    opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    transmissive_3d_phases.retain(|entity, _| live_entities.contains(entity));
-    transparent_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    opaque_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    transmissive_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    transparent_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
 // Extract the render phases for the prepass
@@ -616,6 +619,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
+                Entity,
                 RenderEntity,
                 &Camera,
                 Has<NoIndirectDrawing>,
@@ -627,12 +631,13 @@ pub fn extract_camera_prepass_phase(
             With<Camera3d>,
         >,
     >,
-    mut live_entities: Local<EntityHashSet>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     live_entities.clear();
 
     for (
+        main_entity,
         entity,
         camera,
         no_indirect_drawing,
@@ -654,22 +659,27 @@ pub fn extract_camera_prepass_phase(
             GpuPreprocessingMode::PreprocessingOnly
         });
 
+        // This is the main 3D camera, so we use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
+
         if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-            alpha_mask_3d_prepass_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+            alpha_mask_3d_prepass_phases
+                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
         } else {
-            opaque_3d_prepass_phases.remove(&entity);
-            alpha_mask_3d_prepass_phases.remove(&entity);
+            opaque_3d_prepass_phases.remove(&retained_view_entity);
+            alpha_mask_3d_prepass_phases.remove(&retained_view_entity);
         }
 
         if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
-            alpha_mask_3d_deferred_phases.insert_or_clear(entity, gpu_preprocessing_mode);
+            opaque_3d_deferred_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+            alpha_mask_3d_deferred_phases
+                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
         } else {
-            opaque_3d_deferred_phases.remove(&entity);
-            alpha_mask_3d_deferred_phases.remove(&entity);
+            opaque_3d_deferred_phases.remove(&retained_view_entity);
+            alpha_mask_3d_deferred_phases.remove(&retained_view_entity);
         }
-        live_entities.insert(entity);
+        live_entities.insert(retained_view_entity);
 
         commands
             .get_entity(entity)
@@ -680,10 +690,10 @@ pub fn extract_camera_prepass_phase(
             .insert_if(DeferredPrepass, || deferred_prepass);
     }
 
-    opaque_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
-    opaque_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
-    alpha_mask_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
+    opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    opaque_3d_deferred_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    alpha_mask_3d_deferred_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -698,17 +708,18 @@ pub fn prepare_core_3d_depth_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (view, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
-        if !opaque_3d_phases.contains_key(&view)
-            || !alpha_mask_3d_phases.contains_key(&view)
-            || !transmissive_3d_phases.contains_key(&view)
-            || !transparent_3d_phases.contains_key(&view)
+    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
+        if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
         {
             continue;
         };
@@ -726,7 +737,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -790,14 +801,15 @@ pub fn prepare_core_3d_transmission_textures(
 ) {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, camera_3d, view) in &views_3d {
-        if !opaque_3d_phases.contains_key(&entity)
-            || !alpha_mask_3d_phases.contains_key(&entity)
-            || !transparent_3d_phases.contains_key(&entity)
+        if !opaque_3d_phases.contains_key(&view.retained_view_entity)
+            || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
+            || !transparent_3d_phases.contains_key(&view.retained_view_entity)
         {
             continue;
         };
 
-        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&entity) else {
+        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -889,6 +901,7 @@ pub fn prepare_prepass_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         &Msaa,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
@@ -904,6 +917,7 @@ pub fn prepare_prepass_textures(
     for (
         entity,
         camera,
+        view,
         msaa,
         depth_prepass,
         normal_prepass,
@@ -911,10 +925,10 @@ pub fn prepare_prepass_textures(
         deferred_prepass,
     ) in &views_3d
     {
-        if !opaque_3d_prepass_phases.contains_key(&entity)
-            && !alpha_mask_3d_prepass_phases.contains_key(&entity)
-            && !opaque_3d_deferred_phases.contains_key(&entity)
-            && !alpha_mask_3d_deferred_phases.contains_key(&entity)
+        if !opaque_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_prepass_phases.contains_key(&view.retained_view_entity)
+            && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
+            && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
         {
             continue;
         };

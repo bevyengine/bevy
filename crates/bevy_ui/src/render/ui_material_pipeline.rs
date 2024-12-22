@@ -342,6 +342,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
     pub camera_entity: Entity,
+    pub camera_retained_view_entity: RetainedViewEntity,
     pub main_entity: MainEntity,
 }
 
@@ -374,7 +375,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Option<&TargetCamera>,
         )>,
     >,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
+    render_entity_lookup: Extract<Query<(Entity, RenderEntity)>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
@@ -384,7 +385,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Ok((camera_main_entity, camera_entity)) = render_entity_lookup.get(camera_entity)
+        else {
             continue;
         };
 
@@ -418,6 +420,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 border,
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
+                camera_retained_view_entity: RetainedViewEntity::new(camera_main_entity.into(), 0),
                 main_entity: entity.into(),
             },
         );
@@ -628,7 +631,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
         let Some(transparent_phase) =
-            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+            transparent_render_phases.get_mut(&extracted_uinode.camera_retained_view_entity)
         else {
             continue;
         };
