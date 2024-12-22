@@ -36,7 +36,7 @@ use bevy_render::{
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureFormat, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -354,6 +354,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
     fn from_world(world: &mut World) -> Self {
         let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter = world.resource::<RenderAdapter>();
 
         // Create the bind group layout.
         let bind_group_layout = render_device.create_bind_group_layout(
@@ -404,7 +405,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             depth_linear_sampler,
             depth_nearest_sampler,
             bind_group_layout,
-            binding_arrays_are_usable: binding_arrays_are_usable(render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
         }
     }
 }

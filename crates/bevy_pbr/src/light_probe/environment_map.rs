@@ -63,7 +63,7 @@ use bevy_render::{
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
 };
 
@@ -232,10 +232,11 @@ impl ExtractInstance for EnvironmentMapIds {
 /// specular binding arrays respectively, in addition to the sampler.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 4] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_cube_binding =
             texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
@@ -256,8 +257,9 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
