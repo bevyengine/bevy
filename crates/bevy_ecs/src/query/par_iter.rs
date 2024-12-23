@@ -1,8 +1,9 @@
 use crate::{
-    batching::BatchingStrategy, component::Tick, world::unsafe_world_cell::UnsafeWorldCell,
+    batching::BatchingStrategy,
+    component::Tick,
+    query::{QueryData, QueryFilter, QueryItem, QueryState, StorageIds},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
-
-use super::{QueryData, QueryFilter, QueryItem, QueryState};
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
@@ -125,20 +126,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
-            if self.state.is_dense {
-                // SAFETY: We only access table metadata.
-                let tables = unsafe { &self.world.world_metadata().storages().tables };
-                id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                    .map(|id| unsafe { tables[id.table_id].entity_count() })
-                    .max()
-            } else {
-                let archetypes = &self.world.archetypes();
-                id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
-                    .max()
+            match &self.state.storage_ids {
+                StorageIds::Tables(table_ids) => {
+                    // SAFETY: We only access table metadata.
+                    let tables = unsafe { &self.world.world_metadata().storages().tables };
+                    table_ids.iter().map(|id| tables[*id].entity_count()).max()
+                }
+                StorageIds::Archetypes(archetype_ids) => {
+                    let archetypes = &self.world.archetypes();
+                    archetype_ids.iter().map(|id| archetypes[*id].len()).max()
+                }
             }
             .unwrap_or(0)
         };

@@ -103,6 +103,15 @@ impl StorageIds {
     fn is_tables(&self) -> bool {
         matches!(self, Self::Tables(_))
     }
+
+    fn iter(&self) -> StorageIdIter<'_> {
+        match self {
+            Self::Tables(table_ids) => StorageIdIter::Tables(table_ids.iter().clone()),
+            Self::Archetypes(archetype_ids) => {
+                StorageIdIter::Archetypes(archetype_ids.iter().clone())
+            }
+        }
+    }
 }
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -1752,8 +1761,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
             };
 
-            for storage_id in &self.storage_ids {
-                let count = storage_entity_count(*storage_id);
+            for storage_id in self.storage_ids.iter() {
+                let count = storage_entity_count(storage_id);
 
                 // skip empty storage
                 if count == 0 {
@@ -1761,11 +1770,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
                 // immediately submit large storage
                 if count >= batch_size {
-                    submit_single(count, *storage_id);
+                    submit_single(count, storage_id);
                     continue;
                 }
                 // merge small storage
-                batch_queue.push(*storage_id);
+                batch_queue.push(storage_id);
                 queue_entity_count += count;
 
                 // submit batch_queue
