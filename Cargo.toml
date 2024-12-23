@@ -3694,7 +3694,7 @@ required-features = ["bevy_remote"]
 
 [package.metadata.example.list_all_paths]
 name = "list_all_paths"
-description = "A simple command line client using BRQ that will list all the fully-qualifed paths that the you need to know."
+description = "A simple command line client using BRQ that will list all the fully-qualified paths that the you need to know."
 category = "Remote Protocol"
 wasm = false
 
