@@ -1,7 +1,7 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    query::{QueryData, QueryFilter, QueryItem, QueryState, StorageIds},
+    query::{QueryData, QueryFilter, QueryItem, QueryState},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -125,6 +125,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
+        use crate::query::StorageIds;
+
         let max_items = || {
             match &self.state.storage_ids {
                 StorageIds::Tables(table_ids) => {

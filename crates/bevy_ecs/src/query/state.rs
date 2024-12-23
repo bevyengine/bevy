@@ -38,6 +38,9 @@ impl StorageId {
         }
     }
 
+    /// # Safety
+    ///
+    /// Needs a safety comment before merging!
     pub(super) unsafe fn debug_checked_as_archetype_id(&self) -> ArchetypeId {
         self.as_archetype_id().debug_checked_unwrap()
     }
@@ -49,6 +52,9 @@ impl StorageId {
         }
     }
 
+    /// # Safety
+    ///
+    /// Needs a safety comment before merging!
     pub(super) unsafe fn debug_checked_as_table_id(&self) -> TableId {
         self.as_table_id().debug_checked_unwrap()
     }
@@ -76,8 +82,8 @@ impl Iterator for StorageIdIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Tables(table_ids) => table_ids.next().copied().map(|id| id.into()),
-            Self::Archetypes(archetype_ids) => archetype_ids.next().copied().map(|id| id.into()),
+            Self::Tables(table_ids) => table_ids.next().copied().map(Into::into),
+            Self::Archetypes(archetype_ids) => archetype_ids.next().copied().map(Into::into),
         }
     }
 }
@@ -95,8 +101,8 @@ impl StorageIds {
 
     fn new_from_dense_flag(dense: bool) -> Self {
         match dense {
-            true => Self::Tables(vec![]),
-            false => Self::Archetypes(vec![]),
+            true => Self::Tables(Vec::new()),
+            false => Self::Archetypes(Vec::new()),
         }
     }
 
@@ -808,19 +814,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
         let storage_ids = if is_iterating_tables {
-            StorageIds::Tables(
-                matched_tables
-                    .ones()
-                    .map(|id| TableId::from_usize(id))
-                    .collect(),
-            )
+            StorageIds::Tables(matched_tables.ones().map(TableId::from_usize).collect())
         } else {
-            StorageIds::Archetypes(
-                matched_archetypes
-                    .ones()
-                    .map(|id| ArchetypeId::new(id))
-                    .collect(),
-            )
+            StorageIds::Archetypes(matched_archetypes.ones().map(ArchetypeId::new).collect())
         };
 
         QueryState {

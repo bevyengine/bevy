@@ -2654,6 +2654,22 @@ enum QueryIterationEntitySource<'w, 's> {
     },
 }
 
+#[cfg(test)]
+impl<'w, 's> QueryIterationEntitySource<'w, 's> {
+    fn is_archetypes(&self) -> bool {
+        matches!(self, Self::Archetypes { .. })
+    }
+
+    fn entities_len(&self) -> usize {
+        match self {
+            Self::Tables { table_entities, .. } => table_entities.len(),
+            Self::Archetypes {
+                archetype_entities, ..
+            } => archetype_entities.len(),
+        }
+    }
+}
+
 impl<'w, 's> QueryIterationEntitySource<'w, 's> {
     fn new_from_storage_ids_empty(storage_ids: &'s StorageIds) -> Self {
         match storage_ids {
@@ -2678,23 +2694,6 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
                 archetype_entities: &[],
                 archetype_ids: archetype_ids.iter(),
             },
-        }
-    }
-
-    fn is_archetypes(&self) -> bool {
-        matches!(self, Self::Archetypes { .. })
-    }
-
-    fn is_tables(&self) -> bool {
-        matches!(self, Self::Tables { .. })
-    }
-
-    fn entities_len(&self) -> usize {
-        match self {
-            Self::Tables { table_entities, .. } => table_entities.len(),
-            Self::Archetypes {
-                archetype_entities, ..
-            } => archetype_entities.len(),
         }
     }
 
