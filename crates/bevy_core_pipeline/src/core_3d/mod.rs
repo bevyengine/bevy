@@ -76,10 +76,10 @@ pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
-use bevy_image::{BevyDefault, Image};
+use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -102,6 +102,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
+use nonmax::NonMaxU32;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -258,8 +259,9 @@ pub struct Opaque3dBatchSetKey {
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
 
-    /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    /// Index of the slab that the lightmap resides in, if a lightmap is
+    /// present.
+    pub lightmap_slab: Option<NonMaxU32>,
 }
 
 /// Data that must be identical in order to *batch* phase items together.

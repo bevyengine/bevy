@@ -442,7 +442,7 @@ pub fn prepare_ui_slices(
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
@@ -475,7 +475,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
