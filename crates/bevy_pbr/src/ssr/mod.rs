@@ -240,8 +240,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         // if it has been added
         let has_default_deferred_lighting_pass = render_app
             .world_mut()
-            .get_resource_mut::<RenderGraph>()
-            .unwrap()
+            .resource_mut::<RenderGraph>()
             .sub_graph(Core3d)
             .get_node_state(NodePbr::DeferredLightingPass)
             .is_ok();
