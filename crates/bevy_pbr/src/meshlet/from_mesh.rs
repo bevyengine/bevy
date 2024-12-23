@@ -18,7 +18,6 @@ use meshopt::{
 };
 use metis::{option::Opt, Graph};
 use smallvec::SmallVec;
-use std::ops::Range;
 use thiserror::Error;
 
 // Aim to have 8 meshlets per group
@@ -306,14 +305,14 @@ fn compute_meshlets(
         for (connected_triangle_id, shared_vertex_count) in connected_triangles {
             adjncy.push(connected_triangle_id as i32);
             adjwgt.push(shared_vertex_count as i32);
-            // TODO: Additional weight based on triangle center spatial proximity
+            // TODO: Additional weight based on triangle center spatial proximity?
         }
     }
     xadj.push(adjncy.len() as i32);
 
     let mut options = [-1; metis::NOPTIONS];
     options[metis::option::Seed::INDEX] = 17;
-    options[metis::option::UFactor::INDEX] = 1;
+    options[metis::option::UFactor::INDEX] = 1; // Important that there's very little imbalance between partitions
 
     let mut meshlet_per_triangle = vec![0; triangle_count];
     let partition_count = triangle_count.div_ceil(126); // Need to undershoot to prevent METIS from going over 128 triangles per meshlet
@@ -331,13 +330,14 @@ fn compute_meshlets(
         meshlet_indices.extend_from_slice(&indices[base_index..(base_index + 3)]);
     }
 
+    // Use meshopt to build meshlets from the sets of triangles
     let mut meshlets = Meshlets {
         meshlets: Vec::new(),
         vertices: Vec::new(),
         triangles: Vec::new(),
     };
     for meshlet_indices in &indices_per_meshlet {
-        let meshlet = build_meshlets(meshlet_indices, vertices, 255, 128, 0.0); // Meshoptimizer won't currently let us do 256 vertices
+        let meshlet = build_meshlets(meshlet_indices, vertices, 255, 128, 0.0);
         let vertex_offset = meshlets.vertices.len() as u32;
         let triangle_offset = meshlets.triangles.len() as u32;
         meshlets.vertices.extend_from_slice(&meshlet.vertices);
@@ -727,7 +727,7 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh attributes are not {{POSITION, NORMAL, UV_0}}")]
+    #[error("Mesh vertex attributes are not {{POSITION, NORMAL, UV_0}}")]
     WrongMeshVertexAttributes,
     #[error("Mesh has no indices")]
     MeshMissingIndices,
