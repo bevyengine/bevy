@@ -2654,23 +2654,6 @@ enum QueryIterationEntitySource<'w, 's> {
     },
 }
 
-// These impls are only used in tests
-#[cfg(test)]
-impl<'w, 's> QueryIterationEntitySource<'w, 's> {
-    fn is_archetypes(&self) -> bool {
-        matches!(self, Self::Archetypes { .. })
-    }
-
-    fn entities_len(&self) -> usize {
-        match self {
-            Self::Tables { table_entities, .. } => table_entities.len(),
-            Self::Archetypes {
-                archetype_entities, ..
-            } => archetype_entities.len(),
-        }
-    }
-}
-
 impl<'w, 's> QueryIterationEntitySource<'w, 's> {
     /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
     /// of `StorageIds` provided from the `QueryState` associated with this iteration, but
@@ -3018,6 +3001,7 @@ mod tests {
     use crate::entity::Entity;
     #[allow(unused_imports)]
     use crate::prelude::World;
+    use crate::query::iter::QueryIterationEntitySource;
     #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
 
@@ -3026,6 +3010,21 @@ mod tests {
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
+
+    impl<'w, 's> QueryIterationEntitySource<'w, 's> {
+        fn is_archetypes(&self) -> bool {
+            matches!(self, Self::Archetypes { .. })
+        }
+
+        fn entities_len(&self) -> usize {
+            match self {
+                Self::Tables { table_entities, .. } => table_entities.len(),
+                Self::Archetypes {
+                    archetype_entities, ..
+                } => archetype_entities.len(),
+            }
+        }
+    }
 
     #[allow(clippy::unnecessary_sort_by)]
     #[test]
