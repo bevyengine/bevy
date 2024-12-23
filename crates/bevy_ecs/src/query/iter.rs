@@ -2693,7 +2693,7 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
 
     /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
     /// of `StorageIds` provided from the `QueryState` associated with this iteration. This
-    /// also initialises the storage ID iterators as appropriate.
+    /// also initializes the storage ID iterators as appropriate.
     fn new_from_storage_ids(storage_ids: &'s StorageIds) -> Self {
         match storage_ids {
             StorageIds::Tables(table_ids) => Self::Tables {
