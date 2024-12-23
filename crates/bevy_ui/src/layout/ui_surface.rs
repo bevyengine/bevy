@@ -293,17 +293,18 @@ impl UiSurface {
             self.taffy.disable_rounding();
         }
 
-        let layout = self
-            .taffy
-            .layout(*taffy_node)
-            .cloned()
-            .map_err(LayoutError::TaffyError)?;
+        let out = match self.taffy.layout(*taffy_node).cloned() {
+            Ok(layout) => {
+                self.taffy.disable_rounding();
+                let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
+                let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
+                Ok((layout, unrounded_size))
+            }
+            Err(taffy_error) => Err(LayoutError::TaffyError(taffy_error)),
+        };
 
-        self.taffy.disable_rounding();
-        let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
-        let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
-
-        Ok((layout, unrounded_size))
+        self.taffy.enable_rounding();
+        out
     }
 }
 
