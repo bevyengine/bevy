@@ -108,6 +108,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .init_resource::<AppState>()
         .run();

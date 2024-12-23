@@ -5,18 +5,21 @@ mod render_layers;
 
 use core::any::TypeId;
 
+use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::world::DeferredWorld;
+use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{change_detection::DetectChangesMut as _, prelude::*, query::QueryFilter};
+use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
+use smallvec::SmallVec;
 
 use super::NoCpuCulling;
 use crate::sync_world::MainEntity;
@@ -126,6 +129,34 @@ impl InheritedVisibility {
     }
 }
 
+/// A bucket into which we group entities for the purposes of visibility.
+///
+/// Bevy's various rendering subsystems (3D, 2D, UI, etc.) want to be able to
+/// quickly winnow the set of entities to only those that the subsystem is
+/// tasked with rendering, to avoid spending time examining irrelevant entities.
+/// At the same time, Bevy wants the [`check_visibility`] system to determine
+/// all entities' visibilities at the same time, regardless of what rendering
+/// subsystem is responsible for drawing them. Additionally, your application
+/// may want to add more types of renderable objects that Bevy determines
+/// visibility for just as it does for Bevy's built-in objects.
+///
+/// The solution to this problem is *visibility classes*. A visibility class is
+/// a type, typically the type of a component, that represents the subsystem
+/// that renders it: for example, `Mesh3d`, `Mesh2d`, and `Sprite`. The
+/// [`VisibilityClass`] component stores the visibility class or classes that
+/// the entity belongs to. (Generally, an object will belong to only one
+/// visibility class, but in rare cases it may belong to multiple.)
+///
+/// When adding a new renderable component, you'll typically want to write an
+/// add-component hook that adds the type ID of that component to the
+/// [`VisibilityClass`] array. See `custom_phase_item` for an example.
+//
+// Note: This can't be a `ComponentId` because the visibility classes are copied
+// into the render world, and component IDs are per-world.
+#[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default)]
+pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
+
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
 ///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in [`PostUpdate`].
@@ -219,56 +250,42 @@ pub struct VisibleEntities {
 }
 
 impl VisibleEntities {
-    pub fn get<QF>(&self) -> &[Entity]
-    where
-        QF: 'static,
-    {
-        match self.entities.get(&TypeId::of::<QF>()) {
+    pub fn get(&self, type_id: TypeId) -> &[Entity] {
+        match self.entities.get(&type_id) {
             Some(entities) => &entities[..],
             None => &[],
         }
     }
 
-    pub fn get_mut<QF>(&mut self) -> &mut Vec<Entity>
-    where
-        QF: 'static,
-    {
-        self.entities.entry(TypeId::of::<QF>()).or_default()
+    pub fn get_mut(&mut self, type_id: TypeId) -> &mut Vec<Entity> {
+        self.entities.entry(type_id).or_default()
     }
 
-    pub fn iter<QF>(&self) -> impl DoubleEndedIterator<Item = &Entity>
-    where
-        QF: 'static,
-    {
-        self.get::<QF>().iter()
+    pub fn iter(&self, type_id: TypeId) -> impl DoubleEndedIterator<Item = &Entity> {
+        self.get(type_id).iter()
     }
 
-    pub fn len<QF>(&self) -> usize
-    where
-        QF: 'static,
-    {
-        self.get::<QF>().len()
+    pub fn len(&self, type_id: TypeId) -> usize {
+        self.get(type_id).len()
     }
 
-    pub fn is_empty<QF>(&self) -> bool
-    where
-        QF: 'static,
-    {
-        self.get::<QF>().is_empty()
+    pub fn is_empty(&self, type_id: TypeId) -> bool {
+        self.get(type_id).is_empty()
     }
 
-    pub fn clear<QF>(&mut self)
-    where
-        QF: 'static,
-    {
-        self.get_mut::<QF>().clear();
+    pub fn clear(&mut self, type_id: TypeId) {
+        self.get_mut(type_id).clear();
     }
 
-    pub fn push<QF>(&mut self, entity: Entity)
-    where
-        QF: 'static,
-    {
-        self.get_mut::<QF>().push(entity);
+    pub fn clear_all(&mut self) {
+        // Don't just nuke the hash table; we want to reuse allocations.
+        for entities in self.entities.values_mut() {
+            entities.clear();
+        }
+    }
+
+    pub fn push(&mut self, entity: Entity, type_id: TypeId) {
+        self.get_mut(type_id).push(entity);
     }
 }
 
@@ -332,10 +349,6 @@ pub enum VisibilitySystems {
     /// the order of systems within this set is irrelevant, as [`check_visibility`]
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
-    /// Label for the system that runs after visibility checking and marks
-    /// entities that have gone from visible to invisible, or vice versa, as
-    /// changed.
-    VisibilityChangeDetect,
 }
 
 pub struct VisibilityPlugin;
@@ -344,24 +357,23 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.configure_sets(
-            PostUpdate,
-            (CalculateBounds, UpdateFrusta, VisibilityPropagate)
-                .before(CheckVisibility)
-                .after(TransformSystem::TransformPropagate),
-        )
-        .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
-        .configure_sets(PostUpdate, VisibilityChangeDetect.after(CheckVisibility))
-        .init_resource::<PreviousVisibleEntities>()
-        .add_systems(
-            PostUpdate,
-            (
-                calculate_bounds.in_set(CalculateBounds),
-                (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<With<Mesh3d>>.in_set(CheckVisibility),
-                mark_view_visibility_as_changed_if_necessary.in_set(VisibilityChangeDetect),
-            ),
-        );
+        app.register_type::<VisibilityClass>()
+            .configure_sets(
+                PostUpdate,
+                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                    .before(CheckVisibility)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .init_resource::<PreviousVisibleEntities>()
+            .add_systems(
+                PostUpdate,
+                (
+                    calculate_bounds.in_set(CalculateBounds),
+                    (visibility_propagate_system, reset_view_visibility)
+                        .in_set(VisibilityPropagate),
+                    check_visibility.in_set(CheckVisibility),
+                ),
+            );
     }
 }
 
@@ -465,9 +477,6 @@ fn propagate_recursive(
 }
 
 /// Stores all entities that were visible in the previous frame.
-///
-/// At the end of visibility checking, we compare the visible entities against
-/// these and set the [`ViewVisibility`] change flags accordingly.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct PreviousVisibleEntities(EntityHashSet);
 
@@ -475,18 +484,16 @@ pub struct PreviousVisibleEntities(EntityHashSet);
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
 fn reset_view_visibility(
-    mut query: Query<(Entity, &mut ViewVisibility)>,
+    mut query: Query<(Entity, &ViewVisibility)>,
     mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
 ) {
     previous_visible_entities.clear();
 
-    query.iter_mut().for_each(|(entity, mut view_visibility)| {
+    query.iter_mut().for_each(|(entity, view_visibility)| {
         // Record the entities that were previously visible.
         if view_visibility.get() {
             previous_visible_entities.insert(entity);
         }
-
-        *view_visibility.bypass_change_detection() = ViewVisibility::HIDDEN;
     });
 }
 
@@ -496,12 +503,10 @@ fn reset_view_visibility(
 /// frame, it updates the [`ViewVisibility`] of all entities, and for each view
 /// also compute the [`VisibleEntities`] for that view.
 ///
-/// This system needs to be run for each type of renderable entity. If you add a
-/// new type of renderable entity, you'll need to add an instantiation of this
-/// system to the [`VisibilitySystems::CheckVisibility`] set so that Bevy will
-/// detect visibility properly for those entities.
-pub fn check_visibility<QF>(
-    mut thread_queues: Local<Parallel<Vec<Entity>>>,
+/// To ensure that an entity is checked for visibility, make sure that it has a
+/// [`VisibilityClass`] component and that that component is nonempty.
+pub fn check_visibility(
+    mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
     mut view_query: Query<(
         Entity,
         &mut VisibleEntities,
@@ -510,23 +515,20 @@ pub fn check_visibility<QF>(
         &Camera,
         Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<
-        (
-            Entity,
-            &InheritedVisibility,
-            &mut ViewVisibility,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            &GlobalTransform,
-            Has<NoFrustumCulling>,
-            Has<VisibilityRange>,
-        ),
-        QF,
-    >,
+    mut visible_aabb_query: Query<(
+        Entity,
+        &InheritedVisibility,
+        &mut ViewVisibility,
+        &VisibilityClass,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        &GlobalTransform,
+        Has<NoFrustumCulling>,
+        Has<VisibilityRange>,
+    )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-) where
-    QF: QueryFilter + 'static,
-{
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
+) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
     for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
@@ -545,6 +547,7 @@ pub fn check_visibility<QF>(
                     entity,
                     inherited_visibility,
                     mut view_visibility,
+                    visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
                     transform,
@@ -592,34 +595,70 @@ pub fn check_visibility<QF>(
                 }
 
                 // Make sure we don't trigger changed notifications
-                // unnecessarily.
-                view_visibility.bypass_change_detection().set();
+                // unnecessarily by checking whether the flag is set before
+                // setting it.
+                if !**view_visibility {
+                    view_visibility.set();
+                }
 
-                queue.push(entity);
+                // Add the entity to the queue for all visibility classes the
+                // entity is in.
+                for visibility_class_id in visibility_class.iter() {
+                    queue.entry(*visibility_class_id).or_default().push(entity);
+                }
             },
         );
 
-        visible_entities.clear::<QF>();
-        thread_queues.drain_into(visible_entities.get_mut::<QF>());
+        visible_entities.clear_all();
+
+        // Drain all the thread queues into the `visible_entities` list.
+        for class_queues in thread_queues.iter_mut() {
+            for (class, entities) in class_queues {
+                let visible_entities_for_class = visible_entities.get_mut(*class);
+                for entity in entities.drain(..) {
+                    // As we mark entities as visible, we remove them from the
+                    // `previous_visible_entities` list. At the end, all of the
+                    // entities remaining in `previous_visible_entities` will be
+                    // entities that were visible last frame but are no longer
+                    // visible this frame.
+                    previous_visible_entities.remove(&entity);
+
+                    visible_entities_for_class.push(entity);
+                }
+            }
+        }
+    }
+
+    // Now whatever previous visible entities are left are entities that were
+    // visible last frame but just became invisible.
+    for entity in previous_visible_entities.drain() {
+        if let Ok((_, _, mut view_visibility, _, _, _, _, _, _)) =
+            visible_aabb_query.get_mut(entity)
+        {
+            *view_visibility = ViewVisibility::HIDDEN;
+        }
     }
 }
 
-/// A system that marks [`ViewVisibility`] components as changed if their
-/// visibility changed this frame.
+/// A generic component add hook that automatically adds the appropriate
+/// [`VisibilityClass`] to an entity.
 ///
-/// Ordinary change detection doesn't work for this use case because we use
-/// multiple [`check_visibility`] systems, and visibility is set if *any one* of
-/// those systems judges the entity to be visible. Thus, in order to perform
-/// change detection, we need this system, which is a follow-up pass that has a
-/// global view of whether the entity became visible or not.
-fn mark_view_visibility_as_changed_if_necessary(
-    mut query: Query<(Entity, &mut ViewVisibility)>,
-    previous_visible_entities: Res<PreviousVisibleEntities>,
-) {
-    for (entity, mut view_visibility) in query.iter_mut() {
-        if previous_visible_entities.contains(&entity) != view_visibility.get() {
-            view_visibility.set_changed();
-        }
+/// This can be handy when creating custom renderable components. To use this
+/// hook, add it to your renderable component like this:
+///
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(on_add = add_visibility_class::<MyComponent>)]
+/// struct MyComponent {
+///     ...
+/// }
+/// ```
+pub fn add_visibility_class<C>(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId)
+where
+    C: 'static,
+{
+    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
+        visibility_class.push(TypeId::of::<C>());
     }
 }
 

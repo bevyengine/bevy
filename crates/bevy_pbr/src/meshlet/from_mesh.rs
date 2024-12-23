@@ -9,7 +9,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::iter;
+use core::{iter, ops::Range};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{

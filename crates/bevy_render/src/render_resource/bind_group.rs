@@ -256,7 +256,8 @@ impl Deref for BindGroup {
 ///       shader Bevy will instead present a *binding array* of `COUNT` elements.
 ///       In your shader, the index of the element of each binding array
 ///       corresponding to the mesh currently being drawn can be retrieved with
-///       `mesh[in.instance_index].material_bind_group_slot`.
+///       `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
+///       0xffffu`.
 ///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
 ///       uniform buffers are automatically replaced with read-only storage
 ///       buffers.
