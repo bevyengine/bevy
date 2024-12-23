@@ -286,10 +286,8 @@ fn compute_meshlets(
     for ((triangle_id1, triangle_id2), shared_vertex_count) in triangle_pair_to_shared_vertex_count
     {
         // We record both id1->id2 and id2->id1 as adjacency is symmetrical
-        connected_triangles_per_triangle[triangle_id1 as usize]
-            .push((triangle_id2, shared_vertex_count));
-        connected_triangles_per_triangle[triangle_id2 as usize]
-            .push((triangle_id1, shared_vertex_count));
+        connected_triangles_per_triangle[triangle_id1].push((triangle_id2, shared_vertex_count));
+        connected_triangles_per_triangle[triangle_id2].push((triangle_id1, shared_vertex_count));
     }
 
     // The order of triangles depends on hash traversal order; to produce deterministic results, sort them
@@ -304,7 +302,7 @@ fn compute_meshlets(
         xadj.push(adjncy.len() as i32);
         for (connected_triangle_id, shared_vertex_count) in connected_triangles {
             adjncy.push(connected_triangle_id as i32);
-            adjwgt.push(shared_vertex_count as i32);
+            adjwgt.push(shared_vertex_count);
             // TODO: Additional weight based on triangle center spatial proximity?
         }
     }
