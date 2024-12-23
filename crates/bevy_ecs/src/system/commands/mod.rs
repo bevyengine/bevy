@@ -1344,6 +1344,7 @@ impl<'a> EntityCommands<'a> {
     /// The command will panic when applied if the associated entity does not exist.
     ///
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
+    #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(insert(bundle, InsertMode::Keep))
     }
@@ -1362,6 +1363,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
     /// instead.
+    #[track_caller]
     pub fn insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
@@ -1416,6 +1418,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
     /// - `T` must have the same layout as the one passed during `component_id` creation.
+    #[track_caller]
     pub unsafe fn try_insert_by_id<T: Send + 'static>(
         &mut self,
         component_id: ComponentId,
@@ -1559,6 +1562,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
+    #[track_caller]
     pub fn try_insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
@@ -1579,6 +1583,7 @@ impl<'a> EntityCommands<'a> {
     /// # Note
     ///
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
+    #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(try_insert(bundle, InsertMode::Keep))
     }
@@ -1786,8 +1791,8 @@ impl<'a> EntityCommands<'a> {
         T: Bundle,
     {
         self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                entity_mut.retain::<T>();
+            if let Ok(mut entity) = world.get_entity_mut(entity) {
+                entity.retain::<T>();
             }
         })
     }
