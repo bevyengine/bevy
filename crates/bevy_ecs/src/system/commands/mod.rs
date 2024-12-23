@@ -1324,7 +1324,7 @@ impl<'a> EntityCommands<'a> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.queue(insert(bundle, InsertMode::Replace))
+            self.insert(bundle)
         } else {
             self
         }
