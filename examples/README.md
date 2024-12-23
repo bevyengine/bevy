@@ -399,6 +399,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[list_all_paths](../examples/remote/list_all_paths.rs) |A command line client that will list all the full-qualifed paths that the below example [client](../examples/remote/client.rs) expects you to know.
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 

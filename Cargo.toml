@@ -3687,6 +3687,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "list_all_paths"
+path = "examples/remote/list_all_paths.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[package.metadata.example.list_all_paths]
+name = "list_all_paths"
+description = "A simple command line client using BRQ that will list all the fully-qualifed paths that the you need to know."
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
