@@ -736,8 +736,7 @@ pub fn process_remote_mutate_component_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    // Get the type of the component to be mutated.
-    // E.g. `bevy_transform::components::transform::Transform`
+    // Get the fully-qualified type names of the component to be mutated.
     let component_type: &TypeRegistration = type_registry
         .get_with_type_path(&component)
         .ok_or_else(|| {
