@@ -143,7 +143,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     {
         match self.cursor.entity_source {
             QueryIterationEntitySource::Tables { .. } => {
-                // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
+                // SAFETY: The cursor is iterating tables, so storage ids are guaranteed to be table ids.
                 let table_id = unsafe { storage_id.debug_checked_as_table_id() };
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
@@ -157,7 +157,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                     unsafe { self.fold_over_table_range(accum, func, table, range) };
             }
             QueryIterationEntitySource::Archetypes { .. } => {
-                // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
+                // SAFETY: The cursor is iterating archetypes, so storage ids are guaranteed to be archetype ids.
                 let archetype_id = unsafe { storage_id.debug_checked_as_archetype_id() };
                 // SAFETY: Matched archetype IDs are guaranteed to still exist.
                 let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
@@ -2642,6 +2642,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
     }
 }
 
+/// Encapsulates whether we are iterating storage by archetype or by table and,
+/// once `QueryIterationCursor::next` has been called, what entities are being
+/// iterated from the current storage type.
 #[derive(Clone)]
 enum QueryIterationEntitySource<'w, 's> {
     Archetypes {
@@ -2654,6 +2657,7 @@ enum QueryIterationEntitySource<'w, 's> {
     },
 }
 
+// These impls are only used in tests
 #[cfg(test)]
 impl<'w, 's> QueryIterationEntitySource<'w, 's> {
     fn is_archetypes(&self) -> bool {
@@ -2671,6 +2675,9 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
 }
 
 impl<'w, 's> QueryIterationEntitySource<'w, 's> {
+    /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
+    /// of `StorageIds` provided from the `QueryState` associated with this iteration, but
+    /// does not copy the storage IDs across.
     fn new_from_storage_ids_empty(storage_ids: &'s StorageIds) -> Self {
         match storage_ids {
             StorageIds::Tables(_) => Self::Tables {
@@ -2684,6 +2691,9 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
         }
     }
 
+    /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
+    /// of `StorageIds` provided from the `QueryState` associated with this iteration. This
+    /// also initialises the storage ID iterators as appropriate.
     fn new_from_storage_ids(storage_ids: &'s StorageIds) -> Self {
         match storage_ids {
             StorageIds::Tables(table_ids) => Self::Tables {
@@ -2697,6 +2707,8 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
         }
     }
 
+    /// Returns whether the current entity array is empty, regardless of whether currently
+    /// iterating archetypes or tables.
     fn is_empty(&self) -> bool {
         match self {
             Self::Tables { table_entities, .. } => table_entities.is_empty(),
@@ -2706,6 +2718,9 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
         }
     }
 
+    /// Provides an iterator over the storage IDs in the collection, encapsulating them in
+    /// `StorageId` so the caller can safely access the right one - though the caller can
+    /// bypass the safety checks if they already know what storage type to expect.
     fn iter(&self) -> StorageIdIter<'s> {
         match self {
             Self::Tables { table_ids, .. } => StorageIdIter::Tables(table_ids.clone()),

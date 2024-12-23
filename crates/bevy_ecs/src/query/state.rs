@@ -24,39 +24,64 @@ use super::{
     QueryManyUniqueIter, QuerySingleError, ROQueryItem,
 };
 
+/// An ID for either a table or an archetype. Used for Query iteration.
+///
+/// Query iteration is exclusively over tables or over archetypes based on whether the query filters
+/// are dense or not. This enum variant will match the variant of `StorageIds` that produces it,
+/// meaning callers can unsafely access the underlying variant if they have already checked the
+/// variant of `StorageIds`.
+///
+/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
+/// any combination of their values can happen.
 #[derive(Copy, Clone)]
 pub(super) enum StorageId {
     Archetype(ArchetypeId),
     Table(TableId),
 }
 
+impl TryInto<ArchetypeId> for StorageId {
+    type Error = ();
+
+    fn try_into(self) -> Result<ArchetypeId, Self::Error> {
+        match self {
+            Self::Archetype(id) => Ok(id),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryInto<TableId> for StorageId {
+    type Error = ();
+
+    fn try_into(self) -> Result<TableId, Self::Error> {
+        match self {
+            Self::Table(id) => Ok(id),
+            _ => Err(()),
+        }
+    }
+}
+
 impl StorageId {
-    fn as_archetype_id(&self) -> Option<ArchetypeId> {
-        match self {
-            Self::Archetype(id) => Some(*id),
-            _ => None,
-        }
-    }
-
     /// # Safety
     ///
-    /// Needs a safety comment before merging!
+    /// The caller is responsible for ensuring that this `StorageId` contains an archetype ID
+    /// before calling this method. Typically, the caller is interacting with a `QueryState` or
+    /// `QueryIterationCursor` and will therefore be accessing a `StorageIds` or
+    /// `QueryIterationEntitySource`, respectively. These enums have variants that match this
+    /// enums variants, allowing the caller to safely skip checking the discriminator.
     pub(super) unsafe fn debug_checked_as_archetype_id(&self) -> ArchetypeId {
-        self.as_archetype_id().debug_checked_unwrap()
-    }
-
-    fn as_table_id(&self) -> Option<TableId> {
-        match self {
-            Self::Table(id) => Some(*id),
-            _ => None,
-        }
+        <Self as TryInto<ArchetypeId>>::try_into(*self).debug_checked_unwrap()
     }
 
     /// # Safety
     ///
-    /// Needs a safety comment before merging!
+    /// The caller is responsible for ensuring that this `StorageId` contains a table ID
+    /// before calling this method. Typically, the caller is interacting with a `QueryState` or
+    /// `QueryIterationCursor` and will therefore be accessing a `StorageIds` or
+    /// `QueryIterationEntitySource`, respectively. These enums have variants that match this
+    /// enums variants, allowing the caller to safely skip checking the discriminator.
     pub(super) unsafe fn debug_checked_as_table_id(&self) -> TableId {
-        self.as_table_id().debug_checked_unwrap()
+        <Self as TryInto<TableId>>::try_into(*self).debug_checked_unwrap()
     }
 }
 
@@ -88,6 +113,9 @@ impl Iterator for StorageIdIter<'_> {
     }
 }
 
+/// A collection of storage IDs that all have the same type, so instead of storing `StorageId` and
+/// checking the discriminator repeatedly, this enum "factors out" the discriminator so that
+/// callers can perform one match once before accessing the underlying storage IDs.
 #[derive(Clone)]
 pub(super) enum StorageIds {
     Archetypes(Vec<ArchetypeId>),
@@ -95,10 +123,15 @@ pub(super) enum StorageIds {
 }
 
 impl StorageIds {
+    /// Utility to create `StorageIds` with the correct variant automatically based on the
+    /// type parameters being used by a Query. Effectively determines whether all data accessed
+    /// by the query is "dense" (can be safely iterated only by iterating tables).
     fn new_from_query_types<D: QueryData, F: QueryFilter>() -> Self {
         Self::new_from_dense_flag(D::IS_DENSE && F::IS_DENSE)
     }
 
+    /// Utility to create `StorageIds` with the correct variant based on the caller already having
+    /// determined whether the associated Query is "dense".
     fn new_from_dense_flag(dense: bool) -> Self {
         match dense {
             true => Self::Tables(Vec::new()),
