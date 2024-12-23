@@ -2561,6 +2561,8 @@ impl Default for ShadowStyle {
 pub struct LayoutConfig {
     /// If set to true the coordinates for this node and its descendents will be rounded to the nearest physical pixel.
     /// This can help prevent visual artifacts like blurry images or semi-transparent edges that can occur with sub-pixel positioning.
+    ///
+    /// Defaults to true.
     pub use_rounding: bool,
 }
 
