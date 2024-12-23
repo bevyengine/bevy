@@ -209,7 +209,6 @@ impl UiSurface {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
         };
-        self.taffy.enable_rounding();
         for root_nodes in camera_root_nodes {
             self.taffy
                 .compute_layout_with_measure(
