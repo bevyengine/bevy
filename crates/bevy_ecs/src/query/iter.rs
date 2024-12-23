@@ -126,10 +126,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an storage.
+    /// from a storage.
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - `storage_id` must have been retrieved from `cursor.entity_source` to ensure
+    ///    that the variant of `StorageId` matches the variant of `QueryIterationEntitySource`.
     #[inline]
     pub(super) unsafe fn fold_over_storage_range<B, Func>(
         &mut self,
@@ -141,10 +143,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
-        match self.cursor.entity_source {
-            QueryIterationEntitySource::Tables { .. } => {
-                // SAFETY: The cursor is iterating tables, so storage ids are guaranteed to be table ids.
-                let table_id = unsafe { storage_id.debug_checked_as_table_id() };
+        match storage_id {
+            StorageId::Table(table_id) => {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
 
@@ -156,9 +156,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                     // - The if block ensures that the query iteration is dense
                     unsafe { self.fold_over_table_range(accum, func, table, range) };
             }
-            QueryIterationEntitySource::Archetypes { .. } => {
-                // SAFETY: The cursor is iterating archetypes, so storage ids are guaranteed to be archetype ids.
-                let archetype_id = unsafe { storage_id.debug_checked_as_archetype_id() };
+            StorageId::Archetype(archetype_id) => {
                 // SAFETY: Matched archetype IDs are guaranteed to still exist.
                 let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
                 // SAFETY: Matched table IDs are guaranteed to still exist.
@@ -1065,12 +1063,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
 
-        for id in self.cursor.entity_source.iter() {
+        self.cursor.entity_source.iter().fold(accum, |accum, id| {
             // SAFETY:
             // - The range(None) is equivalent to [0, storage.entity_count)
-            accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
-        }
-        accum
+            unsafe { self.fold_over_storage_range(accum, &mut func, id, None) }
+        })
     }
 }
 

@@ -61,30 +61,6 @@ impl TryInto<TableId> for StorageId {
     }
 }
 
-impl StorageId {
-    /// # Safety
-    ///
-    /// The caller is responsible for ensuring that this `StorageId` contains an archetype ID
-    /// before calling this method. Typically, the caller is interacting with a `QueryState` or
-    /// `QueryIterationCursor` and will therefore be accessing a `StorageIds` or
-    /// `QueryIterationEntitySource`, respectively. These enums have variants that match this
-    /// enums variants, allowing the caller to safely skip checking the discriminator.
-    pub(super) unsafe fn debug_checked_as_archetype_id(&self) -> ArchetypeId {
-        <Self as TryInto<ArchetypeId>>::try_into(*self).debug_checked_unwrap()
-    }
-
-    /// # Safety
-    ///
-    /// The caller is responsible for ensuring that this `StorageId` contains a table ID
-    /// before calling this method. Typically, the caller is interacting with a `QueryState` or
-    /// `QueryIterationCursor` and will therefore be accessing a `StorageIds` or
-    /// `QueryIterationEntitySource`, respectively. These enums have variants that match this
-    /// enums variants, allowing the caller to safely skip checking the discriminator.
-    pub(super) unsafe fn debug_checked_as_table_id(&self) -> TableId {
-        <Self as TryInto<TableId>>::try_into(*self).debug_checked_unwrap()
-    }
-}
-
 impl From<TableId> for StorageId {
     fn from(value: TableId) -> Self {
         Self::Table(value)
@@ -105,10 +81,24 @@ pub(super) enum StorageIdIter<'s> {
 impl Iterator for StorageIdIter<'_> {
     type Item = StorageId;
 
+    /// This implementation branches on each call, prefer calling `fold` directly or via `for_each`
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::Tables(table_ids) => table_ids.next().copied().map(Into::into),
             Self::Archetypes(archetype_ids) => archetype_ids.next().copied().map(Into::into),
+        }
+    }
+
+    /// Fold implementation avoids branching in each `next` call
+    #[inline]
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        match self {
+            Self::Archetypes(ids) => ids.map(|id| StorageId::Archetype(*id)).fold(init, f),
+            Self::Tables(ids) => ids.map(|id| StorageId::Table(*id)).fold(init, f),
         }
     }
 }
@@ -147,9 +137,7 @@ impl StorageIds {
     fn iter(&self) -> StorageIdIter<'_> {
         match self {
             Self::Tables(table_ids) => StorageIdIter::Tables(table_ids.iter()),
-            Self::Archetypes(archetype_ids) => {
-                StorageIdIter::Archetypes(archetype_ids.iter())
-            }
+            Self::Archetypes(archetype_ids) => StorageIdIter::Archetypes(archetype_ids.iter()),
         }
     }
 }
@@ -1791,17 +1779,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
             };
 
-            for storage_id in self.storage_ids.iter() {
+            self.storage_ids.iter().for_each(|storage_id| {
                 let count = storage_entity_count(storage_id);
 
                 // skip empty storage
                 if count == 0 {
-                    continue;
+                    return;
                 }
                 // immediately submit large storage
                 if count >= batch_size {
                     submit_single(count, storage_id);
-                    continue;
+                    return;
                 }
                 // merge small storage
                 batch_queue.push(storage_id);
@@ -1812,7 +1800,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     submit_batch_queue(&mut batch_queue);
                     queue_entity_count = 0;
                 }
-            }
+            });
             submit_batch_queue(&mut batch_queue);
         });
     }
