@@ -146,9 +146,9 @@ impl StorageIds {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn iter(&self) -> StorageIdIter<'_> {
         match self {
-            Self::Tables(table_ids) => StorageIdIter::Tables(table_ids.iter().clone()),
+            Self::Tables(table_ids) => StorageIdIter::Tables(table_ids.iter()),
             Self::Archetypes(archetype_ids) => {
-                StorageIdIter::Archetypes(archetype_ids.iter().clone())
+                StorageIdIter::Archetypes(archetype_ids.iter())
             }
         }
     }
