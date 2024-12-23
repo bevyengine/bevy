@@ -9,7 +9,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::iter;
+use core::{iter, ops::Range};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
@@ -18,7 +18,6 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
-use std::ops::Range;
 use thiserror::Error;
 
 // Aim to have 8 meshlets per group
