@@ -3,7 +3,7 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::Entity,
+    entity::{Entity, EntityBorrow},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
