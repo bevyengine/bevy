@@ -8,6 +8,8 @@ use crate::{
     Curve, Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
 };
 
+use variadics_please::all_tuples_enumerated;
+
 // TODO: Think about merging `Ease` with `StableInterpolate`
 
 /// A type whose values can be eased between.
@@ -71,6 +73,38 @@ impl Ease for Dir3A {
         Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
     }
 }
+
+macro_rules! impl_ease_tuple {
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
+        impl<$($T: Ease),*> Ease for ($($T,)*) {
+            fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+                let curve_tuple =
+                (
+                    $(
+                        <$T as Ease>::interpolating_curve_unbounded(start.$n, end.$n),
+                    )*
+                );
+
+                FunctionCurve::new(Interval::EVERYWHERE, move |t|
+                    (
+                        $(
+                            curve_tuple.$n.sample_unchecked(t),
+                        )*
+                    )
+                )
+            }
+        }
+    };
+}
+
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_ease_tuple,
+    1,
+    11,
+    T
+);
 
 /// A [`Curve`] that is defined by
 ///
