@@ -176,9 +176,15 @@ pub enum EaseFunction {
     /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
     CircularInOut,
 
-    /// `f(t) = 2.0^(10.0 * (t - 1.0))`
+    /// `f(t) ≈ 2.0^(10.0 * (t - 1.0))`
+    ///
+    /// The precise definition adjusts it slightly so it hits both `(0, 0)` and `(1, 1)`:
+    /// `f(t) = 2.0^(10.0 * t - A) - B`, where A = log₂(2¹⁰-1) and B = 1/(2¹⁰-1).
     ExponentialIn,
-    /// `f(t) = 1.0 - 2.0^(-10.0 * t)`
+    /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
+    ///
+    /// As with `EaseFunction::ExponentialIn`, the precise definition adjusts it slightly
+    // so it hits both `(0, 0)` and `(1, 1)`.
     ExponentialOut,
     /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
     ExponentialInOut,
@@ -324,20 +330,30 @@ mod easing_functions {
         }
     }
 
+    // These are copied from a high precision calculator; I'd rather show them
+    // with blatantly more digits than needed (since rust will round them to the
+    // nearest representable value anyway) rather than make it seem like the
+    // truncated value is somehow carefully chosen.
+    #[allow(clippy::excessive_precision)]
+    const LOG2_1023: f32 = 9.998590429745328646459226;
+    #[allow(clippy::excessive_precision)]
+    const FRAC_1_1023: f32 = 0.00097751710654936461388074291;
     #[inline]
     pub(crate) fn exponential_in(t: f32) -> f32 {
-        ops::powf(2.0, 10.0 * t - 10.0)
+        // Derived from a rescaled exponential formula `(2^(10*t) - 1) / (2^10 - 1)`
+        // See <https://www.wolframalpha.com/input?i=solve+over+the+reals%3A+pow%282%2C+10-A%29+-+pow%282%2C+-A%29%3D+1>
+        ops::exp2(10.0 * t - LOG2_1023) - FRAC_1_1023
     }
     #[inline]
     pub(crate) fn exponential_out(t: f32) -> f32 {
-        1.0 - ops::powf(2.0, -10.0 * t)
+        (FRAC_1_1023 + 1.0) - ops::exp2(-10.0 * t - (LOG2_1023 - 10.0))
     }
     #[inline]
     pub(crate) fn exponential_in_out(t: f32) -> f32 {
         if t < 0.5 {
-            ops::powf(2.0, 20.0 * t - 10.0) / 2.0
+            ops::exp2(20.0 * t - (LOG2_1023 + 1.0)) - (FRAC_1_1023 / 2.0)
         } else {
-            (2.0 - ops::powf(2.0, -20.0 * t + 10.0)) / 2.0
+            (FRAC_1_1023 / 2.0 + 1.0) - ops::exp2(-20.0 * t - (LOG2_1023 - 19.0))
         }
     }
 
@@ -456,6 +472,86 @@ impl EaseFunction {
             EaseFunction::BounceInOut => easing_functions::bounce_in_out(t),
             EaseFunction::Steps(num_steps) => easing_functions::steps(*num_steps, t),
             EaseFunction::Elastic(omega) => easing_functions::elastic(*omega, t),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {
+        use EaseFunction::*;
+        &[
+            [QuadraticIn, QuadraticOut, QuadraticInOut],
+            [CubicIn, CubicOut, CubicInOut],
+            [QuarticIn, QuarticOut, QuarticInOut],
+            [QuinticIn, QuinticOut, QuinticInOut],
+            [SineIn, SineOut, SineInOut],
+            [CircularIn, CircularOut, CircularInOut],
+            [ExponentialIn, ExponentialOut, ExponentialInOut],
+        ]
+    };
+
+    // For easing function we don't care if eval(0) is super-tiny like 2.0e-28,
+    // so add the same amount of error on both ends of the unit interval.
+    const TOLERANCE: f32 = 1.0e-6;
+    const _: () = const {
+        assert!(1.0 - TOLERANCE != 1.0);
+    };
+
+    #[test]
+    fn ease_functions_zero_to_one() {
+        for ef in MONOTONIC_IN_OUT_INOUT.iter().flatten() {
+            let start = ef.eval(0.0);
+            assert!(
+                (0.0..=TOLERANCE).contains(&start),
+                "EaseFunction.{ef:?}(0) was {start:?}",
+            );
+
+            let finish = ef.eval(1.0);
+            assert!(
+                (1.0 - TOLERANCE..=1.0).contains(&finish),
+                "EaseFunction.{ef:?}(1) was {start:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn ease_function_inout_deciles() {
+        // convexity gives these built-in tolerances
+        for [_, _, ef_inout] in MONOTONIC_IN_OUT_INOUT {
+            for x in [0.1, 0.2, 0.3, 0.4] {
+                let y = ef_inout.eval(x);
+                assert!(y < x, "EaseFunction.{ef_inout:?}({x:?}) was {y:?}");
+            }
+
+            for x in [0.6, 0.7, 0.8, 0.9] {
+                let y = ef_inout.eval(x);
+                assert!(y > x, "EaseFunction.{ef_inout:?}({x:?}) was {y:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn ease_function_midpoints() {
+        for [ef_in, ef_out, ef_inout] in MONOTONIC_IN_OUT_INOUT {
+            let mid = ef_in.eval(0.5);
+            assert!(
+                mid < 0.5 - TOLERANCE,
+                "EaseFunction.{ef_in:?}(½) was {mid:?}",
+            );
+
+            let mid = ef_out.eval(0.5);
+            assert!(
+                mid > 0.5 + TOLERANCE,
+                "EaseFunction.{ef_out:?}(½) was {mid:?}",
+            );
+
+            let mid = ef_inout.eval(0.5);
+            assert!(
+                (0.5 - TOLERANCE..=0.5 + TOLERANCE).contains(&mid),
+                "EaseFunction.{ef_inout:?}(½) was {mid:?}",
+            );
         }
     }
 }
