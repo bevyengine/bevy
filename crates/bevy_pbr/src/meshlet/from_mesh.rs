@@ -73,7 +73,7 @@ impl MeshletMesh {
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
 
-        // Generate a position-only vertex buffer for determining what meshlets are connected for use in grouping
+        // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
         let (position_only_vertex_count, position_only_vertex_remap) = generate_vertex_remap_multi(
             vertices.vertex_count,
             &[VertexStream::new_with_stride::<Vec3, _>(
