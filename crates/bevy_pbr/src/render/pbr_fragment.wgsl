@@ -71,7 +71,11 @@ fn pbr_input_from_standard_material(
     is_front: bool,
 ) -> pbr_types::PbrInput {
 #ifdef BINDLESS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    let slot = in.material_bind_group_slot;
+#else   // MESHLET_MESH_MATERIAL_PASS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
+#endif  // MESHLET_MESH_MATERIAL_PASS
     let flags = pbr_bindings::material[slot].flags;
     let base_color = pbr_bindings::material[slot].base_color;
     let deferred_lighting_pass_id = pbr_bindings::material[slot].deferred_lighting_pass_id;
@@ -146,7 +150,7 @@ fn pbr_input_from_standard_material(
             // parallax mapping algorithm easier to understand and reason
             // about.
             -Vt,
-            in.instance_index,
+            slot,
         );
 #endif
 

@@ -121,11 +121,11 @@
 //!
 //! You will eventually need to choose which picking backend(s) you want to use. This crate does not
 //! supply any backends, and expects you to select some from the other bevy crates or the third-party
-//! ecosystem. You can find all the provided backends in the [`backend`] module.
+//! ecosystem.
 //!
 //! It's important to understand that you can mix and match backends! For example, you might have a
 //! backend for your UI, and one for the 3d scene, with each being specialized for their purpose.
-//! This crate provides some backends out of the box, but you can even write your own. It's been
+//! Bevy provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
 //! #### Focus ([`focus`])
