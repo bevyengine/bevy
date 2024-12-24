@@ -215,6 +215,8 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
+#[doc(hidden)]
+pub use bevy_utils::syncunsafecell::SyncUnsafeCell;
 use bevy_utils::{tracing::error, HashSet};
 use core::any::TypeId;
 

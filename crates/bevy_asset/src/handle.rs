@@ -512,6 +512,54 @@ pub enum UntypedAssetConversionError {
     TypeIdMismatch { expected: TypeId, found: TypeId },
 }
 
+/// Generates a globally unique [`Handle`].
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::Reflect;
+/// # use bevy_asset::{Handle, Asset, unique_handle};
+/// # #[derive(Reflect, Asset)]
+/// # struct Shader;
+/// let handle1: Handle<Shader> = unique_handle!();
+/// // Or optionally specify the type inside the macro.
+/// let handle2 = unique_handle!(Shader);
+/// ```
+///
+/// # Guarantees
+///
+/// * Different instances of this macro will always generate a different id.
+/// * The same instance of this macro will always generate the same id.
+/// * The result is `const`.
+/// * The result's id is not constant across executions and not safe for serialization.
+///
+/// ```
+/// # use bevy_reflect::Reflect;
+/// # use bevy_asset::{Handle, Asset, unique_handle};
+/// # #[derive(Reflect, Asset)]
+/// # struct Shader;
+/// let handle1 = unique_handle!(Shader);
+/// let handle2 = unique_handle!(Shader);
+/// assert_ne!(handle1, handle2);
+///
+/// const fn get_handle() -> Handle<Shader> {
+///     unique_handle!()
+/// }
+/// let handle1 = get_handle();
+/// let handle2 = get_handle();
+/// assert_eq!(handle1, handle2);
+/// ```
+#[macro_export]
+macro_rules! unique_handle {
+    ($($T: ty)?) => {
+        $crate::Handle$(::<$T>)?::weak_from_u128({
+            #[used]
+            static __DUMMY: $crate::SyncUnsafeCell<u8> = $crate::SyncUnsafeCell::new(0);
+            ::core::ptr::from_ref(&__DUMMY) as usize as u128
+        })
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_reflect::PartialReflect;
@@ -619,6 +667,10 @@ mod tests {
 
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
+
+        let handle1: Handle<TestAsset> = unique_handle!();
+        let handle2: Handle<TestAsset> = unique_handle!();
+        panic!("{:?}, {:?}", handle1, handle2);
     }
 
     /// `Reflect::clone_value` should increase the strong count of a strong handle
