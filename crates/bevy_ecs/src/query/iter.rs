@@ -134,6 +134,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - `storage_id` must have been retrieved from `cursor.entity_source` to ensure
     ///    that the variant of `StorageId` matches the variant of `QueryIterationEntitySource`.
     #[inline]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(super) unsafe fn fold_over_storage_range_by_id<B, Func>(
         &mut self,
         accum: B,
