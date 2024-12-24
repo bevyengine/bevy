@@ -11,6 +11,8 @@ pub fn param_set(criterion: &mut Criterion) {
     #[derive(Resource)]
     struct R;
 
+    world.insert_resource(R);
+
     let mut schedule = Schedule::default();
     schedule.add_systems(
         |_: ParamSet<(
