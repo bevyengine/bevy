@@ -140,7 +140,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
         let mut entity = world.spawn_empty();
         // We use `ManuallyDrop` here as we need to avoid dropping the u8's when `values` is dropped
-        // since ownership of the values is passed to the world in `insert_by_ids`. 
+        // since ownership of the values is passed to the world in `insert_by_ids`.
         // But we do want to deallocate the memory when values is dropped.
         let mut values: Vec<ManuallyDrop<u8>> = components
             .iter()
