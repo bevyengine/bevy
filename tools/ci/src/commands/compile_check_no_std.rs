@@ -1,6 +1,8 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use std::process::Command;
+
 use argh::FromArgs;
-use xshell::cmd;
+
+use super::{run_cargo_command, RustToolchain};
 
 /// Checks that the project compiles for a `no_std` target.
 /// Note that this tool will attempt to install the target via rustup.
@@ -17,99 +19,62 @@ pub struct CompileCheckNoStdCommand {
     skip_install: bool,
 }
 
+impl CompileCheckNoStdCommand {
+    /// TARGETS and the additional flags they require
+    const TARGETS: &'static [(&'static str, &'static [&'static str])] = &[
+        ("bevy_ptr", &[]),
+        ("bevy_utils", &[]),
+        ("bevy_mikktspace", &["--features", "libm"]),
+        ("bevy_reflect", &[]),
+        ("bevy_math", &["--features", "libm"]),
+        ("bevy_color", &["--features", "libm"]),
+        (
+            "bevy_tasks",
+            &["--features", "edge_executor,critical-section"],
+        ),
+        (
+            "bevy_ecs",
+            &[
+                "--features",
+                "edge_executor,critical-section,bevy_debug_stepping,bevy_reflect",
+            ],
+        ),
+        ("bevy_app", &["--features", "bevy_reflect"]),
+    ];
+
+    pub fn run(self) -> Result<(), ()> {
+        let target = self.target;
+
+        if !self.skip_install {
+            Command::new("rustup")
+                .args(["target", "add", &target])
+                .output()
+                .map_err(|err| eprintln!("{err}"))?;
+        }
+
+        let mut flags = vec!["--no-default-features", "--target", &target];
+
+        for &(lib, additional) in Self::TARGETS {
+            flags.extend_from_slice(&["-p", lib]);
+            flags.extend_from_slice(additional);
+
+            run_cargo_command("check", RustToolchain::Active, &flags, &[])
+                .inspect_err(|_| eprintln!("Failed to run for package {lib}"))?;
+
+            for _ in 0..(flags.len() + 2) {
+                flags.pop();
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Default for CompileCheckNoStdCommand {
     fn default() -> Self {
         Self {
             target: String::from("x86_64-unknown-none"),
             skip_install: false,
         }
-    }
-}
-
-impl Prepare for CompileCheckNoStdCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let target = self.target.as_str();
-        let mut commands = Vec::new();
-
-        if !self.skip_install {
-            commands.push(PreparedCommand::new::<Self>(
-                cmd!(sh, "rustup target add {target}"),
-                "Unable to add the required target via rustup, is it spelled correctly?",
-            ));
-        }
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_ptr --no-default-features --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_ptr no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_utils --no-default-features --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_utils no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_mikktspace --no-default-features --features libm --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_mikktspace no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_reflect --no-default-features --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_reflect no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_math --no-default-features --features libm --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_math no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_color --no-default-features --features libm --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_color no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_tasks --no-default-features --features edge_executor,critical-section --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_tasks no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_ecs --no-default-features --features edge_executor,critical-section,bevy_debug_stepping,bevy_reflect --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_ecs no_std compatibility.",
-        ));
-
-        commands.push(PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo check -p bevy_app --no-default-features --features bevy_reflect --target {target}"
-            ),
-            "Please fix compiler errors in output above for bevy_app no_std compatibility.",
-        ));
-
-        commands
     }
 }
