@@ -1750,7 +1750,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
+                        accum = iter.fold_over_storage_range_by_id(accum, &mut func, storage_id, None);
                     }
                 });
             };
@@ -1767,7 +1767,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
                         self.iter_unchecked_manual(world, last_run, this_run)
-                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
+                            .fold_over_storage_range_by_id(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };

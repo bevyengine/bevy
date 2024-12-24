@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId, StorageIdIter},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableId, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -126,16 +126,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from a storage.
+    /// from a storage, where the storage to iterate is expressed as either an archetype
+    /// or table ID, involving a branch to determine which.
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
     ///  - `storage_id` must have been retrieved from `cursor.entity_source` to ensure
     ///    that the variant of `StorageId` matches the variant of `QueryIterationEntitySource`.
     #[inline]
-    pub(super) unsafe fn fold_over_storage_range<B, Func>(
+    pub(super) unsafe fn fold_over_storage_range_by_id<B, Func>(
         &mut self,
-        mut accum: B,
+        accum: B,
         func: &mut Func,
         storage_id: StorageId,
         range: Option<Range<usize>>,
@@ -145,53 +146,103 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     {
         match storage_id {
             StorageId::Table(table_id) => {
-                // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
-
-                let range = range.unwrap_or(0..table.entity_count());
-                accum =
-                    // SAFETY:
-                    // - The fetched table matches both D and F
-                    // - caller ensures `range` is within `[0, table.entity_count)`
-                    // - The if block ensures that the query iteration is dense
-                    unsafe { self.fold_over_table_range(accum, func, table, range) };
-            }
-            StorageId::Archetype(archetype_id) => {
-                // SAFETY: Matched archetype IDs are guaranteed to still exist.
-                let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
-                // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
-
-                let range = range.unwrap_or(0..archetype.len());
-
-                // When an archetype and its table have equal entity counts, dense iteration can be safely used.
-                // this leverages cache locality to optimize performance.
-                if table.entity_count() == archetype.len() {
-                    accum =
-                        // SAFETY:
-                        // - The fetched archetype matches both D and F
-                        // - The provided archetype and its' table have the same length.
-                        // - caller ensures `range` is within `[0, archetype.len)`
-                        // - The if block ensures that the query iteration is not dense.
-                        unsafe { self.fold_over_dense_archetype_range(accum, func, archetype,range) };
-                } else {
-                    accum =
-                        // SAFETY:
-                        // - The fetched archetype matches both D and F
-                        // - caller ensures `range` is within `[0, archetype.len)`
-                        // - The if block ensures that the query iteration is not dense.
-                        unsafe { self.fold_over_archetype_range(accum, func, archetype,range) };
+                // SAFETY:
+                // - The caller has ensured a valid `storage_id` and `range`
+                // - The caller has ensured we provided the original `storage_id`, and so we can
+                //   trust it that table iteration is valid.
+                unsafe {
+                    self.fold_over_table_range_by_id(accum, func, table_id, range)
                 }
-            }
+            },
+            StorageId::Archetype(archetype_id) => {
+                // SAFETY:
+                // - The caller has ensured a valid `storage_id` and `range`
+                // - The caller has ensured we provided the original `storage_id`, and so we can
+                //   trust it that archetype iteration is valid.
+                unsafe {
+                    self.fold_over_archetype_range_by_id(accum, func, archetype_id, range)
+                }
+            },
         }
-        accum
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment of a table,
+    /// where the table to iterate is determined by its ID.
+    ///
+    ///  # Safety
+    ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - It is the callers responsibility to ensure it is valid to iterate by table in this query,
+    ///    typically by having retrieved the `table_id` from `cursor.entity_source`
+    #[inline]
+    pub(super) unsafe fn fold_over_table_range_by_id<B, Func>(
+        &mut self,
+        accum: B,
+        func: &mut Func,
+        table_id: TableId,
+        range: Option<Range<usize>>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        // SAFETY: Caller ensures the table ID exists.
+        let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+
+        let range = range.unwrap_or(0..table.entity_count());
+        // SAFETY:
+        // - The fetched table matches both D and F
+        // - Caller ensures `range` is within `[0, table.entity_count)`
+        // - Caller ensures query is suitable for table iteration
+        unsafe { self.fold_over_table_range(accum, func, table, range) }
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment of an archetype
+    /// where the archetype to iterate is determined by its ID.
+    ///
+    ///  # Safety
+    ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - It is the callers responsibility to ensure it is valid to iterate by archetype in this
+    ///    query, typically by having retrieved the `archetype_id` from `cursor.entity_source`
+    #[inline]
+    pub(super) unsafe fn fold_over_archetype_range_by_id<B, Func>(
+        &mut self,
+        accum: B,
+        func: &mut Func,
+        archetype_id: ArchetypeId,
+        range: Option<Range<usize>>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        // SAFETY: Caller ensures archetype ID exists
+        let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
+        // SAFETY: Archetype ensures table ID exists
+        let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+
+        let range = range.unwrap_or(0..archetype.len());
+
+        // When an archetype and its table have equal entity counts, table iteration can be safely
+        // used. This leverages cache locality to optimize performance.
+        if table.entity_count() == archetype.len() {
+            // SAFETY:
+            // - The fetched archetype matches both D and F
+            // - The provided archetype and its table have the same length.
+            // - Caller ensures `range` is within `[0, archetype.len)`
+            // - Caller ensures query is suitable for table iteration
+            unsafe { self.fold_over_dense_archetype_range(accum, func, archetype, range) }
+        } else {
+            // SAFETY:
+            // - The fetched archetype matches both D and F
+            // - Caller ensures `range` is within `[0, archetype.len)`
+            // - Caller ensures query is suitable for table iteration
+            unsafe { self.fold_over_archetype_range(accum, func, archetype, range) }
+        }
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an table.
+    /// from a table, where the table to iterate is provided by the caller.
     ///
     /// # Safety
-    ///  - all `rows` must be in `[0, table.entity_count)`.
+    ///  - All `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
     ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
     #[inline]
@@ -243,10 +294,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an archetype.
+    /// from an archetype, where the archetype to iterate is provided by the caller.
     ///
     /// # Safety
-    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - All `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
@@ -311,12 +362,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an archetype which has the same entity count as its table.
+    /// from an archetype which has the same entity count as its table, where the archetype
+    /// (and by extension, table) is specified by the caller.
     ///
     /// # Safety
-    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - All `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `archetype` must have the same length with it's table.
+    ///  - `archetype` must have the same length with its table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
@@ -1063,11 +1115,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
 
-        self.cursor.entity_source.iter().fold(accum, |accum, id| {
-            // SAFETY:
-            // - The range(None) is equivalent to [0, storage.entity_count)
-            unsafe { self.fold_over_storage_range(accum, &mut func, id, None) }
-        })
+        // We're going to consume the iterator, and don't want to mutably borrow self twice, so
+        // take ownership of the entity source with the iterator we want to consume, and replace
+        // it with an empty one.
+        let empty_iterator =
+            QueryIterationEntitySource::new_from_storage_ids_empty(&self.query_state.storage_ids);
+        match std::mem::replace(&mut self.cursor.entity_source, empty_iterator) {
+            QueryIterationEntitySource::Tables { table_ids, .. } => {
+                table_ids.fold(accum, |accum, id| {
+                    // SAFETY:
+                    // - The range(None) is equivalent to [0, storage.entity_count)
+                    unsafe { self.fold_over_table_range_by_id(accum, &mut func, *id, None) }
+                })
+            }
+            QueryIterationEntitySource::Archetypes { archetype_ids, .. } => {
+                archetype_ids.fold(accum, |accum, id| {
+                    // SAFETY:
+                    // - The range(None) is equivalent to [0, storage.entity_count)
+                    unsafe { self.fold_over_archetype_range_by_id(accum, &mut func, *id, None) }
+                })
+            }
+        }
     }
 }
 
@@ -2695,18 +2763,6 @@ impl<'w, 's> QueryIterationEntitySource<'w, 's> {
             Self::Archetypes {
                 archetype_entities, ..
             } => archetype_entities.is_empty(),
-        }
-    }
-
-    /// Provides an iterator over the storage IDs in the collection, encapsulating them in
-    /// `StorageId` so the caller can safely access the right one - though the caller can
-    /// bypass the safety checks if they already know what storage type to expect.
-    fn iter(&self) -> StorageIdIter<'s> {
-        match self {
-            Self::Tables { table_ids, .. } => StorageIdIter::Tables(table_ids.clone()),
-            Self::Archetypes { archetype_ids, .. } => {
-                StorageIdIter::Archetypes(archetype_ids.clone())
-            }
         }
     }
 }
