@@ -4,13 +4,15 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState},
     storage::{Table, TableId, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef,
     },
 };
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::StorageId;
 use alloc::vec::Vec;
 use core::{
     cmp::Ordering,
