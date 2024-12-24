@@ -150,19 +150,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 // - The caller has ensured a valid `storage_id` and `range`
                 // - The caller has ensured we provided the original `storage_id`, and so we can
                 //   trust it that table iteration is valid.
-                unsafe {
-                    self.fold_over_table_range_by_id(accum, func, table_id, range)
-                }
-            },
+                unsafe { self.fold_over_table_range_by_id(accum, func, table_id, range) }
+            }
             StorageId::Archetype(archetype_id) => {
                 // SAFETY:
                 // - The caller has ensured a valid `storage_id` and `range`
                 // - The caller has ensured we provided the original `storage_id`, and so we can
                 //   trust it that archetype iteration is valid.
-                unsafe {
-                    self.fold_over_archetype_range_by_id(accum, func, archetype_id, range)
-                }
-            },
+                unsafe { self.fold_over_archetype_range_by_id(accum, func, archetype_id, range) }
+            }
         }
     }
 
