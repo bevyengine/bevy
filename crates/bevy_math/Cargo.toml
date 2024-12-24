@@ -42,7 +42,7 @@ bevy_math = { path = ".", version = "0.15.0-dev", default-features = false, feat
 glam = { version = "0.29", default-features = false, features = ["approx"] }
 
 [features]
-default = ["std", "rand", "bevy_reflect", "curve"]
+default = ["std", "rand", "curve"]
 std = [
   "alloc",
   "glam/std",
