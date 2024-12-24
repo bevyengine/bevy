@@ -186,7 +186,7 @@ mod tests {
         self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{Commands, Res, WithParamWarnPolicy},
         world::World,
     };
 
@@ -215,15 +215,11 @@ mod tests {
         schedule.set_executor_kind(executor);
         schedule.add_systems(
             (
-                // Combined systems get skipped together.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R1);
-                })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                },
+                })
+                .param_warn_once(),
             )
                 .chain(),
         );
@@ -246,18 +242,20 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).param_warn_once()));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
+            .param_warn_once()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
-            .run_if(|_: Res<R2>| true),
+            .param_warn_once()
+            .run_if((|_: Res<R2>| true).param_warn_once()),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());
