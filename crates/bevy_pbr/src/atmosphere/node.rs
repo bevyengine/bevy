@@ -3,9 +3,7 @@ use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
-    render_resource::{
-        ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor,
-    },
+    render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ViewTarget, ViewUniformOffset},
 };
@@ -14,8 +12,8 @@ use crate::ViewLightsUniformOffset;
 
 use super::{
     resources::{
-        AtmosphereBindGroups, AtmosphereLutPipelines,
-        AtmosphereTransformsOffset, RenderSkyPipelineId,
+        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
+        RenderSkyPipelineId,
     },
     Atmosphere, AtmosphereSettings,
 };
