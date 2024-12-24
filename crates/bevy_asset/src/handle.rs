@@ -530,7 +530,6 @@ pub enum UntypedAssetConversionError {
 ///
 /// * Different instances of this macro will always generate a different id.
 /// * The same instance of this macro will always generate the same id.
-/// * The result is `const`.
 /// * The result's id is not constant across executions and not safe for serialization.
 ///
 /// ```
@@ -542,7 +541,7 @@ pub enum UntypedAssetConversionError {
 /// let handle2 = unique_handle!(Shader);
 /// assert_ne!(handle1, handle2);
 ///
-/// const fn get_handle() -> Handle<Shader> {
+/// fn get_handle() -> Handle<Shader> {
 ///     unique_handle!()
 /// }
 /// let handle1 = get_handle();
