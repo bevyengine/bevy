@@ -77,8 +77,6 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
     var optical_depth = vec3<f32>(0.0);
 
     let neg_LdotV = dot(light_dir, ray_dir);
-    let rayleigh_phase = rayleigh(neg_LdotV);
-    let mie_phase = henyey_greenstein(neg_LdotV);
 
     var l_2 = vec3(0.0);
     var f_ms = vec3(0.0);
@@ -94,16 +92,12 @@ fn sample_multiscattering_dir(r: f32, mu: f32, ray_dir: vec3<f32>, light_dir: ve
 
         let mu_light = dot(light_dir, local_up);
         let scattering_no_phase = local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering;
-        f_ms += transmittance_to_sample * scattering_no_phase * FRAC_4_PI * dt;
+        f_ms += transmittance_to_sample * scattering_no_phase * dt;
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
-        //paper doesn't seem to do include phase, but the shadertoy does, and seems to give a better result 
-        let rayleigh_scattering = (local_atmosphere.rayleigh_scattering * rayleigh_phase);
-        let mie_scattering = (local_atmosphere.mie_scattering * mie_phase);
-
-        l_2 += transmittance_to_sample * shadow_factor * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering) * FRAC_4_PI * dt;
+        l_2 += transmittance_to_sample * shadow_factor * scattering_no_phase * FRAC_4_PI * dt;
     }
 
     //include reflected luminance from planet ground 
