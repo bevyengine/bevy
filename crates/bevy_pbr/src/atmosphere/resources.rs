@@ -601,6 +601,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
     mut commands: Commands,
 ) {
+    if views.iter().len() == 0 { return; }
+
     let atmosphere_binding = atmosphere_uniforms
         .binding()
         .expect("Failed to prepare atmosphere bind groups. Atmosphere uniform buffer missing");
