@@ -114,7 +114,10 @@ fn sprite_picking(
         let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
             continue;
         };
-        let cursor_ray_len = cam_ortho.far - cam_ortho.near;
+        let cursor_ray_len = cam_ortho
+            .far
+            .unwrap_or(OrthographicProjection::DEFAULT_FAR_PLANE)
+            - cam_ortho.near;
         let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
 
         let picks: Vec<(Entity, HitData)> = sorted_sprites
