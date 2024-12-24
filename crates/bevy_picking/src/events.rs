@@ -657,6 +657,10 @@ pub fn pointer_events(
 
                     // Emit Drag events to the entities we are dragging
                     for (drag_target, drag) in state.dragging.iter_mut() {
+                        let delta = location.position - drag.latest_pos;
+                        if delta == Vec2::ZERO {
+                            continue; // No need to emit a Drag event if there is no movement
+                        }
                         let drag_event = Pointer::new(
                             *drag_target,
                             pointer_id,
@@ -664,7 +668,7 @@ pub fn pointer_events(
                             Drag {
                                 button,
                                 distance: location.position - drag.start_pos,
-                                delta: location.position - drag.latest_pos,
+                                delta,
                             },
                         );
                         commands.trigger_targets(drag_event.clone(), *drag_target);
