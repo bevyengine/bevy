@@ -1058,6 +1058,16 @@ impl App {
         &mut self.sub_apps.main
     }
 
+    /// Returns a reference to the [`SubApps`] collection.
+    pub fn sub_apps(&self) -> &SubApps {
+        &self.sub_apps
+    }
+
+    /// Returns a mutable reference to the [`SubApps`] collection.
+    pub fn sub_apps_mut(&mut self) -> &mut SubApps {
+        &mut self.sub_apps
+    }
+
     /// Returns a reference to the [`SubApp`] with the given label.
     ///
     /// # Panics
