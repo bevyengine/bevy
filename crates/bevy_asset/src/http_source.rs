@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 /// Adds the `http` and `https` asset sources to the app.
 /// Any asset path that begins with `http` or `https` will be loaded from the web
 /// via `fetch`(wasm) or `ureq`(native).
-/// Note that the use of secure `https` sources in non-wasm builds requires the following dependency:
+///
+/// Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827) 
+/// secure `https` requests are disabled by default in non-wasm builds. 
+/// To enable add this to your dependencies in Cargo.toml:
 /// ```toml
 /// ureq = { version = "*", features = ["tls"] }
 /// ```
