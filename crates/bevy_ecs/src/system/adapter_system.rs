@@ -131,6 +131,12 @@ where
         self.system.component_access()
     }
 
+    fn component_access_set(
+        &self,
+    ) -> &crate::query::FilteredAccessSet<crate::component::ComponentId> {
+        self.system.component_access_set()
+    }
+
     #[inline]
     fn archetype_component_access(
         &self,

@@ -766,6 +766,11 @@ where
     }
 
     #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.system_meta.component_access_set
+    }
+
+    #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }
