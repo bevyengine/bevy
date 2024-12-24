@@ -18,13 +18,14 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
+use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -50,7 +51,7 @@ pub use debug_overlay::UiDebugOptions;
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
@@ -543,6 +544,7 @@ pub fn extract_default_ui_camera_view(
     query: Extract<
         Query<
             (
+                Entity,
                 RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
@@ -551,11 +553,11 @@ pub fn extract_default_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    mut live_entities: Local<EntityHashSet>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -575,9 +577,13 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
+            // We use subview index 1 here so as not to conflict with the main
+            // 3D or 2D camera, which will have subview index 0.
+            let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 1);
             let default_camera_view = commands
                 .spawn((
                     ExtractedView {
+                        retained_view_entity,
                         clip_from_view: projection_matrix,
                         world_from_view: GlobalTransform::from_xyz(
                             0.0,
@@ -605,9 +611,9 @@ pub fn extract_default_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(entity);
+            transparent_render_phases.insert_or_clear(retained_view_entity);
 
-            live_entities.insert(entity);
+            live_entities.insert(retained_view_entity);
         }
     }
 
@@ -805,18 +811,18 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    mut views: Query<(&ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
-        else {
+        let Ok((view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity) else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 

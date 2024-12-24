@@ -19,7 +19,11 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
+    ui_view_query: QueryState<(
+        &'static ViewTarget,
+        &'static ExtractedCamera,
+        &'static ExtractedView,
+    )>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
@@ -52,13 +56,16 @@ impl Node for UiPassNode {
             return Ok(());
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get(&input_view_entity) else {
+        let Ok((target, camera, view)) = self.ui_view_query.get_manual(world, input_view_entity)
+        else {
             return Ok(());
         };
 
-        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        else {
             return Ok(());
         };
+
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
