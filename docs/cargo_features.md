@@ -21,6 +21,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
+|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
@@ -58,7 +59,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
-|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_remote|Enable the Bevy Remote Protocol|
