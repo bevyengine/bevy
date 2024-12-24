@@ -26,13 +26,13 @@ pub struct FileWatcher {
 
 impl FileWatcher {
     pub fn new(
-        root: PathBuf,
+        path: PathBuf,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(super::get_base_path().join(root).as_path());
+        let root = normalize_path(&path);
         let watcher = new_asset_event_debouncer(
-            root.clone(),
+            path.clone(),
             debounce_wait_time,
             FileEventHandler {
                 root,
