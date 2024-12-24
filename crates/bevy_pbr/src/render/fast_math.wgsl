@@ -6,7 +6,7 @@ fn fast_sqrt(x: f32) -> f32 {
     return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
 }
 
-//slightly less accurate than fast_acos_4, but much simpler.
+// Slightly less accurate than fast_acos_4, but much simpler.
 fn fast_acos(in_x: f32) -> f32 {
     let x = abs(in_x);
     var res = -0.156583 * x + HALF_PI;
