@@ -544,7 +544,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
@@ -622,7 +622,7 @@ impl_debug!(Res<'w, T>, Resource);
 /// If you need a shared borrow, use [`Res`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
@@ -683,7 +683,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
