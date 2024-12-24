@@ -8,7 +8,8 @@ use crate::{
 };
 use atomicow::CowArc;
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use bevy_utils::{HashMap, HashSet};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
