@@ -23,9 +23,9 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Focus`](crate::PickSet::Focus). All pointer-event
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All pointer-event
 //! observers resolve during the sync point between [`pointer_events`] and
-//! [`update_interactions`](crate::focus::update_interactions).
+//! [`update_interactions`](crate::hover::update_interactions).
 //!
 //! # Events Types
 //!
@@ -49,7 +49,7 @@ use bevy_window::Window;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
-    focus::{HoverMap, PreviousHoverMap},
+    hover::{HoverMap, PreviousHoverMap},
     pointer::{
         Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap, PressDirection,
     },
@@ -385,7 +385,7 @@ pub struct PickingEventWriters<'w> {
 /// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
 /// receive both an [`Over`] and and a [`Out`] event during the same frame.
 ///
-/// When we account for event bubbling, this is no longer true. When focus shifts
+/// When we account for event bubbling, this is no longer true. When the hovering focus shifts
 /// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
 /// In the context of UI, this is especially problematic. Additional hierarchy-aware
 /// events will be added in a future release.
