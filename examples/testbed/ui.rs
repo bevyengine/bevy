@@ -7,7 +7,7 @@ use bevy::{
     a11y::AccessibilityNode,
     color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
-    picking::focus::HoverMap,
+    picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
 };

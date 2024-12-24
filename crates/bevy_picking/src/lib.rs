@@ -128,12 +128,12 @@
 //! Bevy provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
-//! #### Focus ([`focus`])
+//! #### Hover ([`hover`])
 //!
 //! The next step is to use the data from the backends, combine and sort the results, and determine
-//! what each cursor is hovering over, producing a [`HoverMap`](`crate::focus::HoverMap`). Note that
+//! what each cursor is hovering over, producing a [`HoverMap`](`crate::hover::HoverMap`). Note that
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
-//! multiple backends may be reporting that a pointer is hitting an entity, the focus system needs
+//! multiple backends may be reporting that a pointer is hitting an entity, the hover system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
 //! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
 //! if one entity is in front of another, usually only the topmost one will be hovered.
@@ -154,7 +154,7 @@ extern crate alloc;
 
 pub mod backend;
 pub mod events;
-pub mod focus;
+pub mod hover;
 pub mod input;
 #[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
@@ -201,9 +201,9 @@ pub struct PickingBehavior {
     ///
     /// For example, if a pointer is over a UI element, as well as a 3d mesh, backends will report
     /// hits for both of these entities. Additionally, the hits will be sorted by the camera order,
-    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When focus
+    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When hovering
     /// is computed, the UI element will be checked first to see if it this field is set to block
-    /// lower entities. If it does (default), the focus system will stop there, and only the UI
+    /// lower entities. If it does (default), the hovering system will stop there, and only the UI
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
@@ -257,12 +257,12 @@ pub enum PickSet {
     ProcessInput,
     /// Reads inputs and produces [`backend::PointerHits`]s. In the [`PreUpdate`] schedule.
     Backend,
-    /// Reads [`backend::PointerHits`]s, and updates focus, selection, and highlighting states. In
+    /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
     /// the [`PreUpdate`] schedule.
-    Focus,
-    /// Runs after all the focus systems are done, before event listeners are triggered. In the
+    Hover,
+    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
     /// [`PreUpdate`] schedule.
-    PostFocus,
+    PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
@@ -298,7 +298,7 @@ pub struct PickingPlugin {
     /// Enables and disables input collection.
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
-    pub is_focus_enabled: bool,
+    pub is_hover_enabled: bool,
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
 }
@@ -309,10 +309,10 @@ impl PickingPlugin {
         state.is_input_enabled && state.is_enabled
     }
 
-    /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
+    /// Whether or not systems updating entities' [`PickingInteraction`](hover::PickingInteraction)
     /// component should be running.
-    pub fn focus_should_run(state: Res<Self>) -> bool {
-        state.is_focus_enabled && state.is_enabled
+    pub fn hover_should_run(state: Res<Self>) -> bool {
+        state.is_hover_enabled && state.is_enabled
     }
 
     /// Whether or not window entities should receive pick events.
@@ -326,7 +326,7 @@ impl Default for PickingPlugin {
         Self {
             is_enabled: true,
             is_input_enabled: true,
-            is_focus_enabled: true,
+            is_hover_enabled: true,
             is_window_picking_enabled: true,
         }
     }
@@ -370,8 +370,8 @@ impl Plugin for PickingPlugin {
                 (
                     PickSet::ProcessInput.run_if(Self::input_should_run),
                     PickSet::Backend,
-                    PickSet::Focus.run_if(Self::focus_should_run),
-                    PickSet::PostFocus,
+                    PickSet::Hover.run_if(Self::hover_should_run),
+                    PickSet::PostHover,
                     PickSet::Last,
                 )
                     .chain(),
@@ -393,10 +393,10 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use focus::{update_focus, update_interactions};
+        use hover::{generate_hovermap, update_interactions};
 
-        app.init_resource::<focus::HoverMap>()
-            .init_resource::<focus::PreviousHoverMap>()
+        app.init_resource::<hover::HoverMap>()
+            .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
@@ -414,9 +414,9 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, update_interactions, pointer_events)
+                (generate_hovermap, update_interactions, pointer_events)
                     .chain()
-                    .in_set(PickSet::Focus),
+                    .in_set(PickSet::Hover),
             );
     }
 }
