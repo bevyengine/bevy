@@ -114,7 +114,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -126,7 +126,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -138,21 +138,21 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
-    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// Writes the [`gpu_preprocessing::IndirectParameters`] necessary to draw
+    /// this batch into the given [`IndirectParametersBuffer`] at the given
     /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    fn get_batch_indirect_parameters_index(
+    fn write_batch_indirect_parameters(
         param: &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32>;
+        indirect_parameters_offset: u32,
+        entity: MainEntity,
+    );
 }
 
 /// Sorts a render phase that uses bins.

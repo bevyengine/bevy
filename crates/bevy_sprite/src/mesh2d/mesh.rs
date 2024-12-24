@@ -375,7 +375,7 @@ impl GetFullBatchData for Mesh2dPipeline {
 
     fn get_binned_batch_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((&mesh_instance.transforms).into())
@@ -383,7 +383,7 @@ impl GetFullBatchData for Mesh2dPipeline {
 
     fn get_index_and_compare_data(
         _: &SystemParamItem<Self::Param>,
-        _query_item: (Entity, MainEntity),
+        _query_item: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         error!(
             "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
@@ -394,7 +394,7 @@ impl GetFullBatchData for Mesh2dPipeline {
 
     fn get_binned_index(
         _: &SystemParamItem<Self::Param>,
-        _query_item: (Entity, MainEntity),
+        _query_item: MainEntity,
     ) -> Option<NonMaxU32> {
         error!(
             "`get_binned_index` is only intended for GPU mesh uniform building, \
@@ -403,15 +403,23 @@ impl GetFullBatchData for Mesh2dPipeline {
         None
     }
 
-    fn get_batch_indirect_parameters_index(
+    fn write_batch_indirect_parameters(
         (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer,
-        (_entity, main_entity): (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32> {
-        let mesh_instance = mesh_instances.get(&main_entity)?;
-        let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
-        let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
+        indirect_parameters_offset: u32,
+        main_entity: MainEntity,
+    ) {
+        let Some(mesh_instance) = mesh_instances.get(&main_entity) else {
+            return;
+        };
+        let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            return;
+        };
+        let Some(vertex_buffer_slice) =
+            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+        else {
+            return;
+        };
 
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
@@ -420,28 +428,31 @@ impl GetFullBatchData for Mesh2dPipeline {
             RenderMeshBufferInfo::Indexed {
                 count: index_count, ..
             } => {
-                let index_buffer_slice =
-                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)?;
+                let Some(index_buffer_slice) =
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+                else {
+                    return;
+                };
                 IndirectParameters {
                     vertex_or_index_count: index_count,
                     instance_count: 0,
                     first_vertex_or_first_index: index_buffer_slice.range.start,
                     base_vertex_or_first_instance: vertex_buffer_slice.range.start,
-                    first_instance: instance_index,
+                    first_instance: 0,
                 }
             }
             RenderMeshBufferInfo::NonIndexed => IndirectParameters {
                 vertex_or_index_count: mesh.vertex_count,
                 instance_count: 0,
                 first_vertex_or_first_index: vertex_buffer_slice.range.start,
-                base_vertex_or_first_instance: instance_index,
-                first_instance: instance_index,
+                base_vertex_or_first_instance: 0,
+                // Use `0xffffffff` as a placeholder to tell the mesh
+                // preprocessing shader that this is a non-indexed mesh.
+                first_instance: !0,
             },
         };
 
-        (indirect_parameters_buffer.push(indirect_parameters) as u32)
-            .try_into()
-            .ok()
+        indirect_parameters_buffer.set(indirect_parameters_offset, indirect_parameters);
     }
 }
 
