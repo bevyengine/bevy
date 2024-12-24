@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap, EntityHashSet},
+    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
     event::EventReader,
     query::With,
     removal_detection::RemovedComponents,
