@@ -18,6 +18,9 @@ mod paths {
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
 
+#[expect(unused, reason = "imported just for doc links")]
+use super::CurveExt;
+
 // NOTE ON REFLECTION:
 //
 // Function members of structs pose an obstacle for reflection, because they don't implement
@@ -173,7 +176,7 @@ where
 }
 
 /// A curve whose samples are defined by mapping samples from another curve through a
-/// given function. Curves of this type are produced by [`Curve::map`].
+/// given function. Curves of this type are produced by [`CurveExt::map`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -269,7 +272,7 @@ where
 }
 
 /// A curve whose sample space is mapped onto that of some base curve's before sampling.
-/// Curves of this type are produced by [`Curve::reparametrize`].
+/// Curves of this type are produced by [`CurveExt::reparametrize`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -364,7 +367,7 @@ where
 }
 
 /// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
-/// Curves of this type are produced by [`Curve::reparametrize_linear`].
+/// Curves of this type are produced by [`CurveExt::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -399,7 +402,7 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
+/// sample times before sampling. Curves of this type are produced by [`CurveExt::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -432,7 +435,7 @@ where
 }
 
 /// A curve that is the graph of another curve over its parameter space. Curves of this type are
-/// produced by [`Curve::graph`].
+/// produced by [`CurveExt::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -462,7 +465,7 @@ where
 }
 
 /// A curve that combines the output data from two constituent curves into a tuple output. Curves
-/// of this type are produced by [`Curve::zip`].
+/// of this type are produced by [`CurveExt::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -503,7 +506,7 @@ where
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.
 ///
-/// Curves of this type are produced by [`Curve::chain`].
+/// Curves of this type are produced by [`CurveExt::chain`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -549,7 +552,7 @@ where
 
 /// The curve that results from reversing another.
 ///
-/// Curves of this type are produced by [`Curve::reverse`].
+/// Curves of this type are produced by [`CurveExt::reverse`].
 ///
 /// # Domain
 ///
@@ -590,7 +593,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::repeat`].
+/// Curves of this type are produced by [`CurveExt::repeat`].
 ///
 /// # Domain
 ///
@@ -649,7 +652,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::forever`].
+/// Curves of this type are produced by [`CurveExt::forever`].
 ///
 /// # Domain
 ///
@@ -703,7 +706,7 @@ where
 /// The curve that results from chaining a curve with its reversed version. The transition point
 /// is guaranteed to make no jump.
 ///
-/// Curves of this type are produced by [`Curve::ping_pong`].
+/// Curves of this type are produced by [`CurveExt::ping_pong`].
 ///
 /// # Domain
 ///
@@ -756,7 +759,7 @@ where
 /// realized by translating the second curve so that its start sample point coincides with the
 /// first curves' end sample point.
 ///
-/// Curves of this type are produced by [`Curve::chain_continue`].
+/// Curves of this type are produced by [`CurveExt::chain_continue`].
 ///
 /// # Domain
 ///
