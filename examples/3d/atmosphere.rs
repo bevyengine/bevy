@@ -3,10 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::tonemapping::Tonemapping,
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
-use bevy_internal::core_pipeline::tonemapping::Tonemapping;
 use light_consts::lux;
 
 fn main() {
@@ -14,7 +14,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, rotate_sun)
-        .add_systems(Update, translate_camera)
         .run();
 }
 
@@ -64,12 +63,4 @@ fn setup_terrain_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
     sun.rotate_z(time.delta_secs() * PI / 30.0);
-}
-
-fn translate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
-    // camera.translation.y += time.delta_secs() * 0.2;
-    if time.elapsed_secs() < 5.0 {
-        return;
-    }
-    camera.rotate_z(time.delta_secs() * PI / 30.0);
 }
