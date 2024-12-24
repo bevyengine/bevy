@@ -162,6 +162,7 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
 bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+bevy_image = ["dep:bevy_image"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
