@@ -64,8 +64,12 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
+                    prepare_downsampling_pipeline
+                        .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows),
+                    prepare_upsampling_pipeline
+                        .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows),
                     prepare_bloom_textures.in_set(RenderSet::PrepareResources),
                     prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),

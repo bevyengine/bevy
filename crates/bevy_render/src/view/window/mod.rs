@@ -42,7 +42,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
+                .add_systems(Render, prepare_windows.in_set(RenderSet::PrepareWindows));
         }
     }
 

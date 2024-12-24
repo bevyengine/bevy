@@ -153,7 +153,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
+                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare).after(RenderSet::PrepareWindows),
                     prepare_preprocess_bind_groups
                         .run_if(
                             resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,

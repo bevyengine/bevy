@@ -16,6 +16,7 @@ use nonmax::NonMaxU32;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
+    camera::ExtractedCamera,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
         CachedRenderPipelinePhaseItem, PhaseItemBinKey as _, PhaseItemExtraIndex, SortedPhaseItem,
@@ -24,7 +25,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, NoIndirectDrawing, ViewTarget},
+    view::{ExtractedView, NoIndirectDrawing},
     Render, RenderApp, RenderSet,
 };
 
@@ -491,14 +492,15 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 /// A system that removes GPU preprocessing work item buffers that correspond to
 /// deleted [`ViewTarget`]s.
 ///
-/// This is a separate system from [`clear_batched_gpu_instance_buffers`]
-/// because [`ViewTarget`]s aren't created until after the extraction phase is
-/// completed.
+/// View targets aren't created until the [`RenderSet::PrepareWindows`] phase,
+/// so we can't issue a query for them directly. Instead, we search for
+/// [`ExtractedView`]s, which the [`crate::view::prepare_view_targets`] system
+/// will attach [`ViewTarget`]s to.
 pub fn delete_old_work_item_buffers<GFBD>(
     mut gpu_batched_instance_buffers: ResMut<
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
-    view_targets: Query<Entity, With<ViewTarget>>,
+    view_targets: Query<Entity, With<ExtractedView>>,
 ) where
     GFBD: GetFullBatchData,
 {

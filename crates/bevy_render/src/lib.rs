@@ -151,6 +151,12 @@ pub enum RenderSet {
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
+    /// A sub-set within [`Prepare`](RenderSet::Prepare) for acquiring the new
+    /// swap chain buffer.
+    ///
+    /// This may block on the GPU finishing the last frame, so it should be as
+    /// late as possible in order to pipeline the maximum amount of CPU work.
+    PrepareWindows,
     /// Actual rendering happens here.
     /// In most cases, only the render backend should insert resources here.
     Render,
@@ -196,7 +202,12 @@ impl Render {
                 .after(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+            (
+                PrepareResources,
+                PrepareResourcesFlush,
+                PrepareBindGroups,
+                PrepareWindows,
+            )
                 .chain()
                 .in_set(Prepare),
         );

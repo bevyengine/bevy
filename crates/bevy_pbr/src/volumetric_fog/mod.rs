@@ -247,10 +247,15 @@ impl Plugin for VolumetricFogPlugin {
             .add_systems(
                 Render,
                 (
-                    render::prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    render::prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
+                    render::prepare_volumetric_fog_pipelines
+                        .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows),
+                    render::prepare_volumetric_fog_uniforms
+                        .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows),
                     render::prepare_view_depth_textures_for_volumetric_fog
                         .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows)
                         .before(prepare_core_3d_depth_textures),
                 ),
             );

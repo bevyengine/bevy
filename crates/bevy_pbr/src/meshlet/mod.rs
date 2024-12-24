@@ -287,7 +287,7 @@ impl Plugin for MeshletPlugin {
                     perform_pending_meshlet_mesh_writes.in_set(RenderSet::PrepareAssets),
                     configure_meshlet_views
                         .after(prepare_view_targets)
-                        .in_set(RenderSet::ManageViews),
+                        .in_set(RenderSet::PrepareWindows),
                     prepare_meshlet_per_frame_resources.in_set(RenderSet::PrepareResources),
                     prepare_meshlet_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),

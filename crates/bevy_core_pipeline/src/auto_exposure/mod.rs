@@ -73,7 +73,9 @@ impl Plugin for AutoExposurePlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_buffers.in_set(RenderSet::Prepare),
+                    prepare_buffers
+                        .in_set(RenderSet::Prepare)
+                        .before(RenderSet::PrepareWindows),
                     queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
                 ),
             )

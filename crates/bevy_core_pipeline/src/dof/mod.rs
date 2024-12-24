@@ -62,7 +62,7 @@ use smallvec::SmallVec;
 use crate::{
     core_3d::{
         graph::{Core3d, Node3d},
-        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+        prepare_core_3d_depth_textures, Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
@@ -226,20 +226,18 @@ impl Plugin for DepthOfFieldPlugin {
             .add_systems(
                 Render,
                 (
-                    configure_depth_of_field_view_targets,
                     prepare_auxiliary_depth_of_field_textures,
-                )
-                    .after(prepare_view_targets)
-                    .in_set(RenderSet::ManageViews),
-            )
-            .add_systems(
-                Render,
-                (
                     prepare_depth_of_field_view_bind_group_layouts,
                     prepare_depth_of_field_pipelines,
                 )
-                    .chain()
-                    .in_set(RenderSet::Prepare),
+                    .after(prepare_view_targets)
+                    .in_set(RenderSet::PrepareWindows),
+            )
+            .add_systems(
+                Render,
+                configure_depth_of_field_view_targets
+                    .before(prepare_core_3d_depth_textures)
+                    .in_set(RenderSet::PrepareResources),
             )
             .add_systems(
                 Render,
