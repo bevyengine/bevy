@@ -670,7 +670,7 @@ mod tests {
 
         let handle1: Handle<TestAsset> = unique_handle!();
         let handle2: Handle<TestAsset> = unique_handle!();
-        panic!("{:?}, {:?}", handle1, handle2);
+        assert_ne!(handle1, handle2);
     }
 
     /// `Reflect::clone_value` should increase the strong count of a strong handle
