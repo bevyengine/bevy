@@ -8,6 +8,10 @@ use std::path::{Path, PathBuf};
 /// Adds the `http` and `https` asset sources to the app.
 /// Any asset path that begins with `http` or `https` will be loaded from the web
 /// via `fetch`(wasm) or `ureq`(native).
+/// Note that the use of secure `https` sources in non-wasm builds requires the following dependency:
+/// ```toml
+/// ureq = { version = "*", features = ["tls"] }
+/// ```
 pub fn http_source_plugin(app: &mut App) {
     app.register_asset_source(
         "http",

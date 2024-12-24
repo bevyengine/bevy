@@ -68,7 +68,7 @@ notify-debouncer-full = { version = "0.4.0", optional = true }
 ureq = { version = "2.10", optional = true, default-features = false, features = [
   "brotli",
   "gzip",
-  "tls",
+  # we should add tls feature when ring gets a cleaner license https://github.com/briansmith/ring/issues/1827
 ] }
 
 [dev-dependencies]

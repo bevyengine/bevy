@@ -1,4 +1,8 @@
 //! Example usage of the `http` asset source to load assets from the web.
+/// Note that the use of secure `https` sources in non-wasm builds requires the following dependency:
+//! ```toml
+//! ureq = { version = "*", features = ["tls"] }
+//! ```
 use bevy::prelude::*;
 
 fn main() {
