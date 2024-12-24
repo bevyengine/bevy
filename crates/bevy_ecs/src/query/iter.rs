@@ -1,4 +1,6 @@
 use super::{QueryData, QueryFilter, ReadOnlyQueryData, StorageIds};
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::StorageId;
 use crate::{
     archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     bundle::Bundle,
@@ -11,8 +13,6 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef,
     },
 };
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::query::StorageId;
 use alloc::vec::Vec;
 use core::{
     cmp::Ordering,
