@@ -3,8 +3,8 @@ use core::{fmt::Write, iter, time::Duration};
 use bevy_reflect::{DynamicMap, Map};
 use bevy_utils::HashMap;
 use criterion::{
-    black_box, criterion_group, criterion_main, measurement::Measurement, BatchSize,
-    BenchmarkGroup, BenchmarkId, Criterion, Throughput,
+    black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, Throughput,
 };
 
 criterion_group!(
@@ -14,7 +14,6 @@ criterion_group!(
     dynamic_map_get,
     dynamic_map_insert
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
@@ -218,7 +217,7 @@ fn dynamic_map_get(criterion: &mut Criterion) {
                 bencher.iter(|| {
                     for i in 0..size as u64 {
                         let key = black_box(i);
-                        black_box(assert!(map.get(&key).is_some()));
+                        black_box(map.get(&key));
                     }
                 });
             },
@@ -266,7 +265,7 @@ fn dynamic_map_insert(criterion: &mut Criterion) {
                     |mut map| {
                         for i in 0..size as u64 {
                             let key = black_box(i);
-                            black_box(map.insert(key, i));
+                            map.insert(key, black_box(i));
                         }
                     },
                     BatchSize::SmallInput,

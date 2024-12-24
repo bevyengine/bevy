@@ -88,7 +88,6 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
   "bevy_color?/serialize",
-  "bevy_core/serialize",
   "bevy_ecs/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
@@ -235,6 +234,9 @@ bevy_sprite_picking_backend = [
 # Provides a UI picking backend
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
+# Provides a UI debug overlay
+bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
@@ -261,7 +263,6 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }

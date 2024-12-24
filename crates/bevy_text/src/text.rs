@@ -232,7 +232,8 @@ impl From<String> for TextSpan {
 /// This only affects the internal positioning of the lines of text within a text entity and
 /// does not affect the text entity's position.
 ///
-/// _Has no affect on a single line text entity._
+/// _Has no affect on a single line text entity_, unless used together with a
+/// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum JustifyText {

@@ -32,7 +32,7 @@ impl Node for CameraDriverNode {
     ) -> Result<(), NodeRunError> {
         let sorted_cameras = world.resource::<SortedCameras>();
         let windows = world.resource::<ExtractedWindows>();
-        let mut camera_windows = HashSet::new();
+        let mut camera_windows = <HashSet<_>>::default();
         for sorted_camera in &sorted_cameras.0 {
             let Ok(camera) = self.cameras.get_manual(world, sorted_camera.entity) else {
                 continue;

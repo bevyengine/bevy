@@ -271,7 +271,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_ids = HashMap::default();
+        let mut texture_ids = <HashMap<_, _>>::default();
         // We iterate through the textures to place to respect the insertion order for the texture indices
         for (index, (image_id, texture)) in self.textures_to_place.iter().enumerate() {
             let (_, packed_location) = rect_placements.packed_locations().get(&index).unwrap();
