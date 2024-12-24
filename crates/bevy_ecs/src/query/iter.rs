@@ -1116,7 +1116,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
         // it with an empty one.
         let empty_iterator =
             QueryIterationEntitySource::new_from_storage_ids_empty(&self.query_state.storage_ids);
-        match std::mem::replace(&mut self.cursor.entity_source, empty_iterator) {
+        match core::mem::replace(&mut self.cursor.entity_source, empty_iterator) {
             QueryIterationEntitySource::Tables { table_ids, .. } => {
                 table_ids.fold(accum, |accum, id| {
                     // SAFETY:
