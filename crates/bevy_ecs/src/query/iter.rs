@@ -1,11 +1,13 @@
-use super::{QueryData, QueryFilter, ReadOnlyQueryData};
+use super::{QueryData, QueryFilter, ReadOnlyQueryData, StorageIds};
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::StorageId;
 use crate::{
-    archetype::{Archetype, ArchetypeEntity, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
-    storage::{Table, TableRow, Tables},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState},
+    storage::{Table, TableId, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef,
@@ -126,71 +128,120 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an storage.
+    /// from a storage, where the storage to iterate is expressed as either an archetype
+    /// or table ID, involving a branch to determine which.
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - `storage_id` must have been retrieved from `cursor.entity_source` to ensure
+    ///    that the variant of `StorageId` matches the variant of `QueryIterationEntitySource`.
     #[inline]
-    pub(super) unsafe fn fold_over_storage_range<B, Func>(
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(super) unsafe fn fold_over_storage_range_by_id<B, Func>(
         &mut self,
-        mut accum: B,
+        accum: B,
         func: &mut Func,
-        storage: StorageId,
+        storage_id: StorageId,
         range: Option<Range<usize>>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
-        if self.cursor.is_dense {
-            // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
-            let table_id = unsafe { storage.table_id };
-            // SAFETY: Matched table IDs are guaranteed to still exist.
-            let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
-
-            let range = range.unwrap_or(0..table.entity_count());
-            accum =
+        match storage_id {
+            StorageId::Table(table_id) => {
                 // SAFETY:
-                // - The fetched table matches both D and F
-                // - caller ensures `range` is within `[0, table.entity_count)`
-                // - The if block ensures that the query iteration is dense
-                unsafe { self.fold_over_table_range(accum, func, table, range) };
-        } else {
-            // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
-            let archetype_id = unsafe { storage.archetype_id };
-            // SAFETY: Matched archetype IDs are guaranteed to still exist.
-            let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
-            // SAFETY: Matched table IDs are guaranteed to still exist.
-            let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
-
-            let range = range.unwrap_or(0..archetype.len());
-
-            // When an archetype and its table have equal entity counts, dense iteration can be safely used.
-            // this leverages cache locality to optimize performance.
-            if table.entity_count() == archetype.len() {
-                accum =
+                // - The caller has ensured a valid `storage_id` and `range`
+                // - The caller has ensured we provided the original `storage_id`, and so we can
+                //   trust it that table iteration is valid.
+                unsafe { self.fold_over_table_range_by_id(accum, func, table_id, range) }
+            }
+            StorageId::Archetype(archetype_id) => {
                 // SAFETY:
-                // - The fetched archetype matches both D and F
-                // - The provided archetype and its' table have the same length.
-                // - caller ensures `range` is within `[0, archetype.len)`
-                // - The if block ensures that the query iteration is not dense.
-                unsafe { self.fold_over_dense_archetype_range(accum, func, archetype,range) };
-            } else {
-                accum =
-                // SAFETY:
-                // - The fetched archetype matches both D and F
-                // - caller ensures `range` is within `[0, archetype.len)`
-                // - The if block ensures that the query iteration is not dense.
-                unsafe { self.fold_over_archetype_range(accum, func, archetype,range) };
+                // - The caller has ensured a valid `storage_id` and `range`
+                // - The caller has ensured we provided the original `storage_id`, and so we can
+                //   trust it that archetype iteration is valid.
+                unsafe { self.fold_over_archetype_range_by_id(accum, func, archetype_id, range) }
             }
         }
-        accum
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment of a table,
+    /// where the table to iterate is determined by its ID.
+    ///
+    ///  # Safety
+    ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - It is the callers responsibility to ensure it is valid to iterate by table in this query,
+    ///    typically by having retrieved the `table_id` from `cursor.entity_source`
+    #[inline]
+    pub(super) unsafe fn fold_over_table_range_by_id<B, Func>(
+        &mut self,
+        accum: B,
+        func: &mut Func,
+        table_id: TableId,
+        range: Option<Range<usize>>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        // SAFETY: Caller ensures the table ID exists.
+        let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+
+        let range = range.unwrap_or(0..table.entity_count());
+        // SAFETY:
+        // - The fetched table matches both D and F
+        // - Caller ensures `range` is within `[0, table.entity_count)`
+        // - Caller ensures query is suitable for table iteration
+        unsafe { self.fold_over_table_range(accum, func, table, range) }
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment of an archetype
+    /// where the archetype to iterate is determined by its ID.
+    ///
+    ///  # Safety
+    ///  - `range` must be in `[0, storage::entity_count)` or None.
+    ///  - It is the callers responsibility to ensure it is valid to iterate by archetype in this
+    ///    query, typically by having retrieved the `archetype_id` from `cursor.entity_source`
+    #[inline]
+    pub(super) unsafe fn fold_over_archetype_range_by_id<B, Func>(
+        &mut self,
+        accum: B,
+        func: &mut Func,
+        archetype_id: ArchetypeId,
+        range: Option<Range<usize>>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        // SAFETY: Caller ensures archetype ID exists
+        let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
+        // SAFETY: Archetype ensures table ID exists
+        let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+
+        let range = range.unwrap_or(0..archetype.len());
+
+        // When an archetype and its table have equal entity counts, table iteration can be safely
+        // used. This leverages cache locality to optimize performance.
+        if table.entity_count() == archetype.len() {
+            // SAFETY:
+            // - The fetched archetype matches both D and F
+            // - The provided archetype and its table have the same length.
+            // - Caller ensures `range` is within `[0, archetype.len)`
+            // - Caller ensures query is suitable for table iteration
+            unsafe { self.fold_over_dense_archetype_range(accum, func, archetype, range) }
+        } else {
+            // SAFETY:
+            // - The fetched archetype matches both D and F
+            // - Caller ensures `range` is within `[0, archetype.len)`
+            // - Caller ensures query is suitable for table iteration
+            unsafe { self.fold_over_archetype_range(accum, func, archetype, range) }
+        }
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an table.
+    /// from a table, where the table to iterate is provided by the caller.
     ///
     /// # Safety
-    ///  - all `rows` must be in `[0, table.entity_count)`.
+    ///  - All `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
     ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
     #[inline]
@@ -242,10 +293,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an archetype.
+    /// from an archetype, where the archetype to iterate is provided by the caller.
     ///
     /// # Safety
-    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - All `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
@@ -310,12 +361,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an archetype which has the same entity count as its table.
+    /// from an archetype which has the same entity count as its table, where the archetype
+    /// (and by extension, table) is specified by the caller.
     ///
     /// # Safety
-    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - All `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `archetype` must have the same length with it's table.
+    ///  - `archetype` must have the same length with its table.
     ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
@@ -373,6 +425,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             accum = func(accum, item);
         }
         accum
+    }
+
+    fn assert_next_not_called(&self) {
+        // On the first successful iteration of `QueryIterationCursor`, `entity_source`
+        // will be set to a non-empty value. The correctness of this method relies on this.
+        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
+        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        if !self.cursor.entity_source.is_empty() {
+            panic!("it is not valid to call sort() after next()")
+        }
     }
 
     /// Sorts all query items into a new iterator, using the query lens as a key.
@@ -496,13 +558,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -588,13 +644,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -688,13 +738,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -754,13 +798,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -883,13 +921,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -952,13 +984,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -1021,13 +1047,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
+        self.assert_next_not_called();
 
         let world = self.world;
 
@@ -1094,12 +1114,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
 
-        for id in self.cursor.storage_id_iter.clone().copied() {
-            // SAFETY:
-            // - The range(None) is equivalent to [0, storage.entity_count)
-            accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
+        // We're going to consume the iterator, and don't want to mutably borrow self twice, so
+        // take ownership of the entity source with the iterator we want to consume, and replace
+        // it with an empty one.
+        let empty_iterator =
+            QueryIterationEntitySource::new_from_storage_ids_empty(&self.query_state.storage_ids);
+        match core::mem::replace(&mut self.cursor.entity_source, empty_iterator) {
+            QueryIterationEntitySource::Tables { table_ids, .. } => {
+                table_ids.fold(accum, |accum, id| {
+                    // SAFETY:
+                    // - The range(None) is equivalent to [0, storage.entity_count)
+                    unsafe { self.fold_over_table_range_by_id(accum, &mut func, *id, None) }
+                })
+            }
+            QueryIterationEntitySource::Archetypes { archetype_ids, .. } => {
+                archetype_ids.fold(accum, |accum, id| {
+                    // SAFETY:
+                    // - The range(None) is equivalent to [0, storage.entity_count)
+                    unsafe { self.fold_over_archetype_range_by_id(accum, &mut func, *id, None) }
+                })
+            }
         }
-        accum
     }
 }
 
@@ -2671,12 +2706,68 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
     }
 }
 
+/// Encapsulates whether we are iterating storage by archetype or by table and,
+/// once `QueryIterationCursor::next` has been called, what entities are being
+/// iterated from the current storage type.
+#[derive(Clone)]
+enum QueryIterationEntitySource<'w, 's> {
+    Archetypes {
+        archetype_ids: core::slice::Iter<'s, ArchetypeId>,
+        archetype_entities: &'w [ArchetypeEntity],
+    },
+    Tables {
+        table_ids: core::slice::Iter<'s, TableId>,
+        table_entities: &'w [Entity],
+    },
+}
+
+impl<'w, 's> QueryIterationEntitySource<'w, 's> {
+    /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
+    /// of `StorageIds` provided from the `QueryState` associated with this iteration, but
+    /// does not copy the storage IDs across.
+    fn new_from_storage_ids_empty(storage_ids: &'s StorageIds) -> Self {
+        match storage_ids {
+            StorageIds::Tables(_) => Self::Tables {
+                table_entities: &[],
+                table_ids: [].iter(),
+            },
+            StorageIds::Archetypes(_) => Self::Archetypes {
+                archetype_entities: &[],
+                archetype_ids: [].iter(),
+            },
+        }
+    }
+
+    /// Creates the appropriate variant of `QueryIterationEntitySource` based on the variant
+    /// of `StorageIds` provided from the `QueryState` associated with this iteration. This
+    /// also initializes the storage ID iterators as appropriate.
+    fn new_from_storage_ids(storage_ids: &'s StorageIds) -> Self {
+        match storage_ids {
+            StorageIds::Tables(table_ids) => Self::Tables {
+                table_entities: &[],
+                table_ids: table_ids.iter(),
+            },
+            StorageIds::Archetypes(archetype_ids) => Self::Archetypes {
+                archetype_entities: &[],
+                archetype_ids: archetype_ids.iter(),
+            },
+        }
+    }
+
+    /// Returns whether the current entity array is empty, regardless of whether currently
+    /// iterating archetypes or tables.
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::Tables { table_entities, .. } => table_entities.is_empty(),
+            Self::Archetypes {
+                archetype_entities, ..
+            } => archetype_entities.is_empty(),
+        }
+    }
+}
+
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
-    // whether the query iteration is dense or not. Mirrors QueryState's `is_dense` field.
-    is_dense: bool,
-    storage_id_iter: core::slice::Iter<'s, StorageId>,
-    table_entities: &'w [Entity],
-    archetype_entities: &'w [ArchetypeEntity],
+    entity_source: QueryIterationEntitySource<'w, 's>,
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
@@ -2688,10 +2779,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
     fn clone(&self) -> Self {
         Self {
-            is_dense: self.is_dense,
-            storage_id_iter: self.storage_id_iter.clone(),
-            table_entities: self.table_entities,
-            archetype_entities: self.archetype_entities,
+            entity_source: self.entity_source.clone(),
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
@@ -2711,7 +2799,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
-            storage_id_iter: [].iter(),
+            entity_source: QueryIterationEntitySource::new_from_storage_ids_empty(
+                &query_state.storage_ids,
+            ),
             ..Self::init(world, query_state, last_run, this_run)
         }
     }
@@ -2730,10 +2820,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         QueryIterationCursor {
             fetch,
             filter,
-            table_entities: &[],
-            archetype_entities: &[],
-            storage_id_iter: query_state.matched_storage_ids.iter(),
-            is_dense: query_state.is_dense,
+            entity_source: QueryIterationEntitySource::new_from_storage_ids(
+                &query_state.storage_ids,
+            ),
             current_len: 0,
             current_row: 0,
         }
@@ -2741,12 +2830,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
     fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
         QueryIterationCursor {
-            is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),
             filter: F::shrink_fetch(self.filter.clone()),
-            table_entities: self.table_entities,
-            archetype_entities: self.archetype_entities,
-            storage_id_iter: self.storage_id_iter.clone(),
+            entity_source: self.entity_source.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
         }
@@ -2761,31 +2847,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            if self.is_dense {
-                // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let entity = unsafe { self.table_entities.get_unchecked(index) };
-                // SAFETY:
-                //  - `set_table` must have been called previously either in `next` or before it.
-                //  - `*entity` and `index` are in the current table.
-                unsafe {
-                    Some(D::fetch(
-                        &mut self.fetch,
-                        *entity,
-                        TableRow::from_usize(index),
-                    ))
+            match &self.entity_source {
+                QueryIterationEntitySource::Tables { table_entities, .. } => {
+                    // SAFETY: This must have been called previously in `next` as `current_row > 0`
+                    let entity = unsafe { table_entities.get_unchecked(index) };
+                    // SAFETY:
+                    //  - `set_table` must have been called previously either in `next` or before it.
+                    //  - `*entity` and `index` are in the current table.
+                    unsafe {
+                        Some(D::fetch(
+                            &mut self.fetch,
+                            *entity,
+                            TableRow::from_usize(index),
+                        ))
+                    }
                 }
-            } else {
-                // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let archetype_entity = unsafe { self.archetype_entities.get_unchecked(index) };
-                // SAFETY:
-                //  - `set_archetype` must have been called previously either in `next` or before it.
-                //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
-                unsafe {
-                    Some(D::fetch(
-                        &mut self.fetch,
-                        archetype_entity.id(),
-                        archetype_entity.table_row(),
-                    ))
+                QueryIterationEntitySource::Archetypes {
+                    archetype_entities, ..
+                } => {
+                    // SAFETY: This must have been called previously in `next` as `current_row > 0`
+                    let archetype_entity = unsafe { archetype_entities.get_unchecked(index) };
+                    // SAFETY:
+                    //  - `set_archetype` must have been called previously either in `next` or before it.
+                    //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
+                    unsafe {
+                        Some(D::fetch(
+                            &mut self.fetch,
+                            archetype_entity.id(),
+                            archetype_entity.table_row(),
+                        ))
+                    }
                 }
             }
         } else {
@@ -2798,13 +2889,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
-        let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if self.is_dense {
-            // SAFETY: The if check ensures that storage_id_iter stores TableIds
-            unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
-        } else {
-            // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
-            unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
+        let remaining_matched: usize = match &self.entity_source {
+            QueryIterationEntitySource::Tables { table_ids, .. } => {
+                table_ids.clone().map(|id| tables[*id].entity_count()).sum()
+            }
+            QueryIterationEntitySource::Archetypes { archetype_ids, .. } => {
+                archetype_ids.clone().map(|id| archetypes[*id].len()).sum()
+            }
         };
         remaining_matched + self.current_len - self.current_row
     }
@@ -2822,102 +2913,111 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w>> {
-        if self.is_dense {
-            loop {
-                // we are on the beginning of the query, or finished processing a table, so skip to the next
-                if self.current_row == self.current_len {
-                    let table_id = self.storage_id_iter.next()?.table_id;
-                    let table = tables.get(table_id).debug_checked_unwrap();
-                    if table.is_empty() {
+        match &mut self.entity_source {
+            QueryIterationEntitySource::Tables {
+                table_ids,
+                table_entities,
+            } => {
+                loop {
+                    // we are on the beginning of the query, or finished processing a table, so skip to the next
+                    if self.current_row == self.current_len {
+                        let table_id = *table_ids.next()?;
+                        let table = tables.get(table_id).debug_checked_unwrap();
+                        if table.is_empty() {
+                            continue;
+                        }
+                        // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                        // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                        unsafe {
+                            D::set_table(&mut self.fetch, &query_state.fetch_state, table);
+                            F::set_table(&mut self.filter, &query_state.filter_state, table);
+                        }
+                        *table_entities = table.entities();
+                        self.current_len = table.entity_count();
+                        self.current_row = 0;
+                    }
+
+                    // SAFETY: set_table was called prior.
+                    // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
+                    let entity = unsafe { table_entities.get_unchecked(self.current_row) };
+                    let row = TableRow::from_usize(self.current_row);
+                    if !F::filter_fetch(&mut self.filter, *entity, row) {
+                        self.current_row += 1;
                         continue;
                     }
-                    // SAFETY: `table` is from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    unsafe {
-                        D::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                        F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    }
-                    self.table_entities = table.entities();
-                    self.current_len = table.entity_count();
-                    self.current_row = 0;
-                }
 
-                // SAFETY: set_table was called prior.
-                // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
-                let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
-                let row = TableRow::from_usize(self.current_row);
-                if !F::filter_fetch(&mut self.filter, *entity, row) {
+                    // SAFETY:
+                    // - set_table was called prior.
+                    // - `current_row` must be a table row in range of the current table,
+                    //   because if it was not, then the above would have been executed.
+                    // - fetch is only called once for each `entity`.
+                    let item = unsafe { D::fetch(&mut self.fetch, *entity, row) };
+
                     self.current_row += 1;
-                    continue;
+                    return Some(item);
                 }
-
-                // SAFETY:
-                // - set_table was called prior.
-                // - `current_row` must be a table row in range of the current table,
-                //   because if it was not, then the above would have been executed.
-                // - fetch is only called once for each `entity`.
-                let item = unsafe { D::fetch(&mut self.fetch, *entity, row) };
-
-                self.current_row += 1;
-                return Some(item);
             }
-        } else {
-            loop {
-                if self.current_row == self.current_len {
-                    let archetype_id = self.storage_id_iter.next()?.archetype_id;
-                    let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
-                    if archetype.is_empty() {
-                        continue;
+            QueryIterationEntitySource::Archetypes {
+                archetype_ids,
+                archetype_entities,
+            } => {
+                loop {
+                    if self.current_row == self.current_len {
+                        let archetype_id = *archetype_ids.next()?;
+                        let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+                        if archetype.is_empty() {
+                            continue;
+                        }
+                        let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                        // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
+                        // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                        unsafe {
+                            D::set_archetype(
+                                &mut self.fetch,
+                                &query_state.fetch_state,
+                                archetype,
+                                table,
+                            );
+                            F::set_archetype(
+                                &mut self.filter,
+                                &query_state.filter_state,
+                                archetype,
+                                table,
+                            );
+                        }
+                        *archetype_entities = archetype.entities();
+                        self.current_len = archetype.len();
+                        self.current_row = 0;
                     }
-                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    unsafe {
-                        D::set_archetype(
-                            &mut self.fetch,
-                            &query_state.fetch_state,
-                            archetype,
-                            table,
-                        );
-                        F::set_archetype(
-                            &mut self.filter,
-                            &query_state.filter_state,
-                            archetype,
-                            table,
-                        );
-                    }
-                    self.archetype_entities = archetype.entities();
-                    self.current_len = archetype.len();
-                    self.current_row = 0;
-                }
 
-                // SAFETY: set_archetype was called prior.
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity =
-                    unsafe { self.archetype_entities.get_unchecked(self.current_row) };
-                if !F::filter_fetch(
-                    &mut self.filter,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                ) {
-                    self.current_row += 1;
-                    continue;
-                }
-
-                // SAFETY:
-                // - set_archetype was called prior.
-                // - `current_row` must be an archetype index row in range of the current archetype,
-                //   because if it was not, then the if above would have been executed.
-                // - fetch is only called once for each `archetype_entity`.
-                let item = unsafe {
-                    D::fetch(
-                        &mut self.fetch,
+                    // SAFETY: set_archetype was called prior.
+                    // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+                    let archetype_entity =
+                        unsafe { archetype_entities.get_unchecked(self.current_row) };
+                    if !F::filter_fetch(
+                        &mut self.filter,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
-                    )
-                };
-                self.current_row += 1;
-                return Some(item);
+                    ) {
+                        self.current_row += 1;
+                        continue;
+                    }
+
+                    // SAFETY:
+                    // - set_archetype was called prior.
+                    // - `current_row` must be an archetype index row in range of the current archetype,
+                    //   because if it was not, then the if above would have been executed.
+                    // - fetch is only called once for each `archetype_entity`.
+                    let item = unsafe {
+                        D::fetch(
+                            &mut self.fetch,
+                            archetype_entity.id(),
+                            archetype_entity.table_row(),
+                        )
+                    };
+                    self.current_row += 1;
+                    return Some(item);
+                }
             }
         }
     }
@@ -2956,6 +3056,7 @@ mod tests {
     use crate::entity::Entity;
     #[allow(unused_imports)]
     use crate::prelude::World;
+    use crate::query::iter::QueryIterationEntitySource;
     #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
 
@@ -2964,6 +3065,21 @@ mod tests {
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
+
+    impl<'w, 's> QueryIterationEntitySource<'w, 's> {
+        fn is_archetypes(&self) -> bool {
+            matches!(self, Self::Archetypes { .. })
+        }
+
+        fn entities_len(&self) -> usize {
+            match self {
+                Self::Tables { table_entities, .. } => table_entities.len(),
+                Self::Archetypes {
+                    archetype_entities, ..
+                } => archetype_entities.len(),
+            }
+        }
+    }
 
     #[allow(clippy::unnecessary_sort_by)]
     #[test]
@@ -3046,17 +3162,17 @@ mod tests {
             let mut query = world.query::<&A>();
             let mut iter = query.iter(&world);
             println!(
-                "archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
             _ = iter.next();
             println!(
-                "archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
@@ -3076,17 +3192,17 @@ mod tests {
             let mut query = world.query::<&Sparse>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "before_next_call: source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "after_next_call: source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
@@ -3101,17 +3217,17 @@ mod tests {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "before_next_call: source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                "after_next_call: source archetypes? {} source entities: {} current_len: {} current_row: {}",
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
@@ -3130,26 +3246,21 @@ mod tests {
             let mut iter = query.iter(&world);
             println!(
                 "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
-            assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
+            assert_eq!(iter.cursor.entity_source.entities_len(), 0);
             _ = iter.next();
             println!(
                 "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
+                iter.cursor.entity_source.is_archetypes(),
+                iter.cursor.entity_source.entities_len(),
                 iter.cursor.current_len,
                 iter.cursor.current_row
             );
-            assert!(
-                (
-                    iter.cursor.table_entities.len(),
-                    iter.cursor.archetype_entities.len()
-                ) != (0, 0)
-            );
+            assert_ne!(iter.cursor.entity_source.entities_len(), 0);
         }
     }
 
