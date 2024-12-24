@@ -61,6 +61,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_image|Load and access image data. Usually added by an image format|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
