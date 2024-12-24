@@ -11,7 +11,7 @@ fn main() -> AnyhowResult<()> {
     let host_part = format!("{}:{}", DEFAULT_ADDR, DEFAULT_PORT);
     let url = format!("http://{}/", host_part);
 
-    // If you pass no params, you'll be able to see all the optinos for arguments you can pass to the `./client.rs` remote example.
+    // If you pass no params, you'll be able to see all the options for arguments you can pass to the `./client.rs` remote example.
     let req = BrpRequest {
         jsonrpc: "2.0".to_string(),
         method: BRP_LIST_METHOD.to_string(),
