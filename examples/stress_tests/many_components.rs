@@ -23,13 +23,13 @@ use bevy::{
     },
     log::LogPlugin,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
-    ptr::OwningPtr,
+    ptr::{OwningPtr, PtrMut},
     MinimalPlugins,
 };
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};
 use rand_chacha::ChaCha8Rng;
-use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping, ptr::NonNull};
+use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 // A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
@@ -149,18 +149,12 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         let ptrs: Vec<OwningPtr> = values
             .iter_mut()
             .map(|value| {
-                // ManuallyDrop is repr(transparent) so casting it to a *mut u8 is valid.
-                let ptr = value as *mut ManuallyDrop<u8> as *mut u8;
-                // SAFETY: value is non null since it was initialized from an &mut above
-                #[allow(unsafe_code)]
-                let ptr = unsafe { NonNull::new_unchecked(ptr) };
                 // SAFETY:
-                // * values is valid until the end of the for block and this pointer is consumed by `insert_by_ids`.
-                // * ptr was created from a u8, so is aligned, and has correct provenance.
-                // * ptr was created from an exclusive reference and nothing else reads or writes to `values`.
+                // * We don't read/write `values` binding after this and values are `ManuallyDrop`,
+                // so we have the right to drop/move the values
                 #[allow(unsafe_code)]
                 unsafe {
-                    OwningPtr::new(ptr)
+                    PtrMut::from(value).promote()
                 }
             })
             .collect();
