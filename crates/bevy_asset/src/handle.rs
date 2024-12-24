@@ -9,8 +9,8 @@ use core::{
     hash::{Hash, Hasher},
 };
 use crossbeam_channel::{Receiver, Sender};
-use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
+use thiserror::Error;
 use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
@@ -502,11 +502,11 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
-#[derive(Error, Display, Debug, PartialEq, Clone)]
+#[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetConversionError {
     /// Caused when trying to convert an [`UntypedHandle`] into a [`Handle`] of the wrong type.
-    #[display(
+    #[error(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
     TypeIdMismatch { expected: TypeId, found: TypeId },

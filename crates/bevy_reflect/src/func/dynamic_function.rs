@@ -9,9 +9,12 @@ use crate::{
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
 
 /// A dynamic representation of a function.
 ///
@@ -79,7 +82,7 @@ impl<'env> DynamicFunction<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
@@ -134,7 +137,7 @@ impl<'env> DynamicFunction<'env> {
     /// The [name] of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///

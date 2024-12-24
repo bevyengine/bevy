@@ -91,6 +91,7 @@ fn main() {
                             StorageType::Table,
                             Layout::array::<u64>(size).unwrap(),
                             None,
+                            true,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {

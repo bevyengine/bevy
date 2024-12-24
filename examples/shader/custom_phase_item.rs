@@ -8,12 +8,11 @@
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
-    math::{vec3, Vec3A},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -271,11 +270,15 @@ fn queue_custom_phase_item(
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
                 Opaque3dBinKey {
-                    draw_function: draw_custom_phase_item,
-                    pipeline: pipeline_id,
+                    batch_set_key: Opaque3dBatchSetKey {
+                        draw_function: draw_custom_phase_item,
+                        pipeline: pipeline_id,
+                        material_bind_group_index: None,
+                        lightmap_image: None,
+                        vertex_slab: default(),
+                        index_slab: None,
+                    },
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_id: None,
-                    lightmap_image: None,
                 },
                 entity,
                 BinnedRenderPhaseType::NonMesh,

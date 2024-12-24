@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_phase::PhaseItemBinKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -41,8 +42,8 @@ use bevy_render::{
         PhaseItemExtraIndex,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer,
-        Extent3d, ShaderType, TextureFormat, TextureView,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
+        ShaderType, TextureFormat, TextureView,
     },
     texture::ColorAttachment,
 };
@@ -158,13 +159,21 @@ pub struct OpaqueNoLightmap3dBinKey {
     /// The function used to draw the mesh.
     pub draw_function: DrawFunctionId,
 
-    /// The ID of the asset.
-    pub asset_id: UntypedAssetId,
-
     /// The ID of a bind group specific to the material.
     ///
-    /// In the case of PBR, this is the `MaterialBindGroupId`.
-    pub material_bind_group_id: Option<BindGroupId>,
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
+
+    /// The ID of the asset.
+    pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItemBinKey for OpaqueNoLightmap3dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
+    }
 }
 
 impl PhaseItem for Opaque3dPrepass {
@@ -194,7 +203,7 @@ impl PhaseItem for Opaque3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -268,7 +277,7 @@ impl PhaseItem for AlphaMask3dPrepass {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]

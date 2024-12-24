@@ -1,6 +1,9 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec};
 
-use bevy_utils::all_tuples;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
+use variadics_please::all_tuples;
 
 use crate::{
     func::args::{ArgInfo, GetOwnership, Ownership},
@@ -109,7 +112,7 @@ impl FunctionInfo {
     /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
@@ -351,7 +354,7 @@ all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 /// | Anonymous function | `foo::bar::{{closure}}` | `None`                  |
 /// | Function pointer   | `fn() -> String`        | `None`                  |
 ///
-/// [`type_name`]: std::any::type_name
+/// [`type_name`]: core::any::type_name
 fn create_info<F>() -> FunctionInfo {
     let name = core::any::type_name::<F>();
 

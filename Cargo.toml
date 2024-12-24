@@ -102,6 +102,8 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "android-game-activity",
+  "android_shared_stdcxx",
   "animation",
   "bevy_asset",
   "bevy_state",
@@ -113,11 +115,16 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_ui_picking_backend",
+  "bevy_window",
+  "bevy_winit",
+  "custom_cursor",
+  "default_font",
+  "hdr",
   "multi_threaded",
   "png",
   "hdr",
@@ -133,13 +140,22 @@ default = [
 ]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_picking"]
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -208,6 +224,9 @@ bevy_ui = [
   "bevy_sprite",
   "bevy_color",
 ]
+
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -396,7 +415,7 @@ pbr_multi_layer_material_textures = [
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
-pbr_pcss = ["bevy_internal/pbr_pcss"]
+experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
@@ -1830,7 +1849,7 @@ wasm = false
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_deferred` system"
+description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1946,6 +1965,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "immutable_components"
+path = "examples/ecs/immutable_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.immutable_components]
+name = "Immutable Components"
+description = "Demonstrates the creation and utility of immutable components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true
@@ -2008,6 +2038,17 @@ doc-scrape-examples = true
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
 description = "Systems are skipped if their parameters cannot be acquired"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_systems"
+path = "examples/ecs/fallible_systems.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_systems]
+name = "Fallible Systems"
+description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2705,6 +2746,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_buttons]
 name = "Many Buttons"
 description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
 category = "Stress Tests"
 wasm = true
 
@@ -3634,6 +3686,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3645,6 +3698,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
@@ -3783,7 +3837,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["pbr_pcss"]
+required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
@@ -3800,6 +3854,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]

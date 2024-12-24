@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale,
+    ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -19,7 +19,7 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -33,24 +33,18 @@ pub(crate) mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
-    pub min_size: f32,
-    pub max_size: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
-        min_size: 0.0,
-        max_size: 0.0,
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
         }
     }
 }
@@ -60,8 +54,6 @@ impl LayoutContext {
     pub const TEST_CONTEXT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::new(1000.0, 1000.0),
-        min_size: 0.0,
-        max_size: 1000.0,
     };
 }
 
@@ -71,11 +63,11 @@ impl Default for LayoutContext {
     }
 }
 
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum LayoutError {
-    #[display("Invalid hierarchy")]
+    #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    #[display("Taffy error: {_0}")]
+    #[error("Taffy error: {0}")]
     TaffyError(taffy::TaffyError),
 }
 
@@ -278,7 +270,12 @@ with UI components as a child of an entity without UI components, your UI layout
 
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
+    ui_surface.remove_entities(
+        removed_components
+            .removed_nodes
+            .read()
+            .filter(|entity| !node_query.contains(*entity)),
+    );
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
@@ -338,31 +335,33 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok((layout, unrounded_unscaled_size)) = ui_surface.get_layout(entity) else {
+            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
 
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node, stored in the node's transform
             let node_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.size != layout_size || node.unrounded_size != unrounded_size {
+            if node.size != layout_size
+                || node.unrounded_size != unrounded_size
+                || node.inverse_scale_factor != inverse_target_scale_factor
+            {
                 node.size = layout_size;
                 node.unrounded_size = unrounded_size;
+                node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
-                left: rect.left * inverse_target_scale_factor,
-                right: rect.right * inverse_target_scale_factor,
-                top: rect.top * inverse_target_scale_factor,
-                bottom: rect.bottom * inverse_target_scale_factor,
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
             };
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
@@ -372,28 +371,35 @@ with UI components as a child of an entity without UI components, your UI layout
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.size, viewport_size);
+                node.bypass_change_detection().border_radius = border_radius.resolve(
+                    node.size,
+                    viewport_size,
+                    inverse_target_scale_factor.recip(),
+                );
             }
 
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    outline
-                        .width
-                        .resolve(node.size().x, viewport_size)
-                        .unwrap_or(0.)
-                        .max(0.)
+                    match outline.width {
+                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                        width => width,
+                    }
+                    .resolve(node.size().x, viewport_size)
+                    .unwrap_or(0.)
+                    .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = outline
-                    .offset
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+                node.outline_offset = match outline.offset {
+                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
+                    offset => offset,
+                }
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.);
             }
 
             if transform.translation.truncate() != node_center {
@@ -417,8 +423,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height)
-                * inverse_target_scale_factor;
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
@@ -456,7 +461,7 @@ mod tests {
         event::Events,
         prelude::{Commands, Component, In, Query, With},
         query::Without,
-        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
         system::RunSystemOnce,
         world::World,
     };
@@ -522,7 +527,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
                 propagate_transforms,
@@ -769,6 +774,38 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+    }
+
+    /// bugfix test, see [#16288](https://github.com/bevyengine/bevy/pull/16288)
+    #[test]
+    fn node_removal_and_reinsert_should_work() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+
+        let ui_entity = world.spawn(Node::default()).id();
+
+        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+
+        // remove and re-insert Node to trigger removal code in `ui_layout_system`
+        world.entity_mut(ui_entity).remove::<Node>();
+        world.entity_mut(ui_entity).insert(Node::default());
+
+        // `ui_layout_system` should still have `ui_entity`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
     }
 
     /// regression test for >=0.13.1 root node layouts
@@ -1094,7 +1131,7 @@ mod tests {
                     .sum();
                 let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
-                assert!((width_sum - 320.).abs() <= 1.);
+                assert!((width_sum - 320. * s).abs() <= 1.);
                 s += r;
             }
         }
@@ -1134,7 +1171,7 @@ mod tests {
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
             )
                 .chain(),

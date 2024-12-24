@@ -12,7 +12,7 @@ use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
@@ -30,7 +30,7 @@ pub struct SystemIdMarker;
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
-/// This struct is returned by [`World::remove_system`].
+/// This struct is returned by [`World::unregister_system`].
 pub struct RemovedSystem<I = (), O = ()> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -172,7 +172,7 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I, O>(
+    pub fn unregister_system<I, O>(
         &mut self,
         id: SystemId<I, O>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -412,7 +412,7 @@ impl World {
     /// Removes a cached system and its [`CachedSystemId`] resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn remove_system_cached<I, O, M, S>(
+    pub fn unregister_system_cached<I, O, M, S>(
         &mut self,
         _system: S,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -424,7 +424,7 @@ impl World {
         let id = self
             .remove_resource::<CachedSystemId<S::System>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.remove_system(id.0)
+        self.unregister_system(id.0)
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -544,6 +544,32 @@ where
     }
 }
 
+/// The [`Command`] type for unregistering one-shot systems from [`Commands`](crate::system::Commands).
+pub struct UnregisterSystem<I: SystemInput + 'static, O: 'static> {
+    system_id: SystemId<I, O>,
+}
+
+impl<I, O> UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
+    pub fn new(system_id: SystemId<I, O>) -> Self {
+        Self { system_id }
+    }
+}
+
+impl<I, O> Command for UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    fn apply(self, world: &mut World) {
+        let _ = world.unregister_system(self.system_id);
+    }
+}
+
 /// The [`Command`] type for running a cached one-shot system from
 /// [`Commands`](crate::system::Commands).
 ///
@@ -587,28 +613,28 @@ where
 }
 
 /// An operation with stored systems failed.
-#[derive(Error, Display)]
+#[derive(Error)]
 pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
-    #[display("System {_0:?} was not registered")]
+    #[error("System {0:?} was not registered")]
     SystemIdNotRegistered(SystemId<I, O>),
     /// A cached system was removed by value, but no system with its type was found.
     ///
     /// Did you forget to register it?
-    #[display("Cached system was not found")]
+    #[error("Cached system was not found")]
     SystemNotCached,
     /// A system tried to run itself recursively.
-    #[display("System {_0:?} tried to run itself recursively")]
+    #[error("System {0:?} tried to run itself recursively")]
     Recursive(SystemId<I, O>),
     /// A system tried to remove itself.
-    #[display("System {_0:?} tried to remove itself")]
+    #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
     InvalidParams(SystemId<I, O>),
 }
 
@@ -834,7 +860,7 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_eq!(old, new);
 
-        let result = world.remove_system_cached(four);
+        let result = world.unregister_system_cached(four);
         assert!(result.is_ok());
         let new = world.register_system_cached(four);
         assert_ne!(old, new);

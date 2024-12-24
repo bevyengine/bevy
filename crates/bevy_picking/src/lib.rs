@@ -18,7 +18,7 @@
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
-//!         // Stop the event from bubbling up the entity hierarchjy
+//!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
 //!     });
 //! ```
@@ -156,9 +156,10 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
-#[cfg(feature = "bevy_mesh")]
+#[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
 pub mod pointer;
+pub mod window;
 
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
@@ -168,7 +169,7 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh")]
+    #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
@@ -287,7 +288,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
+/// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
@@ -298,6 +299,8 @@ pub struct PickingPlugin {
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
     pub is_focus_enabled: bool,
+    /// Enables or disables picking for window entities.
+    pub is_window_picking_enabled: bool,
 }
 
 impl PickingPlugin {
@@ -305,10 +308,16 @@ impl PickingPlugin {
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
+
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
     pub fn focus_should_run(state: Res<Self>) -> bool {
         state.is_focus_enabled && state.is_enabled
+    }
+
+    /// Whether or not window entities should receive pick events.
+    pub fn window_picking_should_run(state: Res<Self>) -> bool {
+        state.is_window_picking_enabled && state.is_enabled
     }
 }
 
@@ -318,6 +327,7 @@ impl Default for PickingPlugin {
             is_enabled: true,
             is_input_enabled: true,
             is_focus_enabled: true,
+            is_window_picking_enabled: true,
         }
     }
 }
@@ -341,6 +351,12 @@ impl Plugin for PickingPlugin {
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
                     .in_set(PickSet::ProcessInput),
+            )
+            .add_systems(
+                PreUpdate,
+                window::update_window_hits
+                    .run_if(Self::window_picking_should_run)
+                    .in_set(PickSet::Backend),
             )
             .configure_sets(
                 First,

@@ -5,6 +5,7 @@ use core::{
     fmt::{self, Display, Formatter},
     ops::Range,
 };
+use nonmax::NonMaxU32;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
@@ -15,6 +16,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_utils::{
+    default,
     hashbrown::{HashMap, HashSet},
     tracing::error,
 };
@@ -152,9 +154,9 @@ pub struct MeshBufferSlice<'a> {
 }
 
 /// The index of a single slab.
-#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
-struct SlabId(u32);
+pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
 #[allow(clippy::large_enum_variant)]
@@ -331,7 +333,7 @@ impl FromWorld for MeshAllocator {
             slab_layouts: HashMap::new(),
             mesh_id_to_vertex_slab: HashMap::new(),
             mesh_id_to_index_slab: HashMap::new(),
-            next_slab_id: SlabId(0),
+            next_slab_id: default(),
             general_vertex_slabs_supported,
         }
     }
@@ -375,6 +377,19 @@ impl MeshAllocator {
     /// If the mesh has no index data or wasn't allocated, returns None.
     pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
+    }
+
+    /// Returns the IDs of the vertex buffer and index buffer respectively for
+    /// the mesh with the given ID.
+    ///
+    /// If the mesh wasn't allocated, or has no index data in the case of the
+    /// index buffer, the corresponding element in the returned tuple will be
+    /// None.
+    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> (Option<SlabId>, Option<SlabId>) {
+        (
+            self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),
+            self.mesh_id_to_index_slab.get(mesh_id).cloned(),
+        )
     }
 
     /// Given a slab and a mesh with data located with it, returns the buffer
@@ -713,7 +728,7 @@ impl MeshAllocator {
         // If we still have no allocation, make a new slab.
         if mesh_allocation.is_none() {
             let new_slab_id = self.next_slab_id;
-            self.next_slab_id.0 += 1;
+            self.next_slab_id.0 = NonMaxU32::new(self.next_slab_id.0.get() + 1).unwrap_or_default();
 
             let new_slab = GeneralSlab::new(
                 new_slab_id,
@@ -747,7 +762,7 @@ impl MeshAllocator {
     /// Allocates an object into its own dedicated slab.
     fn allocate_large(&mut self, mesh_id: &AssetId<Mesh>, layout: ElementLayout) {
         let new_slab_id = self.next_slab_id;
-        self.next_slab_id.0 += 1;
+        self.next_slab_id.0 = NonMaxU32::new(self.next_slab_id.0.get() + 1).unwrap_or_default();
 
         self.record_allocation(mesh_id, new_slab_id, layout.class);
 
@@ -955,12 +970,18 @@ impl ElementLayout {
     /// Creates an [`ElementLayout`] for mesh data of the given class (vertex or
     /// index) with the given byte size.
     fn new(class: ElementClass, size: u64) -> ElementLayout {
+        const {
+            assert!(4 == COPY_BUFFER_ALIGNMENT);
+        }
+        // this is equivalent to `4 / gcd(4,size)` but lets us not implement gcd.
+        // ping @atlv if above assert ever fails (likely never)
+        let elements_per_slot = [1, 4, 2, 4][size as usize & 3];
         ElementLayout {
             class,
             size,
             // Make sure that slot boundaries begin and end on
             // `COPY_BUFFER_ALIGNMENT`-byte (4-byte) boundaries.
-            elements_per_slot: (COPY_BUFFER_ALIGNMENT / gcd(size, COPY_BUFFER_ALIGNMENT)) as u32,
+            elements_per_slot,
         }
     }
 
@@ -998,18 +1019,6 @@ impl GeneralSlab {
     fn is_empty(&self) -> bool {
         self.resident_allocations.is_empty() && self.pending_allocations.is_empty()
     }
-}
-
-/// Returns the greatest common divisor of the two numbers.
-///
-/// <https://en.wikipedia.org/wiki/Euclidean_algorithm#Implementations>
-fn gcd(mut a: u64, mut b: u64) -> u64 {
-    while b != 0 {
-        let t = b;
-        b = a % b;
-        a = t;
-    }
-    a
 }
 
 /// Returns a string describing the given buffer usages.
