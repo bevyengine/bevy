@@ -135,13 +135,13 @@ fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec4<f32> {
 // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
 // instead of towards it (which would be the *view direction*, V)
 
-// evaluates the rayleigh phase function, which describes the likelyhood
+// evaluates the rayleigh phase function, which describes the likelihood
 // of a rayleigh scattering event scattering light from the light direction towards the view
 fn rayleigh(neg_LdotV: f32) -> f32 {
     return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
 }
 
-// evaluates the henyey-greenstein phase function, which describes the likelyhood
+// evaluates the henyey-greenstein phase function, which describes the likelihood
 // of a mie scattering event scattering light from the light direction towards the view
 fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = atmosphere.mie_asymmetry;
@@ -222,7 +222,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         let multiscattering_factor = psi_ms * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering);
 
         // Note wrt transmittance_to_sample vs shadow_factor:
-        // A light ray travelling from the sun to the camera follows a
+        // A light ray traveling from the sun to the camera follows a
         // two-segment path (assuming single scattering). Transmittance_to_sample
         // handles the transmittance between the view and the sample position, while
         // the shadow factor handles the transmittance between the sample position and

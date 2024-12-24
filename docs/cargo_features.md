@@ -11,6 +11,7 @@ The default feature set enables most of the expected features of a game engine, 
 
 |feature name|description|
 |-|-|
+|android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
 |bevy_animation|Provides animation functionality|
@@ -20,7 +21,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
-|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
@@ -32,6 +32,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
+|custom_cursor|Enable winit custom cursor support|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -50,7 +51,6 @@ The default feature set enables most of the expected features of a game engine, 
 |feature name|description|
 |-|-|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
-|android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
@@ -58,11 +58,13 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
+|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
-|custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
