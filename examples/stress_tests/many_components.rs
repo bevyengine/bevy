@@ -23,17 +23,20 @@ use bevy::{
     },
     log::LogPlugin,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
-    ptr::OwningPtr,
+    ptr::{OwningPtr, PtrMut},
     MinimalPlugins,
 };
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};
 use rand_chacha::ChaCha8Rng;
-use std::{alloc::Layout, num::Wrapping};
+use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 // A simple system that matches against several components and does some menial calculation to create
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
+    #[cfg(feature = "trace")]
+    let _span = bevy::utils::tracing::info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();
+
     for mut filtered_entity in &mut query {
         // We calculate Faulhaber's formula mod 256 with n = value and p = exponent.
         // See https://en.wikipedia.org/wiki/Faulhaber%27s_formula
@@ -84,8 +87,8 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
             world.register_component_with_descriptor(
                 #[allow(unsafe_code)]
                 // SAFETY:
-                // we don't implement a drop function
-                // u8 is Sync and Send
+                // * We don't implement a drop function
+                // * u8 is Sync and Send
                 unsafe {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{}", i).to_string(),
@@ -124,22 +127,44 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // spawn a bunch of entities
     for _ in 1..=num_entities {
         let num_components = rng.gen_range(1..10);
-        let components = component_ids.choose_multiple(&mut rng, num_components);
+        let components: Vec<ComponentId> = component_ids
+            .choose_multiple(&mut rng, num_components)
+            .copied()
+            .collect();
 
         let mut entity = world.spawn_empty();
-        for &component_id in components {
-            let value: u8 = rng.gen_range(0..255);
-            OwningPtr::make(value, |ptr| {
-                #[allow(unsafe_code)]
+        // We use `ManuallyDrop` here as we need to avoid dropping the u8's when `values` is dropped
+        // since ownership of the values is passed to the world in `insert_by_ids`.
+        // But we do want to deallocate the memory when values is dropped.
+        let mut values: Vec<ManuallyDrop<u8>> = components
+            .iter()
+            .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
+            .collect();
+        let ptrs: Vec<OwningPtr> = values
+            .iter_mut()
+            .map(|value| {
                 // SAFETY:
-                // component_id is from the same world
-                // value is u8, so ptr is a valid reference for component_id
+                // * We don't read/write `values` binding after this and values are `ManuallyDrop`,
+                // so we have the right to drop/move the values
+                #[allow(unsafe_code)]
                 unsafe {
-                    entity.insert_by_id(component_id, ptr);
+                    PtrMut::from(value).promote()
                 }
-            });
+            })
+            .collect();
+        // SAFETY:
+        // * component_id's are from the same world
+        // * `values` was initialized above, so references are valid
+        #[allow(unsafe_code)]
+        unsafe {
+            entity.insert_by_ids(&components, ptrs.into_iter());
         }
     }
+
+    println!(
+        "Number of Archetype-Components: {}",
+        world.archetypes().archetype_components_len()
+    );
 
     // overwrite Update schedule in the app
     app.add_schedule(schedule);
