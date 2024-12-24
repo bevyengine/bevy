@@ -12,13 +12,16 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! Provides math types and functionality for the Bevy game engine.
 //!
 //! The commonly used types are vectors like [`Vec2`] and [`Vec3`],
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

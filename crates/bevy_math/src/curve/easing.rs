@@ -4,9 +4,11 @@
 //! [easing functions]: EaseFunction
 
 use crate::{
-    curve::{FunctionCurve, Interval},
-    Curve, Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+    curve::{Curve, CurveExt, FunctionCurve, Interval},
+    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
 };
+
+use variadics_please::all_tuples_enumerated;
 
 // TODO: Think about merging `Ease` with `StableInterpolate`
 
@@ -72,6 +74,38 @@ impl Ease for Dir3A {
     }
 }
 
+macro_rules! impl_ease_tuple {
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
+        impl<$($T: Ease),*> Ease for ($($T,)*) {
+            fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+                let curve_tuple =
+                (
+                    $(
+                        <$T as Ease>::interpolating_curve_unbounded(start.$n, end.$n),
+                    )*
+                );
+
+                FunctionCurve::new(Interval::EVERYWHERE, move |t|
+                    (
+                        $(
+                            curve_tuple.$n.sample_unchecked(t),
+                        )*
+                    )
+                )
+            }
+        }
+    };
+}
+
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_ease_tuple,
+    1,
+    11,
+    T
+);
+
 /// A [`Curve`] that is defined by
 ///
 /// - an initial `start` sample value at `t = 0`
@@ -127,6 +161,7 @@ where
 /// Curve functions over the [unit interval], commonly used for easing transitions.
 ///
 /// [unit interval]: `Interval::UNIT`
+#[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -135,17 +170,44 @@ pub enum EaseFunction {
     Linear,
 
     /// `f(t) = t²`
+    ///
+    /// This is the Hermite interpolator for
+    /// - f(0) = 0
+    /// - f(1) = 1
+    /// - f′(0) = 0
     QuadraticIn,
     /// `f(t) = -(t * (t - 2.0))`
+    ///
+    /// This is the Hermite interpolator for
+    /// - f(0) = 0
+    /// - f(1) = 1
+    /// - f′(1) = 0
     QuadraticOut,
     /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
+    ///
+    /// A quadratic has too low of a degree to be both an `InOut` and C²,
+    /// so consider using at least a cubic (such as [`EaseFunction::SmoothStep`])
+    /// if you want the acceleration to be continuous.
     QuadraticInOut,
 
     /// `f(t) = t³`
+    ///
+    /// This is the Hermite interpolator for
+    /// - f(0) = 0
+    /// - f(1) = 1
+    /// - f′(0) = 0
+    /// - f″(0) = 0
     CubicIn,
     /// `f(t) = (t - 1.0)³ + 1.0`
     CubicOut,
     /// Behaves as `EaseFunction::CubicIn` for t < 0.5 and as `EaseFunction::CubicOut` for t >= 0.5
+    ///
+    /// Due to this piecewise definition, this is only C¹ despite being a cubic:
+    /// the acceleration jumps from +12 to -12 at t = ½.
+    ///
+    /// Consider using [`EaseFunction::SmoothStep`] instead, which is also cubic,
+    /// or [`EaseFunction::SmootherStep`] if you picked this because you wanted
+    /// the acceleration at the endpoints to also be zero.
     CubicInOut,
 
     /// `f(t) = t⁴`
@@ -160,7 +222,52 @@ pub enum EaseFunction {
     /// `f(t) = (t - 1.0)⁵ + 1.0`
     QuinticOut,
     /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
+    ///
+    /// Due to this piecewise definition, this is only C¹ despite being a quintic:
+    /// the acceleration jumps from +40 to -40 at t = ½.
+    ///
+    /// Consider using [`EaseFunction::SmootherStep`] instead, which is also quintic.
     QuinticInOut,
+
+    /// Behaves as the first half of [`EaseFunction::SmoothStep`].
+    ///
+    /// This has f″(1) = 0, unlike [`EaseFunction::QuadraticIn`] which starts similarly.
+    SmoothStepIn,
+    /// Behaves as the second half of [`EaseFunction::SmoothStep`].
+    ///
+    /// This has f″(0) = 0, unlike [`EaseFunction::QuadraticOut`] which ends similarly.
+    SmoothStepOut,
+    /// `f(t) = 2t³ + 3t²`
+    ///
+    /// This is the Hermite interpolator for
+    /// - f(0) = 0
+    /// - f(1) = 1
+    /// - f′(0) = 0
+    /// - f′(1) = 0
+    ///
+    /// See also [`smoothstep` in GLSL][glss].
+    ///
+    /// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+    SmoothStep,
+
+    /// Behaves as the first half of [`EaseFunction::SmootherStep`].
+    ///
+    /// This has f″(1) = 0, unlike [`EaseFunction::CubicIn`] which starts similarly.
+    SmootherStepIn,
+    /// Behaves as the second half of [`EaseFunction::SmootherStep`].
+    ///
+    /// This has f″(0) = 0, unlike [`EaseFunction::CubicOut`] which ends similarly.
+    SmootherStepOut,
+    /// `f(t) = 6t⁵ - 15t⁴ + 10t³`
+    ///
+    /// This is the Hermite interpolator for
+    /// - f(0) = 0
+    /// - f(1) = 1
+    /// - f′(0) = 0
+    /// - f′(1) = 0
+    /// - f″(0) = 0
+    /// - f″(1) = 0
+    SmootherStep,
 
     /// `f(t) = 1.0 - cos(t * π / 2.0)`
     SineIn,
@@ -301,6 +408,36 @@ mod easing_functions {
     }
 
     #[inline]
+    pub(crate) fn smoothstep_in(t: f32) -> f32 {
+        ((1.5 - 0.5 * t) * t) * t
+    }
+
+    #[inline]
+    pub(crate) fn smoothstep_out(t: f32) -> f32 {
+        (1.5 + (-0.5 * t) * t) * t
+    }
+
+    #[inline]
+    pub(crate) fn smoothstep(t: f32) -> f32 {
+        ((3.0 - 2.0 * t) * t) * t
+    }
+
+    #[inline]
+    pub(crate) fn smootherstep_in(t: f32) -> f32 {
+        (((2.5 + (-1.875 + 0.375 * t) * t) * t) * t) * t
+    }
+
+    #[inline]
+    pub(crate) fn smootherstep_out(t: f32) -> f32 {
+        (1.875 + ((-1.25 + (0.375 * t) * t) * t) * t) * t
+    }
+
+    #[inline]
+    pub(crate) fn smootherstep(t: f32) -> f32 {
+        (((10.0 + (-15.0 + 6.0 * t) * t) * t) * t) * t
+    }
+
+    #[inline]
     pub(crate) fn sine_in(t: f32) -> f32 {
         1.0 - ops::cos(t * FRAC_PI_2)
     }
@@ -334,9 +471,15 @@ mod easing_functions {
     // with blatantly more digits than needed (since rust will round them to the
     // nearest representable value anyway) rather than make it seem like the
     // truncated value is somehow carefully chosen.
-    #[allow(clippy::excessive_precision)]
+    #[expect(
+        clippy::excessive_precision,
+        reason = "This is deliberately more precise than an f32 will allow, as truncating the value might imply that the value is carefully chosen."
+    )]
     const LOG2_1023: f32 = 9.998590429745328646459226;
-    #[allow(clippy::excessive_precision)]
+    #[expect(
+        clippy::excessive_precision,
+        reason = "This is deliberately more precise than an f32 will allow, as truncating the value might imply that the value is carefully chosen."
+    )]
     const FRAC_1_1023: f32 = 0.00097751710654936461388074291;
     #[inline]
     pub(crate) fn exponential_in(t: f32) -> f32 {
@@ -452,6 +595,12 @@ impl EaseFunction {
             EaseFunction::QuinticIn => easing_functions::quintic_in(t),
             EaseFunction::QuinticOut => easing_functions::quintic_out(t),
             EaseFunction::QuinticInOut => easing_functions::quintic_in_out(t),
+            EaseFunction::SmoothStepIn => easing_functions::smoothstep_in(t),
+            EaseFunction::SmoothStepOut => easing_functions::smoothstep_out(t),
+            EaseFunction::SmoothStep => easing_functions::smoothstep(t),
+            EaseFunction::SmootherStepIn => easing_functions::smootherstep_in(t),
+            EaseFunction::SmootherStepOut => easing_functions::smootherstep_out(t),
+            EaseFunction::SmootherStep => easing_functions::smootherstep(t),
             EaseFunction::SineIn => easing_functions::sine_in(t),
             EaseFunction::SineOut => easing_functions::sine_out(t),
             EaseFunction::SineInOut => easing_functions::sine_in_out(t),
@@ -486,6 +635,8 @@ mod tests {
             [CubicIn, CubicOut, CubicInOut],
             [QuarticIn, QuarticOut, QuarticInOut],
             [QuinticIn, QuinticOut, QuinticInOut],
+            [SmoothStepIn, SmoothStepOut, SmoothStep],
+            [SmootherStepIn, SmootherStepOut, SmootherStep],
             [SineIn, SineOut, SineInOut],
             [CircularIn, CircularOut, CircularInOut],
             [ExponentialIn, ExponentialOut, ExponentialInOut],
@@ -518,16 +669,30 @@ mod tests {
 
     #[test]
     fn ease_function_inout_deciles() {
-        // convexity gives these built-in tolerances
-        for [_, _, ef_inout] in MONOTONIC_IN_OUT_INOUT {
+        // convexity gives the comparisons against the input built-in tolerances
+        for [ef_in, ef_out, ef_inout] in MONOTONIC_IN_OUT_INOUT {
             for x in [0.1, 0.2, 0.3, 0.4] {
                 let y = ef_inout.eval(x);
                 assert!(y < x, "EaseFunction.{ef_inout:?}({x:?}) was {y:?}");
+
+                let iny = ef_in.eval(2.0 * x) / 2.0;
+                assert!(
+                    (y - TOLERANCE..y + TOLERANCE).contains(&iny),
+                    "EaseFunction.{ef_inout:?}({x:?}) was {y:?}, but \
+                    EaseFunction.{ef_in:?}(2 * {x:?}) / 2 was {iny:?}",
+                );
             }
 
             for x in [0.6, 0.7, 0.8, 0.9] {
                 let y = ef_inout.eval(x);
                 assert!(y > x, "EaseFunction.{ef_inout:?}({x:?}) was {y:?}");
+
+                let outy = ef_out.eval(2.0 * x - 1.0) / 2.0 + 0.5;
+                assert!(
+                    (y - TOLERANCE..y + TOLERANCE).contains(&outy),
+                    "EaseFunction.{ef_inout:?}({x:?}) was {y:?}, but \
+                    EaseFunction.{ef_out:?}(2 * {x:?} - 1) / 2 + ½ was {outy:?}",
+                );
             }
         }
     }

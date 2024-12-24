@@ -1,4 +1,9 @@
 #![allow(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "Much of the code here is still code that's been transpiled from C; we want to save 'fixing' this crate until after it's ported to safe rust."
+)]
+#![allow(
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,
@@ -11,7 +16,10 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 

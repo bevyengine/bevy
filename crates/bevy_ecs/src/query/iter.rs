@@ -126,7 +126,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an storage.
+    /// from a storage.
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
@@ -187,7 +187,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an table.
+    /// from a table.
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
@@ -2935,7 +2935,10 @@ impl<T> PartialEq for NeutralOrd<T> {
 
 impl<T> Eq for NeutralOrd<T> {}
 
-#[allow(clippy::non_canonical_partial_ord_impl)]
+#[expect(
+    clippy::non_canonical_partial_ord_impl,
+    reason = "`PartialOrd` and `Ord` on this struct must only ever return `Ordering::Equal`, so we prefer clarity"
+)]
 impl<T> PartialOrd for NeutralOrd<T> {
     fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
         Some(Ordering::Equal)
@@ -2950,13 +2953,12 @@ impl<T> Ord for NeutralOrd<T> {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
+    use alloc::vec::Vec;
+    use std::println;
+
     use crate::component::Component;
-    #[allow(unused_imports)]
     use crate::entity::Entity;
-    #[allow(unused_imports)]
     use crate::prelude::World;
-    #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -2965,7 +2967,6 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
-    #[allow(clippy::unnecessary_sort_by)]
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
@@ -3153,7 +3154,6 @@ mod tests {
         }
     }
 
-    #[allow(clippy::unnecessary_sort_by)]
     #[test]
     fn query_iter_many_sorts() {
         let mut world = World::new();

@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "This instance of module inception is being discussed; see #17344."
+)]
 use alloc::{
     boxed::Box,
     collections::BTreeSet,
@@ -21,7 +25,7 @@ use crate::{
     prelude::Component,
     result::Result,
     schedule::*,
-    system::{IntoSystem, Resource, ScheduleSystem, System},
+    system::{IntoSystem, Resource, ScheduleSystem},
     world::World,
 };
 
@@ -108,8 +112,13 @@ impl Schedules {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
-        // label used when trace feature is enabled
-        #[allow(unused_variables)]
+        #[cfg_attr(
+            not(feature = "trace"),
+            expect(
+                unused_variables,
+                reason = "The `label` variable goes unused if the `trace` feature isn't active"
+            )
+        )]
         for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");
@@ -1053,7 +1062,7 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
+    /// Initializes any newly-added systems and conditions by calling [`System::initialize`](crate::system::System)
     pub fn initialize(&mut self, world: &mut World) {
         for (id, i) in self.uninit.drain(..) {
             match id {
@@ -1200,8 +1209,8 @@ impl ScheduleGraph {
         let id = NodeId::System(self.systems.len());
 
         self.systems
-            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
-                IntoSystem::into_system(ApplyDeferred),
+            .push(SystemNode::new(Box::new(IntoSystem::into_system(
+                ApplyDeferred,
             ))));
         self.system_conditions.push(Vec::new());
 

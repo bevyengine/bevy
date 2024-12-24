@@ -98,7 +98,6 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    #[allow(unused_variables)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -356,7 +355,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
-///         println!("Entity {:?} got a new style or color", entity);
+///         println!("Entity {} got a new style or color", entity);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
@@ -381,9 +380,22 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
 macro_rules! impl_or_query_filter {
     ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -454,34 +466,34 @@ macro_rules! impl_or_query_filter {
             #[inline(always)]
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = FilteredAccess::matches_nothing();
+                let mut new_access = FilteredAccess::matches_nothing();
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
                     // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
-                    _new_access.append_or(&intermediate);
+                    new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
                     // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
-                    _new_access.extend_access(&intermediate);
+                    new_access.extend_access(&intermediate);
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = core::mem::take(&mut access.required);
+                new_access.required = core::mem::take(&mut access.required);
 
-                *access = _new_access;
+                *access = new_access;
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -492,15 +504,15 @@ macro_rules! impl_or_query_filter {
                 Some(($($filter::get_state(components)?,)*))
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-                let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                let ($($filter,)*) = state;
+                false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
         }
 
-            $(#[$meta])*
-            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-            unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+        $(#[$meta])*
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -518,9 +530,18 @@ macro_rules! impl_or_query_filter {
 
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
@@ -529,12 +550,12 @@ macro_rules! impl_tuple_query_filter {
             #[inline(always)]
             unsafe fn filter_fetch(
                 fetch: &mut Self::Fetch<'_>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, _entity, _table_row) })*
+                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
 

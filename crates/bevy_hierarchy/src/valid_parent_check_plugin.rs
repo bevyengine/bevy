@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use bevy_ecs::prelude::*;
 
 #[cfg(feature = "bevy_app")]
-use {crate::Parent, bevy_utils::HashSet, disqualified::ShortName};
+use {crate::Parent, alloc::format, bevy_utils::HashSet, disqualified::ShortName};
 
 /// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
 ///
@@ -63,7 +63,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
         let parent = parent.get();
         if !component_query.contains(parent) && !already_diagnosed.contains(&entity) {
             already_diagnosed.insert(entity);
-            bevy_utils::tracing::warn!(
+            log::warn!(
                 "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
                 This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
                 ty_name = ShortName::of::<T>(),

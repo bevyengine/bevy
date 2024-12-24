@@ -202,7 +202,7 @@ use core::{
 /// ## Whole Entity Access
 ///
 /// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
-/// and can be use to dynamically fetch any component without baking it into the query type. Due to this global
+/// and can be used to dynamically fetch any component without baking it into the query type. Due to this global
 /// access to the entity, this will block any other system from parallelizing with it. As such these queries
 /// should be sparingly used.
 ///
@@ -620,7 +620,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ) {
     ///     for friends in &friends_query {
     ///         for counter in counter_query.iter_many(&friends.list) {
-    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             println!("Friend's counter: {}", counter.value);
     ///         }
     ///     }
     /// }
@@ -674,7 +674,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     for friends in &friends_query {
     ///         let mut iter = counter_query.iter_many_mut(&friends.list);
     ///         while let Some(mut counter) = iter.fetch_next() {
-    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             println!("Friend's counter: {}", counter.value);
     ///             counter.value += 1;
     ///         }
     ///     }

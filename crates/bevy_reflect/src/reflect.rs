@@ -17,7 +17,7 @@ use crate::utility::NonGenericTypeInfoCell;
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
-    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
         from_kind: ReflectKind,
         to_kind: ReflectKind,
@@ -352,8 +352,7 @@ impl dyn PartialReflect {
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.

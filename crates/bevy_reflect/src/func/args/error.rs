@@ -4,9 +4,6 @@ use thiserror::Error;
 
 use crate::func::args::Ownership;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// An error that occurs when converting an [argument].
 ///
 /// [argument]: crate::func::args::Arg

@@ -29,8 +29,6 @@
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
 
-#![allow(clippy::type_complexity)]
-
 extern crate alloc;
 
 mod bounds;
@@ -61,9 +59,6 @@ pub use text_access::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::Text2dBundle;
     #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
@@ -113,6 +108,7 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
             .register_type::<TextFont>()
+            .register_type::<LineHeight>()
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()

@@ -1322,9 +1322,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(not(feature = "track_location"))]
             (),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1350,7 +1350,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Ref {
@@ -1361,7 +1361,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: caller.deref(),
                 }
             },
@@ -1373,7 +1373,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: _caller.deref(),
                 }
             },
@@ -1521,9 +1521,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(not(feature = "track_location"))]
             (),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1549,7 +1549,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Mut {
@@ -1560,7 +1560,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: caller.deref_mut(),
                 }
             },
@@ -1572,7 +1572,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: _caller.deref_mut(),
                 }
             },
@@ -2015,8 +2015,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
         $(#[$meta])*
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
@@ -2033,8 +2031,22 @@ macro_rules! impl_tuple_query_data {
 macro_rules! impl_anytuple_fetch {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
@@ -2059,7 +2071,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                  // SAFETY: The invariants are uphold by the caller.
@@ -2100,7 +2111,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline(always)]
-            #[allow(clippy::unused_unit)]
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
@@ -2139,11 +2149,9 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
-            #[allow(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
-            #[allow(unused_variables)]
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
@@ -2155,8 +2163,6 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;

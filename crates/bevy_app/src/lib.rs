@@ -11,9 +11,12 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -26,7 +29,7 @@ mod schedule_runner;
 mod sub_app;
 #[cfg(feature = "bevy_tasks")]
 mod task_pool_plugin;
-#[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
+#[cfg(all(any(unix, windows), feature = "std"))]
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
@@ -38,7 +41,7 @@ pub use schedule_runner::*;
 pub use sub_app::*;
 #[cfg(feature = "bevy_tasks")]
 pub use task_pool_plugin::*;
-#[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
+#[cfg(all(any(unix, windows), feature = "std"))]
 pub use terminal_ctrl_c_handler::*;
 
 /// The app prelude.

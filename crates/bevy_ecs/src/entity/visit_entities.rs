@@ -61,6 +61,7 @@ mod tests {
         entity::{EntityHashMap, MapEntities, SceneEntityMapper},
         world::World,
     };
+    use alloc::{string::String, vec, vec::Vec};
     use bevy_utils::HashSet;
 
     use super::*;
@@ -70,7 +71,6 @@ mod tests {
         ordered: Vec<Entity>,
         unordered: HashSet<Entity>,
         single: Entity,
-        #[allow(dead_code)]
         #[visit_entities(ignore)]
         not_an_entity: String,
     }
