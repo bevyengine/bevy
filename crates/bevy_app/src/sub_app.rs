@@ -445,7 +445,7 @@ impl SubApp {
 
 /// The collection of sub-apps that belong to an [`App`].
 #[derive(Default)]
-pub struct SubApps {
+pub(crate) struct SubApps {
     /// The primary sub-app that contains the "main" world.
     pub main: SubApp,
     /// Other, labeled sub-apps.
