@@ -73,11 +73,13 @@ impl From<ArchetypeId> for StorageId {
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 pub(super) enum StorageIdIter<'s> {
     Archetypes(core::slice::Iter<'s, ArchetypeId>),
     Tables(core::slice::Iter<'s, TableId>),
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 impl Iterator for StorageIdIter<'_> {
     type Item = StorageId;
 
