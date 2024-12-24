@@ -24,6 +24,7 @@ pub mod experimental {
     }
 }
 
+mod atmosphere;
 mod bundle;
 mod cluster;
 pub mod deferred;
@@ -48,6 +49,7 @@ use crate::material_bind_groups::FallbackBindlessResources;
 use bevy_color::{Color, LinearRgba};
 use core::marker::PhantomData;
 
+pub use atmosphere::*;
 pub use bundle::*;
 pub use cluster::*;
 pub use extended_material::*;
@@ -141,6 +143,7 @@ use bevy_transform::TransformSystem;
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
 pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
 pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
+pub const FAST_MATH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9047941325101315002);
 pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
 pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
 pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
@@ -205,6 +208,12 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, UTILS_HANDLE, "render/utils.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            FAST_MATH_HANDLE,
+            "render/fast_math.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             CLUSTERED_FORWARD_HANDLE,
@@ -355,6 +364,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
             ))
+            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
