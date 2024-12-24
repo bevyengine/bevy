@@ -233,7 +233,7 @@ bevy_ui = [
 bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
-bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_winit = ["bevy_internal/bevy_winit", "bevy_window"]
 
 # Load and access image data. Usually added by an image format
 bevy_image = ["bevy_internal/bevy_image"]
