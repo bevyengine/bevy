@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -205,7 +204,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let mut trait_path = BevyManifest::default().get_path("bevy_app");
+    let mut trait_path = BevyManifest::shared().get_path("bevy_app");
     let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("AppLabel").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());

@@ -17,6 +17,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
+use alloc::vec::Vec;
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
 use core::{
@@ -67,9 +68,22 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
-    pub fn entity(&self) -> Entity {
-        self.trigger.entity
+    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
+    /// be [`Entity::PLACEHOLDER`].
+    ///
+    /// Observable events can target specific entities. When those events fire, they will trigger
+    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
+    /// the same, because the observer that was triggered is attached to the entity that was
+    /// targeted by the event.
+    ///
+    /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
+    /// observers on *different* entities, or trigger a global observer. In these cases, the
+    /// observing entity is *different* from the entity being targeted by the event.
+    ///
+    /// This is an important distinction: the entity reacting to an event is not always the same as
+    /// the entity triggered by the event.
+    pub fn target(&self) -> Entity {
+        self.trigger.target
     }
 
     /// Returns the components that triggered the observer, out of the
@@ -207,7 +221,7 @@ pub struct ObserverTrigger {
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
-    pub entity: Entity,
+    pub target: Entity,
 }
 
 impl ObserverTrigger {
@@ -277,7 +291,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        entity: Entity,
+        target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -304,7 +318,7 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    entity,
+                    target,
                 },
                 data.into(),
                 propagate,
@@ -314,8 +328,8 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if entity != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&entity) {
+        if target != Entity::PLACEHOLDER {
+            if let Some(map) = observers.entity_observers.get(&target) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -328,8 +342,8 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if entity != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&entity) {
+                if target != Entity::PLACEHOLDER {
+                    if let Some(map) = component_observers.entity_map.get(&target) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -733,20 +747,20 @@ mod tests {
         world.add_observer(
             |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.entity()).insert(B);
+                commands.entity(obs.target()).insert(B);
             },
         );
         world.add_observer(
             |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.entity()).remove::<B>();
+                commands.entity(obs.target()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.entity()).remove::<A>();
+                commands.entity(obs.target()).remove::<A>();
             },
         );
         world.add_observer(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {
@@ -915,7 +929,7 @@ mod tests {
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
+            assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
 
@@ -940,7 +954,7 @@ mod tests {
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.entity(), entity);
+            assert_eq!(obs.target(), entity);
             res.observed("a_2");
         });
 
@@ -1247,7 +1261,7 @@ mod tests {
 
         world.add_observer(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.entity()).is_ok() {
+                if query.get(trigger.target()).is_ok() {
                     res.observed("event");
                 }
             },

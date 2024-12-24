@@ -314,7 +314,8 @@ fn layout_entries(
     );
 
     // EnvironmentMapLight
-    let environment_map_entries = environment_map::get_bind_group_layout_entries(render_device);
+    let environment_map_entries =
+        environment_map::get_bind_group_layout_entries(render_device, render_adapter);
     entries = entries.extend_with_indices((
         (17, environment_map_entries[0]),
         (18, environment_map_entries[1]),
@@ -325,7 +326,7 @@ fn layout_entries(
     // Irradiance volumes
     if IRRADIANCE_VOLUMES_ARE_USABLE {
         let irradiance_volume_entries =
-            irradiance_volume::get_bind_group_layout_entries(render_device);
+            irradiance_volume::get_bind_group_layout_entries(render_device, render_adapter);
         entries = entries.extend_with_indices((
             (21, irradiance_volume_entries[0]),
             (22, irradiance_volume_entries[1]),
@@ -495,6 +496,7 @@ pub struct MeshViewBindGroup {
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusterableObjectMeta>),
@@ -609,6 +611,7 @@ pub fn prepare_mesh_view_bind_groups(
                 &images,
                 &fallback_image,
                 &render_device,
+                &render_adapter,
             );
 
             match environment_map_bind_group_entries {
@@ -644,6 +647,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &images,
                     &fallback_image,
                     &render_device,
+                    &render_adapter,
                 ))
             } else {
                 None

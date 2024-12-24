@@ -488,11 +488,8 @@ impl AssetServer {
             match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     id,
-                    loaded_asset: LoadedAsset::new_with_dependencies(
-                        LoadedUntypedAsset { handle },
-                        None,
-                    )
-                    .into(),
+                    loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
+                        .into(),
                 }),
                 Err(err) => {
                     error!("{err}");
@@ -647,7 +644,14 @@ impl AssetServer {
         };
 
         match self
-            .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
+            .load_with_meta_loader_and_reader(
+                &base_path,
+                meta.as_ref(),
+                &*loader,
+                &mut *reader,
+                true,
+                false,
+            )
             .await
         {
             Ok(loaded_asset) => {
@@ -735,7 +739,7 @@ impl AssetServer {
     /// After the asset has been fully loaded by the [`AssetServer`], it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn add<A: Asset>(&self, asset: A) -> Handle<A> {
-        self.load_asset(LoadedAsset::new_with_dependencies(asset, None))
+        self.load_asset(LoadedAsset::new_with_dependencies(asset))
     }
 
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
@@ -798,7 +802,7 @@ impl AssetServer {
         let task = IoTaskPool::get().spawn(async move {
             match future.await {
                 Ok(asset) => {
-                    let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                    let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
                     event_sender
                         .send(InternalAssetEvent::Loaded { id, loaded_asset })
                         .unwrap();
@@ -928,7 +932,6 @@ impl AssetServer {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
                             LoadedFolder { handles },
-                            None,
                         )
                         .into(),
                     }),
@@ -1314,7 +1317,7 @@ impl AssetServer {
     pub(crate) async fn load_with_meta_loader_and_reader(
         &self,
         asset_path: &AssetPath<'_>,
-        meta: Box<dyn AssetMetaDyn>,
+        meta: &dyn AssetMetaDyn,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
         load_dependencies: bool,
@@ -1544,7 +1547,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        let mut paths_to_reload = HashSet::new();
+        let mut paths_to_reload = <HashSet<_>>::default();
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
