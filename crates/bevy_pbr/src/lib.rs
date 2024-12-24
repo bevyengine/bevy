@@ -115,7 +115,7 @@ pub mod graph {
     }
 }
 
-use crate::{atmosphere::AtmospherePlugin, deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};

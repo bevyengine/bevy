@@ -184,7 +184,6 @@ impl ViewNode for RenderSkyNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let atmosphere_pipelines = world.resource::<AtmosphereLutPipelines>();
         let Some(render_sky_pipeline) =
             pipeline_cache.get_render_pipeline(render_sky_pipeline_id.0)
         else {
