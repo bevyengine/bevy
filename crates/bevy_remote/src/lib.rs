@@ -191,6 +191,18 @@
 //!
 //! `result`: null.
 //!
+//! ### bevy/mutate_component
+//!
+//! Mutate a field in a component.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to with the component to mutate.
+//! - `component`: The component's [fully-qualified type name].
+//! - `path`: The path of the field within the component.
+//! - `value`: The value to insert at `path`.
+//!
+//! `result`: null.
+//!
 //! ### bevy/reparent
 //!
 //! Assign a new parent to one or more entities.
@@ -405,6 +417,10 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
+                builtin_methods::process_remote_mutate_component_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
