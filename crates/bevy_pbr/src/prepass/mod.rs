@@ -362,7 +362,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
-            binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+            binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
             _marker: PhantomData,
         }
     }
