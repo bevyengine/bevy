@@ -34,7 +34,7 @@ use bevy_render::{
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
         prepare_view_targets, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges,
@@ -1484,11 +1484,12 @@ impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
             Res<RenderDevice>,
+            Res<RenderAdapter>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue, view_layouts) =
+        let (render_device, render_adapter, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
 
         let clustered_forward_buffer_binding_type = render_device
@@ -1532,9 +1533,9 @@ impl FromWorld for MeshPipeline {
             view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts::new(&render_device),
+            mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
-            binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
