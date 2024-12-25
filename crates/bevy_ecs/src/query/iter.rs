@@ -1114,24 +1114,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
 
-        // We're going to consume the iterator, and don't want to mutably borrow self twice, so
-        // take ownership of the entity source with the iterator we want to consume, and replace
-        // it with an empty one.
-        let empty_iterator =
-            QueryIterationEntitySource::new_from_storage_ids_empty(&self.query_state.storage_ids);
-        match core::mem::replace(&mut self.cursor.entity_source, empty_iterator) {
+        match &self.cursor.entity_source {
             QueryIterationEntitySource::Tables { table_ids, .. } => {
-                table_ids.fold(accum, |accum, id| {
+                table_ids.clone().copied().fold(accum, |accum, id| {
                     // SAFETY:
                     // - The range(None) is equivalent to [0, storage.entity_count)
-                    unsafe { self.fold_over_table_range_by_id(accum, &mut func, *id, None) }
+                    unsafe { self.fold_over_table_range_by_id(accum, &mut func, id, None) }
                 })
             }
             QueryIterationEntitySource::Archetypes { archetype_ids, .. } => {
-                archetype_ids.fold(accum, |accum, id| {
+                archetype_ids.clone().copied().fold(accum, |accum, id| {
                     // SAFETY:
                     // - The range(None) is equivalent to [0, storage.entity_count)
-                    unsafe { self.fold_over_archetype_range_by_id(accum, &mut func, *id, None) }
+                    unsafe { self.fold_over_archetype_range_by_id(accum, &mut func, id, None) }
                 })
             }
         }
