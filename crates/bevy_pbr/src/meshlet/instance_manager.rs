@@ -123,7 +123,7 @@ impl InstanceManager {
         let mesh_uniform = MeshUniform::new(
             &transforms,
             0,
-            mesh_material_binding_id.slot,
+            mesh_material_binding_id.id.slot,
             None,
             None,
             None,
