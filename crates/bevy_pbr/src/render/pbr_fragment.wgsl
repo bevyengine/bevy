@@ -172,7 +172,7 @@ fn pbr_input_from_standard_material(
             // parallax mapping algorithm easier to understand and reason
             // about.
             -Vt,
-            in.instance_index,
+            slot,
         );
 #else
         uv_b = uv;
