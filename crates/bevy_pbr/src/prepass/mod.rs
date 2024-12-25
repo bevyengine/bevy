@@ -4,6 +4,7 @@ use crate::material_bind_groups::MaterialBindGroupAllocator;
 use bevy_render::{
     mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
+    renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
 };
@@ -262,12 +263,18 @@ pub struct PrepassPipeline<M: Material> {
     pub skins_use_uniform_buffers: bool,
 
     pub depth_clip_control_supported: bool,
+
+    /// Whether binding arrays (a.k.a. bindless textures) are usable on the
+    /// current render device.
+    pub binding_arrays_are_usable: bool,
+
     _marker: PhantomData<M>,
 }
 
 impl<M: Material> FromWorld for PrepassPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter = world.resource::<RenderAdapter>();
         let asset_server = world.resource::<AssetServer>();
 
         let visibility_ranges_buffer_binding_type = render_device
@@ -355,6 +362,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
             depth_clip_control_supported,
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             _marker: PhantomData,
         }
     }
@@ -506,6 +514,10 @@ where
         // If bindless mode is on, add a `BINDLESS` define.
         if self.material_pipeline.bindless {
             shader_defs.push("BINDLESS".into());
+        }
+
+        if self.binding_arrays_are_usable {
+            shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
         }
 
         if key
@@ -899,11 +911,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            let lightmap_image = render_lightmaps
+            let lightmap_slab_index = render_lightmaps
                 .render_lightmaps
                 .get(visible_entity)
-                .map(|lightmap| lightmap.image);
-            if lightmap_image.is_some() {
+                .map(|lightmap| lightmap.slab_index);
+            if lightmap_slab_index.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
@@ -961,7 +973,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                     material_bind_group_index: Some(material.binding.group.0),
                                     vertex_slab: vertex_slab.unwrap_or_default(),
                                     index_slab,
-                                    lightmap_image,
+                                    lightmap_slab: lightmap_slab_index
+                                        .map(|lightmap_slab_index| *lightmap_slab_index),
                                 },
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
