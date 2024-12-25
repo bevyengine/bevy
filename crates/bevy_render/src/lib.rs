@@ -1,8 +1,12 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![allow(unsafe_code)]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(unsafe_code)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -76,7 +80,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
-use renderer::{RenderDevice, RenderQueue};
+use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
@@ -509,4 +513,24 @@ fn apply_extract_commands(render_world: &mut World) {
             .unwrap()
             .apply_deferred(render_world);
     });
+}
+
+/// If the [`RenderAdapter`] is a Qualcomm Adreno, returns its model number.
+///
+/// This lets us work around hardware bugs.
+pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let adapter_name = adapter.get_info().name;
+    let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+
+    // Take suffixes into account (like Adreno 642L).
+    Some(
+        adreno_model
+            .chars()
+            .map_while(|c| c.to_digit(10))
+            .fold(0, |acc, digit| acc * 10 + digit),
+    )
 }

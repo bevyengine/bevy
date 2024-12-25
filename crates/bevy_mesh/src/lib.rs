@@ -1,6 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![allow(unsafe_code)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
 extern crate alloc;
 extern crate core;
