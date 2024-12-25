@@ -16,7 +16,6 @@ use nonmax::NonMaxU32;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
-    camera::ExtractedCamera,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
         CachedRenderPipelinePhaseItem, PhaseItemBinKey as _, PhaseItemExtraIndex, SortedPhaseItem,
