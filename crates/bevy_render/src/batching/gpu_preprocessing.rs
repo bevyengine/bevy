@@ -489,12 +489,12 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 }
 
 /// A system that removes GPU preprocessing work item buffers that correspond to
-/// deleted [`ViewTarget`]s.
+/// deleted [`crate::view::ViewTarget`]s.
 ///
 /// View targets aren't created until the [`RenderSet::PrepareWindows`] phase,
 /// so we can't issue a query for them directly. Instead, we search for
 /// [`ExtractedView`]s, which the [`crate::view::prepare_view_targets`] system
-/// will attach [`ViewTarget`]s to.
+/// will attach [`crate::view::ViewTarget`]s to.
 pub fn delete_old_work_item_buffers<GFBD>(
     mut gpu_batched_instance_buffers: ResMut<
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
