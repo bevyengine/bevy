@@ -183,7 +183,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // have to keep updating it.
     if (batch_output_index == 0u) {
         if (indirect_parameters[indirect_parameters_index].first_instance == 0xffffffffu) {
-            indirect_parameters[indirect_parameters_index].first_instance_or_base_vertex =
+            indirect_parameters[indirect_parameters_index].base_vertex_or_first_instance =
                 mesh_output_index;
         } else {
             indirect_parameters[indirect_parameters_index].first_instance = mesh_output_index;

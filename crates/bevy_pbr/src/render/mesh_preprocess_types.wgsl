@@ -10,10 +10,10 @@ struct IndirectParameters {
     vertex_count_or_index_count: u32,
     // `instance_count` in both structures.
     instance_count: atomic<u32>,
-    // `first_vertex` in both structures.
-    first_vertex: u32,
-    // `first_instance` or `base_vertex`.
-    first_instance_or_base_vertex: u32,
+    // `first_vertex` or `first_index`.
+    first_vertex_or_first_index: u32,
+    // `base_vertex` or `first_instance`.
+    base_vertex_or_first_instance: u32,
     // A read-only copy of `instance_index`.
     first_instance: u32,
 }
