@@ -12,6 +12,8 @@ use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
 use std::fmt;
 
+const FONT_SIZE: f32 = 13.0;
+
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];
 const AVAILABLE_KEYS: [MorphKey; 56] = [
@@ -177,14 +179,20 @@ impl MorphKey {
     }
 }
 fn update_text(
+    mut commands: Commands,
     controls: Option<ResMut<WeightsControl>>,
-    text: Single<Entity, With<Text>>,
+    texts: Query<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
     mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
     };
+
+    let Ok(text) = texts.get_single() else {
+        return;
+    };
+
     for (i, target) in controls.weights.iter_mut().enumerate() {
         let Ok(weights) = morphs.get(target.entity) else {
             continue;
@@ -196,7 +204,21 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        *writer.text(*text, i + 3) = format!("[{key_name}] {target}\n");
+
+        if let Some(mut val) = writer.get_text(text, i + 3) {
+            *val = format!("[{key_name}] {target}\n");
+        } else {
+            let new_span = commands
+                .spawn((
+                    TextSpan::new(format!("[{key_name}] {target}\n")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                ))
+                .id();
+            commands.entity(text).add_child(new_span);
+        }
     }
 }
 fn update_morphs(
@@ -254,7 +276,7 @@ fn detect_morphs(
     }
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextFont {
-        font_size: 13.0,
+        font_size: FONT_SIZE,
         ..default()
     };
     let mut spans = vec![
@@ -270,8 +292,8 @@ fn detect_morphs(
             Text::default(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
             },
         ))
