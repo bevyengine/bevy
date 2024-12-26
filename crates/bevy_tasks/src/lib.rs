@@ -30,11 +30,9 @@ pub use conditional_send::*;
 pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
 impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-#[cfg(feature = "alloc")]
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 pub mod futures;

@@ -10,9 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["std", "async_executor"]
-alloc = []
 std = [
-  "alloc",
   "futures-lite/std",
   "async-task/std",
   "spin/std",
