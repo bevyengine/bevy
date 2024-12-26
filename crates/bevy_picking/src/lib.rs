@@ -18,7 +18,7 @@
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
-//!         // Stop the event from bubbling up the entity hierarchjy
+//!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
 //!     });
 //! ```
@@ -49,13 +49,13 @@
 //!         // Spawn your entity here, e.g. a Mesh.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
 //!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.entity()).unwrap();
+//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.entity());
-//!             commands.entity(trigger.entity()).despawn();
+//!             println!("Entity {} goes BOOM!", trigger.target());
+//!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.send(Greeting);
@@ -121,19 +121,19 @@
 //!
 //! You will eventually need to choose which picking backend(s) you want to use. This crate does not
 //! supply any backends, and expects you to select some from the other bevy crates or the third-party
-//! ecosystem. You can find all the provided backends in the [`backend`] module.
+//! ecosystem.
 //!
 //! It's important to understand that you can mix and match backends! For example, you might have a
 //! backend for your UI, and one for the 3d scene, with each being specialized for their purpose.
-//! This crate provides some backends out of the box, but you can even write your own. It's been
+//! Bevy provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
-//! #### Focus ([`focus`])
+//! #### Hover ([`hover`])
 //!
 //! The next step is to use the data from the backends, combine and sort the results, and determine
-//! what each cursor is hovering over, producing a [`HoverMap`](`crate::focus::HoverMap`). Note that
+//! what each cursor is hovering over, producing a [`HoverMap`](`crate::hover::HoverMap`). Note that
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
-//! multiple backends may be reporting that a pointer is hitting an entity, the focus system needs
+//! multiple backends may be reporting that a pointer is hitting an entity, the hover system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
 //! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
 //! if one entity is in front of another, usually only the topmost one will be hovered.
@@ -154,11 +154,12 @@ extern crate alloc;
 
 pub mod backend;
 pub mod events;
-pub mod focus;
+pub mod hover;
 pub mod input;
-#[cfg(feature = "bevy_mesh")]
+#[cfg(feature = "bevy_mesh_picking_backend")]
 pub mod mesh_picking;
 pub mod pointer;
+pub mod window;
 
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
@@ -168,10 +169,10 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh")]
+    #[cfg(feature = "bevy_mesh_picking_backend")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
-        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
         MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
@@ -200,9 +201,9 @@ pub struct PickingBehavior {
     ///
     /// For example, if a pointer is over a UI element, as well as a 3d mesh, backends will report
     /// hits for both of these entities. Additionally, the hits will be sorted by the camera order,
-    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When focus
+    /// so if the UI is drawing on top of the 3d mesh, the UI will be "above" the mesh. When hovering
     /// is computed, the UI element will be checked first to see if it this field is set to block
-    /// lower entities. If it does (default), the focus system will stop there, and only the UI
+    /// lower entities. If it does (default), the hovering system will stop there, and only the UI
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
@@ -256,12 +257,12 @@ pub enum PickSet {
     ProcessInput,
     /// Reads inputs and produces [`backend::PointerHits`]s. In the [`PreUpdate`] schedule.
     Backend,
-    /// Reads [`backend::PointerHits`]s, and updates focus, selection, and highlighting states. In
+    /// Reads [`backend::PointerHits`]s, and updates the hovermap, selection, and highlighting states. In
     /// the [`PreUpdate`] schedule.
-    Focus,
-    /// Runs after all the focus systems are done, before event listeners are triggered. In the
+    Hover,
+    /// Runs after all the [`PickSet::Hover`] systems are done, before event listeners are triggered. In the
     /// [`PreUpdate`] schedule.
-    PostFocus,
+    PostHover,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
 }
@@ -287,7 +288,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
+/// This plugin contains several settings, and is added to the world as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
@@ -297,7 +298,9 @@ pub struct PickingPlugin {
     /// Enables and disables input collection.
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
-    pub is_focus_enabled: bool,
+    pub is_hover_enabled: bool,
+    /// Enables or disables picking for window entities.
+    pub is_window_picking_enabled: bool,
 }
 
 impl PickingPlugin {
@@ -305,10 +308,16 @@ impl PickingPlugin {
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
-    /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
+
+    /// Whether or not systems updating entities' [`PickingInteraction`](hover::PickingInteraction)
     /// component should be running.
-    pub fn focus_should_run(state: Res<Self>) -> bool {
-        state.is_focus_enabled && state.is_enabled
+    pub fn hover_should_run(state: Res<Self>) -> bool {
+        state.is_hover_enabled && state.is_enabled
+    }
+
+    /// Whether or not window entities should receive pick events.
+    pub fn window_picking_should_run(state: Res<Self>) -> bool {
+        state.is_window_picking_enabled && state.is_enabled
     }
 }
 
@@ -317,7 +326,8 @@ impl Default for PickingPlugin {
         Self {
             is_enabled: true,
             is_input_enabled: true,
-            is_focus_enabled: true,
+            is_hover_enabled: true,
+            is_window_picking_enabled: true,
         }
     }
 }
@@ -342,6 +352,12 @@ impl Plugin for PickingPlugin {
                 )
                     .in_set(PickSet::ProcessInput),
             )
+            .add_systems(
+                PreUpdate,
+                window::update_window_hits
+                    .run_if(Self::window_picking_should_run)
+                    .in_set(PickSet::Backend),
+            )
             .configure_sets(
                 First,
                 (PickSet::Input, PickSet::PostInput)
@@ -354,8 +370,8 @@ impl Plugin for PickingPlugin {
                 (
                     PickSet::ProcessInput.run_if(Self::input_should_run),
                     PickSet::Backend,
-                    PickSet::Focus.run_if(Self::focus_should_run),
-                    PickSet::PostFocus,
+                    PickSet::Hover.run_if(Self::hover_should_run),
+                    PickSet::PostHover,
                     PickSet::Last,
                 )
                     .chain(),
@@ -377,14 +393,14 @@ pub struct InteractionPlugin;
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         use events::*;
-        use focus::{update_focus, update_interactions};
+        use hover::{generate_hovermap, update_interactions};
 
-        app.init_resource::<focus::HoverMap>()
-            .init_resource::<focus::PreviousHoverMap>()
+        app.init_resource::<hover::HoverMap>()
+            .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Pressed>>()
             .add_event::<Pointer<DragDrop>>()
             .add_event::<Pointer<DragEnd>>()
             .add_event::<Pointer<DragEnter>>()
@@ -395,12 +411,12 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Released>>()
             .add_systems(
                 PreUpdate,
-                (update_focus, pointer_events, update_interactions)
+                (generate_hovermap, update_interactions, pointer_events)
                     .chain()
-                    .in_set(PickSet::Focus),
+                    .in_set(PickSet::Hover),
             );
     }
 }

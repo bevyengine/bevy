@@ -331,7 +331,7 @@ mod tests {
                 .get::<Parent>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
                 .get(),
-            "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
+            "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }
 

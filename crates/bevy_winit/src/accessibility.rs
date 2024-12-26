@@ -1,6 +1,7 @@
 //! Helpers for mapping window entities to accessibility types
 
 use alloc::{collections::VecDeque, sync::Arc};
+use bevy_input_focus::InputFocus;
 use std::sync::Mutex;
 
 use accesskit::{
@@ -10,13 +11,14 @@ use accesskit::{
 use accesskit_winit::Adapter;
 use bevy_a11y::{
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
-    ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
+    ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::EntityHashMap,
-    prelude::{DetectChanges, Entity, EventReader, EventWriter},
+    prelude::{Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
     system::{NonSendMut, Query, Res, ResMut, Resource},
@@ -179,7 +181,7 @@ fn should_update_accessibility_nodes(
 
 fn update_accessibility_nodes(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    focus: Res<Focus>,
+    focus: Res<InputFocus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
         Entity,
@@ -218,7 +220,7 @@ fn update_adapter(
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
     primary_window_id: Entity,
-    focus: Res<Focus>,
+    focus: Res<InputFocus>,
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
@@ -241,7 +243,7 @@ fn update_adapter(
     TreeUpdate {
         nodes: to_update,
         tree: None,
-        focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
+        focus: NodeId(focus.0.unwrap_or(primary_window_id).to_bits()),
     }
 }
 

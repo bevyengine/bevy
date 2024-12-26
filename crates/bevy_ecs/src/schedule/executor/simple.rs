@@ -1,12 +1,13 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
+    system::System,
     world::World,
 };
 
@@ -99,12 +100,22 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                __rust_begin_short_backtrace::run(&mut **system, world);
-            }));
-            if let Err(payload) = res {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                std::panic::resume_unwind(payload);
+            let f = AssertUnwindSafe(|| {
+                // TODO: implement an error-handling API instead of suppressing a possible failure.
+                let _ = __rust_begin_short_backtrace::run(system, world);
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
             }
         }
 
@@ -119,7 +130,7 @@ impl SystemExecutor for SimpleExecutor {
 
 impl SimpleExecutor {
     /// Creates a new simple executor for use in a [`Schedule`](crate::schedule::Schedule).
-    /// This calls each system in order and immediately calls [`System::apply_deferred`](crate::system::System::apply_deferred).
+    /// This calls each system in order and immediately calls [`System::apply_deferred`].
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
@@ -145,7 +156,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
 #[cfg(test)]
 #[test]
 fn skip_automatic_sync_points() {
-    // Schedules automatically insert apply_deferred systems, but these should
+    // Schedules automatically insert ApplyDeferred systems, but these should
     // not be executed as they only serve as markers and are not initialized
     use crate::prelude::*;
     let mut sched = Schedule::default();

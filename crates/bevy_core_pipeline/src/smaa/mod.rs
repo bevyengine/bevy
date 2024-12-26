@@ -29,7 +29,8 @@
 //! * Compatibility with SSAA and MSAA.
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
-
+#[cfg(not(feature = "smaa_luts"))]
+use crate::tonemapping::lut_placeholder;
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},

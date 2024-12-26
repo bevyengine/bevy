@@ -68,7 +68,7 @@ enum F {
 }
 
 fn setup() {
-    let mut z = HashMap::default();
+    let mut z = <HashMap<_, _>>::default();
     z.insert("Hello".to_string(), 1.0);
     let value: Box<dyn Reflect> = Box::new(A {
         x: 1,
@@ -124,6 +124,11 @@ fn setup() {
         // implementation. Opaque is implemented for opaque types like String and Instant,
         // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
         ReflectRef::Opaque(_) => {}
+        #[allow(
+            unreachable_patterns,
+            reason = "This example cannot always detect when `bevy_reflect/functions` is enabled."
+        )]
+        _ => {}
     }
 
     let mut dynamic_list = DynamicList::default();

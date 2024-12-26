@@ -232,7 +232,8 @@ impl From<String> for TextSpan {
 /// This only affects the internal positioning of the lines of text within a text entity and
 /// does not affect the text entity's position.
 ///
-/// _Has no affect on a single line text entity._
+/// _Has no affect on a single line text entity_, unless used together with a
+/// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum JustifyText {
@@ -289,6 +290,28 @@ pub struct TextFont {
 }
 
 impl TextFont {
+    /// Returns a new [`TextFont`] with the specified font face handle.
+    pub fn from_font(font: Handle<Font>) -> Self {
+        Self::default().with_font(font)
+    }
+
+    /// Returns a new [`TextFont`] with the specified font size.
+    pub fn from_font_size(font_size: f32) -> Self {
+        Self::default().with_font_size(font_size)
+    }
+
+    /// Returns this [`TextFont`] with the specified font face handle.
+    pub fn with_font(mut self, font: Handle<Font>) -> Self {
+        self.font = font;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font size.
+    pub const fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;

@@ -79,6 +79,12 @@
 //! }
 //! ```
 //!
+//! # System return type
+//!
+//! Systems added to a schedule through [`add_systems`](crate::schedule::Schedule) may either return
+//! empty `()` or a [`Result`](crate::result::Result). Other contexts (like one shot systems) allow
+//! systems to return arbitrary values.
+//!
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
 //!
@@ -121,6 +127,7 @@ mod function_system;
 mod input;
 mod observer_system;
 mod query;
+mod schedule_system;
 #[allow(clippy::module_inception)]
 mod system;
 mod system_name;
@@ -139,6 +146,7 @@ pub use function_system::*;
 pub use input::*;
 pub use observer_system::*;
 pub use query::*;
+pub use schedule_system::*;
 pub use system::*;
 pub use system_name::*;
 pub use system_param::*;
@@ -322,8 +330,9 @@ mod tests {
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
+        result::Result,
         schedule::{
-            apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
             Schedule,
         },
         system::{
@@ -371,7 +380,7 @@ mod tests {
         system.run((), &mut world);
     }
 
-    fn run_system<Marker, S: IntoSystem<(), (), Marker>>(world: &mut World, system: S) {
+    fn run_system<Marker, S: IntoSystemConfigs<Marker>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         schedule.run(world);
@@ -493,7 +502,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_systems((incr_e_on_flip, apply_deferred, World::clear_trackers).chain());
+        schedule.add_systems((incr_e_on_flip, ApplyDeferred, World::clear_trackers).chain());
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
@@ -1573,7 +1582,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
     )]
     fn assert_world_and_entity_mut_system_does_conflict() {
         fn system(_query: &World, _q2: Query<EntityMut>) {}
@@ -1582,7 +1591,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
     )]
     fn assert_entity_ref_and_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityRef>, _q2: Query<EntityMut>) {}
@@ -1591,7 +1600,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+        expected = "error[B0001]: Query<EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
     )]
     fn assert_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
@@ -1643,9 +1652,9 @@ mod tests {
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(static_system_param);
         assert_is_system(
-            exclusive_in_out::<(), Result<(), std::io::Error>>.map(|system| {
-                if let Err(err) = system {
-                    bevy_utils::tracing::error!("{err}");
+            exclusive_in_out::<(), Result<(), std::io::Error>>.map(|result| {
+                if let Err(error) = result {
+                    log::error!("{}", error);
                 }
             }),
         );
@@ -1754,5 +1763,16 @@ mod tests {
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
         assert_eq!(world.get_resource(), Some(&C(3)));
+    }
+
+    #[test]
+    fn simple_fallible_system() {
+        fn sys() -> Result {
+            Err("error")?;
+            Ok(())
+        }
+
+        let mut world = World::new();
+        run_system(&mut world, sys);
     }
 }

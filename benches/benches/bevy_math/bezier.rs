@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, Criterion};
 
-use bevy_math::{prelude::*, *};
+use bevy_math::prelude::*;
 
 fn easing(c: &mut Criterion) {
     let cubic_bezier = CubicSegment::new_bezier(vec2(0.25, 0.1), vec2(0.25, 1.0));
@@ -8,7 +8,7 @@ fn easing(c: &mut Criterion) {
         b.iter(|| {
             (0..1000).map(|i| i as f32 / 1000.0).for_each(|t| {
                 black_box(cubic_bezier.ease(black_box(t)));
-            })
+            });
         });
     });
 }
@@ -92,4 +92,3 @@ criterion_group!(
     build_pos_cubic,
     build_accel_cubic,
 );
-criterion_main!(benches);

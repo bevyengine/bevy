@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![deny(unsafe_code)]
 #![doc(
@@ -34,6 +33,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod material_bind_groups;
 mod mesh_material;
 mod parallax;
 mod pbr_material;
@@ -42,6 +42,8 @@ mod render;
 mod ssao;
 mod ssr;
 mod volumetric_fog;
+
+use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 use core::marker::PhantomData;
@@ -130,7 +132,7 @@ use bevy_render::{
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
-    view::{check_visibility, VisibilitySystems},
+    view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -161,8 +163,8 @@ pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(26590
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
 
-const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
-const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -404,7 +406,6 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
                     (
                         check_dir_light_mesh_visibility,
                         check_point_light_mesh_visibility,
@@ -474,7 +475,8 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalClusterableObjectMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>()
+            .init_resource::<FallbackBindlessResources>();
     }
 }
 

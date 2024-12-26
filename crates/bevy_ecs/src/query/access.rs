@@ -1,8 +1,10 @@
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -336,13 +338,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Sets this as having access to all resources (i.e. `&World`).
     #[inline]
-    pub fn read_all_resources(&mut self) {
+    pub const fn read_all_resources(&mut self) {
         self.reads_all_resources = true;
     }
 
     /// Sets this as having mutable access to all resources (i.e. `&mut World`).
     #[inline]
-    pub fn write_all_resources(&mut self) {
+    pub const fn write_all_resources(&mut self) {
         self.reads_all_resources = true;
         self.writes_all_resources = true;
     }
@@ -772,7 +774,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// `Access`, it's not recommended. Prefer to manage your own lists of
     /// accessible components if your application needs to do that.
     #[doc(hidden)]
-    #[deprecated]
+    // TODO: this should be deprecated and removed, see https://github.com/bevyengine/bevy/issues/16339
     pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
         (
             self.component_read_and_writes
@@ -888,18 +890,22 @@ impl AccessConflicts {
     pub(crate) fn format_conflict_list(&self, world: &World) -> String {
         match self {
             AccessConflicts::All => String::new(),
-            AccessConflicts::Individual(indices) => format!(
-                " {}",
-                indices
-                    .ones()
-                    .map(|index| world
-                        .components
-                        .get_info(ComponentId::get_sparse_set_index(index))
-                        .unwrap()
-                        .name())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            ),
+            AccessConflicts::Individual(indices) => indices
+                .ones()
+                .map(|index| {
+                    format!(
+                        "{}",
+                        ShortName(
+                            world
+                                .components
+                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .unwrap()
+                                .name()
+                        )
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
         }
     }
 
@@ -1012,7 +1018,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        if self.access.is_compatible(&other.access) {
+        // Resources are read from the world rather than the filtered archetypes,
+        // so they must be compatible even if the filters are disjoint.
+        if !self.access.is_resources_compatible(&other.access) {
+            return false;
+        }
+
+        if self.access.is_components_compatible(&other.access) {
             return true;
         }
 
