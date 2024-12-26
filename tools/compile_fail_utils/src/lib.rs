@@ -30,7 +30,11 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
             return Err(eyre!("path does not exist: {}", root_dir.display()));
         }
         Err(error) => {
-            return Err(eyre!("failed to read path: {} ({})", root_dir.display(), error));
+            return Err(eyre!(
+                "failed to read path: {} ({})",
+                root_dir.display(),
+                error
+            ));
         }
     }
 
