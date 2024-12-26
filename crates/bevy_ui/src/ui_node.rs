@@ -18,8 +18,8 @@ use {
         camera::{Camera, RenderTarget},
         view::{self, Visibility, VisibilityClass},
     },
-    bevy_window::{PrimaryWindow, WindowRef},
     bevy_utils::warn_once,
+    bevy_window::{PrimaryWindow, WindowRef},
 };
 
 /// Provides the computed size and layout properties of the node.

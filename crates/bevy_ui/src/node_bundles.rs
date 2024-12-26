@@ -196,7 +196,6 @@ impl Default for ButtonBundle {
     since = "0.15.0",
     note = "Use the `MaterialNode` component instead. Inserting `MaterialNode` will also insert the other components required automatically."
 )]
-
 #[cfg(feature = "bevy_render")]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
