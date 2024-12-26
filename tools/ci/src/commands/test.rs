@@ -17,7 +17,8 @@ impl Prepare for TestCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests {no_fail_fast}"
+                // `--benches` runs each benchmark once, to verify that they behave correctly.
+                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}"
             ),
             "Please fix failing tests in output above.",
         )]
