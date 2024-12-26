@@ -1,5 +1,6 @@
 use core::{fmt::Write, str, time::Duration};
 
+use benches::bench;
 use bevy_reflect::ParsedPath;
 use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::{distributions::Uniform, Rng, SeedableRng};
@@ -66,7 +67,8 @@ fn mk_paths(size: usize) -> impl FnMut() -> String {
 }
 
 fn parse_reflect_path(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("parse_reflect_path");
+    let mut group = criterion.benchmark_group(bench!("parse_reflect_path"));
+
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
     group.sample_size(SAMPLE_SIZE);
