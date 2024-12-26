@@ -7,6 +7,11 @@ license = "MIT OR Apache-2.0"
 # Do not automatically discover benchmarks, we specify them manually instead.
 autobenches = false
 
+[dependencies]
+# The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
+# `bench!` macro refers to it in its documentation.
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
 [dev-dependencies]
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
@@ -22,7 +27,6 @@ bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
 # Other crates
-criterion = { version = "0.5.1", features = ["html_reports"] }
 glam = "0.29"
 rand = "0.8"
 rand_chacha = "0.3"
