@@ -156,7 +156,7 @@ fn handle_inputs(
     for (mut player, mut clips, entity, name) in &mut animation_player {
         let display_entity_name = match name {
             Some(name) => name.to_string(),
-            None => format!("entity {entity:?}"),
+            None => format!("entity {entity}"),
         };
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.all_paused() {

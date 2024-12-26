@@ -452,7 +452,7 @@ impl<'w, 's> Commands<'w, 's> {
         #[track_caller]
         fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
-                "Attempting to create an EntityCommands for entity {entity:?}, which {}",
+                "Attempting to create an EntityCommands for entity {entity}, which {}",
                 entities.entity_does_not_exist_error_details_message(entity)
             );
         }
@@ -1405,7 +1405,7 @@ impl<'a> EntityCommands<'a> {
                     entity.insert_by_id(component_id, ptr);
                 });
             } else {
-                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
+                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
             }
         })
     }
@@ -2119,7 +2119,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
                     caller,
                 );
             } else {
-                panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity) );
+                panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity) );
             }
         });
         self

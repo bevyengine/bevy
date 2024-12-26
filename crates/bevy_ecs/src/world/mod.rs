@@ -710,7 +710,7 @@ impl World {
         #[track_caller]
         fn panic_no_entity(world: &World, entity: Entity) -> ! {
             panic!(
-                "Entity {entity:?} {}",
+                "Entity {entity} {}",
                 world
                     .entities
                     .entity_does_not_exist_error_details_message(entity)
@@ -862,7 +862,7 @@ impl World {
         let entity_location = self
             .entities()
             .get(entity)
-            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"));
+            .unwrap_or_else(|| panic!("Entity {entity} does not exist"));
 
         let archetype = self
             .archetypes()

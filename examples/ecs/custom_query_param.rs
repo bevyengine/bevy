@@ -186,7 +186,7 @@ fn print_components_tuple(
 ) {
     println!("Print components (tuple):");
     for (entity, a, b, nested, (generic_c, generic_d)) in &query {
-        println!("Entity: {entity:?}");
+        println!("Entity: {entity}");
         println!("A: {a:?}");
         println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
