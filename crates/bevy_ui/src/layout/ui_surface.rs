@@ -197,10 +197,10 @@ impl UiSurface {
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(all(feature = "bevy_text"))] buffer_query: &'a mut bevy_ecs::prelude::Query<
+        #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
             &mut bevy_text::ComputedTextBlock,
         >,
-        #[cfg(all(feature = "bevy_text"))] font_system: &'a mut CosmicFontSystem,
+        #[cfg(feature = "bevy_text")] font_system: &'a mut CosmicFontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -223,7 +223,7 @@ impl UiSurface {
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
-                                #[cfg(all(feature = "bevy_text"))]
+                                #[cfg(feature = "bevy_text")]
                                 let buffer = get_text_buffer(
                                     crate::widget::TextMeasure::needs_buffer(
                                         known_dimensions.height,
@@ -238,9 +238,9 @@ impl UiSurface {
                                         height: known_dimensions.height,
                                         available_width: available_space.width,
                                         available_height: available_space.height,
-                                        #[cfg(all(feature = "bevy_text"))]
+                                        #[cfg(feature = "bevy_text")]
                                         font_system,
-                                        #[cfg(all(feature = "bevy_text"))]
+                                        #[cfg(feature = "bevy_text")]
                                         buffer,
                                         _phantom: default(),
                                     },
