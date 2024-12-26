@@ -37,8 +37,8 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        prepare_view_targets, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -221,8 +221,7 @@ impl Plugin for MeshRenderPlugin {
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
                                 .in_set(RenderSet::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::ManageViews)
-                                .after(prepare_view_targets),
+                                .in_set(RenderSet::PrepareResources),
                             collect_meshes_for_gpu_building
                                 .in_set(RenderSet::PrepareAssets)
                                 .after(allocator::allocate_and_free_meshes)
