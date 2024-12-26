@@ -1,7 +1,11 @@
 use core::time::Duration;
 
+use benches::bench;
 use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
-use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup,
+    BenchmarkId, Criterion, PlotConfiguration, Throughput,
+};
 
 criterion_group!(
     benches,
@@ -19,10 +23,22 @@ const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
 const SIZES: [usize; 4] = [16, 32, 64, 128];
 
+/// Creates a [`BenchmarkGroup`] with common configuration shared by all benchmarks within this
+/// module.
+fn create_group<'a, M: Measurement>(c: &'a mut Criterion<M>, name: &str) -> BenchmarkGroup<'a, M> {
+    let mut group = c.benchmark_group(name);
+
+    group
+        .warm_up_time(WARM_UP_TIME)
+        .measurement_time(MEASUREMENT_TIME)
+        // Make the plots logarithmic, matching `SIZES`' scale.
+        .plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
+
+    group
+}
+
 fn concrete_struct_field(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_field");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_field"));
 
     let structs: [Box<dyn Struct>; 4] = [
         Box::new(Struct16::default()),
@@ -53,9 +69,7 @@ fn concrete_struct_field(criterion: &mut Criterion) {
 }
 
 fn concrete_struct_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_apply"));
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
@@ -111,9 +125,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
 }
 
 fn concrete_struct_type_info(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_type_info");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_type_info"));
 
     let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
         (
@@ -159,9 +171,7 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
 }
 
 fn concrete_struct_clone(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_clone");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_clone"));
 
     let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
         (
@@ -207,9 +217,7 @@ fn concrete_struct_clone(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_clone(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_clone");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_clone"));
 
     let structs: [Box<dyn Struct>; 5] = [
         Box::new(Struct1::default().clone_dynamic()),
@@ -233,9 +241,7 @@ fn dynamic_struct_clone(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_apply"));
 
     let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
@@ -293,9 +299,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_insert(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_insert");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_insert"));
 
     for field_count in SIZES {
         group.throughput(Throughput::Elements(field_count as u64));
@@ -325,9 +329,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_get_field(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_get");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_get_field"));
 
     for field_count in SIZES {
         group.throughput(Throughput::Elements(field_count as u64));
