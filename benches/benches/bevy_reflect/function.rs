@@ -1,10 +1,18 @@
-use std::hint::black_box;
+use core::hint::black_box;
 
 use benches::bench;
 use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
 use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion};
 
-criterion_group!(benches, typed, into, call, overload, clone);
+criterion_group!(
+    benches,
+    typed,
+    into,
+    call,
+    clone,
+    with_overload,
+    call_overload,
+);
 
 fn add(a: i32, b: i32) -> i32 {
     a + b
@@ -39,6 +47,7 @@ fn into(c: &mut Criterion) {
         })
         .bench_function("closure_mut", |b| {
             let mut _capture = 25;
+            // `move` is required here because `into_function_mut()` takes ownership of `self`.
             let closure = move |a: i32| _capture += a;
             b.iter(|| closure.into_function_mut());
         });
@@ -49,7 +58,7 @@ fn call(c: &mut Criterion) {
         .bench_function("trait_object", |b| {
             b.iter_batched(
                 || Box::new(add) as Box<dyn Fn(i32, i32) -> i32>,
-                |func| func(75, 25),
+                |func| func(black_box(75), black_box(25)),
                 BatchSize::SmallInput,
             );
         })
@@ -81,31 +90,40 @@ fn call(c: &mut Criterion) {
         });
 }
 
-fn overload(c: &mut Criterion) {
-    fn add<T: std::ops::Add<Output = T>>(a: T, b: T) -> T {
-        a + b
-    }
+fn clone(c: &mut Criterion) {
+    c.benchmark_group(bench!("clone"))
+        .bench_function("function", |b| {
+            let add = add.into_function();
+            b.iter(|| add.clone());
+        });
+}
 
-    #[expect(clippy::too_many_arguments)]
-    fn complex<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(
-        _: T0,
-        _: T1,
-        _: T2,
-        _: T3,
-        _: T4,
-        _: T5,
-        _: T6,
-        _: T7,
-        _: T8,
-        _: T9,
-    ) {
-    }
 
+fn simple<T: std::ops::Add<Output = T>>(a: T, b: T) -> T {
+    a + b
+}
+
+#[expect(clippy::too_many_arguments)]
+fn complex<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+    _: T0,
+    _: T1,
+    _: T2,
+    _: T3,
+    _: T4,
+    _: T5,
+    _: T6,
+    _: T7,
+    _: T8,
+    _: T9,
+) {
+}
+
+fn with_overload(c: &mut Criterion) {
     c.benchmark_group(bench!("with_overload"))
         .bench_function(BenchmarkId::new("simple_overload", 1), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
-                |func| func.with_overload(add::<i16>),
+                || simple::<i8>.into_function(),
+                |func| func.with_overload(simple::<i16>),
                 BatchSize::SmallInput,
             );
         })
@@ -120,11 +138,11 @@ fn overload(c: &mut Criterion) {
         })
         .bench_function(BenchmarkId::new("simple_overload", 3), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
+                || simple::<i8>.into_function(),
                 |func| {
-                    func.with_overload(add::<i16>)
-                        .with_overload(add::<i32>)
-                        .with_overload(add::<i64>)
+                    func.with_overload(simple::<i16>)
+                        .with_overload(simple::<i32>)
+                        .with_overload(simple::<i64>)
                 },
                 BatchSize::SmallInput,
             );
@@ -142,17 +160,17 @@ fn overload(c: &mut Criterion) {
         })
         .bench_function(BenchmarkId::new("simple_overload", 10), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
+                || simple::<i8>.into_function(),
                 |func| {
-                    func.with_overload(add::<i16>)
-                        .with_overload(add::<i32>)
-                        .with_overload(add::<i64>)
-                        .with_overload(add::<i128>)
-                        .with_overload(add::<u8>)
-                        .with_overload(add::<u16>)
-                        .with_overload(add::<u32>)
-                        .with_overload(add::<u64>)
-                        .with_overload(add::<u128>)
+                    func.with_overload(simple::<i16>)
+                        .with_overload(simple::<i32>)
+                        .with_overload(simple::<i64>)
+                        .with_overload(simple::<i128>)
+                        .with_overload(simple::<u8>)
+                        .with_overload(simple::<u16>)
+                        .with_overload(simple::<u32>)
+                        .with_overload(simple::<u64>)
+                        .with_overload(simple::<u128>)
                 },
                 BatchSize::SmallInput,
             );
@@ -176,19 +194,19 @@ fn overload(c: &mut Criterion) {
         })
         .bench_function(BenchmarkId::new("nested_simple_overload", 1), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
-                |func| func.with_overload(add::<i16>),
+                || simple::<i8>.into_function(),
+                |func| func.with_overload(simple::<i16>),
                 BatchSize::SmallInput,
             );
         })
         .bench_function(BenchmarkId::new("nested_simple_overload", 3), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
+                || simple::<i8>.into_function(),
                 |func| {
                     func.with_overload(
-                        add::<i16>
-                            .into_function()
-                            .with_overload(add::<i32>.into_function().with_overload(add::<i64>)),
+                        simple::<i16>.into_function().with_overload(
+                            simple::<i32>.into_function().with_overload(simple::<i64>),
+                        ),
                     )
                 },
                 BatchSize::SmallInput,
@@ -196,19 +214,19 @@ fn overload(c: &mut Criterion) {
         })
         .bench_function(BenchmarkId::new("nested_simple_overload", 10), |b| {
             b.iter_batched(
-                || add::<i8>.into_function(),
+                || simple::<i8>.into_function(),
                 |func| {
                     func.with_overload(
-                        add::<i16>.into_function().with_overload(
-                            add::<i32>.into_function().with_overload(
-                                add::<i64>.into_function().with_overload(
-                                    add::<i128>.into_function().with_overload(
-                                        add::<u8>.into_function().with_overload(
-                                            add::<u16>.into_function().with_overload(
-                                                add::<u32>.into_function().with_overload(
-                                                    add::<u64>
+                        simple::<i16>.into_function().with_overload(
+                            simple::<i32>.into_function().with_overload(
+                                simple::<i64>.into_function().with_overload(
+                                    simple::<i128>.into_function().with_overload(
+                                        simple::<u8>.into_function().with_overload(
+                                            simple::<u16>.into_function().with_overload(
+                                                simple::<u32>.into_function().with_overload(
+                                                    simple::<u64>
                                                         .into_function()
-                                                        .with_overload(add::<u128>),
+                                                        .with_overload(simple::<u128>),
                                                 ),
                                             ),
                                         ),
@@ -221,13 +239,15 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         });
+}
 
+fn call_overload(c: &mut Criterion) {
     c.benchmark_group(bench!("call_overload"))
         .bench_function(BenchmarkId::new("simple_overload", 1), |b| {
             b.iter_batched(
                 || {
                     (
-                        add::<i8>.into_function().with_overload(add::<i16>),
+                        simple::<i8>.into_function().with_overload(simple::<i16>),
                         ArgList::new().push_owned(75_i8).push_owned(25_i8),
                     )
                 },
@@ -265,11 +285,11 @@ fn overload(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     (
-                        add::<i8>
+                        simple::<i8>
                             .into_function()
-                            .with_overload(add::<i16>)
-                            .with_overload(add::<i32>)
-                            .with_overload(add::<i64>),
+                            .with_overload(simple::<i16>)
+                            .with_overload(simple::<i32>)
+                            .with_overload(simple::<i64>),
                         ArgList::new().push_owned(75_i32).push_owned(25_i32),
                     )
                 },
@@ -313,17 +333,17 @@ fn overload(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     (
-                        add::<i8>
+                        simple::<i8>
                             .into_function()
-                            .with_overload(add::<i16>)
-                            .with_overload(add::<i32>)
-                            .with_overload(add::<i64>)
-                            .with_overload(add::<i128>)
-                            .with_overload(add::<u8>)
-                            .with_overload(add::<u16>)
-                            .with_overload(add::<u32>)
-                            .with_overload(add::<u64>)
-                            .with_overload(add::<u128>),
+                            .with_overload(simple::<i16>)
+                            .with_overload(simple::<i32>)
+                            .with_overload(simple::<i64>)
+                            .with_overload(simple::<i128>)
+                            .with_overload(simple::<u8>)
+                            .with_overload(simple::<u16>)
+                            .with_overload(simple::<u32>)
+                            .with_overload(simple::<u64>)
+                            .with_overload(simple::<u128>),
                         ArgList::new().push_owned(75_u8).push_owned(25_u8),
                     )
                 },
@@ -380,13 +400,5 @@ fn overload(c: &mut Criterion) {
                 |(func, args)| func.call(args),
                 BatchSize::SmallInput,
             );
-        });
-}
-
-fn clone(c: &mut Criterion) {
-    c.benchmark_group(bench!("clone"))
-        .bench_function("function", |b| {
-            let add = add.into_function();
-            b.iter(|| add.clone());
         });
 }
