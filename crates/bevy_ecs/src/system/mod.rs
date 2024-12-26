@@ -1654,7 +1654,7 @@ mod tests {
         assert_is_system(
             exclusive_in_out::<(), Result<(), std::io::Error>>.map(|out| {
                 if let Err(error) = out {
-                    log::error!("{}", error);
+                    tracing::error!("{}", error);
                 }
             }),
         );
