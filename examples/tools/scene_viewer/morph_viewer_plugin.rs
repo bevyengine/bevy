@@ -12,6 +12,8 @@ use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
 use std::fmt;
 
+const FONT_SIZE: f32 = 13.0;
+
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];
 const AVAILABLE_KEYS: [MorphKey; 56] = [
@@ -122,8 +124,8 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_span(&self, key: &str, style: TextFont) -> (String, TextFont) {
-        (format!("[{key}] {self}\n"), style)
+    fn text_span(&self, key: &str, style: TextFont) -> (TextSpan, TextFont) {
+        (TextSpan::new(format!("[{key}] {self}\n")), style)
     }
     fn new(
         entity_name: Option<&Name>,
@@ -178,13 +180,18 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    text: Single<Entity, With<Text>>,
+    texts: Query<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
     mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
     };
+
+    let Ok(text) = texts.get_single() else {
+        return;
+    };
+
     for (i, target) in controls.weights.iter_mut().enumerate() {
         let Ok(weights) = morphs.get(target.entity) else {
             continue;
@@ -196,7 +203,8 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        *writer.text(*text, i + 3) = format!("[{key_name}] {target}\n");
+
+        *writer.text(text, i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -254,12 +262,12 @@ fn detect_morphs(
     }
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextFont {
-        font_size: 13.0,
+        font_size: FONT_SIZE,
         ..default()
     };
     let mut spans = vec![
-        ("Morph Target Controls\n".into(), style.clone()),
-        ("---------------\n".into(), style.clone()),
+        (TextSpan::new("Morph Target Controls\n"), style.clone()),
+        (TextSpan::new("---------------\n"), style.clone()),
     ];
     let target_to_text =
         |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
@@ -270,14 +278,15 @@ fn detect_morphs(
             Text::default(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
             },
         ))
         .with_children(|p| {
-            p.spawn((TextSpan::new("Morph Target Controls\n"), style.clone()));
-            p.spawn((TextSpan::new("---------------\n"), style));
+            for span in spans {
+                p.spawn(span);
+            }
         });
 }
 

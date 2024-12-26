@@ -1,9 +1,10 @@
 use core::{iter, time::Duration};
 
+use benches::bench;
 use bevy_reflect::{DynamicList, List};
 use criterion::{
-    black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
-    Criterion, Throughput,
+    black_box, criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup,
+    BenchmarkId, Criterion, PlotConfiguration, Throughput,
 };
 
 criterion_group!(
@@ -14,11 +15,29 @@ criterion_group!(
     dynamic_list_push
 );
 
+// Use a shorter warm-up time (from 3 to 0.5 seconds) and measurement time (from 5 to 4) because we
+// have so many combinations (>50) to benchmark.
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
 
-// log10 scaling
-const SIZES: [usize; 5] = [100_usize, 316, 1000, 3162, 10000];
+/// An array of list sizes used in benchmarks.
+///
+/// This scales logarithmically.
+const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
+
+/// Creates a [`BenchmarkGroup`] with common configuration shared by all benchmarks within this
+/// module.
+fn create_group<'a, M: Measurement>(c: &'a mut Criterion<M>, name: &str) -> BenchmarkGroup<'a, M> {
+    let mut group = c.benchmark_group(name);
+
+    group
+        .warm_up_time(WARM_UP_TIME)
+        .measurement_time(MEASUREMENT_TIME)
+        // Make the plots logarithmic, matching `SIZES`' scale.
+        .plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
+
+    group
+}
 
 fn list_apply<M, LBase, LPatch, F1, F2, F3>(
     group: &mut BenchmarkGroup<M>,
@@ -53,9 +72,7 @@ fn list_apply<M, LBase, LPatch, F1, F2, F3>(
 }
 
 fn concrete_list_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_list_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_list_apply"));
 
     let empty_base = |_: usize| Vec::<u64>::new;
     let full_base = |size: usize| move || iter::repeat(0).take(size).collect::<Vec<u64>>();
@@ -77,9 +94,7 @@ fn concrete_list_apply(criterion: &mut Criterion) {
 }
 
 fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_list_clone_dynamic");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_list_clone_dynamic"));
 
     for size in SIZES {
         group.throughput(Throughput::Elements(size as u64));
@@ -99,9 +114,7 @@ fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
 }
 
 fn dynamic_list_push(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_list_push");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_list_push"));
 
     for size in SIZES {
         group.throughput(Throughput::Elements(size as u64));
@@ -130,9 +143,7 @@ fn dynamic_list_push(criterion: &mut Criterion) {
 }
 
 fn dynamic_list_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_list_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_list_apply"));
 
     let empty_base = |_: usize| || Vec::<u64>::new().clone_dynamic();
     let full_base = |size: usize| move || iter::repeat(0).take(size).collect::<Vec<u64>>();

@@ -424,7 +424,7 @@ fn visibility_propagate_system(
             // fall back to true if no parent is found or parent lacks components
             Visibility::Inherited => parent
                 .and_then(|p| visibility_query.get(p.get()).ok())
-                .map_or(true, |(_, x)| x.get()),
+                .is_none_or(|(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
             .get_mut(entity)
