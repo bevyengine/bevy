@@ -171,7 +171,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {} which doesn't exist",
+                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
