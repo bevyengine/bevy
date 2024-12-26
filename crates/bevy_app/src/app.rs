@@ -1348,7 +1348,7 @@ impl App {
     /// ```
     pub fn with_component_hooks<T>(
         &mut self,
-        hooks: impl Fn(&mut ComponentHooks) -> (),
+        hooks: impl Fn(&mut ComponentHooks),
     ) -> &mut Self
     where
         T: Component,
