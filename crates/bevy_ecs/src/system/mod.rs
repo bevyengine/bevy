@@ -1653,6 +1653,7 @@ mod tests {
         assert_is_system(static_system_param);
         assert_is_system(
             exclusive_in_out::<(), Result<(), std::io::Error>>.map(|out| {
+                #[cfg(feature = "trace")]
                 if let Err(error) = out {
                     tracing::error!("{}", error);
                 }
