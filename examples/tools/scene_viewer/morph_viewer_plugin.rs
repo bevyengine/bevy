@@ -124,8 +124,8 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_span(&self, key: &str, style: TextFont) -> (String, TextFont) {
-        (format!("[{key}] {self}\n"), style)
+    fn text_span(&self, key: &str, style: TextFont) -> (TextSpan, TextFont) {
+        (TextSpan::new(format!("[{key}] {self}\n")), style)
     }
     fn new(
         entity_name: Option<&Name>,
@@ -179,7 +179,6 @@ impl MorphKey {
     }
 }
 fn update_text(
-    mut commands: Commands,
     controls: Option<ResMut<WeightsControl>>,
     texts: Query<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
@@ -205,20 +204,7 @@ fn update_text(
         }
         let key_name = &AVAILABLE_KEYS[i].name;
 
-        if let Some(mut val) = writer.get_text(text, i + 3) {
-            *val = format!("[{key_name}] {target}\n");
-        } else {
-            let new_span = commands
-                .spawn((
-                    TextSpan::new(format!("[{key_name}] {target}\n")),
-                    TextFont {
-                        font_size: FONT_SIZE,
-                        ..default()
-                    },
-                ))
-                .id();
-            commands.entity(text).add_child(new_span);
-        }
+        *writer.text(text, i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -280,8 +266,8 @@ fn detect_morphs(
         ..default()
     };
     let mut spans = vec![
-        ("Morph Target Controls\n".into(), style.clone()),
-        ("---------------\n".into(), style.clone()),
+        (TextSpan::new("Morph Target Controls\n"), style.clone()),
+        (TextSpan::new("---------------\n"), style.clone()),
     ];
     let target_to_text =
         |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
@@ -298,8 +284,9 @@ fn detect_morphs(
             },
         ))
         .with_children(|p| {
-            p.spawn((TextSpan::new("Morph Target Controls\n"), style.clone()));
-            p.spawn((TextSpan::new("---------------\n"), style));
+            for span in spans {
+                p.spawn(span);
+            }
         });
 }
 
