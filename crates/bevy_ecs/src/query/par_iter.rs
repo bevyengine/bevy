@@ -1,3 +1,5 @@
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::state::{ArchetypeIteration, StorageIds, TableIteration};
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
@@ -108,16 +110,37 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
-                // SAFETY: See the safety comment above.
-                unsafe {
-                    self.state.par_fold_init_unchecked_manual(
-                        init,
-                        self.world,
-                        batch_size,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                match &self.state.storage_ids {
+                    StorageIds::Tables(table_ids) => {
+                        // SAFETY: See the safety comment above.
+                        unsafe {
+                            self.state
+                                .par_fold_init_unchecked_manual::<T, _, INIT, TableIteration>(
+                                    init,
+                                    self.world,
+                                    batch_size,
+                                    func,
+                                    self.last_run,
+                                    self.this_run,
+                                    table_ids,
+                                );
+                        }
+                    }
+                    StorageIds::Archetypes(archetype_ids) => {
+                        // SAFETY: See the safety comment above.
+                        unsafe {
+                            self.state
+                                .par_fold_init_unchecked_manual::<T, _, INIT, ArchetypeIteration>(
+                                    init,
+                                    self.world,
+                                    batch_size,
+                                    func,
+                                    self.last_run,
+                                    self.this_run,
+                                    archetype_ids,
+                                );
+                        }
+                    }
                 }
             }
         }

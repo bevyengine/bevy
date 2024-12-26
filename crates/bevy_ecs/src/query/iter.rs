@@ -1,6 +1,4 @@
 use super::{QueryData, QueryFilter, ReadOnlyQueryData, StorageIds};
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use crate::query::StorageId;
 use crate::{
     archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     bundle::Bundle,
@@ -124,44 +122,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetypes: self.archetypes,
             query_state: self.query_state,
             cursor: self.cursor.reborrow(),
-        }
-    }
-
-    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from a storage, where the storage to iterate is expressed as either an archetype
-    /// or table ID, involving a branch to determine which.
-    ///
-    ///  # Safety
-    ///  - `range` must be in `[0, storage::entity_count)` or None.
-    ///  - `storage_id` must have been retrieved from `cursor.entity_source` to ensure
-    ///    that the variant of `StorageId` matches the variant of `QueryIterationEntitySource`.
-    #[inline]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(super) unsafe fn fold_over_storage_range_by_id<B, Func>(
-        &mut self,
-        accum: B,
-        func: &mut Func,
-        storage_id: StorageId,
-        range: Option<Range<usize>>,
-    ) -> B
-    where
-        Func: FnMut(B, D::Item<'w>) -> B,
-    {
-        match storage_id {
-            StorageId::Table(table_id) => {
-                // SAFETY:
-                // - The caller has ensured a valid `storage_id` and `range`
-                // - The caller has ensured we provided the original `storage_id`, and so we can
-                //   trust it that table iteration is valid.
-                unsafe { self.fold_over_table_range_by_id(accum, func, table_id, range) }
-            }
-            StorageId::Archetype(archetype_id) => {
-                // SAFETY:
-                // - The caller has ensured a valid `storage_id` and `range`
-                // - The caller has ensured we provided the original `storage_id`, and so we can
-                //   trust it that archetype iteration is valid.
-                unsafe { self.fold_over_archetype_range_by_id(accum, func, archetype_id, range) }
-            }
         }
     }
 

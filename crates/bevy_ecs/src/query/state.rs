@@ -24,87 +24,6 @@ use super::{
     QueryManyUniqueIter, QuerySingleError, ROQueryItem,
 };
 
-/// An ID for either a table or an archetype. Used for Query iteration.
-///
-/// Query iteration is exclusively over tables or over archetypes based on whether the query filters
-/// are dense or not. This enum variant will match the variant of `StorageIds` that produces it,
-/// meaning callers can unsafely access the underlying variant if they have already checked the
-/// variant of `StorageIds`.
-///
-/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
-/// any combination of their values can happen.
-#[derive(Copy, Clone)]
-pub(super) enum StorageId {
-    Archetype(ArchetypeId),
-    Table(TableId),
-}
-
-impl TryInto<ArchetypeId> for StorageId {
-    type Error = ();
-
-    fn try_into(self) -> Result<ArchetypeId, Self::Error> {
-        match self {
-            Self::Archetype(id) => Ok(id),
-            _ => Err(()),
-        }
-    }
-}
-
-impl TryInto<TableId> for StorageId {
-    type Error = ();
-
-    fn try_into(self) -> Result<TableId, Self::Error> {
-        match self {
-            Self::Table(id) => Ok(id),
-            _ => Err(()),
-        }
-    }
-}
-
-impl From<TableId> for StorageId {
-    fn from(value: TableId) -> Self {
-        Self::Table(value)
-    }
-}
-
-impl From<ArchetypeId> for StorageId {
-    fn from(value: ArchetypeId) -> Self {
-        Self::Archetype(value)
-    }
-}
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-pub(super) enum StorageIdIter<'s> {
-    Archetypes(core::slice::Iter<'s, ArchetypeId>),
-    Tables(core::slice::Iter<'s, TableId>),
-}
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-impl Iterator for StorageIdIter<'_> {
-    type Item = StorageId;
-
-    /// This implementation branches on each call, prefer calling `fold` directly or via `for_each`
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Tables(table_ids) => table_ids.next().copied().map(Into::into),
-            Self::Archetypes(archetype_ids) => archetype_ids.next().copied().map(Into::into),
-        }
-    }
-
-    /// Fold implementation avoids branching in each `next` call
-    #[inline]
-    fn fold<B, F>(self, init: B, f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        match self {
-            Self::Archetypes(ids) => ids.map(|id| StorageId::Archetype(*id)).fold(init, f),
-            Self::Tables(ids) => ids.map(|id| StorageId::Table(*id)).fold(init, f),
-        }
-    }
-}
-
 /// A collection of storage IDs that all have the same type, so instead of storing `StorageId` and
 /// checking the discriminator repeatedly, this enum "factors out" the discriminator so that
 /// callers can perform one match once before accessing the underlying storage IDs.
@@ -133,14 +52,6 @@ impl StorageIds {
 
     fn is_tables(&self) -> bool {
         matches!(self, Self::Tables(_))
-    }
-
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    fn iter(&self) -> StorageIdIter<'_> {
-        match self {
-            Self::Tables(table_ids) => StorageIdIter::Tables(table_ids.iter()),
-            Self::Archetypes(archetype_ids) => StorageIdIter::Archetypes(archetype_ids.iter()),
-        }
     }
 }
 
@@ -1714,8 +1625,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[allow(clippy::too_many_arguments)]
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT, I>(
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
@@ -1723,23 +1635,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         func: FN,
         last_run: Tick,
         this_run: Tick,
+        storage_ids: &[I::StorageId],
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
+        I: IterationType,
+        I::StorageId: Copy + Send,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-            let tables = unsafe { &world.storages().tables };
-            let archetypes = world.archetypes();
+            let iter_state = I::init_state(world);
             let mut batch_queue = ArrayVec::new();
             let mut queue_entity_count = 0;
 
             // submit a list of storages which smaller than batch_size as single task
-            let submit_batch_queue = |queue: &mut ArrayVec<StorageId, 128>| {
+            let submit_batch_queue = |queue: &mut ArrayVec<I::StorageId, 128>| {
                 if queue.is_empty() {
                     return;
                 }
@@ -1752,14 +1665,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        accum =
-                            iter.fold_over_storage_range_by_id(accum, &mut func, storage_id, None);
+                        accum = I::fold_over_storage_range_by_id(
+                            &mut iter, accum, &mut func, storage_id, None,
+                        );
                     }
                 });
             };
 
             // submit single storage larger than batch_size
-            let submit_single = |count, storage_id: StorageId| {
+            let submit_single = |count, storage_id: I::StorageId| {
                 for offset in (0..count).step_by(batch_size) {
                     let mut func = func.clone();
                     let init_accum = init_accum.clone();
@@ -1769,35 +1683,29 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        self.iter_unchecked_manual(world, last_run, this_run)
-                            .fold_over_storage_range_by_id(
-                                accum,
-                                &mut func,
-                                storage_id,
-                                Some(batch),
-                            );
+                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                        I::fold_over_storage_range_by_id(
+                            &mut iter,
+                            accum,
+                            &mut func,
+                            storage_id,
+                            Some(batch),
+                        );
                     });
                 }
             };
 
-            let storage_entity_count = |storage_id: StorageId| -> usize {
-                match storage_id {
-                    StorageId::Table(table_id) => tables[table_id].entity_count(),
-                    StorageId::Archetype(archetype_id) => archetypes[archetype_id].len(),
-                }
-            };
-
-            self.storage_ids.iter().for_each(|storage_id| {
-                let count = storage_entity_count(storage_id);
+            for storage_id in storage_ids.iter().copied() {
+                let count = I::entity_count(&iter_state, storage_id);
 
                 // skip empty storage
                 if count == 0 {
-                    return;
+                    continue;
                 }
                 // immediately submit large storage
                 if count >= batch_size {
                     submit_single(count, storage_id);
-                    return;
+                    continue;
                 }
                 // merge small storage
                 batch_queue.push(storage_id);
@@ -1808,7 +1716,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     submit_batch_queue(&mut batch_queue);
                     queue_entity_count = 0;
                 }
-            });
+            }
             submit_batch_queue(&mut batch_queue);
         });
     }
@@ -1944,6 +1852,115 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 Self,
             >())),
         }
+    }
+}
+
+/// Abstraction over a method of iterating entities, e.g. by Table or by Archetype. This
+/// allows code to be generic over the iteration mode without branching regularly.
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) trait IterationType {
+    /// State captured from the world at the start of iteration
+    type State<'w>;
+    /// ID used to address a particular storage during iteration
+    type StorageId;
+
+    /// Capture initial state from the world needed for iteration
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_>;
+
+    /// Queries the number of entities within the addressed storage
+    fn entity_count(state: &Self::State<'_>, id: Self::StorageId) -> usize;
+
+    /// Implements fold operation on a subset of entities from the specified storage,
+    /// given a pre-constructed `QueryIter`.
+    ///
+    /// # Safety
+    ///
+    /// - Caller must ensure the selected implementation of this trait matches the
+    ///   expected iteration type of the `QueryIter`.
+    /// - Range must be `[0..entity_count)` for the number of entities in the addressed storage.
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter;
+}
+
+/// Represents iterating entities by Table
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) struct TableIteration;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+impl IterationType for TableIteration {
+    type State<'w> = &'w crate::storage::Tables;
+    type StorageId = TableId;
+
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_> {
+        // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+        unsafe { &world.storages().tables }
+    }
+
+    fn entity_count(state: &Self::State<'_>, id: Self::StorageId) -> usize {
+        state[id].entity_count()
+    }
+
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter,
+    {
+        // SAFETY:
+        // - Caller ensures that table iteration is valid for this query
+        // - Caller ensures the range is valid
+        unsafe { iter.fold_over_table_range_by_id(accum, func, storage_id, range) }
+    }
+}
+
+/// Represents iterating entities by Archetype
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) struct ArchetypeIteration;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+impl IterationType for ArchetypeIteration {
+    type State<'w> = &'w crate::archetype::Archetypes;
+    type StorageId = ArchetypeId;
+
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_> {
+        world.archetypes()
+    }
+
+    fn entity_count(state: &Self::State<'_>, id: ArchetypeId) -> usize {
+        state[id].len()
+    }
+
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter,
+    {
+        // SAFETY:
+        // - Caller ensures that archetype iteration is valid for this query
+        // - Caller ensures the range is valid
+        unsafe { iter.fold_over_archetype_range_by_id(accum, func, storage_id, range) }
     }
 }
 
