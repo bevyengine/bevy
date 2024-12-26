@@ -8,7 +8,7 @@ use alloc::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    component::RequiredComponentsError,
+    component::{ComponentHook, ComponentHooks, RequiredComponentsError},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -1320,6 +1320,16 @@ impl App {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().add_observer(observer);
+        self
+    }
+
+    pub fn with_component_hooks<T, F>(&mut self, hooks: F) -> &mut Self
+    where
+        F: Fn(&mut ComponentHooks) -> (),
+        T: Component,
+    {
+        let component_hooks = self.world_mut().register_component_hooks::<T>();
+        hooks(component_hooks);
         self
     }
 }
