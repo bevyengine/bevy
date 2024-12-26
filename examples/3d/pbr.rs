@@ -7,7 +7,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, environment_map_load_finish)
+        // This system relies on system parameters that are not available at start
+        // Ignore parameter failures so that it will run when possible
+        .add_systems(Update, environment_map_load_finish.never_param_warn())
         .run();
 }
 
