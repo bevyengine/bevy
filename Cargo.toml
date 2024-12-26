@@ -1866,6 +1866,11 @@ name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "with_component_hooks"
+path = "examples/ecs/with_component_hooks.rs"
+doc-scrape-examples = true
+
 [package.metadata.example.component_hooks]
 name = "Component Hooks"
 description = "Define component hooks to manage component lifecycle events"
