@@ -1,5 +1,6 @@
 use core::{iter, time::Duration};
 
+use benches::bench;
 use bevy_reflect::{DynamicList, List};
 use criterion::{
     black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
@@ -53,7 +54,7 @@ fn list_apply<M, LBase, LPatch, F1, F2, F3>(
 }
 
 fn concrete_list_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_list_apply");
+    let mut group = criterion.benchmark_group(bench!("concrete_list_apply"));
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
@@ -77,7 +78,7 @@ fn concrete_list_apply(criterion: &mut Criterion) {
 }
 
 fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_list_clone_dynamic");
+    let mut group = criterion.benchmark_group(bench!("concrete_list_clone_dynamic"));
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
@@ -99,7 +100,7 @@ fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
 }
 
 fn dynamic_list_push(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_list_push");
+    let mut group = criterion.benchmark_group(bench!("dynamic_list_push"));
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
@@ -130,7 +131,7 @@ fn dynamic_list_push(criterion: &mut Criterion) {
 }
 
 fn dynamic_list_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_list_apply");
+    let mut group = criterion.benchmark_group(bench!("dynamic_list_apply"));
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
