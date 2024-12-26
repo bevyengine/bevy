@@ -101,8 +101,14 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                // TODO: implement an error-handling API instead of suppressing a possible failure.
-                let _ = __rust_begin_short_backtrace::run(system, world);
+                // TODO: implement an error-handling API instead of panicking.
+                if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    panic!(
+                        "Encountered an error in system `{}`: {:?}",
+                        &*system.name(),
+                        err
+                    );
+                }
             });
 
             #[cfg(feature = "std")]
