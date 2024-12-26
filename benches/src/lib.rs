@@ -6,6 +6,20 @@
 /// and are positive [`BenchmarkId`](criterion::BenchmarkId) do not suit your needs, you can use
 /// [`format_bench!`].
 ///
+/// # When to use this
+///
+/// Use this macro to name benchmarks that are not within a group and benchmark groups themselves.
+/// You'll most commonly use this macro with:
+///
+/// - [`Criterion::bench_function()`](criterion::Criterion::bench_function)
+/// - [`Criterion::bench_with_input()`](criterion::Criterion::bench_with_input)
+/// - [`Criterion::benchmark_group()`](criterion::Criterion::benchmark_group)
+///
+/// You do not want to use this macro with
+/// [`BenchmarkGroup::bench_function()`](criterion::BenchmarkGroup::bench_function) or
+/// [`BenchmarkGroup::bench_with_input()`](criterion::BenchmarkGroup::bench_with_input), because
+/// the group they are in already has the qualified path in it.
+///
 /// # Example
 ///
 /// ```
