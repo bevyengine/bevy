@@ -2,9 +2,8 @@
 /// path.
 ///
 /// This macro takes a single string literal as input and returns a [`&'static str`](str). Its
-/// result is determined at compile-time. If you need to dynamically generate the name at runtime,
-/// and are positive [`BenchmarkId`](criterion::BenchmarkId) do not suit your needs, you can use
-/// [`format_bench!`].
+/// result is determined at compile-time. If you need to create variations of a benchmark name
+/// based on its input, use this in combination with [`BenchmarkId`](criterion::BenchmarkId).
 ///
 /// # When to use this
 ///
