@@ -11,7 +11,7 @@ const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(2);
 const SAMPLE_SIZE: usize = 500;
 const NOISE_THRESHOLD: f64 = 0.03;
-const SIZES: [usize; 6] = [100, 3160, 1000, 3_162, 10_000, 24_000];
+const SIZES: [usize; 6] = [100, 316, 1_000, 3_162, 10_000, 24_000];
 
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
