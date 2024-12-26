@@ -1346,10 +1346,7 @@ impl App {
     ///     });
     /// });
     /// ```
-    pub fn with_component_hooks<T>(
-        &mut self,
-        hooks: impl Fn(&mut ComponentHooks)
-    ) -> &mut Self
+    pub fn with_component_hooks<T>(&mut self, hooks: impl Fn(&mut ComponentHooks)) -> &mut Self
     where
         T: Component,
     {
