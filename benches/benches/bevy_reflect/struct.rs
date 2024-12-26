@@ -1,7 +1,7 @@
-use core::time::Duration;
+use core::{hint::black_box, time::Duration};
 
 use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
-use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 
 criterion_group!(
     benches,

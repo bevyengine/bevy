@@ -1,10 +1,10 @@
-use core::{fmt::Write, iter, time::Duration};
+use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use bevy_reflect::{DynamicMap, Map};
 use bevy_utils::HashMap;
 use criterion::{
-    black_box, criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId,
-    Criterion, Throughput,
+    criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId, Criterion,
+    Throughput,
 };
 
 criterion_group!(
