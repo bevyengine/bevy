@@ -280,7 +280,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        fetch.inner.as_mut().map_or(false, |inner| {
+        fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
                 let handle = <&A>::fetch(inner, entity, table_row);
