@@ -1,32 +1,39 @@
-use crate::{
-    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
-};
-use bevy_asset::Assets;
-use bevy_color::Color;
+use crate::{ContentSize, Measure, MeasureArgs, Node};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
     prelude::{require, Component},
-    query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
-    world::{Mut, Ref},
 };
-use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::Camera;
-use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
+    TextBounds, TextColor, TextFont, TextLayout, TextMeasureInfo, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
-use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
+#[cfg(feature = "bevy_render")]
+use {
+    crate::{ComputedNode, DefaultUiCamera, FixedMeasure, NodeMeasure, TargetCamera, UiScale},
+    bevy_asset::Assets,
+    bevy_color::Color,
+    bevy_ecs::{
+        entity::Entity,
+        entity::EntityHashMap,
+        query::With,
+        system::{Local, Query, Res, ResMut},
+        world::{Mut, Ref},
+    },
+    bevy_image::Image,
+    bevy_render::camera::Camera,
+    bevy_sprite::TextureAtlasLayout,
+    bevy_text::{
+        scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
+        SwashCache, TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
+    },
+    bevy_utils::Entry,
+};
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
@@ -187,7 +194,7 @@ impl Measure for TextMeasure {
                                 font_system,
                             )
                         } else {
-                            error!("text measure failed, buffer is missing");
+                            bevy_utils::tracing::error!("text measure failed, buffer is missing");
                             Vec2::default()
                         }
                     }
@@ -202,6 +209,7 @@ impl Measure for TextMeasure {
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
+#[cfg(feature = "bevy_render")]
 fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
@@ -255,6 +263,7 @@ fn create_text_measure<'a>(
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "bevy_render")]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
@@ -322,6 +331,7 @@ pub fn measure_text_system(
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
+#[cfg(feature = "bevy_render")]
 fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,

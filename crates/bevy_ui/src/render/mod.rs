@@ -20,27 +20,22 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::{Image, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_phase::{
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        ViewSortedRenderPhases,
+    },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSet,
-};
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::ViewVisibility,
-    ExtractSchedule, Render,
+    view::{ExtractedView, ViewUniforms, ViewVisibility},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
@@ -48,6 +43,7 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
+#[cfg(feature = "bevy_text")]
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -142,6 +138,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+                #[cfg(feature = "bevy_text")]
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
                 debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
@@ -615,6 +612,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "bevy_text")]
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,

@@ -6,9 +6,13 @@ mod texture_cache;
 pub use crate::render_resource::DefaultImageSampler;
 #[cfg(feature = "basis-universal")]
 use bevy_image::CompressedImageSaver;
+#[cfg(feature = "exr")]
+use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
 use bevy_image::HdrTextureLoader;
-use bevy_image::{CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor, TRANSPARENT_IMAGE_HANDLE,
+};
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use texture_attachment::*;
@@ -20,14 +24,6 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
-
-/// A handle to a 1 x 1 transparent white image.
-///
-/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
-/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
-// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
-pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
-    Handle::weak_from_u128(154728948001857810431816125397303024160);
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -62,7 +58,7 @@ impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "exr")]
         {
-            app.init_asset_loader::<bevy_image::ExrTextureLoader>();
+            app.init_asset_loader::<ExrTextureLoader>();
         }
 
         #[cfg(feature = "hdr")]

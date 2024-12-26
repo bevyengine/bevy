@@ -1,27 +1,19 @@
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::system::Commands;
-use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
-use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
-use bevy_math::Rect;
-use bevy_math::Vec2;
-use bevy_render::sync_world::RenderEntity;
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::Extract;
+use bevy_ecs::{
+    entity::Entity,
+    system::{Commands, Query, Res, ResMut, Resource},
+};
+use bevy_math::{Rect, Vec2};
+use bevy_render::{
+    sync_world::{RenderEntity, TemporaryRenderEntity},
+    Extract,
+};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 
-use crate::ComputedNode;
-use crate::DefaultUiCamera;
-use crate::TargetCamera;
-
-use super::ExtractedUiItem;
-use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
-use super::NodeType;
+use super::{ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType};
+use crate::{ComputedNode, DefaultUiCamera, TargetCamera};
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]

@@ -1,21 +1,26 @@
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::prelude::*;
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    camera::{Camera, RenderTarget},
-    view::{self, Visibility, VisibilityClass},
-};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::warn_once;
-use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
+
+#[cfg(feature = "bevy_render")]
+use {
+    bevy_ecs::system::SystemParam,
+    bevy_render::{
+        camera::{Camera, RenderTarget},
+        view::{self, Visibility, VisibilityClass},
+    },
+    bevy_window::{PrimaryWindow, WindowRef},
+    bevy_utils::warn_once,
+};
 
 /// Provides the computed size and layout properties of the node.
 ///
@@ -327,10 +332,10 @@ impl From<Vec2> for ScrollPosition {
     FocusPolicy,
     ScrollPosition,
     Transform,
-    Visibility,
     VisibilityClass,
     ZIndex
 )]
+#[cfg_attr(feature = "bevy_render", require(Visibility))]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[component(on_add = view::add_visibility_class::<Node>)]
 #[cfg_attr(
@@ -2614,8 +2619,10 @@ mod tests {
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
+#[cfg(feature = "bevy_render")]
 pub struct TargetCamera(pub Entity);
 
+#[cfg(feature = "bevy_render")]
 impl TargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
@@ -2659,12 +2666,14 @@ impl TargetCamera {
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
+#[cfg(feature = "bevy_render")]
 pub struct DefaultUiCamera<'w, 's> {
     cameras: Query<'w, 's, (Entity, &'static Camera)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
+#[cfg(feature = "bevy_render")]
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
         self.default_cameras.get_single().ok().or_else(|| {

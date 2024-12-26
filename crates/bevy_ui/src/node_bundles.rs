@@ -4,11 +4,16 @@
 use crate::{
     widget::{Button, ImageNodeSize},
     BackgroundColor, BorderColor, BorderRadius, ComputedNode, ContentSize, FocusPolicy, ImageNode,
-    Interaction, MaterialNode, Node, ScrollPosition, UiMaterial, ZIndex,
+    Interaction, Node, ScrollPosition, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
-use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+
+#[cfg(feature = "bevy_render")]
+use {
+    crate::{MaterialNode, UiMaterial},
+    bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility},
+};
 
 /// The basic UI node.
 ///
@@ -47,10 +52,13 @@ pub struct NodeBundle {
     /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
+    #[cfg(feature = "bevy_render")]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[cfg(feature = "bevy_render")]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -94,10 +102,13 @@ pub struct ImageBundle {
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
+    #[cfg(feature = "bevy_render")]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[cfg(feature = "bevy_render")]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -139,10 +150,13 @@ pub struct ButtonBundle {
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
+    #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
+    #[cfg(feature = "bevy_render")]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[cfg(feature = "bevy_render")]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -162,8 +176,11 @@ impl Default for ButtonBundle {
             background_color: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            #[cfg(feature = "bevy_render")]
             visibility: Default::default(),
+            #[cfg(feature = "bevy_render")]
             inherited_visibility: Default::default(),
+            #[cfg(feature = "bevy_render")]
             view_visibility: Default::default(),
             z_index: Default::default(),
         }
@@ -179,6 +196,8 @@ impl Default for ButtonBundle {
     since = "0.15.0",
     note = "Use the `MaterialNode` component instead. Inserting `MaterialNode` will also insert the other components required automatically."
 )]
+
+#[cfg(feature = "bevy_render")]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
     pub computed_node: ComputedNode,
@@ -209,6 +228,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     pub z_index: ZIndex,
 }
 
+#[cfg(feature = "bevy_render")]
 impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
     fn default() -> Self {
         Self {
@@ -218,8 +238,11 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
+            #[cfg(feature = "bevy_render")]
             visibility: Default::default(),
+            #[cfg(feature = "bevy_render")]
             inherited_visibility: Default::default(),
+            #[cfg(feature = "bevy_render")]
             view_visibility: Default::default(),
             z_index: Default::default(),
         }

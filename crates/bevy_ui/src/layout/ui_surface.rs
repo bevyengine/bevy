@@ -1,16 +1,15 @@
-use core::fmt;
-
-use taffy::TaffyTree;
-
+use crate::{layout::convert, LayoutContext, LayoutError, Node, NodeMeasure};
+use crate::{Measure, MeasureArgs};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_utils::default;
-
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+#[cfg(feature = "bevy_text")]
 use bevy_text::CosmicFontSystem;
+use bevy_utils::default;
+use core::fmt;
+use taffy::TaffyTree;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -198,8 +197,10 @@ impl UiSurface {
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-        font_system: &'a mut CosmicFontSystem,
+        #[cfg(all(feature = "bevy_text"))] buffer_query: &'a mut bevy_ecs::prelude::Query<
+            &mut bevy_text::ComputedTextBlock,
+        >,
+        #[cfg(all(feature = "bevy_text"))] font_system: &'a mut CosmicFontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -222,6 +223,7 @@ impl UiSurface {
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
+                                #[cfg(all(feature = "bevy_text"))]
                                 let buffer = get_text_buffer(
                                     crate::widget::TextMeasure::needs_buffer(
                                         known_dimensions.height,
@@ -236,8 +238,11 @@ impl UiSurface {
                                         height: known_dimensions.height,
                                         available_width: available_space.width,
                                         available_height: available_space.height,
+                                        #[cfg(all(feature = "bevy_text"))]
                                         font_system,
+                                        #[cfg(all(feature = "bevy_text"))]
                                         buffer,
+                                        _phantom: default(),
                                     },
                                     style,
                                 );
@@ -307,6 +312,7 @@ impl UiSurface {
     }
 }
 
+#[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
