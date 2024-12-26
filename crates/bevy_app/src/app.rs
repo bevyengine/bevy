@@ -1330,6 +1330,7 @@ impl App {
     /// ```rust
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::component::ComponentHooks;
     /// # use bevy_utils::default;
     /// #
     /// # let mut app = App::new();
@@ -1339,11 +1340,11 @@ impl App {
     /// # struct MyComponent;
     /// #
     /// // An observer system can be any system where the first parameter is a trigger
-    /// app.with_component_hooks::<MyComponent>(|hooks: &mut ComponentHooks
-    ///     hooks.on_add(|mut world: DeferredWorld<'_>, entity: Entity, component_id: ComponentId| {
+    /// app.with_component_hooks::<MyComponent>(|hooks: &mut ComponentHooks| {
+    ///     hooks.on_add(|mut world, entity, component_id| {
     ///        println!("Component: {component_id:?} added to : {entity:?}");
     ///     });
-    /// })
+    /// });
     /// ```
     pub fn with_component_hooks<T>(
         &mut self,
