@@ -1323,7 +1323,7 @@ impl App {
         self
     }
 
-    /// Allows access to [`World`]'s [`register_component_hooks`] method directly from the app.
+    /// Allows access to [`World::register_component_hooks`] method directly from the app.
     ///
     /// # Examples
     ///
@@ -1348,7 +1348,7 @@ impl App {
     /// ```
     pub fn with_component_hooks<T>(
         &mut self,
-        hooks: impl Fn(&mut ComponentHooks) -> (),
+        hooks: impl Fn(&mut ComponentHooks)
     ) -> &mut Self
     where
         T: Component,

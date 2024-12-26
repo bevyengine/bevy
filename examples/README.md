@@ -319,6 +319,7 @@ Example | Description
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
+[With Component Hooks](../examples/ecs/with_component_hooks.rs) | Demonstrate how to use the with_component_hooks API
 
 ## Games
 
