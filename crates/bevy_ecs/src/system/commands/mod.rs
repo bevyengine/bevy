@@ -1,13 +1,10 @@
 #[cfg(feature = "std")]
 mod parallel_scope;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::{marker::PhantomData, panic::Location};
 
-use super::{
-    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
-    UnregisterSystem, UnregisterSystemCached,
-};
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
@@ -15,16 +12,16 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, SendEvent},
-    observer::{Observer, TriggerEvent, TriggerTargets},
+    observer::{Observer, TriggerTargets},
     schedule::ScheduleLabel,
-    system::{input::SystemInput, RunSystemWith, SystemId},
+    system::{input::SystemInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
         EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
-use log::{error, info};
+use log::{error, info, warn};
 
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
@@ -878,7 +875,11 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(RunSystemWith::new_with_input(id, input));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.run_system_with(id, input) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -939,7 +940,12 @@ impl<'w, 's> Commands<'w, 's> {
         O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
-        self.queue(RegisterSystem::new(system, entity));
+        let system = RegisteredSystem::new(Box::new(IntoSystem::into_system(system)));
+        self.queue(move |world: &mut World| {
+            if let Ok(mut entity) = world.get_entity_mut(entity) {
+                entity.insert(system);
+            }
+        });
         SystemId::from_entity(entity)
     }
 
@@ -951,7 +957,11 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(UnregisterSystem::new(system_id));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.unregister_system(system_id) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Removes a system previously registered with [`World::register_system_cached`].
@@ -966,7 +976,11 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(UnregisterSystemCached::new(system));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.unregister_system_cached(system) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
@@ -990,7 +1004,11 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, (), M> + Send + 'static,
     {
-        self.queue(RunSystemCachedWith::new(system, input));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.run_system_cached_with(system, input) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -998,7 +1016,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
-        self.queue(TriggerEvent { event, targets: () });
+        self.queue(move |world: &mut World| {
+            world.trigger(event);
+        });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
@@ -1010,7 +1030,9 @@ impl<'w, 's> Commands<'w, 's> {
         event: impl Event,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
-        self.queue(TriggerEvent { event, targets });
+        self.queue(move |world: &mut World| {
+            world.trigger_targets(event, targets);
+        });
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
