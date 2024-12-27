@@ -37,7 +37,7 @@ use core::{
 ///
 /// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
 /// [reflection]: crate
-pub trait Tuple: PartialReflect + Send + Sync {
+pub trait Tuple: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&(dyn Reflect + Send + Sync)`.
     fn field(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;

@@ -47,7 +47,7 @@ use core::{
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 /// [`Deserialize`]: ::serde::Deserialize
-pub trait Array: PartialReflect + Send + Sync {
+pub trait Array: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;
 

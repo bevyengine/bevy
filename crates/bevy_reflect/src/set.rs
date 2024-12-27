@@ -45,7 +45,7 @@ use crate::{
 /// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
-pub trait Set: PartialReflect + Send + Sync {
+pub trait Set: PartialReflect {
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.

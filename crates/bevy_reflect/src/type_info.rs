@@ -91,7 +91,7 @@ use thiserror::Error;
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Typed: Reflect + Send + Sync + TypePath + Sync {
+pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
@@ -112,7 +112,7 @@ pub trait Typed: Reflect + Send + Sync + TypePath + Sync {
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait MaybeTyped: PartialReflect + Send + Sync {
+pub trait MaybeTyped: PartialReflect {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
     /// [info]: TypeInfo

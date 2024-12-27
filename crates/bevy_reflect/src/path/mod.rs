@@ -255,7 +255,7 @@ impl<'a> ReflectPath<'a> for &'a str {
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait GetPath: PartialReflect + Send + Sync {
+pub trait GetPath: PartialReflect {
     /// Returns a reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed reference, use

@@ -40,7 +40,7 @@ use core::{
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 /// [reflection]: crate
-pub trait TupleStruct: PartialReflect + Send + Sync {
+pub trait TupleStruct: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&(dyn Reflect + Send + Sync)`.
     fn field(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)>;

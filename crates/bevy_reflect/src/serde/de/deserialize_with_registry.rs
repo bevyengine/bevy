@@ -41,7 +41,7 @@ use serde::Deserializer;
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [via the registry]: TypeRegistry::register_type_data
-pub trait DeserializeWithRegistry<'de>: PartialReflect + Sized + Send + Sync {
+pub trait DeserializeWithRegistry<'de>: PartialReflect + Sized {
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;
