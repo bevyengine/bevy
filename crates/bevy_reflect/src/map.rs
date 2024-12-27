@@ -49,21 +49,36 @@ pub trait Map: PartialReflect + Send + Sync {
     /// Returns a reference to the value associated with the given key.
     ///
     /// If no value is associated with `key`, returns `None`.
-    fn get(&self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&(dyn PartialReflect + Send + Sync)>;
+    fn get(
+        &self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)>;
 
     /// Returns a mutable reference to the value associated with the given key.
     ///
     /// If no value is associated with `key`, returns `None`.
-    fn get_mut(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
+    fn get_mut(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&mut (dyn PartialReflect + Send + Sync)>;
 
     /// Returns the key-value pair at `index` by reference, or `None` if out of bounds.
-    fn get_at(&self, index: usize) -> Option<(&(dyn PartialReflect + Send + Sync), &(dyn PartialReflect + Send + Sync))>;
+    fn get_at(
+        &self,
+        index: usize,
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &(dyn PartialReflect + Send + Sync),
+    )>;
 
     /// Returns the key-value pair at `index` by reference where the value is a mutable reference, or `None` if out of bounds.
     fn get_at_mut(
         &mut self,
         index: usize,
-    ) -> Option<(&(dyn PartialReflect + Send + Sync), &mut (dyn PartialReflect + Send + Sync))>;
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &mut (dyn PartialReflect + Send + Sync),
+    )>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -79,7 +94,12 @@ pub trait Map: PartialReflect + Send + Sync {
     /// Drain the key-value pairs of this map to get a vector of owned values.
     ///
     /// After calling this function, `self` will be empty.
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)>;
+    fn drain(
+        &mut self,
+    ) -> Vec<(
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    )>;
 
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
@@ -98,7 +118,10 @@ pub trait Map: PartialReflect + Send + Sync {
     ///
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
-    fn remove(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn PartialReflect + Send + Sync>>;
+    fn remove(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<Box<dyn PartialReflect + Send + Sync>>;
 
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
@@ -214,7 +237,10 @@ macro_rules! hash_error {
 #[derive(Default)]
 pub struct DynamicMap {
     represented_type: Option<&'static TypeInfo>,
-    values: Vec<(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)>,
+    values: Vec<(
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    )>,
     indices: HashTable<usize>,
 }
 
@@ -239,7 +265,11 @@ impl DynamicMap {
     }
 
     /// Inserts a typed key-value pair into the map.
-    pub fn insert<K: PartialReflect + Send + Sync, V: PartialReflect + Send + Sync>(&mut self, key: K, value: V) {
+    pub fn insert<K: PartialReflect + Send + Sync, V: PartialReflect + Send + Sync>(
+        &mut self,
+        key: K,
+        value: V,
+    ) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
 
@@ -249,7 +279,10 @@ impl DynamicMap {
 
     fn internal_eq<'a>(
         value: &'a (dyn PartialReflect + Send + Sync),
-        values: &'a [(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)],
+        values: &'a [(
+            Box<dyn PartialReflect + Send + Sync>,
+            Box<dyn PartialReflect + Send + Sync>,
+        )],
     ) -> impl FnMut(&usize) -> bool + 'a {
         |&index| {
             value
@@ -260,7 +293,10 @@ impl DynamicMap {
 }
 
 impl Map for DynamicMap {
-    fn get(&self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&(dyn PartialReflect + Send + Sync)> {
+    fn get(
+        &self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)> {
         let hash = Self::internal_hash(key);
         let eq = Self::internal_eq(key, &self.values);
         self.indices
@@ -268,7 +304,10 @@ impl Map for DynamicMap {
             .map(|&index| &*self.values[index].1)
     }
 
-    fn get_mut(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
+    fn get_mut(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         let hash = Self::internal_hash(key);
         let eq = Self::internal_eq(key, &self.values);
         self.indices
@@ -276,7 +315,13 @@ impl Map for DynamicMap {
             .map(|&index| &mut *self.values[index].1)
     }
 
-    fn get_at(&self, index: usize) -> Option<(&(dyn PartialReflect + Send + Sync), &(dyn PartialReflect + Send + Sync))> {
+    fn get_at(
+        &self,
+        index: usize,
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &(dyn PartialReflect + Send + Sync),
+    )> {
         self.values
             .get(index)
             .map(|(key, value)| (&**key, &**value))
@@ -285,7 +330,10 @@ impl Map for DynamicMap {
     fn get_at_mut(
         &mut self,
         index: usize,
-    ) -> Option<(&(dyn PartialReflect + Send + Sync), &mut (dyn PartialReflect + Send + Sync))> {
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &mut (dyn PartialReflect + Send + Sync),
+    )> {
         self.values
             .get_mut(index)
             .map(|(key, value)| (&**key, &mut **value))
@@ -299,7 +347,12 @@ impl Map for DynamicMap {
         MapIter::new(self)
     }
 
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)> {
+    fn drain(
+        &mut self,
+    ) -> Vec<(
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    )> {
         self.values.drain(..).collect()
     }
 
@@ -346,7 +399,10 @@ impl Map for DynamicMap {
         }
     }
 
-    fn remove(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn PartialReflect + Send + Sync>> {
+    fn remove(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<Box<dyn PartialReflect + Send + Sync>> {
         let hash = Self::internal_hash(key);
         let eq = Self::internal_eq(key, &self.values);
         match self.indices.find_entry(hash, eq) {
@@ -396,7 +452,9 @@ impl PartialReflect for DynamicMap {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
@@ -475,7 +533,10 @@ impl MapIter<'_> {
 }
 
 impl<'a> Iterator for MapIter<'a> {
-    type Item = (&'a (dyn PartialReflect + Send + Sync), &'a (dyn PartialReflect + Send + Sync));
+    type Item = (
+        &'a (dyn PartialReflect + Send + Sync),
+        &'a (dyn PartialReflect + Send + Sync),
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.map.get_at(self.index);
@@ -489,8 +550,20 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
-impl FromIterator<(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)> for DynamicMap {
-    fn from_iter<I: IntoIterator<Item = (Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)>>(
+impl
+    FromIterator<(
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    )> for DynamicMap
+{
+    fn from_iter<
+        I: IntoIterator<
+            Item = (
+                Box<dyn PartialReflect + Send + Sync>,
+                Box<dyn PartialReflect + Send + Sync>,
+            ),
+        >,
+    >(
         items: I,
     ) -> Self {
         let mut map = Self::default();
@@ -512,7 +585,10 @@ impl<K: Reflect + Send + Sync, V: Reflect + Send + Sync> FromIterator<(K, V)> fo
 }
 
 impl IntoIterator for DynamicMap {
-    type Item = (Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>);
+    type Item = (
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    );
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -521,7 +597,10 @@ impl IntoIterator for DynamicMap {
 }
 
 impl<'a> IntoIterator for &'a DynamicMap {
-    type Item = (&'a (dyn PartialReflect + Send + Sync), &'a (dyn PartialReflect + Send + Sync));
+    type Item = (
+        &'a (dyn PartialReflect + Send + Sync),
+        &'a (dyn PartialReflect + Send + Sync),
+    );
     type IntoIter = MapIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -541,7 +620,10 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
+pub fn map_partial_eq<M: Map + ?Sized>(
+    a: &M,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     let ReflectRef::Map(map) = b.reflect_ref() else {
         return Some(false);
     };
@@ -614,7 +696,10 @@ pub fn map_apply<M: Map>(a: &mut M, b: &(dyn PartialReflect + Send + Sync)) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected map or if
 /// applying elements to each other fails.
 #[inline]
-pub fn map_try_apply<M: Map>(a: &mut M, b: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
+pub fn map_try_apply<M: Map>(
+    a: &mut M,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let map_value = b.reflect_ref().as_map()?;
 
     for (key, b_value) in map_value.iter() {

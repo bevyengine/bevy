@@ -26,7 +26,7 @@ use alloc::boxed::Box;
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait FromReflect: Reflect + Sized {
+pub trait FromReflect: Reflect + Send + Sync + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &(dyn PartialReflect + Send + Sync)) -> Option<Self>;
 
@@ -113,7 +113,10 @@ impl ReflectFromReflect {
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect + Send + Sync>`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn Reflect + Send + Sync>> {
+    pub fn from_reflect(
+        &self,
+        reflect_value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.from_reflect)(reflect_value)
     }
 }
@@ -122,7 +125,8 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {
-                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect + Send + Sync>)
+                T::from_reflect(reflect_value)
+                    .map(|value| Box::new(value) as Box<dyn Reflect + Send + Sync>)
             },
         }
     }

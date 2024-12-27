@@ -280,7 +280,9 @@ impl PartialReflect for DynamicList {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
@@ -461,7 +463,10 @@ pub fn list_apply<L: List>(a: &mut L, b: &(dyn PartialReflect + Send + Sync)) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
 /// applying elements to each other fails.
 #[inline]
-pub fn list_try_apply<L: List>(a: &mut L, b: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
+pub fn list_try_apply<L: List>(
+    a: &mut L,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let list_value = b.reflect_ref().as_list()?;
 
     for (i, value) in list_value.iter().enumerate() {
@@ -486,7 +491,10 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &(dyn PartialReflect + Send + Sync)
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
+pub fn list_partial_eq<L: List + ?Sized>(
+    a: &L,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     let ReflectRef::List(list) = b.reflect_ref() else {
         return Some(false);
     };

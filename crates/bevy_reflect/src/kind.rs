@@ -221,7 +221,7 @@ pub enum ReflectMut<'a> {
     Enum(&'a mut dyn Enum),
     #[cfg(feature = "functions")]
     Function(&'a mut dyn Function),
-    Opaque(&'a mut dyn PartialReflect),
+    Opaque(&'a mut (dyn PartialReflect + Send + Sync)),
 }
 impl_reflect_kind_conversions!(ReflectMut<'_>);
 
@@ -234,7 +234,7 @@ impl<'a> ReflectMut<'a> {
     impl_cast_method!(as_map: Map => &'a mut dyn Map);
     impl_cast_method!(as_set: Set => &'a mut dyn Set);
     impl_cast_method!(as_enum: Enum => &'a mut dyn Enum);
-    impl_cast_method!(as_opaque: Opaque => &'a mut dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a mut (dyn PartialReflect + Send + Sync));
 }
 
 /// An owned enumeration of ["kinds"] of a reflected type.

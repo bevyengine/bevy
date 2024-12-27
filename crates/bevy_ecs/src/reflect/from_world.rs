@@ -38,7 +38,7 @@ impl ReflectFromWorldFns {
 
 impl ReflectFromWorld {
     /// Constructs default reflected [`FromWorld`] from world using [`from_world()`](FromWorld::from_world).
-    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
+    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect + Send + Sync> {
         (self.0.from_world)(world)
     }
 

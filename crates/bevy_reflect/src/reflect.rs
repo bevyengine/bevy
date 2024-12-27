@@ -343,11 +343,13 @@ pub trait Reflect: PartialReflect + Send + Sync + DynamicTyped + Any {
     ///
     /// If `value` does not contain a value of type `T`, returns an `Err`
     /// containing the trait object.
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>>;
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>>;
 }
 
-impl dyn PartialReflect + Send + Sync
-{
+impl dyn PartialReflect + Send + Sync {
     /// Returns `true` if the underlying value represents a value of type `T`, or `false`
     /// otherwise.
     ///
@@ -406,7 +408,7 @@ impl dyn PartialReflect + Send + Sync
     }
 }
 
-impl Debug for dyn PartialReflect {
+impl Debug for dyn PartialReflect + Send + Sync {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
@@ -425,13 +427,15 @@ impl TypePath for dyn PartialReflect + Send + Sync {
 }
 
 #[deny(rustdoc::broken_intra_doc_links)]
-impl dyn Reflect where Self: Send + Sync {
+impl dyn Reflect + Send + Sync {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
-    pub fn downcast<T: Any>(self: Box<dyn Reflect + Send + Sync>) -> Result<Box<T>, Box<dyn Reflect + Send + Sync>> {
+    pub fn downcast<T: Any>(
+        self: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<Box<T>, Box<dyn Reflect + Send + Sync>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
         } else {
@@ -444,7 +448,9 @@ impl dyn Reflect where Self: Send + Sync {
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
-    pub fn take<T: Any>(self: Box<dyn Reflect + Send + Sync>) -> Result<T, Box<dyn Reflect + Send + Sync>> {
+    pub fn take<T: Any>(
+        self: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<T, Box<dyn Reflect + Send + Sync>> {
         self.downcast::<T>().map(|value| *value)
     }
 
@@ -486,7 +492,7 @@ impl dyn Reflect where Self: Send + Sync {
     }
 }
 
-impl Debug for dyn Reflect {
+impl Debug for dyn Reflect + Send + Sync {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
@@ -542,7 +548,7 @@ macro_rules! impl_full_reflect {
                 &mut self,
                 value: Box<dyn $crate::Reflect + Send + Sync>,
             ) -> Result<(), Box<dyn $crate::Reflect + Send + Sync>> {
-                *self = <dyn $crate::Reflect>::take(value)?;
+                *self = <dyn $crate::Reflect + Send + Sync>::take(value)?;
                 Ok(())
             }
         }

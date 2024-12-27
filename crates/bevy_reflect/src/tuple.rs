@@ -303,7 +303,9 @@ impl PartialReflect for DynamicTuple {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
@@ -413,7 +415,10 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &(dyn PartialReflect + Send + Sync)) 
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
 /// applying elements to each other fails.
 #[inline]
-pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
+pub fn tuple_try_apply<T: Tuple>(
+    a: &mut T,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let tuple = b.reflect_ref().as_tuple()?;
 
     for (i, value) in tuple.iter_fields().enumerate() {
@@ -434,7 +439,10 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &(dyn PartialReflect + Send + Syn
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
+pub fn tuple_partial_eq<T: Tuple + ?Sized>(
+    a: &T,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };

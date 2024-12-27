@@ -83,7 +83,7 @@ use core::fmt;
     message = "`{Self}` does not implement `TypePath` so cannot provide static type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
-pub trait TypePath: 'static + Send + Sync {
+pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
     ///
     /// Generic parameter types are also fully expanded.

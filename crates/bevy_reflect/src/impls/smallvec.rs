@@ -101,7 +101,9 @@ where
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -174,7 +176,10 @@ where
         self
     }
 
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }

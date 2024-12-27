@@ -201,11 +201,11 @@ impl<'a> Arg<'a> {
 pub enum ArgValue<'a> {
     Owned(Box<dyn PartialReflect + Send + Sync>),
     Ref(&'a (dyn PartialReflect + Send + Sync)),
-    Mut(&'a mut dyn PartialReflect),
+    Mut(&'a mut (dyn PartialReflect + Send + Sync)),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn PartialReflect;
+    type Target = dyn PartialReflect + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         match self {

@@ -316,7 +316,11 @@ impl DynamicStruct {
     /// Inserts a field named `name` with the typed value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert<'a, T: PartialReflect + Send + Sync>(&mut self, name: impl Into<Cow<'a, str>>, value: T) {
+    pub fn insert<'a, T: PartialReflect + Send + Sync>(
+        &mut self,
+        name: impl Into<Cow<'a, str>>,
+        value: T,
+    ) {
         self.insert_boxed(name, Box::new(value));
     }
 
@@ -406,7 +410,9 @@ impl PartialReflect for DynamicStruct {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
     fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> {
@@ -484,7 +490,9 @@ where
 {
     /// Create a dynamic struct that doesn't represent a type from the
     /// field name, field value pairs.
-    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect + Send + Sync>)>>(fields: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect + Send + Sync>)>>(
+        fields: I,
+    ) -> Self {
         let mut dynamic_struct = Self::default();
         for (name, value) in fields.into_iter() {
             dynamic_struct.insert_boxed(name, value);
@@ -521,7 +529,10 @@ impl<'a> IntoIterator for &'a DynamicStruct {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
+pub fn struct_partial_eq<S: Struct + ?Sized>(
+    a: &S,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };

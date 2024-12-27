@@ -75,7 +75,7 @@ impl DerefMut for AppFunctionRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn PartialReflect`.
+/// Creates a `T` from a ` &(dyn Reflect + Send + Sync)`.
 ///
 /// This will try the following strategies, in this order:
 ///
@@ -91,8 +91,8 @@ impl DerefMut for AppFunctionRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
-    reflected: &dyn PartialReflect,
+pub fn from_reflect_with_fallback<T: Reflect + Send + Sync + TypePath>(
+    reflected:  &(dyn PartialReflect + Send + Sync),
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {

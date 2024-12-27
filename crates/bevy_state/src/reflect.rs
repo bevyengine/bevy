@@ -14,7 +14,7 @@ pub struct ReflectState(ReflectStateFns);
 #[derive(Clone)]
 pub struct ReflectStateFns {
     /// Function pointer implementing [`ReflectState::reflect()`].
-    pub reflect: fn(&World) -> Option<&dyn Reflect>,
+    pub reflect: fn(&World) -> Option<&(dyn Reflect + Send + Sync)>,
 }
 
 impl ReflectStateFns {
@@ -23,14 +23,14 @@ impl ReflectStateFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: States + Reflect>() -> Self {
+    pub fn new<T: States + Reflect + Send + Sync>() -> Self {
         <ReflectState as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectState {
     /// Gets the value of this [`States`] type from the world as a reflected reference.
-    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a (dyn Reflect + Send + Sync)> {
         (self.0.reflect)(world)
     }
 }
@@ -41,7 +41,7 @@ impl<S: States + Reflect> FromType<S> for ReflectState {
             reflect: |world| {
                 world
                     .get_resource::<State<S>>()
-                    .map(|res| res.get() as &dyn Reflect)
+                    .map(|res| res.get() as &(dyn Reflect + Send + Sync))
             },
         })
     }
@@ -58,7 +58,7 @@ pub struct ReflectFreelyMutableState(ReflectFreelyMutableStateFns);
 #[derive(Clone)]
 pub struct ReflectFreelyMutableStateFns {
     /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state()`].
-    pub set_next_state: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub set_next_state: fn(&mut World, &(dyn Reflect + Send + Sync), &TypeRegistry),
 }
 
 impl ReflectFreelyMutableStateFns {
@@ -74,7 +74,7 @@ impl ReflectFreelyMutableStateFns {
 
 impl ReflectFreelyMutableState {
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`].
-    pub fn set_next_state(&self, world: &mut World, state: &dyn Reflect, registry: &TypeRegistry) {
+    pub fn set_next_state(&self, world: &mut World, state: &(dyn Reflect + Send + Sync), registry: &TypeRegistry) {
         (self.0.set_next_state)(world, state, registry);
     }
 }

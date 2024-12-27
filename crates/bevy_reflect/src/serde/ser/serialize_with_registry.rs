@@ -69,7 +69,9 @@ impl ReflectSerializeWithRegistry {
     }
 }
 
-impl<T: Reflect + SerializeWithRegistry + Send + Sync> FromType<T> for ReflectSerializeWithRegistry {
+impl<T: Reflect + SerializeWithRegistry + Send + Sync> FromType<T>
+    for ReflectSerializeWithRegistry
+{
     fn from_type() -> Self {
         Self {
             serialize: |value: &(dyn Reflect + Send + Sync), registry| {

@@ -48,7 +48,7 @@ impl World {
     /// let entity = world.spawn(MyComponent).id();
     ///
     /// // retrieve a reflected reference to the entity's `MyComponent`
-    /// let comp_reflected: &dyn Reflect = world.get_reflect(entity, TypeId::of::<MyComponent>()).unwrap();
+    /// let comp_reflected: &(dyn Reflect + Send + Sync) = world.get_reflect(entity, TypeId::of::<MyComponent>()).unwrap();
     ///
     /// // make sure we got the expected type
     /// assert!(comp_reflected.is::<MyComponent>());
@@ -69,7 +69,7 @@ impl World {
         &self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<&dyn Reflect, GetComponentReflectError> {
+    ) -> Result<&(dyn Reflect + Send + Sync), GetComponentReflectError> {
         let Some(component_id) = self.components().get_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
@@ -144,7 +144,7 @@ impl World {
         &mut self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<Mut<'_, dyn Reflect>, GetComponentReflectError> {
+    ) -> Result<Mut<'_, dyn Reflect + Send + Sync>, GetComponentReflectError> {
         // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
         // temporary (from read()) too  early.
         let Some(app_type_registry) = self.get_resource::<AppTypeRegistry>().cloned() else {

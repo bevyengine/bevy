@@ -1096,31 +1096,52 @@ where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn get(&self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&(dyn PartialReflect + Send + Sync)> {
+    fn get(
+        &self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)> {
         key.try_downcast_ref::<K>()
             .and_then(|key| Self::get(self, key))
             .map(|value| value as &(dyn PartialReflect + Send + Sync))
     }
 
-    fn get_mut(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
+    fn get_mut(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
         key.try_downcast_ref::<K>()
             .and_then(move |key| Self::get_mut(self, key))
             .map(|value| value as &mut (dyn PartialReflect + Send + Sync))
     }
 
-    fn get_at(&self, index: usize) -> Option<(&(dyn PartialReflect + Send + Sync), &(dyn PartialReflect + Send + Sync))> {
-        self.iter()
-            .nth(index)
-            .map(|(key, value)| (key as &(dyn PartialReflect + Send + Sync), value as &(dyn PartialReflect + Send + Sync)))
+    fn get_at(
+        &self,
+        index: usize,
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &(dyn PartialReflect + Send + Sync),
+    )> {
+        self.iter().nth(index).map(|(key, value)| {
+            (
+                key as &(dyn PartialReflect + Send + Sync),
+                value as &(dyn PartialReflect + Send + Sync),
+            )
+        })
     }
 
     fn get_at_mut(
         &mut self,
         index: usize,
-    ) -> Option<(&(dyn PartialReflect + Send + Sync), &mut (dyn PartialReflect + Send + Sync))> {
-        self.iter_mut()
-            .nth(index)
-            .map(|(key, value)| (key as &(dyn PartialReflect + Send + Sync), value as &mut (dyn PartialReflect + Send + Sync)))
+    ) -> Option<(
+        &(dyn PartialReflect + Send + Sync),
+        &mut (dyn PartialReflect + Send + Sync),
+    )> {
+        self.iter_mut().nth(index).map(|(key, value)| {
+            (
+                key as &(dyn PartialReflect + Send + Sync),
+                value as &mut (dyn PartialReflect + Send + Sync),
+            )
+        })
     }
 
     fn len(&self) -> usize {
@@ -1131,7 +1152,12 @@ where
         MapIter::new(self)
     }
 
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>)> {
+    fn drain(
+        &mut self,
+    ) -> Vec<(
+        Box<dyn PartialReflect + Send + Sync>,
+        Box<dyn PartialReflect + Send + Sync>,
+    )> {
         // BTreeMap doesn't have a `drain` function. See
         // https://github.com/rust-lang/rust/issues/81074. So we have to fake one by popping
         // elements off one at a time.
@@ -1181,7 +1207,10 @@ where
             .map(|old_value| Box::new(old_value) as Box<dyn PartialReflect + Send + Sync>)
     }
 
-    fn remove(&mut self, key: &(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn PartialReflect + Send + Sync>> {
+    fn remove(
+        &mut self,
+        key: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<Box<dyn PartialReflect + Send + Sync>> {
         let mut from_reflect = None;
         key.try_downcast_ref::<K>()
             .or_else(|| {
@@ -1214,7 +1243,9 @@ where
         self
     }
     #[inline]
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -1373,7 +1404,9 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -1462,7 +1495,10 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }
@@ -1576,7 +1612,9 @@ impl PartialReflect for Cow<'static, str> {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -1688,7 +1726,9 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     for Cow<'static, [T]>
 {
     fn get(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
-        self.as_ref().get(index).map(|x| x as &(dyn PartialReflect + Send + Sync))
+        self.as_ref()
+            .get(index)
+            .map(|x| x as &(dyn PartialReflect + Send + Sync))
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut (dyn PartialReflect + Send + Sync)> {
@@ -1763,7 +1803,9 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -1876,7 +1918,9 @@ impl PartialReflect for &'static str {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -1961,7 +2005,10 @@ impl Reflect for &'static str {
         self
     }
 
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }
@@ -2011,7 +2058,9 @@ impl PartialReflect for &'static Path {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -2097,7 +2146,10 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }
@@ -2149,7 +2201,9 @@ impl PartialReflect for Cow<'static, Path> {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -2239,7 +2293,10 @@ impl Reflect for Cow<'static, Path> {
         self
     }
 
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }
@@ -2307,7 +2364,9 @@ impl PartialReflect for &'static Location<'static> {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Ok(self)
     }
 
@@ -2392,7 +2451,10 @@ impl Reflect for &'static Location<'static> {
         self
     }
 
-    fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> {
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>> {
         *self = value.take()?;
         Ok(())
     }

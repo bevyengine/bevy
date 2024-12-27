@@ -52,7 +52,10 @@ pub trait ReflectPath<'a>: Sized {
     ///
     /// See [`GetPath::reflect_path`] for more details,
     /// see [`element`](Self::element) if you want a typed return value.
-    fn reflect_element(self, root: &(dyn PartialReflect + Send + Sync)) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)>;
+    fn reflect_element(
+        self,
+        root: &(dyn PartialReflect + Send + Sync),
+    ) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)>;
 
     /// Gets a mutable reference to the specified element on the given [`Reflect`] object.
     ///
@@ -75,7 +78,10 @@ pub trait ReflectPath<'a>: Sized {
     /// Gets a `&mut T` to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::path_mut`] for more details.
-    fn element_mut<T: Reflect>(self, root: &mut (dyn PartialReflect + Send + Sync)) -> PathResult<'a, &mut T> {
+    fn element_mut<T: Reflect>(
+        self,
+        root: &mut (dyn PartialReflect + Send + Sync),
+    ) -> PathResult<'a, &mut T> {
         self.reflect_element_mut(root).and_then(|p| {
             p.try_downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -83,7 +89,10 @@ pub trait ReflectPath<'a>: Sized {
     }
 }
 impl<'a> ReflectPath<'a> for &'a str {
-    fn reflect_element(self, mut root: &(dyn PartialReflect + Send + Sync)) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)> {
+    fn reflect_element(
+        self,
+        mut root: &(dyn PartialReflect + Send + Sync),
+    ) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)> {
         for (access, offset) in PathParser::new(self) {
             let a = access?;
             root = a.element(root, Some(offset))?;
@@ -248,7 +257,10 @@ pub trait GetPath: PartialReflect + Send + Sync {
     ///
     /// To retrieve a statically typed reference, use
     /// [`path`][GetPath::path].
-    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &(dyn PartialReflect + Send + Sync)> {
+    fn reflect_path<'p>(
+        &self,
+        path: impl ReflectPath<'p>,
+    ) -> PathResult<'p, &(dyn PartialReflect + Send + Sync)> {
         path.reflect_element(self.as_partial_reflect())
     }
 
@@ -434,7 +446,10 @@ impl ParsedPath {
     }
 }
 impl<'a> ReflectPath<'a> for &'a ParsedPath {
-    fn reflect_element(self, mut root: &(dyn PartialReflect + Send + Sync)) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)> {
+    fn reflect_element(
+        self,
+        mut root: &(dyn PartialReflect + Send + Sync),
+    ) -> PathResult<'a, &(dyn PartialReflect + Send + Sync)> {
         for OffsetAccess { access, offset } in &self.0 {
             root = access.element(root, *offset)?;
         }

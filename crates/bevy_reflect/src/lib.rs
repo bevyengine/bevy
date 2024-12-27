@@ -1671,7 +1671,7 @@ mod tests {
         // TypeInfo (unsized)
         assert_eq!(
             TypeId::of::<dyn Reflect + Send + Sync>(),
-            <dyn Reflect as Typed>::type_info().type_id()
+            <(dyn Reflect + Send + Sync) as Typed>::type_info().type_id()
         );
 
         // TypeInfo (instance)
@@ -2117,7 +2117,7 @@ mod tests {
 
         impl TestTrait for TestStruct {}
 
-        let trait_object: Box<dyn TestTrait> = Box::new(TestStruct);
+        let trait_object: Box<dyn TestTrait + Send + Sync> = Box::new(TestStruct);
 
         // Should compile:
         let _ = trait_object.as_reflect();
@@ -2406,14 +2406,14 @@ bevy_reflect::tests::Test {
     fn can_opt_out_type_path() {
         #[derive(Reflect)]
         #[reflect(type_path = false)]
-        struct Foo<T> {
+        struct Foo<T: Send + Sync> {
             #[reflect(ignore)]
             _marker: PhantomData<T>,
         }
 
         struct NotTypePath;
 
-        impl<T: 'static> TypePath for Foo<T> {
+        impl<T: 'static + Send + Sync> TypePath for Foo<T> {
             fn type_path() -> &'static str {
                 core::any::type_name::<Self>()
             }
@@ -2945,9 +2945,10 @@ bevy_reflect::tests::Test {
             pub value: String,
         }
 
-        let input: Box<dyn PartialReflect + Send + Sync> = Box::new(MyType(external_crate::TheirType {
-            value: "Hello".to_string(),
-        }));
+        let input: Box<dyn PartialReflect + Send + Sync> =
+            Box::new(MyType(external_crate::TheirType {
+                value: "Hello".to_string(),
+            }));
 
         let output: external_crate::TheirType = input
             .try_take()

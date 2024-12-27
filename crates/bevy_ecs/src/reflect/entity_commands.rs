@@ -215,7 +215,7 @@ fn insert_reflect(
     world: &mut World,
     entity: Entity,
     type_registry: &TypeRegistry,
-    component: Box<dyn PartialReflect>,
+    component: Box<dyn PartialReflect + Send + Sync>,
 ) {
     let type_info = component
         .get_represented_type_info()

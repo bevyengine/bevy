@@ -49,7 +49,10 @@ pub trait Set: PartialReflect + Send + Sync {
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
-    fn get(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<&(dyn PartialReflect + Send + Sync)>;
+    fn get(
+        &self,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)>;
 
     /// Returns the number of elements in the set.
     fn len(&self) -> usize;
@@ -180,7 +183,10 @@ impl DynamicSet {
 }
 
 impl Set for DynamicSet {
-    fn get(&self, value: &(dyn PartialReflect + Send + Sync)) -> Option<&(dyn PartialReflect + Send + Sync)> {
+    fn get(
+        &self,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> Option<&(dyn PartialReflect + Send + Sync)> {
         self.hash_table
             .find(Self::internal_hash(value), Self::internal_eq(value))
             .map(|value| &**value)
@@ -277,7 +283,9 @@ impl PartialReflect for DynamicSet {
     }
 
     #[inline]
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> {
         Err(self)
     }
 
@@ -483,7 +491,10 @@ pub fn set_apply<M: Set>(a: &mut M, b: &(dyn PartialReflect + Send + Sync)) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
 /// applying elements to each other fails.
 #[inline]
-pub fn set_try_apply<S: Set>(a: &mut S, b: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> {
+pub fn set_try_apply<S: Set>(
+    a: &mut S,
+    b: &(dyn PartialReflect + Send + Sync),
+) -> Result<(), ApplyError> {
     let set_value = b.reflect_ref().as_set()?;
 
     for b_value in set_value.iter() {

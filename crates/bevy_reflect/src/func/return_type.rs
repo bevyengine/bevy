@@ -17,7 +17,7 @@ pub enum Return<'a> {
     /// The function returns a reference to a value.
     Ref(&'a (dyn PartialReflect + Send + Sync)),
     /// The function returns a mutable reference to a value.
-    Mut(&'a mut dyn PartialReflect),
+    Mut(&'a mut (dyn PartialReflect + Send + Sync)),
 }
 
 impl<'a> Return<'a> {
@@ -63,7 +63,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Mut`].
-    pub fn unwrap_mut(self) -> &'a mut dyn PartialReflect {
+    pub fn unwrap_mut(self) -> &'a mut (dyn PartialReflect + Send + Sync) {
         match self {
             Return::Mut(value) => value,
             _ => panic!("expected mutable reference value"),

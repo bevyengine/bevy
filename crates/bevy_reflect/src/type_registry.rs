@@ -730,7 +730,10 @@ impl ReflectDeserialize {
     /// The underlying type of the reflected value, and thus the expected
     /// structure of the serialized data, is determined by the type used to
     /// construct this `ReflectDeserialize` value.
-    pub fn deserialize<'de, D>(&self, deserializer: D) -> Result<Box<dyn Reflect + Send + Sync>, D::Error>
+    pub fn deserialize<'de, D>(
+        &self,
+        deserializer: D,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -798,7 +801,7 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+    pub unsafe fn as_reflect<'a>(&self, val: Ptr<'a>) -> &'a (dyn Reflect + Send + Sync) {
         // SAFETY: contract uphold by the caller.
         unsafe { (self.from_ptr)(val) }
     }
@@ -809,7 +812,10 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+    pub unsafe fn as_reflect_mut<'a>(
+        &self,
+        val: PtrMut<'a>,
+    ) -> &'a mut (dyn Reflect + Send + Sync) {
         // SAFETY: contract uphold by the caller.
         unsafe { (self.from_ptr_mut)(val) }
     }
@@ -838,7 +844,7 @@ impl ReflectFromPtr {
 }
 
 #[allow(unsafe_code)]
-impl<T: Reflect> FromType<T> for ReflectFromPtr {
+impl<T: Reflect + Send + Sync> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
             type_id: TypeId::of::<T>(),

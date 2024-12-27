@@ -18,7 +18,9 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: PartialReflect + Send + Sync + MaybeTyped + TypePath>(name: &'static str) -> Self {
+    pub fn new<T: PartialReflect + Send + Sync + MaybeTyped + TypePath>(
+        name: &'static str,
+    ) -> Self {
         Self {
             name,
             type_info: T::maybe_type_info,
