@@ -15,7 +15,7 @@ use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
 use pass::ScheduleBuildPassObj;
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -1152,7 +1152,7 @@ impl ScheduleGraph {
         let mut dependency_flattened = self.get_dependency_flattened(&set_systems);
 
         // modify graph with build passes
-        let mut passes = std::mem::take(&mut self.passes);
+        let mut passes = core::mem::take(&mut self.passes);
         for pass in passes.values_mut() {
             dependency_flattened = pass.build(world, self, &mut dependency_flattened)?;
         }

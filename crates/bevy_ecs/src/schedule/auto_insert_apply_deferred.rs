@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use bevy_utils::HashMap;
 
@@ -155,6 +155,6 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 }
             }
         }
-        std::iter::empty()
+        core::iter::empty()
     }
 }
