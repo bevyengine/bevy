@@ -1301,12 +1301,11 @@ mod tests {
                 Holder { value: a }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
-                let mut components = Vec::new();
-                let q = self.state_q.get(world);
-                for a in q.iter_inner() {
-                    components.push(Holder { value: a });
-                }
-                components
+                self.state_q
+                    .get(world)
+                    .iter_inner()
+                    .map(|a| Holder { value: a })
+                    .collect()
             }
         }
     }

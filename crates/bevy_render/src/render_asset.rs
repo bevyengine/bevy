@@ -253,24 +253,25 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                 }
             }
 
-            let mut extracted_assets = Vec::new();
-            let mut added = <HashSet<_>>::default();
-            for id in changed_assets.drain() {
-                if let Some(asset) = assets.get(id) {
-                    let asset_usage = A::asset_usage(asset);
-                    if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
-                        if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+            let extracted_assets: Vec<_> = changed_assets
+                .drain()
+                .filter_map(|id| {
+                    if let Some(asset) = assets.get(id) {
+                        let asset_usage = A::asset_usage(asset);
+                        if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
+                            if asset_usage == RenderAssetUsages::RENDER_WORLD {
+                                if let Some(asset) = assets.remove(id) {
+                                    return Some((id, asset));
+                                }
+                            } else {
+                                return Some((id, asset.clone()));
                             }
-                        } else {
-                            extracted_assets.push((id, asset.clone()));
-                            added.insert(id);
                         }
                     }
-                }
-            }
+                    None
+                })
+                .collect();
+            let added: HashSet<_> = extracted_assets.iter().map(|(id, _)| *id).collect();
 
             commands.insert_resource(ExtractedAssets::<A> {
                 extracted: extracted_assets,
