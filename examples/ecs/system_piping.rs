@@ -6,7 +6,7 @@ use std::num::ParseIntError;
 
 use bevy::{
     log::LogPlugin,
-    utils::{dbg, error, info, tracing::Level, warn},
+    utils::tracing::{debug, error, info, Level},
 };
 
 fn main() {
@@ -22,10 +22,18 @@ fn main() {
             Update,
             (
                 parse_message_system.pipe(handler_system),
-                data_pipe_system.map(info),
-                parse_message_system.map(dbg),
-                warning_pipe_system.map(warn),
-                parse_error_message_system.map(error),
+                data_pipe_system.map(|out| info!("{out}")),
+                parse_message_system.map(|out| debug!("{out:?}")),
+                warning_pipe_system.map(|out| {
+                    if let Err(err) = out {
+                        error!("{err}");
+                    }
+                }),
+                parse_error_message_system.map(|out| {
+                    if let Err(err) = out {
+                        error!("{err}");
+                    }
+                }),
                 parse_message_system.map(drop),
             ),
         )

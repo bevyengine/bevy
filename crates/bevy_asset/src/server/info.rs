@@ -443,7 +443,7 @@ impl AssetInfos {
             } else {
                 // the dependency id does not exist, which implies it was manually removed or never existed in the first place
                 warn!(
-                    "Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
+                    "Dependency {} from asset {} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
                     dep_id, loaded_asset_id
                 );
                 true

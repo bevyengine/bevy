@@ -61,7 +61,7 @@ pub trait ShapeSample {
     /// let square = Rectangle::new(2.0, 2.0);
     ///
     /// // Returns a Vec2 with both x and y between -1 and 1.
-    /// println!("{:?}", square.sample_interior(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_interior(&mut rand::thread_rng()));
     /// ```
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -76,7 +76,7 @@ pub trait ShapeSample {
     ///
     /// // Returns a Vec2 where one of the coordinates is at ±1,
     /// //  and the other is somewhere between -1 and 1.
-    /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -92,7 +92,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s interior:
     /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn interior_dist(self) -> impl Distribution<Self::Output>
@@ -114,7 +114,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s boundary:
     /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn boundary_dist(self) -> impl Distribution<Self::Output>

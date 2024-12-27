@@ -38,7 +38,7 @@ pub struct StandardMaterial {
     ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a `base_color_texture`, this is factored into the final
-    /// base color as `base_color * base_color_texture_value`
+    /// base color as `base_color * base_color_texture_value`.
     ///
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,

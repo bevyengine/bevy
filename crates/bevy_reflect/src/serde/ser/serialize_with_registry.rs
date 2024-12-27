@@ -77,7 +77,7 @@ impl<T: Reflect + SerializeWithRegistry + Send + Sync> FromType<T>
             serialize: |value: &(dyn Reflect + Send + Sync), registry| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
                     panic!(
-                        "Expected value to be of type {:?} but received {:?}",
+                        "Expected value to be of type {} but received {}",
                         core::any::type_name::<T>(),
                         value.reflect_type_path()
                     )

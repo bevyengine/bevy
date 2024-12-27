@@ -1346,7 +1346,7 @@ pub fn gamepad_connection_system(
                 product_id,
             } => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling connection event.", id);
+                    warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
                 gamepad.insert((
@@ -1357,18 +1357,18 @@ pub fn gamepad_connection_system(
                         ..Default::default()
                     },
                 ));
-                info!("Gamepad {:?} connected.", id);
+                info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
                 // Instead of despawning, we remove Gamepad components that don't need to preserve state
                 // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
-                info!("Gamepad {:} disconnected.", id);
+                info!("Gamepad {} disconnected.", id);
             }
         }
     }

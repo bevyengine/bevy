@@ -1057,8 +1057,8 @@ pub fn animate_targets(
                     (player, graph_handle.id())
                 } else {
                     trace!(
-                        "Either an animation player {:?} or a graph was missing for the target \
-                         entity {:?} ({:?}); no animations will play this frame",
+                        "Either an animation player {} or a graph was missing for the target \
+                         entity {} ({:?}); no animations will play this frame",
                         player_id,
                         entity_mut.id(),
                         entity_mut.get::<Name>(),

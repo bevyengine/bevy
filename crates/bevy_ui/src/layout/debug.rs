@@ -27,7 +27,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 &mut out,
             );
         }
-        bevy_utils::tracing::info!("Layout tree for camera entity: {entity:?}\n{out}");
+        bevy_utils::tracing::info!("Layout tree for camera entity: {entity}\n{out}");
     }
 }
 
@@ -62,7 +62,7 @@ fn print_node(
     };
     writeln!(
         acc,
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
+        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity}) {measured}",
         lines = lines_string,
         fork = fork_string,
         display = display_variant,

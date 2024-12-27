@@ -134,7 +134,7 @@ impl RemovedComponentEvents {
 /// # #[derive(Component)]
 /// # struct MyComponent;
 /// fn react_on_removal(mut removed: RemovedComponents<MyComponent>) {
-///     removed.read().for_each(|removed_entity| println!("{:?}", removed_entity));
+///     removed.read().for_each(|removed_entity| println!("{}", removed_entity));
 /// }
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```

@@ -443,7 +443,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            warn_once!("found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
+            warn_once!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
                 prints once", root, core::any::type_name::<Root>());
             continue;
         };
@@ -456,14 +456,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!("found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
+            warn_once!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity, core::any::type_name::<Root>());
         }
 
         let Some(span_parent) = maybe_span_parent else {
             warn_once!(
-                "found entity {:?} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
                 entity,
                 core::any::type_name::<Root>()
@@ -477,8 +477,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                warn_once!("found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
-                    component that points at non-existent entity {:?}; this warning only prints once",
+                warn_once!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+                    component that points at non-existent entity {}; this warning only prints once",
                     entity, parent);
                 break;
             };
@@ -487,14 +487,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             }
             if !has_span {
-                warn_once!("found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
+                warn_once!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity, parent);
                 break;
             }
             let Some(next_parent) = maybe_parent else {
                 warn_once!(
-                    "found entity {:?} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
                     entity,
                     core::any::type_name::<Root>()

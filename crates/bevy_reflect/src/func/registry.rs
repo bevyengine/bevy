@@ -173,7 +173,7 @@ impl FunctionRegistry {
     ///   .register_with_name(core::any::type_name_of_val(&mul), mul)?
     ///   // Registering an existing function with a custom name
     ///   .register_with_name("my_crate::mul", mul)?;
-    ///   
+    ///
     /// // Be careful not to register anonymous functions with their type name.
     /// // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
     /// registry.register_with_name(core::any::type_name_of_val(&div), div)?;

@@ -115,9 +115,9 @@ struct Target {
 impl fmt::Display for Target {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (self.name.as_ref(), self.entity_name.as_ref()) {
-            (None, None) => write!(f, "animation{} of {:?}", self.index, self.entity),
+            (None, None) => write!(f, "animation{} of {}", self.index, self.entity),
             (None, Some(entity)) => write!(f, "animation{} of {entity}", self.index),
-            (Some(target), None) => write!(f, "{target} of {:?}", self.entity),
+            (Some(target), None) => write!(f, "{target} of {}", self.entity),
             (Some(target), Some(entity)) => write!(f, "{target} of {entity}"),
         }?;
         write!(f, ": {}", self.weight)

@@ -339,7 +339,7 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
             drop(data);
             buffer.unmap();
             if let Err(e) = tx.try_send((entity, buffer, result)) {
-                warn!("Failed to send readback result: {:?}", e);
+                warn!("Failed to send readback result: {}", e);
             }
         });
         readbacks.mapped.push(readback);
