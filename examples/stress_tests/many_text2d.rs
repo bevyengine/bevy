@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
     // Spawns the camera
 
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the `Text2d`s, distributing them in a way that ensures a
     // good distribution of on-screen and off-screen entities.
@@ -159,7 +159,7 @@ fn print_counts(
 
     let num_atlases = atlases
         .get(font.0.id())
-        .and_then(|set| Some(set.iter().map(|atlas| atlas.1.len()).sum()))
+        .map(|set| set.iter().map(|atlas| atlas.1.len()).sum())
         .unwrap_or(0);
 
     let visible_texts = texts.iter().filter(|visibility| visibility.get()).count();
@@ -179,11 +179,11 @@ fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> Te
         60.0
     };
 
-    return TextFont {
+    TextFont {
         font_size,
         font,
         ..default()
-    };
+    }
 }
 
 fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
