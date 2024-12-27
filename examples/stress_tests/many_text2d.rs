@@ -104,7 +104,8 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
     commands.spawn(Camera2d::default());
 
-    // Builds and spawns the `Text2d`s
+    // Builds and spawns the `Text2d`s, distributing them in a way that ensures a
+    // good distribution of on-screen and off-screen entities.
     let mut text2ds = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
