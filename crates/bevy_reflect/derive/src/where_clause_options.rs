@@ -175,9 +175,9 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_reflect().should_auto_derive() {
-            quote!(#bevy_reflect_path::FromReflect)
+            quote!(#bevy_reflect_path::FromReflect + Send + Sync)
         } else {
-            quote!(#bevy_reflect_path::PartialReflect)
+            quote!(#bevy_reflect_path::PartialReflect + Send + Sync)
         }
     }
 

@@ -165,7 +165,7 @@ pub struct ConstParamInfo {
     ty: Type,
     // Rust currently only allows certain primitive types in const generic position,
     // meaning that `Reflect` is guaranteed to be implemented for the default value.
-    default: Option<Arc<dyn Reflect>>,
+    default: Option<Arc<dyn Reflect + Send + Sync>>,
 }
 
 impl ConstParamInfo {
@@ -207,7 +207,7 @@ impl ConstParamInfo {
     ///
     /// assert_eq!(default.downcast_ref::<usize>().unwrap(), &10);
     /// ```
-    pub fn default(&self) -> Option<&dyn Reflect> {
+    pub fn default(&self) -> Option<&(dyn Reflect + Send + Sync)> {
         self.default.as_deref()
     }
 

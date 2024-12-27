@@ -78,7 +78,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(self, arg: &'a dyn PartialReflect) -> Self {
+    pub fn push_ref(self, arg: &'a (dyn PartialReflect + Send + Sync)) -> Self {
         self.push_arg(ArgValue::Ref(arg))
     }
 
@@ -102,7 +102,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
+    pub fn push_boxed(self, arg: Box<dyn PartialReflect + Send + Sync>) -> Self {
         self.push_arg(ArgValue::Owned(arg))
     }
 

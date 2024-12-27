@@ -186,7 +186,7 @@ pub enum ReflectRef<'a> {
     Enum(&'a dyn Enum),
     #[cfg(feature = "functions")]
     Function(&'a dyn Function),
-    Opaque(&'a dyn PartialReflect),
+    Opaque(&'a (dyn PartialReflect + Send + Sync)),
 }
 impl_reflect_kind_conversions!(ReflectRef<'_>);
 
@@ -199,7 +199,7 @@ impl<'a> ReflectRef<'a> {
     impl_cast_method!(as_map: Map => &'a dyn Map);
     impl_cast_method!(as_set: Set => &'a dyn Set);
     impl_cast_method!(as_enum: Enum => &'a dyn Enum);
-    impl_cast_method!(as_opaque: Opaque => &'a dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a (dyn PartialReflect + Send + Sync));
 }
 
 /// A mutable enumeration of ["kinds"] of a reflected type.
@@ -256,7 +256,7 @@ pub enum ReflectOwned {
     Enum(Box<dyn Enum>),
     #[cfg(feature = "functions")]
     Function(Box<dyn Function>),
-    Opaque(Box<dyn PartialReflect>),
+    Opaque(Box<dyn PartialReflect + Send + Sync>),
 }
 impl_reflect_kind_conversions!(ReflectOwned);
 
@@ -269,7 +269,7 @@ impl ReflectOwned {
     impl_cast_method!(into_map: Map => Box<dyn Map>);
     impl_cast_method!(into_set: Set => Box<dyn Set>);
     impl_cast_method!(into_enum: Enum => Box<dyn Enum>);
-    impl_cast_method!(into_value: Opaque => Box<dyn PartialReflect>);
+    impl_cast_method!(into_value: Opaque => Box<dyn PartialReflect + Send + Sync>);
 }
 
 #[cfg(test)]

@@ -65,12 +65,12 @@ impl CustomAttributes {
     }
 
     /// Gets a custom attribute by its [`TypeId`].
-    pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
+    pub fn get_by_id(&self, id: TypeId) -> Option<&(dyn Reflect + Send + Sync)> {
         Some(self.attributes.get(&id)?.reflect_value())
     }
 
     /// Returns an iterator over all custom attributes.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &(dyn Reflect + Send + Sync))> {
         self.attributes
             .iter()
             .map(|(key, value)| (key, value.reflect_value()))
@@ -94,7 +94,7 @@ impl Debug for CustomAttributes {
 }
 
 struct CustomAttribute {
-    value: Box<dyn Reflect>,
+    value: Box<dyn Reflect + Send + Sync>,
 }
 
 impl CustomAttribute {
@@ -108,7 +108,7 @@ impl CustomAttribute {
         self.value.downcast_ref()
     }
 
-    pub fn reflect_value(&self) -> &dyn Reflect {
+    pub fn reflect_value(&self) -> &(dyn Reflect + Send + Sync) {
         &*self.value
     }
 }
@@ -125,7 +125,7 @@ impl Debug for CustomAttribute {
 ///
 /// * `fn custom_attributes(&self) -> &CustomAttributes`
 /// * `fn get_attribute<T: Reflect>(&self) -> Option<&T>`
-/// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&dyn Reflect>`
+/// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&(dyn Reflect + Send + Sync)>`
 /// * `fn has_attribute<T: Reflect>(&self) -> bool`
 /// * `fn has_attribute_by_id(&self, id: TypeId) -> bool`
 ///
@@ -156,7 +156,7 @@ macro_rules! impl_custom_attribute_methods {
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
-        pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
+        pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&(dyn $crate::Reflect + Send + Sync)> {
             $self.custom_attributes().get_by_id(id)
         }
 

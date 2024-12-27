@@ -73,7 +73,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
-    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect>)] = &[
+    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect + Send + Sync>)] = &[
         || (Box::new(Struct16::default()), Box::new(Struct16::default())),
         || (Box::new(Struct32::default()), Box::new(Struct32::default())),
         || (Box::new(Struct64::default()), Box::new(Struct64::default())),
@@ -243,7 +243,7 @@ fn dynamic_struct_clone(criterion: &mut Criterion) {
 fn dynamic_struct_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_struct_apply"));
 
-    let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
+    let patches: &[(fn() -> Box<dyn PartialReflect + Send + Sync>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
         (|| Box::new(Struct32::default()), 32),
         (|| Box::new(Struct64::default()), 64),

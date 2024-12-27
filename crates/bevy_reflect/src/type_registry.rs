@@ -684,7 +684,7 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: fn(value: &dyn Reflect) -> Serializable,
+    get_serializable: fn(value: &(dyn Reflect + Send + Sync)) -> Serializable,
 }
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
@@ -721,7 +721,7 @@ impl ReflectSerialize {
 pub struct ReflectDeserialize {
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
-    ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, erased_serde::Error>,
 }
 
 impl ReflectDeserialize {
@@ -730,7 +730,7 @@ impl ReflectDeserialize {
     /// The underlying type of the reflected value, and thus the expected
     /// structure of the serialized data, is determined by the type used to
     /// construct this `ReflectDeserialize` value.
-    pub fn deserialize<'de, D>(&self, deserializer: D) -> Result<Box<dyn Reflect>, D::Error>
+    pub fn deserialize<'de, D>(&self, deserializer: D) -> Result<Box<dyn Reflect + Send + Sync>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -750,7 +750,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 
 /// [`Reflect`] values are commonly used in situations where the actual types of values
 /// are not known at runtime. In such situations you might have access to a `*const ()` pointer
-/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
+/// that you know implements [`Reflect`], but have no way of turning it into a `&(dyn Reflect + Send + Sync)`.
 ///
 /// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
 /// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
@@ -781,8 +781,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
-    from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
-    from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
+    from_ptr: unsafe fn(Ptr) -> &(dyn Reflect + Send + Sync),
+    from_ptr_mut: unsafe fn(PtrMut) -> &mut (dyn Reflect + Send + Sync),
 }
 
 #[allow(unsafe_code)]
@@ -792,7 +792,7 @@ impl ReflectFromPtr {
         self.type_id
     }
 
-    /// Convert `Ptr` into `&dyn Reflect`.
+    /// Convert `Ptr` into `&(dyn Reflect + Send + Sync)`.
     ///
     /// # Safety
     ///
@@ -803,7 +803,7 @@ impl ReflectFromPtr {
         unsafe { (self.from_ptr)(val) }
     }
 
-    /// Convert `PtrMut` into `&mut dyn Reflect`.
+    /// Convert `PtrMut` into `&mut (dyn Reflect + Send + Sync)`.
     ///
     /// # Safety
     ///
@@ -813,7 +813,7 @@ impl ReflectFromPtr {
         // SAFETY: contract uphold by the caller.
         unsafe { (self.from_ptr_mut)(val) }
     }
-    /// Get a function pointer to turn a `Ptr` into `&dyn Reflect` for
+    /// Get a function pointer to turn a `Ptr` into `&(dyn Reflect + Send + Sync)` for
     /// the type this [`ReflectFromPtr`] was constructed for.
     ///
     /// # Safety
@@ -821,10 +821,10 @@ impl ReflectFromPtr {
     /// When calling the unsafe function returned by this method you must ensure that:
     /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
     ///   was constructed for.
-    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
+    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &(dyn Reflect + Send + Sync) {
         self.from_ptr
     }
-    /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
+    /// Get a function pointer to turn a `PtrMut` into `&mut (dyn Reflect + Send + Sync)` for
     /// the type this [`ReflectFromPtr`] was constructed for.
     ///
     /// # Safety
@@ -832,7 +832,7 @@ impl ReflectFromPtr {
     /// When calling the unsafe function returned by this method you must ensure that:
     /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
     ///   was constructed for.
-    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
+    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut (dyn Reflect + Send + Sync) {
         self.from_ptr_mut
     }
 }
@@ -846,11 +846,11 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
                 // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`
                 // or returned by `ReflectFromPtr::from_ptr`, both lay out the invariants
                 // required by `deref`
-                unsafe { ptr.deref::<T>() as &dyn Reflect }
+                unsafe { ptr.deref::<T>() as &(dyn Reflect + Send + Sync) }
             },
             from_ptr_mut: |ptr| {
                 // SAFETY: same as above, but for `as_reflect_mut`, `from_ptr_mut` and `deref_mut`.
-                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
+                unsafe { ptr.deref_mut::<T>() as &mut (dyn Reflect + Send + Sync) }
             },
         }
     }

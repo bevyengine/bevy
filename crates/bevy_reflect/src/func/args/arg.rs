@@ -188,7 +188,7 @@ impl<'a> Arg<'a> {
     pub fn is<T: TypePath>(&self) -> bool {
         self.value
             .try_as_reflect()
-            .map(<dyn Reflect>::is::<T>)
+            .map(<dyn Reflect + Send + Sync>::is::<T>)
             .unwrap_or_default()
     }
 }
@@ -199,8 +199,8 @@ impl<'a> Arg<'a> {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
-    Owned(Box<dyn PartialReflect>),
-    Ref(&'a dyn PartialReflect),
+    Owned(Box<dyn PartialReflect + Send + Sync>),
+    Ref(&'a (dyn PartialReflect + Send + Sync)),
     Mut(&'a mut dyn PartialReflect),
 }
 

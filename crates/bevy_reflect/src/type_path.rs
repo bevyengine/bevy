@@ -83,7 +83,7 @@ use core::fmt;
     message = "`{Self}` does not implement `TypePath` so cannot provide static type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
-pub trait TypePath: 'static {
+pub trait TypePath: 'static + Send + Sync {
     /// Returns the fully qualified path of the underlying type.
     ///
     /// Generic parameter types are also fully expanded.
@@ -154,7 +154,7 @@ pub trait DynamicTypePath {
     fn reflect_module_path(&self) -> Option<&str>;
 }
 
-impl<T: TypePath> DynamicTypePath for T {
+impl<T: TypePath + Send + Sync> DynamicTypePath for T {
     #[inline]
     fn reflect_type_path(&self) -> &str {
         Self::type_path()

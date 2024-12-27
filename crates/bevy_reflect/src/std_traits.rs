@@ -6,11 +6,11 @@ use alloc::boxed::Box;
 /// A [`ReflectDefault`] for type `T` can be obtained via [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDefault {
-    default: fn() -> Box<dyn Reflect>,
+    default: fn() -> Box<dyn Reflect + Send + Sync>,
 }
 
 impl ReflectDefault {
-    pub fn default(&self) -> Box<dyn Reflect> {
+    pub fn default(&self) -> Box<dyn Reflect + Send + Sync> {
         (self.default)()
     }
 }

@@ -165,7 +165,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
-///   `(&self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+///   `(&self, value: &(dyn #bevy_reflect_path::Reflect + Send + Sync)) -> bool`.
 /// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
@@ -512,7 +512,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 ///   .unwrap();
 ///
 /// // Then use it on reflected data
-/// let reflected: Box<dyn Reflect> = Box::new(SomeStruct);
+/// let reflected: Box<dyn Reflect + Send + Sync> = Box::new(SomeStruct);
 /// let reflected_my_trait: &dyn MyTrait = my_trait.get(&*reflected).unwrap();
 /// assert_eq!("Hello, World!", reflected_my_trait.print());
 /// ```
