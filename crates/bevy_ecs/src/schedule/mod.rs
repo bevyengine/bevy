@@ -4,7 +4,6 @@ mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
-mod graph;
 mod pass;
 #[allow(clippy::module_inception)]
 mod schedule;
@@ -13,10 +12,17 @@ mod stepping;
 
 use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
-pub use auto_insert_apply_deferred::*;
 pub use pass::ScheduleBuildPass;
 
 pub use self::graph::NodeId;
+
+/// An implementation of a graph data structure.
+pub mod graph;
+
+/// Included optional schedule build passes.
+pub mod passes {
+    pub use crate::schedule::auto_insert_apply_deferred::*;
+}
 
 #[cfg(test)]
 mod tests {

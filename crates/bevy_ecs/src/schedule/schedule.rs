@@ -383,9 +383,9 @@ impl Schedule {
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
         if settings.auto_insert_apply_deferred {
-            self.add_build_pass(AutoInsertApplyDeferredPass::default());
+            self.add_build_pass(passes::AutoInsertApplyDeferredPass::default());
         } else {
-            self.remove_build_pass::<AutoInsertApplyDeferredPass>();
+            self.remove_build_pass::<passes::AutoInsertApplyDeferredPass>();
         }
         self.graph.settings = settings;
         self
