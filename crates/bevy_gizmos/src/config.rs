@@ -80,7 +80,7 @@ impl Hash for GizmoLineStyle {
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
 ///
 /// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
-pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
+pub trait GizmoConfigGroup: Reflect + Send + Sync + TypePath + Default {}
 
 /// The default gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup)]

@@ -31,7 +31,7 @@ impl ReflectFromWorldFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Reflect + FromWorld>() -> Self {
+    pub fn new<T: Reflect + Send + Sync + FromWorld>() -> Self {
         <ReflectFromWorld as FromType<T>>::from_type().0
     }
 }
@@ -78,7 +78,7 @@ impl ReflectFromWorld {
     }
 }
 
-impl<B: Reflect + FromWorld> FromType<B> for ReflectFromWorld {
+impl<B: Reflect + Send + Sync + FromWorld> FromType<B> for ReflectFromWorld {
     fn from_type() -> Self {
         ReflectFromWorld(ReflectFromWorldFns {
             from_world: |world| Box::new(B::from_world(world)),

@@ -100,7 +100,7 @@ impl ArrayInfo {
     /// # Arguments
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
-    pub fn new<TArray: Array + TypePath, TItem: Reflect + MaybeTyped + TypePath>(
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + Send + Sync + MaybeTyped + TypePath>(
         capacity: usize,
     ) -> Self {
         Self {

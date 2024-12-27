@@ -85,7 +85,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
+    pub fn take_owned<T: Reflect + Send + Sync + TypePath>(self) -> Result<T, ArgError> {
         match self.value {
             ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
@@ -120,7 +120,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_ref<T: Reflect + TypePath>(self) -> Result<&'a T, ArgError> {
+    pub fn take_ref<T: Reflect + Send + Sync + TypePath>(self) -> Result<&'a T, ArgError> {
         match self.value {
             ArgValue::Owned(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -159,7 +159,7 @@ impl<'a> Arg<'a> {
     /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_mut<T: Reflect + TypePath>(self) -> Result<&'a mut T, ArgError> {
+    pub fn take_mut<T: Reflect + Send + Sync + TypePath>(self) -> Result<&'a mut T, ArgError> {
         match self.value {
             ArgValue::Owned(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,

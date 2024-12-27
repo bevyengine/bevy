@@ -612,12 +612,12 @@ struct Struct128 {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct1<T: Reflect + Default> {
+struct GenericStruct1<T: Reflect + Send + Sync + Default> {
     field_0: T,
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct16<T: Reflect + Default> {
+struct GenericStruct16<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -637,7 +637,7 @@ struct GenericStruct16<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct32<T: Reflect + Default> {
+struct GenericStruct32<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -673,7 +673,7 @@ struct GenericStruct32<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct64<T: Reflect + Default> {
+struct GenericStruct64<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,
@@ -741,7 +741,7 @@ struct GenericStruct64<T: Reflect + Default> {
 }
 
 #[derive(Clone, Default, Reflect)]
-struct GenericStruct128<T: Reflect + Default> {
+struct GenericStruct128<T: Reflect + Send + Sync + Default> {
     field_0: T,
     field_1: T,
     field_2: T,

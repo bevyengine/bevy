@@ -85,7 +85,7 @@ pub struct PointerTraversal {
 
 impl<E> Traversal<Pointer<E>> for PointerTraversal
 where
-    E: Debug + Clone + Reflect,
+    E: Debug + Clone + Reflect + Send + Sync,
 {
     fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
         let PointerTraversalItem { parent, window } = item;
@@ -108,7 +108,7 @@ where
 
 impl<E> Event for Pointer<E>
 where
-    E: Debug + Clone + Reflect,
+    E: Debug + Clone + Reflect + Send + Sync,
 {
     type Traversal = PointerTraversal;
 

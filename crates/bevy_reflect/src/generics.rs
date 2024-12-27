@@ -179,7 +179,7 @@ impl ConstParamInfo {
     }
 
     /// Sets the default value for the parameter.
-    pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
+    pub fn with_default<T: Reflect + Send + Sync + 'static>(mut self, default: T) -> Self {
         self.default = Some(Arc::new(default));
         self
     }

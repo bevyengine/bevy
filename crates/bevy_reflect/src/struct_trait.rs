@@ -99,7 +99,7 @@ impl StructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect + Send + Sync + TypePath>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -234,32 +234,32 @@ impl<'a> ExactSizeIterator for FieldIter<'a> {}
 pub trait GetField {
     /// Returns a reference to the value of the field named `name`, downcast to
     /// `T`.
-    fn get_field<T: Reflect + Send + Sync>(&self, name: &str) -> Option<&T>;
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, name: &str) -> Option<&T>;
 
     /// Returns a mutable reference to the value of the field named `name`,
     /// downcast to `T`.
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, name: &str) -> Option<&mut T>;
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T>;
 }
 
 impl<S: Struct> GetField for S {
-    fn get_field<T: Reflect + Send + Sync>(&self, name: &str) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, name: &str) -> Option<&T> {
         self.field(name)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 impl GetField for dyn Struct {
-    fn get_field<T: Reflect + Send + Sync>(&self, name: &str) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, name: &str) -> Option<&T> {
         self.field(name)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
             .and_then(|value| value.try_downcast_mut::<T>())
     }

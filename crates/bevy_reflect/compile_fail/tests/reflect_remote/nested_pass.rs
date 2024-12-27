@@ -15,6 +15,6 @@ struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
 }
 
 #[reflect_remote(external_crate::TheirInner<T>)]
-struct MyInner<T: Reflect + Send + Sync>(pub T);
+struct MyInner<T: Reflect + Send + Sync + Send + Sync>(pub T);
 
 fn main() {}

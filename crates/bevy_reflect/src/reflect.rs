@@ -314,7 +314,7 @@ where
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + Send + Sync + DynamicTyped + Any {
+pub trait Reflect: PartialReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
@@ -355,7 +355,7 @@ impl dyn PartialReflect + Send + Sync {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+    pub fn represents<T: Reflect + Send + Sync + TypePath>(&self) -> bool {
         self.get_represented_type_info()
             .map(|t| t.type_path() == T::type_path())
             .unwrap_or(false)

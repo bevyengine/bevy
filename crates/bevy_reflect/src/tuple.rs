@@ -114,32 +114,32 @@ impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 pub trait GetTupleField {
     /// Returns a reference to the value of the field with index `index`,
     /// downcast to `T`.
-    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T>;
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T>;
 
     /// Returns a mutable reference to the value of the field with index
     /// `index`, downcast to `T`.
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T>;
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, index: usize) -> Option<&mut T>;
 }
 
 impl<S: Tuple> GetTupleField for S {
-    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 impl GetTupleField for dyn Tuple {
-    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
@@ -161,7 +161,7 @@ impl TupleInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
-    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + Send + Sync + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
@@ -489,7 +489,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> core::fmt::R
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
                 match index {
@@ -540,7 +540,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
+        impl<$($name: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -603,7 +603,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
@@ -634,7 +634,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -647,7 +647,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }

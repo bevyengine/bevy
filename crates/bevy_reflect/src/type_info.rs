@@ -91,7 +91,7 @@ use thiserror::Error;
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Typed: Reflect + TypePath + Sync {
+pub trait Typed: Reflect + Send + Sync + TypePath + Sync {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
@@ -121,7 +121,7 @@ pub trait MaybeTyped: PartialReflect + Send + Sync {
     }
 }
 
-impl<T: Typed> MaybeTyped for T {
+impl<T: Typed + Send + Sync> MaybeTyped for T {
     fn maybe_type_info() -> Option<&'static TypeInfo> {
         Some(T::type_info())
     }
@@ -556,7 +556,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
-    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
+    pub fn new<T: Reflect + Send + Sync + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),

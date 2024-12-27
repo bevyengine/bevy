@@ -42,7 +42,7 @@ impl CustomAttributes {
     /// Inserts a custom attribute into the collection.
     ///
     /// Note that this will overwrite any existing attribute of the same type.
-    pub fn with_attribute<T: Reflect + Send + Sync>(mut self, value: T) -> Self {
+    pub fn with_attribute<T: Reflect + Send + Sync + Send + Sync>(mut self, value: T) -> Self {
         self.attributes
             .insert(TypeId::of::<T>(), CustomAttribute::new(value));
 
@@ -50,7 +50,7 @@ impl CustomAttributes {
     }
 
     /// Returns `true` if this collection contains a custom attribute of the specified type.
-    pub fn contains<T: Reflect + Send + Sync>(&self) -> bool {
+    pub fn contains<T: Reflect + Send + Sync + Send + Sync>(&self) -> bool {
         self.attributes.contains_key(&TypeId::of::<T>())
     }
 
@@ -60,7 +60,7 @@ impl CustomAttributes {
     }
 
     /// Gets a custom attribute by type.
-    pub fn get<T: Reflect + Send + Sync>(&self) -> Option<&T> {
+    pub fn get<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T> {
         self.attributes.get(&TypeId::of::<T>())?.value::<T>()
     }
 
@@ -98,13 +98,13 @@ struct CustomAttribute {
 }
 
 impl CustomAttribute {
-    pub fn new<T: Reflect + Send + Sync>(value: T) -> Self {
+    pub fn new<T: Reflect + Send + Sync + Send + Sync>(value: T) -> Self {
         Self {
             value: Box::new(value),
         }
     }
 
-    pub fn value<T: Reflect + Send + Sync>(&self) -> Option<&T> {
+    pub fn value<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T> {
         self.value.downcast_ref()
     }
 
@@ -124,9 +124,9 @@ impl Debug for CustomAttribute {
 /// Implements the following methods:
 ///
 /// * `fn custom_attributes(&self) -> &CustomAttributes`
-/// * `fn get_attribute<T: Reflect + Send + Sync>(&self) -> Option<&T>`
+/// * `fn get_attribute<T: Reflect + Send + Sync + Send + Sync>(&self) -> Option<&T>`
 /// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&(dyn Reflect + Send + Sync)>`
-/// * `fn has_attribute<T: Reflect + Send + Sync>(&self) -> bool`
+/// * `fn has_attribute<T: Reflect + Send + Sync + Send + Sync>(&self) -> bool`
 /// * `fn has_attribute_by_id(&self, id: TypeId) -> bool`
 ///
 /// # Params

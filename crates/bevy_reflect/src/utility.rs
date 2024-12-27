@@ -154,7 +154,7 @@ impl<T: TypedProperty + Send + Sync> Default for NonGenericTypeCell<T> {
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + Typed + TypePath> Typed for Foo<T> {
+/// impl<T: Reflect + Send + Sync + Typed + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -183,7 +183,7 @@ impl<T: TypedProperty + Send + Sync> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect + Send + Sync> { todo!() }
 /// # }
-/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Send + Sync + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

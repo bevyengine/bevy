@@ -267,7 +267,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<T: Reflect + Send + Sync + TypePath, D: TypeData + FromType<T>>(&mut self) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
@@ -493,7 +493,7 @@ impl Debug for TypeRegistration {
 
 impl TypeRegistration {
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
+    pub fn of<T: Reflect + Send + Sync + Typed + TypePath>() -> Self {
         Self {
             data: Default::default(),
             type_info: T::type_info(),
@@ -708,7 +708,7 @@ impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for Reflec
 
 impl ReflectSerialize {
     /// Turn the value into a serializable representation
-    pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
+    pub fn get_serializable<'a>(&self, value: &'a (dyn Reflect + Send + Sync)) -> Serializable<'a> {
         (self.get_serializable)(value)
     }
 }
@@ -844,7 +844,7 @@ impl ReflectFromPtr {
 }
 
 #[allow(unsafe_code)]
-impl<T: Reflect + Send + Sync> FromType<T> for ReflectFromPtr {
+impl<T: Reflect + Send + Sync + Send + Sync> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
             type_id: TypeId::of::<T>(),

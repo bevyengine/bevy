@@ -1355,7 +1355,7 @@ crate::func::macros::impl_function_traits!(::alloc::collections::BTreeMap<K, V>;
     >
 );
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
+impl<T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
     fn get(&self, index: usize) -> Option<&(dyn PartialReflect + Send + Sync)> {
         <[T]>::get(self, index).map(|value| value as &(dyn PartialReflect + Send + Sync))
@@ -1384,7 +1384,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
     }
 }
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> PartialReflect
+impl<T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> PartialReflect
     for [T; N]
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -1463,7 +1463,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     }
 }
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
+impl<T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -1520,7 +1520,7 @@ impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usiz
     }
 }
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Typed for [T; N] {
+impl<T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Typed for [T; N] {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
@@ -1539,7 +1539,7 @@ impl<T: TypePath, const N: usize> TypePath for [T; N] {
     }
 }
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistration
+impl<T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistration
     for [T; N]
 {
     fn get_type_registration() -> TypeRegistration {
@@ -1552,7 +1552,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> G
 }
 
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!([T; N]; <T: Reflect + MaybeTyped + TypePath + GetTypeRegistration> [const N: usize]);
+crate::func::macros::impl_function_traits!([T; N]; <T: Reflect + Send + Sync + MaybeTyped + TypePath + GetTypeRegistration> [const N: usize]);
 
 impl_reflect! {
     #[type_path = "core::option"]

@@ -101,7 +101,7 @@ pub struct SetInfo {
 
 impl SetInfo {
     /// Create a new [`SetInfo`].
-    pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
+    pub fn new<TSet: Set + TypePath, TValue: Reflect + Send + Sync + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
             generics: Generics::new(),
@@ -163,7 +163,7 @@ impl DynamicSet {
     }
 
     /// Inserts a typed value into the set.
-    pub fn insert<V: Reflect + Send + Sync>(&mut self, value: V) {
+    pub fn insert<V: Reflect + Send + Sync + Send + Sync>(&mut self, value: V) {
         self.insert_boxed(Box::new(value));
     }
 
@@ -366,7 +366,7 @@ impl FromIterator<Box<dyn PartialReflect + Send + Sync>> for DynamicSet {
     }
 }
 
-impl<T: Reflect + Send + Sync> FromIterator<T> for DynamicSet {
+impl<T: Reflect + Send + Sync + Send + Sync> FromIterator<T> for DynamicSet {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         let mut this = Self {
             represented_type: None,

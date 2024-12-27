@@ -54,7 +54,7 @@ fn main() {
 
     // Now, we can create a blanket implementation of the `FromType` trait to construct our type data
     // for any type that implements `Reflect` and `Damageable`.
-    impl<T: Reflect + Damageable<Health: Reflect + Send + Sync> + Send + Sync> FromType<T>
+    impl<T: Reflect + Send + Sync + Damageable<Health: Reflect + Send + Sync + Send + Sync> + Send + Sync> FromType<T>
         for ReflectDamageable
     {
         fn from_type() -> Self {
