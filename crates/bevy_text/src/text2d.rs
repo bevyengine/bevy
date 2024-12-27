@@ -7,6 +7,7 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::{require, Component},
@@ -28,7 +29,6 @@ use bevy_render::{
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window};
 
 /// [`Text2dBundle`] was removed in favor of required components.
@@ -237,7 +237,7 @@ pub fn extract_text2d_sprite(
 pub fn update_text2d_layout(
     mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
