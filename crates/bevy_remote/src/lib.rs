@@ -142,6 +142,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!   components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -403,6 +405,10 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,

@@ -62,7 +62,7 @@ pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
-pub fn update_focus(
+pub fn generate_hovermap(
     // Inputs
     picking_behavior: Query<&PickingBehavior>,
     pointers: Query<&PointerId>,
@@ -200,7 +200,7 @@ pub enum PickingInteraction {
     None = 0,
 }
 
-/// Uses pointer events to update [`PointerInteraction`] and [`PickingInteraction`] components.
+/// Uses [`HoverMap`] changes to update [`PointerInteraction`] and [`PickingInteraction`] components.
 pub fn update_interactions(
     // Input
     hover_map: Res<HoverMap>,

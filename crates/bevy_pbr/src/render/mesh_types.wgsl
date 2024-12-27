@@ -19,8 +19,9 @@ struct Mesh {
     first_vertex_index: u32,
     current_skin_index: u32,
     previous_skin_index: u32,
-    // Index of the material inside the bind group data.
-    material_bind_group_slot: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
 };
 
 #ifdef SKINNED
@@ -37,6 +38,8 @@ struct MorphWeights {
 
 // [2^0, 2^16)
 const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = 65535u;
+// 2^28
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32 = 268435456u;
 // 2^29
 const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 536870912u;
 // 2^30

@@ -1,12 +1,14 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_core::Name;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    name::Name,
     prelude::require,
     system::{Commands, Query},
 };
@@ -314,7 +316,7 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
-/// # use bevy_core::Name;
+/// # use bevy_ecs::name::Name;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
 ///     for (name, gamepad) in &gamepads {
@@ -331,7 +333,7 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Component))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     /// The USB vendor ID as assigned by the USB-IF, if available.
@@ -688,7 +690,11 @@ pub enum GamepadInput {
 /// should register. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding component.
 #[derive(Component, Clone, Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component)
+)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -1340,7 +1346,7 @@ pub fn gamepad_connection_system(
                 product_id,
             } => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling connection event.", id);
+                    warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
                 gamepad.insert((
@@ -1351,18 +1357,18 @@ pub fn gamepad_connection_system(
                         ..Default::default()
                     },
                 ));
-                info!("Gamepad {:?} connected.", id);
+                info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
                 // Instead of despawning, we remove Gamepad components that don't need to preserve state
                 // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
-                info!("Gamepad {:} disconnected.", id);
+                info!("Gamepad {} disconnected.", id);
             }
         }
     }

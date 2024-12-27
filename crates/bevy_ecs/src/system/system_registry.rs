@@ -8,6 +8,7 @@ use crate::{
     system::{input::SystemInput, BoxedSystem, IntoSystem, System},
     world::{Command, World},
 };
+use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -997,7 +998,7 @@ mod tests {
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
-        let id = world.register_system_cached(system);
+        let id = world.register_system(system.param_warn_once());
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 

@@ -3,7 +3,9 @@ use crate::{
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{
+        Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
+    },
     event::Event,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
@@ -12,9 +14,18 @@ use crate::{
     system::IntoObserverSystem,
     world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+use core::{
+    any::TypeId,
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    mem::MaybeUninit,
+};
 use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
@@ -272,6 +283,12 @@ impl<'w> EntityRef<'w> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
+    }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
@@ -359,6 +376,44 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
         }
     }
 }
+
+impl PartialEq for EntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityRef<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for EntityRef<'_> {
+    /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for EntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityRef<'_> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -802,6 +857,12 @@ impl<'w> EntityMut<'w> {
         // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut(self.0) }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
+    }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
@@ -854,6 +915,44 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     }
 }
 
+impl PartialEq for EntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityMut<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for EntityMut<'_> {
+    /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for EntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityMut<'_> {}
+
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
 /// This is essentially a performance-optimized `(Entity, &mut World)` tuple,
@@ -876,7 +975,13 @@ impl<'w> EntityWorldMut<'w> {
     #[inline(never)]
     #[cold]
     fn panic_despawned(&self) -> ! {
-        panic!("Entity {} has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn.", self.entity);
+        panic!(
+            "Entity {} {}",
+            self.entity,
+            self.world
+                .entities()
+                .entity_does_not_exist_error_details_message(self.entity)
+        );
     }
 
     #[inline(always)]
@@ -1357,7 +1462,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1375,7 +1480,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1386,7 +1491,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1872,6 +1977,31 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes a dynamic bundle from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the provided [`ComponentId`]s do not exist in the [`World`] or if the
+    /// entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.assert_not_despawned();
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_dynamic_info(components, component_ids);
+
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe { self.remove_bundle(bundle_id) };
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
     /// Removes all components associated with the entity.
     ///
     /// # Panics
@@ -1901,7 +2031,18 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
     pub fn despawn(self) {
+        self.despawn_with_caller(
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    pub(crate) fn despawn_with_caller(
+        self,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) {
         self.assert_not_despawned();
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
@@ -1990,6 +2131,16 @@ impl<'w> EntityWorldMut<'w> {
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
+
+        #[cfg(feature = "track_change_detection")]
+        {
+            // SAFETY: No structural changes
+            unsafe {
+                world
+                    .entities_mut()
+                    .set_spawned_or_despawned_by(self.entity.index(), caller);
+            }
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -2159,6 +2310,170 @@ impl<'w> EntityWorldMut<'w> {
         self.world.flush();
         self.update_location();
         self
+    }
+
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityCloneBuilder`].
+    ///
+    /// By default, the other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # let target = world.spawn_empty().id();
+    /// world.entity_mut(entity).clone_with(target, |builder| {
+    ///     builder.deny::<ComponentB>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_with(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Spawns a clone of this entity and returns the [`Entity`] of the clone.
+    ///
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// To configure cloning behavior (such as only cloning certain components),
+    /// use [`EntityWorldMut::clone_and_spawn_with`].
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn clone_and_spawn(&mut self) -> Entity {
+        self.clone_and_spawn_with(|_| {})
+    }
+
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityCloneBuilder`], returning the [`Entity`] of the clone.
+    ///
+    /// By default, the clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with(|builder| {
+    ///     builder.deny::<ComponentB>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn clone_and_spawn_with(
+        &mut self,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> Entity {
+        self.assert_not_despawned();
+
+        let entity_clone = self.world.entities.reserve_entity();
+        self.world.flush();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, entity_clone);
+
+        self.world.flush();
+        self.update_location();
+        entity_clone
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        builder.deny_all().allow::<B>();
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity,
+    /// then removes the components from this entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        builder.deny_all().allow::<B>();
+        builder.move_components(true);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
@@ -2693,6 +3008,12 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -2784,6 +3105,44 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
         }
     }
 }
+
+impl PartialEq for FilteredEntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityRef<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for FilteredEntityRef<'_> {
+    /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for FilteredEntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -3014,6 +3373,12 @@ impl<'w> FilteredEntityMut<'w> {
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -3067,6 +3432,44 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
         }
     }
 }
+
+impl PartialEq for FilteredEntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityMut<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for FilteredEntityMut<'_> {
+    /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for FilteredEntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityMut<'_> {}
 
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
@@ -3152,6 +3555,12 @@ where
             unsafe { self.entity.get_ref() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
@@ -3164,6 +3573,44 @@ where
         unsafe { EntityRefExcept::new(entity_mut.entity) }
     }
 }
+
+impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+    /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityRefExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -3260,7 +3707,51 @@ where
             unsafe { self.entity.get_mut() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
+
+impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+    /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
@@ -3318,7 +3809,7 @@ unsafe fn insert_dynamic_bundle<
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 }
@@ -3620,6 +4111,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+    #[cfg(feature = "track_change_detection")]
+    use core::panic::Location;
+    #[cfg(feature = "track_change_detection")]
+    use std::sync::OnceLock;
 
     use crate::{
         self as bevy_ecs,
@@ -4629,9 +5124,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Entity 1v1 has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn."
-    )]
+    #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(
@@ -4828,6 +5321,128 @@ mod tests {
         ];
         world.flush();
         assert_eq!(world.resource_mut::<TestVec>().0.as_slice(), &expected[..]);
+    }
+
+    #[test]
+    fn entity_world_mut_clone_and_move_components() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct C(u32);
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct D;
+
+        let mut world = World::new();
+        let entity_a = world.spawn((A, B, C(5))).id();
+        let entity_b = world.spawn((A, C(4))).id();
+
+        world.entity_mut(entity_a).clone_components::<B>(entity_b);
+        assert_eq!(world.entity(entity_a).get::<B>(), Some(&B));
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+
+        world.entity_mut(entity_a).move_components::<C>(entity_b);
+        assert_eq!(world.entity(entity_a).get::<C>(), None);
+        assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(5)));
+
+        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
+        assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
+    }
+
+    #[test]
+    fn entity_world_mut_clone_with_move_and_require() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(C(|| C(3)))]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(D)]
+        struct C(u32);
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct D;
+
+        let mut world = World::new();
+        let entity_a = world.spawn(A).id();
+        let entity_b = world.spawn_empty().id();
+
+        world.entity_mut(entity_a).clone_with(entity_b, |builder| {
+            builder.move_components(true);
+            builder.without_required_components(|builder| {
+                builder.deny::<A>();
+            });
+        });
+
+        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
+        assert_eq!(world.entity(entity_b).get::<A>(), None);
+
+        assert_eq!(world.entity(entity_a).get::<B>(), None);
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+
+        assert_eq!(world.entity(entity_a).get::<C>(), None);
+        assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(3)));
+
+        assert_eq!(world.entity(entity_a).get::<D>(), None);
+        assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
+    }
+
+    #[test]
+    #[cfg(feature = "track_change_detection")]
+    fn update_despawned_by_after_observers() {
+        let mut world = World::new();
+
+        #[derive(Component)]
+        #[component(on_remove = get_tracked)]
+        struct C;
+
+        static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
+        fn get_tracked(world: DeferredWorld, entity: Entity, _: ComponentId) {
+            TRACKED.get_or_init(|| {
+                world
+                    .entities
+                    .entity_get_spawned_or_despawned_by(entity)
+                    .unwrap()
+            });
+        }
+
+        #[track_caller]
+        fn caller_spawn(world: &mut World) -> (Entity, &'static Location<'static>) {
+            let caller = Location::caller();
+            (world.spawn(C).id(), caller)
+        }
+        let (entity, spawner) = caller_spawn(&mut world);
+
+        assert_eq!(
+            spawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
+
+        #[track_caller]
+        fn caller_despawn(world: &mut World, entity: Entity) -> &'static Location<'static> {
+            world.despawn(entity);
+            Location::caller()
+        }
+        let despawner = caller_despawn(&mut world, entity);
+
+        assert_eq!(spawner, *TRACKED.get().unwrap());
+        assert_eq!(
+            despawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
     }
 
     #[test]

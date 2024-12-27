@@ -17,6 +17,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
+use alloc::vec::Vec;
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
 use core::{

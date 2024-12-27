@@ -95,7 +95,7 @@ impl Screenshot {
 
     /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
-        Self(RenderTarget::Image(image))
+        Self(RenderTarget::Image(image.into()))
     }
 
     /// Capture a screenshot of the provided manual texture view.
@@ -239,7 +239,7 @@ fn extract_screenshots(
         };
         if seen_targets.contains(&render_target) {
             warn!(
-                "Duplicate render target for screenshot, skipping entity {:?}: {:?}",
+                "Duplicate render target for screenshot, skipping entity {}: {:?}",
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
@@ -273,7 +273,7 @@ fn prepare_screenshots(
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
                 let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
-                    warn!("Unknown window for screenshot, skipping: {:?}", window);
+                    warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
                 let format = surface_data.configuration.format.add_srgb_suffix();
@@ -297,18 +297,13 @@ fn prepare_screenshots(
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = images.get(image) else {
+                let Some(gpu_image) = images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
                 let format = gpu_image.texture_format;
-                let size = Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    ..default()
-                };
                 let (texture_view, state) = prepare_screenshot_state(
-                    size,
+                    gpu_image.size,
                     format,
                     &render_device,
                     &screenshot_pipeline,
@@ -538,12 +533,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let Some(gpu_image) = gpu_images.get(image) else {
+                let Some(gpu_image) = gpu_images.get(&image.handle) else {
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.x;
-                let height = gpu_image.size.y;
+                let width = gpu_image.size.width;
+                let height = gpu_image.size.height;
                 let texture_format = gpu_image.texture_format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
@@ -695,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     RenderAssetUsages::RENDER_WORLD,
                 ),
             )) {
-                error!("Failed to send screenshot: {:?}", e);
+                error!("Failed to send screenshot: {}", e);
             }
         };
 

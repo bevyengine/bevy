@@ -8,7 +8,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -20,8 +20,16 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use thiserror::Error;
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::Ordering;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::Ordering;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -304,7 +312,7 @@ impl<'w> UnsafeWorldCell<'w> {
         let change_tick = unsafe { &self.world_metadata().change_tick };
         // NOTE: We can used a relaxed memory ordering here, since nothing
         // other than the atomic value itself is relying on atomic synchronization
-        Tick::new(change_tick.fetch_add(1, core::sync::atomic::Ordering::Relaxed))
+        Tick::new(change_tick.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].
@@ -950,9 +958,7 @@ impl<'w> UnsafeEntityCell<'w> {
             None
         }
     }
-}
 
-impl<'w> UnsafeEntityCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -1029,6 +1035,15 @@ impl<'w> UnsafeEntityCell<'w> {
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
@@ -1166,5 +1181,11 @@ unsafe fn get_ticks(
             table.get_ticks_unchecked(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+    }
+}
+
+impl EntityBorrow for UnsafeEntityCell<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
     }
 }

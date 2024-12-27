@@ -11,13 +11,12 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_app"]
 trace = []
-bevy_app = ["reflect", "dep:bevy_app", "bevy_core"]
+bevy_app = ["reflect", "dep:bevy_app"]
 reflect = ["bevy_ecs/bevy_reflect", "bevy_reflect"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev", optional = true }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev", optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",

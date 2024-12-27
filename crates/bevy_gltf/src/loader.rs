@@ -8,10 +8,10 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    name::Name,
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
@@ -646,13 +646,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
                         primitive_label
                     );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -737,9 +737,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
                         warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                            err
+                        );
                     }
                 });
             }
@@ -923,7 +923,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
@@ -1912,7 +1912,7 @@ impl<'a> GltfTreeIterator<'a> {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
                 {
                     warn!(
-                        "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                        "The glTF skin {} has {} joints, but the maximum supported is {}",
                         skin.name()
                             .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),
@@ -2260,7 +2260,7 @@ mod test {
     use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
-    use bevy_app::App;
+    use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
@@ -2268,7 +2268,6 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_core::TaskPoolPlugin;
     use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};

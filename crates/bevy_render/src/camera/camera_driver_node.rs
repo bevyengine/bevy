@@ -4,7 +4,7 @@ use crate::{
     renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_ecs::{prelude::QueryState, world::World};
+use bevy_ecs::{entity::EntityBorrow, prelude::QueryState, world::World};
 use bevy_utils::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
