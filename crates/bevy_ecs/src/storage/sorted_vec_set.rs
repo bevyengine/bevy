@@ -252,9 +252,7 @@ impl<'a, const N: usize> From<Difference<'a, N>> for SortedVecSet<N> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        storage::SortedVecSet,
-    };
+    use crate::storage::SortedVecSet;
 
     #[test]
     fn insert_and_remove() {
@@ -297,6 +295,9 @@ mod tests {
 
         let mut set_5 = SortedVecSet::<8>::from_vec(vec![2, 7, 9, 10, 11]);
         set_5.union_with(&SortedVecSet::<8>::from_vec(vec![3, 4, 9, 11]));
-        assert_eq!(set_5, SortedVecSet::<8>::from_vec(vec![2, 3, 4, 7, 9, 10, 11]));
+        assert_eq!(
+            set_5,
+            SortedVecSet::<8>::from_vec(vec![2, 3, 4, 7, 9, 10, 11])
+        );
     }
 }
