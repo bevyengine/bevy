@@ -1765,6 +1765,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn simple_fallible_system() {
         fn sys() -> Result {
             Err("error")?;
