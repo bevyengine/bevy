@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_app"]
+default = ["std", "bevy_app", "reflect"]
 
 # Functionality
 
