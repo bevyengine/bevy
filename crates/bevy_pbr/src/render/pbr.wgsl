@@ -1,4 +1,5 @@
 #import bevy_pbr::{
+    pbr_types,
     pbr_functions::alpha_discard,
     pbr_fragment::pbr_input_from_standard_material,
 }
@@ -11,16 +12,40 @@
 #else
 #import bevy_pbr::{
     forward_io::{VertexOutput, FragmentOutput},
+    pbr_functions,
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 }
 #endif
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
+#endif
+
+#ifdef OIT_ENABLED
+#import bevy_core_pipeline::oit::oit_draw
+#endif // OIT_ENABLED
+
 @fragment
 fn fragment(
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    @builtin(position) frag_coord: vec4<f32>,
+#else
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
+#endif
 ) -> FragmentOutput {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    let in = resolve_vertex_output(frag_coord);
+    let is_front = true;
+#endif
+
+    // If we're in the crossfade section of a visibility range, conditionally
+    // discard the fragment according to the visibility pattern.
+#ifdef VISIBILITY_RANGE_DITHER
+    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+#endif
+
     // generate a PbrInput struct from the StandardMaterial bindings
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
@@ -44,6 +69,15 @@ fn fragment(
     // note this does not include fullscreen postprocessing effects like bloom.
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
+
+#ifdef OIT_ENABLED
+    let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
+        // The fragments will only be drawn during the oit resolve pass.
+        oit_draw(in.position, out.color);
+        discard;
+    }
+#endif // OIT_ENABLED
 
     return out;
 }

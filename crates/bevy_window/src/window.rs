@@ -1,16 +1,16 @@
+use core::num::NonZero;
+
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, EntityBorrow, VisitEntities, VisitEntitiesMut},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
-
-use crate::CursorIcon;
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -20,7 +20,7 @@ use crate::CursorIcon;
 /// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
 /// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default, PartialEq)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
@@ -58,14 +58,21 @@ impl WindowRef {
     }
 }
 
-impl MapEntities for WindowRef {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+impl VisitEntities for WindowRef {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
         match self {
-            Self::Entity(entity) => {
-                *entity = entity_mapper.get_or_reserve(*entity);
-            }
+            Self::Entity(entity) => f(*entity),
             Self::Primary => {}
-        };
+        }
+    }
+}
+
+impl VisitEntitiesMut for WindowRef {
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
+        match self {
+            Self::Entity(entity) => f(entity),
+            Self::Primary => {}
+        }
     }
 }
 
@@ -81,9 +88,8 @@ impl MapEntities for WindowRef {
 )]
 pub struct NormalizedWindowRef(Entity);
 
-impl NormalizedWindowRef {
-    /// Fetch the entity of this window reference
-    pub fn entity(&self) -> Entity {
+impl EntityBorrow for NormalizedWindowRef {
+    fn entity(&self) -> Entity {
         self.0
     }
 }
@@ -105,16 +111,16 @@ impl NormalizedWindowRef {
 ///
 /// Because this component is synchronized with `winit`, it can be used to perform
 /// OS-integrated windowing operations. For example, here's a simple system
-/// to change the cursor type:
+/// to change the window mode:
 ///
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
-/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection};
+/// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.cursor.icon = CursorIcon::Wait;
+///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
 ///     }
 /// }
 /// ```
@@ -124,10 +130,11 @@ impl NormalizedWindowRef {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Window {
-    /// The cursor of this window.
-    pub cursor: Cursor,
+    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
+    /// window entity.
+    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -138,6 +145,21 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
+    /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
+    ///
+    /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
+    /// For details about `WM_CLASS`, see the [X11 Manual Pages](https://www.x.org/releases/current/doc/man/man3/XAllocClassHint.3.xhtml).
+    /// For details about **`Windows`**'s window class names, see [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **`Windows`**: Can only be set while building the window, setting the window's window class name.
+    /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
+    /// - **`X11`**: Can only be set while building the window, setting the window's `WM_CLASS`.
+    /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
+    ///
+    /// Notes: Changing this field during runtime will have no effect for now.
+    pub name: Option<String>,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's logical size
@@ -191,6 +213,14 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
     /// Whether or not to stop events from propagating out of the canvas element
     ///
     ///  When `true`, this will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
@@ -203,8 +233,7 @@ pub struct Window {
     /// Should the window use Input Method Editor?
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
-    /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
-    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
     ///
@@ -228,7 +257,7 @@ pub struct Window {
     pub window_theme: Option<WindowTheme>,
     /// Sets the window's visibility.
     ///
-    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `false`, this will hide the window completely, it won't appear on the screen or in the task bar.
     /// If `true`, this will show the window.
     /// Note that this doesn't change its focused or minimized state.
     ///
@@ -236,13 +265,146 @@ pub struct Window {
     ///
     /// - **Android / Wayland / Web:** Unsupported.
     pub visible: bool,
+    /// Sets whether the window should be shown in the taskbar.
+    ///
+    /// If `true`, the window will not appear in the taskbar.
+    /// If `false`, the window will appear in the taskbar.
+    ///
+    /// Note that this will only take effect on window creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub skip_taskbar: bool,
+    /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
+    ///
+    /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
+    ///
+    /// See [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`].
+    ///
+    /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
+    /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
+    pub desired_maximum_frame_latency: Option<NonZero<u32>>,
+    /// Sets whether this window recognizes [`PinchGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PinchGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_pinch_gesture: bool,
+    /// Sets whether this window recognizes [`RotationGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.RotationGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_rotation_gesture: bool,
+    /// Sets whether this window recognizes [`DoubleTapGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.DoubleTapGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_doubletap_gesture: bool,
+    /// Sets whether this window recognizes [`PanGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PanGesture.html),
+    /// with a number of fingers between the first value and the last.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    pub recognize_pan_gesture: Option<(u8, u8)>,
+    /// Enables click-and-drag behavior for the entire window, not just the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_movable_by_window_background`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_movable_by_window_background`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_movable_by_window_background
+    pub movable_by_window_background: bool,
+    /// Makes the window content appear behind the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_fullsize_content_view`].
+    ///
+    /// For apps which want to render the window buttons on top of the apps
+    /// itself, this should be enabled along with [`titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_fullsize_content_view`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_fullsize_content_view
+    /// [`titlebar_transparent`]: Self::titlebar_transparent
+    pub fullsize_content_view: bool,
+    /// Toggles drawing the drop shadow behind the window.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_has_shadow`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_has_shadow`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_has_shadow
+    pub has_shadow: bool,
+    /// Toggles drawing the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_hidden
+    pub titlebar_shown: bool,
+    /// Makes the titlebar transparent, allowing the app content to appear behind it.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_transparent`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_transparent
+    pub titlebar_transparent: bool,
+    /// Toggles showing the window title.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_title_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_title_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_title_hidden
+    pub titlebar_show_title: bool,
+    /// Toggles showing the traffic light window buttons.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
+    pub titlebar_show_buttons: bool,
+    /// Sets whether the Window prefers the home indicator hidden.
+    ///
+    /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on iOS.
+    ///
+    /// [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_prefers_home_indicator_hidden
+    pub prefers_home_indicator_hidden: bool,
 }
 
 impl Default for Window {
     fn default() -> Self {
         Self {
             title: "App".to_owned(),
-            cursor: Default::default(),
+            name: None,
+            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -258,10 +420,25 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
+            fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
             visible: true,
+            skip_taskbar: false,
+            desired_maximum_frame_latency: None,
+            recognize_pinch_gesture: false,
+            recognize_rotation_gesture: false,
+            recognize_doubletap_gesture: false,
+            recognize_pan_gesture: None,
+            movable_by_window_background: false,
+            fullsize_content_view: false,
+            has_shadow: true,
+            titlebar_shown: true,
+            titlebar_transparent: false,
+            titlebar_show_title: true,
+            titlebar_show_buttons: true,
+            prefers_home_indicator_hidden: false,
         }
     }
 }
@@ -281,6 +458,22 @@ impl Window {
         self.internal.minimize_request = Some(minimized);
     }
 
+    /// Calling this will attempt to start a drag-move of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_move(&mut self) {
+        self.internal.drag_move_request = true;
+    }
+
+    /// Calling this will attempt to start a drag-resize of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_resize(&mut self, direction: CompassOctant) {
+        self.internal.drag_resize_request = Some(direction);
+    }
+
     /// The window's client area width in logical pixels.
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
@@ -297,6 +490,14 @@ impl Window {
         self.resolution.height()
     }
 
+    /// The window's client size in logical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        self.resolution.size()
+    }
+
     /// The window's client area width in physical pixels.
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
@@ -311,6 +512,14 @@ impl Window {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.resolution.physical_height()
+    }
+
+    /// The window's client size in physical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn physical_size(&self) -> UVec2 {
+        self.resolution.physical_size()
     }
 
     /// The window's scale factor.
@@ -446,23 +655,20 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, Default)]
-pub struct Cursor {
-    /// What the cursor should look like while inside the window.
-    pub icon: CursorIcon,
-
+pub struct CursorOptions {
     /// Whether the cursor is visible or not.
     ///
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    /// To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -486,10 +692,9 @@ pub struct Cursor {
     pub hit_test: bool,
 }
 
-impl Default for Cursor {
+impl Default for CursorOptions {
     fn default() -> Self {
-        Cursor {
-            icon: CursorIcon::Default,
+        CursorOptions {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
@@ -547,14 +752,14 @@ impl WindowPosition {
 ///
 /// There are three sizes associated with a window:
 /// - the physical size,
-/// which represents the actual height and width in physical pixels
-/// the window occupies on the monitor,
+///     which represents the actual height and width in physical pixels
+///     the window occupies on the monitor,
 /// - the logical size,
-/// which represents the size that should be used to scale elements
-/// inside the window, measured in logical pixels,
+///     which represents the size that should be used to scale elements
+///     inside the window, measured in logical pixels,
 /// - the requested size,
-/// measured in logical pixels, which is the value submitted
-/// to the API when creating the window, or requesting that it be resized.
+///     measured in logical pixels, which is the value submitted
+///     to the API when creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
 ///
@@ -622,17 +827,17 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
-    pub fn new(logical_width: f32, logical_height: f32) -> Self {
+    pub fn new(physical_width: f32, physical_height: f32) -> Self {
         Self {
-            physical_width: logical_width as u32,
-            physical_height: logical_height as u32,
+            physical_width: physical_width as u32,
+            physical_height: physical_height as u32,
             ..Default::default()
         }
     }
 
     /// Builder method for adding a scale factor override to the resolution.
     pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
-        self.scale_factor_override = Some(scale_factor_override);
+        self.set_scale_factor_override(Some(scale_factor_override));
         self
     }
 
@@ -648,6 +853,12 @@ impl WindowResolution {
         self.physical_height() as f32 / self.scale_factor()
     }
 
+    /// The window's client size in logical pixels
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
+    }
+
     /// The window's client area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
@@ -658,6 +869,12 @@ impl WindowResolution {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
+    }
+
+    /// The window's client size in physical pixels
+    #[inline]
+    pub fn physical_size(&self) -> UVec2 {
+        UVec2::new(self.physical_width, self.physical_height)
     }
 
     /// The ratio of physical pixels to logical pixels.
@@ -706,9 +923,19 @@ impl WindowResolution {
     /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f32) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
-        self.set(width, height);
+    }
+
+    /// Set the window's scale factor, and apply it to the currently known physical size.
+    /// This may get overridden by the backend. This is mostly useful on window creation,
+    /// so that the window is created with the expected size instead of waiting for a resize
+    /// event after its creation.
+    #[inline]
+    #[doc(hidden)]
+    pub fn set_scale_factor_and_apply_to_physical_size(&mut self, scale_factor: f32) {
+        self.scale_factor = scale_factor;
+        self.physical_width = (self.physical_width as f32 * scale_factor) as u32;
+        self.physical_height = (self.physical_height as f32 * scale_factor) as u32;
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
@@ -717,9 +944,7 @@ impl WindowResolution {
     /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
-        self.set(width, height);
     }
 }
 
@@ -753,7 +978,7 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-/// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
+/// Defines if and how the cursor is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
 ///
@@ -792,6 +1017,10 @@ pub struct InternalWindowState {
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
     maximize_request: Option<bool>,
+    /// If this is true then next frame we will ask to drag-move the window.
+    drag_move_request: bool,
+    /// If this is `Some` then the next frame we will ask to drag-resize the window.
+    drag_resize_request: Option<CompassOctant>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
 }
@@ -805,6 +1034,16 @@ impl InternalWindowState {
     /// Consumes the current minimize request, if it exists. This should only be called by window backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
+    }
+
+    /// Consumes the current move request, if it exists. This should only be called by window backends.
+    pub fn take_move_request(&mut self) -> bool {
+        core::mem::take(&mut self.drag_move_request)
+    }
+
+    /// Consumes the current resize request, if it exists. This should only be called by window backends.
+    pub fn take_resize_request(&mut self) -> Option<CompassOctant> {
+        self.drag_resize_request.take()
     }
 }
 
@@ -828,6 +1067,8 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
+    /// Uses a given [`crate::monitor::Monitor`] entity.
+    Entity(Entity),
 }
 
 /// Presentation mode for a [`Window`].
@@ -849,7 +1090,6 @@ pub enum MonitorSelection {
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
-///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
@@ -860,11 +1100,11 @@ pub enum MonitorSelection {
 #[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
-    /// Chooses FifoRelaxed -> Fifo based on availability.
+    /// Chooses [`FifoRelaxed`](Self::FifoRelaxed) -> [`Fifo`](Self::Fifo) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
-    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+    /// Chooses [`Immediate`](Self::Immediate) -> [`Mailbox`](Self::Mailbox) -> [`Fifo`](Self::Fifo) (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
@@ -877,7 +1117,7 @@ pub enum PresentMode {
     ///
     /// No tearing will be observed.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on all platforms.
     ///
@@ -894,7 +1134,7 @@ pub enum PresentMode {
     ///
     /// Tearing will be observed if frames last more than one vblank as the front buffer.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on AMD on Vulkan.
     ///
@@ -975,7 +1215,7 @@ pub enum WindowMode {
     #[default]
     Windowed,
     /// The window should appear fullscreen by being borderless and using the full
-    /// size of the screen.
+    /// size of the screen on the given [`MonitorSelection`].
     ///
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
@@ -985,8 +1225,8 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    BorderlessFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    BorderlessFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **closest** resolution available for the current monitor to match as
@@ -994,8 +1234,8 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
-    SizedFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    SizedFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **biggest** resolution available for the current monitor.
@@ -1007,7 +1247,7 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    Fullscreen,
+    Fullscreen(MonitorSelection),
 }
 
 /// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .
@@ -1093,6 +1333,11 @@ impl Default for EnabledButtons {
         }
     }
 }
+
+/// Marker component for a [`Window`] that has been requested to close and
+/// is in the process of closing (on the next frame).
+#[derive(Component)]
+pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {

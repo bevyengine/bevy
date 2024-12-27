@@ -14,8 +14,8 @@ fn no() -> bool {
 pub fn run_condition_yes(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_condition/yes");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..21 {
         let mut schedule = Schedule::default();
@@ -25,7 +25,7 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -37,8 +37,8 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
 pub fn run_condition_no(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_condition/no");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..21 {
         let mut schedule = Schedule::default();
@@ -48,7 +48,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -64,11 +64,11 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     let mut world = World::new();
     world.spawn(TestBool(true));
     let mut group = criterion.benchmark_group("run_condition/yes_using_query");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    fn yes_with_query(query: Query<&TestBool>) -> bool {
-        query.single().0
+    fn yes_with_query(query: Single<&TestBool>) -> bool {
+        query.0
     }
     for amount in 0..21 {
         let mut schedule = Schedule::default();
@@ -80,7 +80,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -93,8 +93,8 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
     world.insert_resource(TestBool(true));
     let mut group = criterion.benchmark_group("run_condition/yes_using_resource");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_resource(res: Res<TestBool>) -> bool {
         res.0
@@ -109,7 +109,7 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });

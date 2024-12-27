@@ -2,22 +2,26 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
+use bevy_color::{Gray, LinearRgba};
+#[allow(deprecated)]
+pub use settings::{
+    Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
+};
 
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::UVec2;
+use bevy_math::{ops, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    prelude::Color,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
@@ -35,11 +39,7 @@ use upsampling_pipeline::{
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
-const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
-
-// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-// 512 behaves well with the UV offset of 0.004 used in bloom.wgsl
-const MAX_MIP_DIMENSION: u32 = 512;
+const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
 pub struct BloomPlugin;
 
@@ -47,18 +47,17 @@ impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
-        app.register_type::<BloomSettings>();
-        app.register_type::<BloomPrefilterSettings>();
+        app.register_type::<Bloom>();
+        app.register_type::<BloomPrefilter>();
         app.register_type::<BloomCompositeMode>();
         app.add_plugins((
-            ExtractComponentPlugin::<BloomSettings>::default(),
+            ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
@@ -72,38 +71,23 @@ impl Plugin for BloomPlugin {
                 ),
             )
             // Add bloom to the 3d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
-                CORE_3D,
-                core_3d::graph::node::BLOOM,
-            )
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
-                CORE_3D,
-                &[
-                    core_3d::graph::node::END_MAIN_PASS,
-                    core_3d::graph::node::BLOOM,
-                    core_3d::graph::node::TONEMAPPING,
-                ],
+                Core3d,
+                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
             )
             // Add bloom to the 2d render graph
-            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(
-                CORE_2D,
-                core_2d::graph::node::BLOOM,
-            )
+            .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
-                CORE_2D,
-                &[
-                    core_2d::graph::node::MAIN_PASS,
-                    core_2d::graph::node::BLOOM,
-                    core_2d::graph::node::TONEMAPPING,
-                ],
+                Core2d,
+                (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<BloomDownsamplingPipeline>()
             .init_resource::<BloomUpsamplingPipeline>();
@@ -113,13 +97,13 @@ impl Plugin for BloomPlugin {
 #[derive(Default)]
 struct BloomNode;
 impl ViewNode for BloomNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
         &'static DynamicUniformIndex<BloomUniforms>,
-        &'static BloomSettings,
+        &'static Bloom,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
@@ -140,9 +124,13 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<Self::ViewData>,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if bloom_settings.intensity == 0.0 {
+            return Ok(());
+        }
+
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let uniforms = world.resource::<ComponentUniforms<BloomUniforms>>();
@@ -165,6 +153,9 @@ impl ViewNode for BloomNode {
         };
 
         render_context.command_encoder().push_debug_group("bloom");
+
+        let diagnostics = render_context.diagnostic_recorder();
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "bloom");
 
         // First downsample pass
         {
@@ -254,7 +245,7 @@ impl ViewNode for BloomNode {
                 mip as f32,
                 (bloom_texture.mip_count - 1) as f32,
             );
-            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -265,12 +256,7 @@ impl ViewNode for BloomNode {
             let mut upsampling_final_pass =
                 render_context.begin_tracked_render_pass(RenderPassDescriptor {
                     label: Some("bloom_upsampling_final_pass"),
-                    color_attachments: &[Some(view_target.get_unsampled_color_attachment(
-                        Operations {
-                            load: LoadOp::Load,
-                            store: StoreOp::Store,
-                        },
-                    ))],
+                    color_attachments: &[Some(view_target.get_unsampled_color_attachment())],
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
@@ -286,10 +272,11 @@ impl ViewNode for BloomNode {
             }
             let blend =
                 compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
-            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
+            upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
+        time_span.end(render_context.command_encoder());
         render_context.command_encoder().pop_debug_group();
 
         Ok(())
@@ -299,16 +286,24 @@ impl ViewNode for BloomNode {
 #[derive(Component)]
 struct BloomTexture {
     // First mip is half the screen resolution, successive mips are half the previous
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     texture: CachedTexture,
     // WebGL does not support binding specific mip levels for sampling, fallback to separate textures instead
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     texture: Vec<CachedTexture>,
     mip_count: u32,
 }
 
 impl BloomTexture {
-    #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
@@ -316,7 +311,7 @@ impl BloomTexture {
             ..Default::default()
         })
     }
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture[base_mip_level as usize]
             .texture
@@ -332,17 +327,21 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
-    for (entity, camera) in &views {
+    for (entity, camera, bloom) in &views {
         if let Some(UVec2 {
             x: width,
             y: height,
         }) = camera.physical_viewport_size
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
-            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
+            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
+            let mip_height_ratio = if height != 0 {
+                bloom.max_mip_dimension as f32 / height as f32
+            } else {
+                0.
+            };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
@@ -359,9 +358,13 @@ fn prepare_bloom_textures(
                 view_formats: &[],
             };
 
-            #[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+            #[cfg(any(
+                not(feature = "webgl"),
+                not(target_arch = "wasm32"),
+                feature = "webgpu"
+            ))]
             let texture = texture_cache.get(&render_device, texture_descriptor);
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             let texture: Vec<CachedTexture> = (0..mip_count)
                 .map(|mip| {
                     texture_cache.get(
@@ -457,19 +460,20 @@ fn prepare_bloom_bind_groups(
 /// * `max_mip` - the index of the lowest frequency pyramid level.
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
-/// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-fn compute_blend_factor(bloom_settings: &BloomSettings, mip: f32, max_mip: f32) -> f32 {
-    let mut lf_boost = (1.0
-        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))
-        * bloom_settings.low_frequency_boost;
+/// [`Bloom`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
+    let mut lf_boost =
+        (1.0 - ops::powf(
+            1.0 - (mip / max_mip),
+            1.0 / (1.0 - bloom.low_frequency_boost_curvature),
+        )) * bloom.low_frequency_boost;
     let high_pass_lq = 1.0
-        - (((mip / max_mip) - bloom_settings.high_pass_frequency)
-            / bloom_settings.high_pass_frequency)
+        - (((mip / max_mip) - bloom.high_pass_frequency) / bloom.high_pass_frequency)
             .clamp(0.0, 1.0);
-    lf_boost *= match bloom_settings.composite_mode {
-        BloomCompositeMode::EnergyConserving => 1.0 - bloom_settings.intensity,
+    lf_boost *= match bloom.composite_mode {
+        BloomCompositeMode::EnergyConserving => 1.0 - bloom.intensity,
         BloomCompositeMode::Additive => 1.0,
     };
 
-    (bloom_settings.intensity + lf_boost) * high_pass_lq
+    (bloom.intensity + lf_boost) * high_pass_lq
 }

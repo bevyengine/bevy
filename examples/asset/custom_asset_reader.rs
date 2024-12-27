@@ -3,42 +3,35 @@
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
 use bevy::{
-    asset::io::{AssetReader, AssetReaderError, AssetSource, AssetSourceId, PathStream, Reader},
+    asset::io::{
+        AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
+        Reader,
+    },
     prelude::*,
-    utils::BoxedFuture,
 };
 use std::path::Path;
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
-struct CustomAssetReader(Box<dyn AssetReader>);
+struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
 impl AssetReader for CustomAssetReader {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        info!("Reading {:?}", path);
-        self.0.read(path)
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        info!("Reading {}", path.display());
+        self.0.read(path).await
     }
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        self.0.read_meta(path)
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        self.0.read_meta(path).await
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        self.0.read_directory(path)
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.0.read_directory(path).await
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        self.0.is_directory(path)
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        self.0.is_directory(path).await
     }
 }
 
@@ -67,9 +60,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(Camera2d);
+    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
 }

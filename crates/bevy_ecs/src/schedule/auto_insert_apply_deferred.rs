@@ -1,19 +1,12 @@
 use std::collections::BTreeSet;
 
-use bevy_utils::{
-    petgraph::{
-        graphmap::GraphMap,
-        Directed,
-        Direction::{Incoming, Outgoing},
-    },
-    HashMap,
-};
+use bevy_utils::HashMap;
 
-use crate::system::IntoSystem;
+use crate::system::{IntoSystem, ScheduleSystem, System};
 
 use super::{
-    apply_deferred, is_apply_deferred, NodeId, ReportCycles, ScheduleBuildError, ScheduleBuildPass,
-    ScheduleGraph, SystemNode,
+    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
+    ScheduleBuildPass, ScheduleGraph, SystemNode,
 };
 
 /// A [`ScheduleBuildPass`] that inserts [`apply_deferred`] systems into the schedule graph
@@ -27,6 +20,7 @@ use super::{
 /// or want to manually insert all your sync points.
 #[derive(Debug, Default)]
 pub struct AutoInsertApplyDeferredPass {
+    /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
@@ -54,8 +48,8 @@ impl AutoInsertApplyDeferredPass {
 
         graph
             .systems
-            .push(SystemNode::new(Box::new(IntoSystem::into_system(
-                apply_deferred,
+            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
+                IntoSystem::into_system(ApplyDeferred),
             ))));
         graph.system_conditions.push(Vec::new());
 
@@ -79,18 +73,19 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
     fn build(
         &mut self,
         graph: &mut ScheduleGraph,
-        dependency_flattened: &mut GraphMap<NodeId, (), Directed>,
-    ) -> Result<GraphMap<NodeId, (), Directed>, ScheduleBuildError> {
+        dependency_flattened: &mut DiGraph,
+    ) -> Result<DiGraph, ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
+        let mut distances: HashMap<usize, Option<u32>> =
+            HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
             let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
 
-            for target in dependency_flattened.neighbors_directed(*node, Outgoing) {
+            for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
                 let add_sync_on_edge = add_sync_after
                     && !is_apply_deferred(graph.systems[target.index()].get().unwrap())
                     && !self.no_sync_edges.contains(&(*node, target));
@@ -112,8 +107,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 if add_sync_on_edge {
                     let sync_point =
                         self.get_sync_point(graph, distances[&target.index()].unwrap());
-                    sync_point_graph.add_edge(*node, sync_point, ());
-                    sync_point_graph.add_edge(sync_point, target, ());
+                    sync_point_graph.add_edge(*node, sync_point);
+                    sync_point_graph.add_edge(sync_point, target);
 
                     // edge is now redundant
                     sync_point_graph.remove_edge(*node, target);
@@ -124,17 +119,16 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         Ok(sync_point_graph)
     }
 
-    type CollapseSetIterator = std::iter::Empty<(NodeId, NodeId)>;
     fn collapse_set(
         &mut self,
         set: NodeId,
         systems: &[NodeId],
-        dependency_flattened: &GraphMap<NodeId, (), Directed>,
-    ) -> Self::CollapseSetIterator {
+        dependency_flattened: &DiGraph,
+    ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {
             // collapse dependencies for empty sets
-            for a in dependency_flattened.neighbors_directed(set, Incoming) {
-                for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+            for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
+                for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
                     if self.no_sync_edges.contains(&(a, set))
                         && self.no_sync_edges.contains(&(set, b))
                     {
@@ -143,7 +137,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 }
             }
         } else {
-            for a in dependency_flattened.neighbors_directed(set, Incoming) {
+            for a in dependency_flattened.neighbors_directed(set, Direction::Incoming) {
                 for &sys in systems {
                     if self.no_sync_edges.contains(&(a, set)) {
                         self.no_sync_edges.insert((a, sys));
@@ -151,7 +145,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 }
             }
 
-            for b in dependency_flattened.neighbors_directed(set, Outgoing) {
+            for b in dependency_flattened.neighbors_directed(set, Direction::Outgoing) {
                 for &sys in systems {
                     if self.no_sync_edges.contains(&(set, b)) {
                         self.no_sync_edges.insert((sys, b));

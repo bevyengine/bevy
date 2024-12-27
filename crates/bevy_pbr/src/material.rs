@@ -1,63 +1,79 @@
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
+use crate::material_bind_groups::{MaterialBindGroupAllocator, MaterialBindingId};
+#[cfg(feature = "meshlet")]
+use crate::meshlet::{
+    prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
+    InstanceManager,
+};
 use crate::*;
-use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetId, AssetServer};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, ScreenSpaceTransmissionQuality, Transmissive3d,
-        Transparent3d,
+        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey,
+        ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
     },
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    oit::OrderIndependentTransparencySettings,
+    prepass::{
+        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{
+        lifetimeless::{SRes, SResMut},
+        SystemParamItem,
+    },
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::Projection,
     camera::TemporalJitter,
-    extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
-    render_asset::{prepare_assets, RenderAssets},
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
+    Extract,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::hash::Hash;
-use std::marker::PhantomData;
+use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
+use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_utils::{hashbrown::hash_map::Entry, tracing::error};
+use core::{hash::Hash, marker::PhantomData};
 
-/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
+/// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
-/// way to render [`Mesh`] entities with custom shader logic.
+/// way to render [`Mesh3d`] entities with custom shader logic.
 ///
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
 ///
 /// # Example
 ///
-/// Here is a simple Material implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// Here is a simple [`Material`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
 /// check out the [`AsBindGroup`] documentation.
-/// ```
-/// # use bevy_pbr::{Material, MaterialMeshBundle};
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::{TypeUuid, TypePath};
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
-/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
+/// ```
+/// # use bevy_pbr::{Material, MeshMaterial3d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
+/// # use bevy_reflect::TypePath;
+/// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}};
+/// # use bevy_color::LinearRgba;
+/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_math::primitives::Capsule3d;
+/// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -73,17 +89,23 @@ use std::marker::PhantomData;
 ///     }
 /// }
 ///
-/// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialMeshBundle {
-///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+/// // Spawn an entity with a mesh using `CustomMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         Mesh3d(meshes.add(Capsule3d::default())),
+///         MeshMaterial3d(materials.add(CustomMaterial {
+///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
-///     });
+///         })),
+///     ));
 /// }
 /// ```
+///
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
@@ -168,14 +190,50 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh prepass fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh deferred fragment shader will be used.
+    ///
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -191,6 +249,8 @@ pub struct MaterialPlugin<M: Material> {
     /// When it is enabled, it will automatically add the [`PrepassPlugin`]
     /// required to make the prepass work on this Material.
     pub prepass_enabled: bool,
+    /// Controls if shadows are enabled for the Material.
+    pub shadows_enabled: bool,
     pub _marker: PhantomData<M>,
 }
 
@@ -198,6 +258,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
+            shadows_enabled: true,
             _marker: Default::default(),
         }
     }
@@ -209,38 +270,65 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .add_plugins(ExtractInstancesPlugin::<AssetId<M>>::extract_visible());
+            .register_type::<MeshMaterial3d<M>>()
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
+                .init_resource::<RenderMaterialInstances<M>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-                .init_resource::<ExtractedMaterials<M>>()
-                .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials::<M>)
+                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
-                    (
-                        prepare_materials::<M>
-                            .in_set(RenderSet::PrepareAssets)
-                            .after(prepare_assets::<Image>),
-                        queue_shadows::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
-                        queue_material_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
-                            .after(prepare_materials::<M>),
-                    ),
+                    queue_material_meshes::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_assets::<PreparedMaterial<M>>),
+                )
+                .add_systems(
+                    Render,
+                    prepare_material_bind_groups::<M>
+                        .in_set(RenderSet::PrepareBindGroups)
+                        .after(prepare_assets::<PreparedMaterial<M>>),
                 );
+
+            if self.shadows_enabled {
+                render_app.add_systems(
+                    Render,
+                    queue_shadows::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_assets::<PreparedMaterial<M>>),
+                );
+            }
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                queue_material_meshlet_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .run_if(resource_exists::<InstanceManager>),
+            );
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                prepare_material_meshlet_meshes_main_opaque_pass::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial<M>>)
+                    .before(queue_material_meshlet_meshes::<M>)
+                    .run_if(resource_exists::<InstanceManager>),
+            );
         }
 
-        // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
-        app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        if self.shadows_enabled || self.prepass_enabled {
+            // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
+            app.add_plugins(PrepassPipelinePlugin::<M>::default());
+        }
 
         if self.prepass_enabled {
             app.add_plugins(PrepassPlugin::<M>::default());
@@ -248,8 +336,10 @@ where
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<MaterialPipeline<M>>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<MaterialPipeline<M>>()
+                .init_resource::<MaterialBindGroupAllocator<M>>();
         }
     }
 }
@@ -287,7 +377,7 @@ impl<M: Material> Hash for MaterialPipelineKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }
@@ -300,6 +390,9 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
+    /// Whether this material *actually* uses bindless resources, taking the
+    /// platform support (or lack thereof) of bindless resources into account.
+    pub bindless: bool,
     pub marker: PhantomData<M>,
 }
 
@@ -310,6 +403,7 @@ impl<M: Material> Clone for MaterialPipeline<M> {
             material_layout: self.material_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
+            bindless: self.bindless,
             marker: PhantomData,
         }
     }
@@ -324,7 +418,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -338,6 +432,15 @@ where
         descriptor.layout.insert(2, self.material_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
+
+        // If bindless mode is on, add a `BINDLESS` define.
+        if self.bindless {
+            descriptor.vertex.shader_defs.push("BINDLESS".into());
+            if let Some(ref mut fragment) = descriptor.fragment {
+                fragment.shader_defs.push("BINDLESS".into());
+            }
+        }
+
         Ok(descriptor)
     }
 }
@@ -360,6 +463,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
+            bindless: material_bind_groups::material_uses_bindless_resources::<M>(render_device),
             marker: PhantomData,
         }
     }
@@ -376,35 +480,59 @@ type DrawMaterial<M> = (
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials<M>>, SRes<RenderMaterialInstances<M>>);
-    type ViewData = ();
-    type ItemData = ();
+    type Param = (
+        SRes<RenderAssets<PreparedMaterial<M>>>,
+        SRes<RenderMaterialInstances<M>>,
+        SRes<MaterialBindGroupAllocator<M>>,
+    );
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
-        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
+        _item_query: Option<()>,
+        (materials, material_instances, material_bind_group_allocator): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
+        let material_bind_group_allocator = material_bind_group_allocator.into_inner();
 
-        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
-            return RenderCommandResult::Failure;
+        let Some(material_asset_id) = material_instances.get(&item.main_entity()) else {
+            return RenderCommandResult::Skip;
         };
-        let Some(material) = materials.get(material_asset_id) else {
-            return RenderCommandResult::Failure;
+        let Some(material) = materials.get(*material_asset_id) else {
+            return RenderCommandResult::Skip;
         };
-        pass.set_bind_group(I, &material.bind_group, &[]);
+        let Some(material_bind_group) = material_bind_group_allocator.get(material.binding.group)
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(bind_group) = material_bind_group.get_bind_group() else {
+            return RenderCommandResult::Skip;
+        };
+        pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
-pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
+/// Stores all extracted instances of a [`Material`] in the render world.
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterialInstances<M: Material>(pub MainEntityHashMap<AssetId<M>>);
 
-const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
+impl<M: Material> Default for RenderMaterialInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
@@ -412,11 +540,15 @@ const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode) -> MeshPipelineKey {
         AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
+        AlphaMode::AlphaToCoverage => match *msaa {
+            Msaa::Off => MeshPipelineKey::MAY_DISCARD,
+            _ => MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE,
+        },
         _ => MeshPipelineKey::NONE,
     }
 }
 
-const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     match tonemapping {
         Tonemapping::None => MeshPipelineKey::TONEMAP_METHOD_NONE,
         Tonemapping::Reinhard => MeshPipelineKey::TONEMAP_METHOD_REINHARD,
@@ -431,7 +563,7 @@ const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineKey {
     }
 }
 
-const fn screen_space_specular_transmission_pipeline_key(
+pub const fn screen_space_specular_transmission_pipeline_key(
     screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
 ) -> MeshPipelineKey {
     match screen_space_transmissive_blur_quality {
@@ -450,29 +582,71 @@ const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
+fn extract_mesh_materials<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    mut material_ids: ResMut<RenderMeshMaterialIds>,
+    mut material_bind_group_allocator: ResMut<MaterialBindGroupAllocator<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
+) {
+    material_instances.clear();
+
+    for (entity, view_visibility, material) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity.into(), material.id());
+
+            // Allocate a slot for this material in the bind group.
+            let material_id = material.id().untyped();
+            material_ids
+                .mesh_to_material
+                .insert(entity.into(), material_id);
+            if let Entry::Vacant(entry) = material_ids.material_to_binding.entry(material_id) {
+                entry.insert(material_bind_group_allocator.allocate());
+            }
+        }
+    }
+}
+
+/// For each view, iterates over all the meshes visible from that view and adds
+/// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
-    transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    (
+        opaque_draw_functions,
+        alpha_mask_draw_functions,
+        transmissive_draw_functions,
+        transparent_draw_functions,
+    ): (
+        Res<DrawFunctions<Opaque3d>>,
+        Res<DrawFunctions<AlphaMask3d>>,
+        Res<DrawFunctions<Transmissive3d>>,
+        Res<DrawFunctions<Transparent3d>>,
+    ),
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderMaterials<M>>,
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
-    images: Res<RenderAssets<Image>>,
-    mut views: Query<(
+    render_lightmaps: Res<RenderLightmaps>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
+    (mesh_allocator, material_bind_group_allocator): (
+        Res<MeshAllocator>,
+        Res<MaterialBindGroupAllocator<M>>,
+    ),
+    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
+    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
+    mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    views: Query<(
+        Entity,
         &ExtractedView,
-        &VisibleEntities,
+        &RenderVisibleEntities,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        Option<&EnvironmentMapLight>,
         Option<&ShadowFilteringMethod>,
-        Option<&ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusion>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -480,34 +654,49 @@ pub fn queue_material_meshes<M: Material>(
             Has<DeferredPrepass>,
         ),
         Option<&Camera3d>,
-        Option<&TemporalJitter>,
+        Has<TemporalJitter>,
         Option<&Projection>,
-        &mut RenderPhase<Opaque3d>,
-        &mut RenderPhase<AlphaMask3d>,
-        &mut RenderPhase<Transmissive3d>,
-        &mut RenderPhase<Transparent3d>,
+        (
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
+        ),
+        Has<OrderIndependentTransparencySettings>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
+        view_entity,
         view,
         visible_entities,
+        msaa,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         camera_3d,
         temporal_jitter,
         projection,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut transmissive_phase,
-        mut transparent_phase,
-    ) in &mut views
+        (has_environment_maps, has_irradiance_volumes),
+        has_oit,
+    ) in &views
     {
+        let (
+            Some(opaque_phase),
+            Some(alpha_mask_phase),
+            Some(transmissive_phase),
+            Some(transparent_phase),
+        ) = (
+            opaque_render_phases.get_mut(&view_entity),
+            alpha_mask_render_phases.get_mut(&view_entity),
+            transmissive_render_phases.get_mut(&view_entity),
+            transparent_render_phases.get_mut(&view_entity),
+        )
+        else {
+            continue;
+        };
+
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
@@ -532,14 +721,20 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        if temporal_jitter.is_some() {
+        if temporal_jitter {
             view_key |= MeshPipelineKey::TEMPORAL_JITTER;
         }
 
-        let environment_map_loaded = environment_map.is_some_and(|map| map.is_loaded(&images));
-
-        if environment_map_loaded {
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if let Some(projection) = projection {
@@ -553,11 +748,11 @@ pub fn queue_material_meshes<M: Material>(
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
             }
         }
 
@@ -570,7 +765,7 @@ pub fn queue_material_meshes<M: Material>(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
         if let Some(camera_3d) = camera_3d {
@@ -578,42 +773,73 @@ pub fn queue_material_meshes<M: Material>(
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
+
         let rangefinder = view.rangefinder3d();
-        for visible_entity in &visible_entities.entities {
+        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let Some(material) = render_materials.get(material_asset_id) else {
+            let Some(material) = render_materials.get(*material_asset_id) else {
+                continue;
+            };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
                 continue;
             };
 
-            let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
-                OpaqueRendererMethod::Deferred => false,
-                OpaqueRendererMethod::Auto => unreachable!(),
-            };
+            let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
+            mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
+                material.properties.alpha_mode,
+                msaa,
+            ));
+            let mut mesh_key = view_key
+                | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                | mesh_pipeline_key_bits;
 
-            let mut mesh_key = view_key;
-
-            mesh_key |= MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-
-            if mesh.morph_targets.is_some() {
-                mesh_key |= MeshPipelineKey::MORPH_TARGETS;
+            let lightmap_slab_index = render_lightmaps
+                .render_lightmaps
+                .get(visible_entity)
+                .map(|lightmap| lightmap.slab_index);
+            if lightmap_slab_index.is_some() {
+                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
-            mesh_key |= alpha_mode_pipeline_key(material.properties.alpha_mode);
+
+            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
+                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
+            }
+
+            if motion_vector_prepass {
+                // If the previous frame have skins or morph targets, note that.
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
+                }
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
+                }
+            }
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 &mesh.layout,
             );
@@ -625,65 +851,82 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance.material_bind_group_id = material.get_bind_group_id();
-
-            let distance = rangefinder
-                .distance_translation(&mesh_instance.transforms.transform.translation)
-                + material.properties.depth_bias;
-            match material.properties.alpha_mode {
-                AlphaMode::Opaque => {
+            match mesh_key
+                .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
+            {
+                MeshPipelineKey::BLEND_OPAQUE | MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE => {
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder.distance_translation(&mesh_instance.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            dynamic_offset: None,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
-                    } else if forward {
-                        opaque_phase.add(Opaque3d {
-                            entity: *visible_entity,
-                            draw_function: draw_opaque_pbr,
-                            pipeline: pipeline_id,
-                            distance,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                        let bin_key = Opaque3dBinKey {
+                            batch_set_key: Opaque3dBatchSetKey {
+                                draw_function: draw_opaque_pbr,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                index_slab,
+                                lightmap_slab: lightmap_slab_index
+                                    .map(|lightmap_slab_index| *lightmap_slab_index),
+                            },
+                            asset_id: mesh_instance.mesh_asset_id.into(),
+                        };
+                        opaque_phase.add(
+                            bin_key,
+                            (*render_entity, *visible_entity),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
+                        );
                     }
                 }
-                AlphaMode::Mask(_) => {
+                // Alpha mask
+                MeshPipelineKey::MAY_DISCARD => {
                     if material.properties.reads_view_transmission_texture {
+                        let distance = rangefinder.distance_translation(&mesh_instance.translation)
+                            + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
                             batch_range: 0..1,
-                            dynamic_offset: None,
+                            extra_index: PhaseItemExtraIndex::None,
                         });
-                    } else if forward {
-                        alpha_mask_phase.add(AlphaMask3d {
-                            entity: *visible_entity,
-                            draw_function: draw_alpha_mask_pbr,
-                            pipeline: pipeline_id,
-                            distance,
-                            batch_range: 0..1,
-                            dynamic_offset: None,
-                        });
+                    } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let bin_key = OpaqueNoLightmap3dBinKey {
+                            batch_set_key: OpaqueNoLightmap3dBatchSetKey {
+                                draw_function: draw_alpha_mask_pbr,
+                                pipeline: pipeline_id,
+                                material_bind_group_index: Some(material.binding.group.0),
+                            },
+                            asset_id: mesh_instance.mesh_asset_id.into(),
+                        };
+                        alpha_mask_phase.add(
+                            bin_key,
+                            (*render_entity, *visible_entity),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
+                        );
                     }
                 }
-                AlphaMode::Blend
-                | AlphaMode::Premultiplied
-                | AlphaMode::Add
-                | AlphaMode::Multiply => {
+                _ => {
+                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
+                        + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
-                        entity: *visible_entity,
+                        entity: (*render_entity, *visible_entity),
                         draw_function: draw_transparent_pbr,
                         pipeline: pipeline_id,
                         distance,
                         batch_range: 0..1,
-                        dynamic_offset: None,
+                        extra_index: PhaseItemExtraIndex::None,
                     });
                 }
             }
@@ -693,6 +936,7 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource, Default, Debug)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -731,7 +975,7 @@ impl DefaultOpaqueRendererMethod {
 /// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained devices.
 ///
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
-#[derive(Default, Clone, Copy, Debug, Reflect)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
@@ -742,10 +986,15 @@ pub enum OpaqueRendererMethod {
 /// Common [`Material`] properties, calculated for a specific material instance.
 pub struct MaterialProperties {
     /// Is this material should be rendered by the deferred renderer when.
-    /// AlphaMode::Opaque or AlphaMode::Mask
+    /// [`AlphaMode::Opaque`] or [`AlphaMode::Mask`]
     pub render_method: OpaqueRendererMethod,
     /// The [`AlphaMode`] of this material.
     pub alpha_mode: AlphaMode,
+    /// The bits in the [`MeshPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material_meshes`].
+    pub mesh_pipeline_key_bits: MeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
@@ -758,180 +1007,170 @@ pub struct MaterialProperties {
 }
 
 /// Data prepared for a [`Material`] instance.
-pub struct PreparedMaterial<T: Material> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
-    pub bind_group: BindGroup,
-    pub key: T::Data,
+pub struct PreparedMaterial<M: Material> {
+    pub binding: MaterialBindingId,
     pub properties: MaterialProperties,
+    pub phantom: PhantomData<M>,
+}
+
+impl<M: Material> RenderAsset for PreparedMaterial<M> {
+    type SourceAsset = M;
+
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<MaterialPipeline<M>>,
+        SRes<DefaultOpaqueRendererMethod>,
+        SRes<RenderMeshMaterialIds>,
+        SResMut<MaterialBindGroupAllocator<M>>,
+        M::Param,
+    );
+
+    fn prepare_asset(
+        material: Self::SourceAsset,
+        material_id: AssetId<Self::SourceAsset>,
+        (
+            render_device,
+            pipeline,
+            default_opaque_render_method,
+            mesh_material_ids,
+            ref mut bind_group_allocator,
+            ref mut material_param,
+        ): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        // Fetch the material binding ID, so that we can write it in to the
+        // `PreparedMaterial`.
+        let Some(material_binding_id) = mesh_material_ids
+            .material_to_binding
+            .get(&material_id.untyped())
+        else {
+            return Err(PrepareAssetError::RetryNextUpdate(material));
+        };
+
+        let method = match material.opaque_render_method() {
+            OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
+            OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
+            OpaqueRendererMethod::Auto => default_opaque_render_method.0,
+        };
+        let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
+        mesh_pipeline_key_bits.set(
+            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
+            material.reads_view_transmission_texture(),
+        );
+
+        match material.unprepared_bind_group(
+            &pipeline.material_layout,
+            render_device,
+            material_param,
+            false,
+        ) {
+            Ok(unprepared) => {
+                bind_group_allocator.init(render_device, *material_binding_id, unprepared);
+
+                Ok(PreparedMaterial {
+                    binding: *material_binding_id,
+                    properties: MaterialProperties {
+                        alpha_mode: material.alpha_mode(),
+                        depth_bias: material.depth_bias(),
+                        reads_view_transmission_texture: mesh_pipeline_key_bits
+                            .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
+                        render_method: method,
+                        mesh_pipeline_key_bits,
+                    },
+                    phantom: PhantomData,
+                })
+            }
+
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                Err(PrepareAssetError::RetryNextUpdate(material))
+            }
+
+            Err(AsBindGroupError::CreateBindGroupDirectly) => {
+                // This material has opted out of automatic bind group creation
+                // and is requesting a fully-custom bind group. Invoke
+                // `as_bind_group` as requested, and store the resulting bind
+                // group in the slot.
+                match material.as_bind_group(
+                    &pipeline.material_layout,
+                    render_device,
+                    material_param,
+                ) {
+                    Ok(prepared_bind_group) => {
+                        // Store the resulting bind group directly in the slot.
+                        bind_group_allocator.init_custom(
+                            *material_binding_id,
+                            prepared_bind_group.bind_group,
+                            prepared_bind_group.data,
+                        );
+
+                        Ok(PreparedMaterial {
+                            binding: *material_binding_id,
+                            properties: MaterialProperties {
+                                alpha_mode: material.alpha_mode(),
+                                depth_bias: material.depth_bias(),
+                                reads_view_transmission_texture: mesh_pipeline_key_bits
+                                    .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
+                                render_method: method,
+                                mesh_pipeline_key_bits,
+                            },
+                            phantom: PhantomData,
+                        })
+                    }
+
+                    Err(AsBindGroupError::RetryNextUpdate) => {
+                        Err(PrepareAssetError::RetryNextUpdate(material))
+                    }
+
+                    Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
+                }
+            }
+
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
+        }
+    }
+
+    fn unload_asset(
+        asset_id: AssetId<Self::SourceAsset>,
+        (_, _, _, mesh_material_ids, ref mut bind_group_allocator, _): &mut SystemParamItem<
+            Self::Param,
+        >,
+    ) {
+        // Mark this material's slot in the binding array as free.
+
+        let Some(material_binding_id) = mesh_material_ids
+            .material_to_binding
+            .get(&asset_id.untyped())
+        else {
+            return;
+        };
+
+        bind_group_allocator.free(*material_binding_id);
+    }
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(Option<BindGroupId>);
+pub struct MaterialBindGroupId(pub Option<BindGroupId>);
 
-impl<T: Material> PreparedMaterial<T> {
-    pub fn get_bind_group_id(&self) -> MaterialBindGroupId {
-        MaterialBindGroupId(Some(self.bind_group.id()))
+impl MaterialBindGroupId {
+    pub fn new(id: BindGroupId) -> Self {
+        Self(Some(id))
     }
 }
 
-#[derive(Resource)]
-pub struct ExtractedMaterials<M: Material> {
-    extracted: Vec<(AssetId<M>, M)>,
-    removed: Vec<AssetId<M>>,
-}
-
-impl<M: Material> Default for ExtractedMaterials<M> {
-    fn default() -> Self {
-        Self {
-            extracted: Default::default(),
-            removed: Default::default(),
-        }
+impl From<BindGroup> for MaterialBindGroupId {
+    fn from(value: BindGroup) -> Self {
+        Self::new(value.id())
     }
 }
 
-/// Stores all prepared representations of [`Material`] assets for as long as they exist.
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials<T: Material>(pub HashMap<AssetId<T>, PreparedMaterial<T>>);
-
-impl<T: Material> Default for RenderMaterials<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-/// This system extracts all created or modified assets of the corresponding [`Material`] type
-/// into the "render world".
-pub fn extract_materials<M: Material>(
-    mut commands: Commands,
-    mut events: Extract<EventReader<AssetEvent<M>>>,
-    assets: Extract<Res<Assets<M>>>,
-) {
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.read() {
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-            }
-            AssetEvent::Removed { id } => {
-                changed_assets.remove(id);
-                removed.push(*id);
-            }
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
-
-    let mut extracted_assets = Vec::new();
-    for id in changed_assets.drain() {
-        if let Some(asset) = assets.get(id) {
-            extracted_assets.push((id, asset.clone()));
-        }
-    }
-
-    commands.insert_resource(ExtractedMaterials {
-        extracted: extracted_assets,
-        removed,
-    });
-}
-
-/// All [`Material`] values of a given type that should be prepared next frame.
-pub struct PrepareNextFrameMaterials<M: Material> {
-    assets: Vec<(AssetId<M>, M)>,
-}
-
-impl<M: Material> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
-    }
-}
-
-/// This system prepares all assets of the corresponding [`Material`] type
-/// which where extracted this frame for the GPU.
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_materials<M: Material>(
-    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
-    mut extracted_assets: ResMut<ExtractedMaterials<M>>,
-    mut render_materials: ResMut<RenderMaterials<M>>,
+/// A system that creates and/or recreates any bind groups that contain
+/// materials that were modified this frame.
+pub fn prepare_material_bind_groups<M>(
+    mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
-    pipeline: Res<MaterialPipeline<M>>,
-    default_opaque_render_method: Res<DefaultOpaqueRendererMethod>,
-) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (id, material) in queued_assets.into_iter() {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-            default_opaque_render_method.0,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(id, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((id, material));
-            }
-        }
-    }
-
-    for removed in std::mem::take(&mut extracted_assets.removed) {
-        render_materials.remove(&removed);
-    }
-
-    for (id, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-            default_opaque_render_method.0,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(id, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((id, material));
-            }
-        }
-    }
-}
-
-fn prepare_material<M: Material>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &FallbackImage,
-    pipeline: &MaterialPipeline<M>,
-    default_opaque_render_method: OpaqueRendererMethod,
-) -> Result<PreparedMaterial<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
-    let method = match material.opaque_render_method() {
-        OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
-        OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
-        OpaqueRendererMethod::Auto => default_opaque_render_method,
-    };
-    Ok(PreparedMaterial {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-        properties: MaterialProperties {
-            alpha_mode: material.alpha_mode(),
-            depth_bias: material.depth_bias(),
-            reads_view_transmission_texture: material.reads_view_transmission_texture(),
-            render_method: method,
-        },
-    })
+    fallback_resources: Res<FallbackBindlessResources>,
+) where
+    M: Material,
+{
+    allocator.prepare_bind_groups(&render_device, &fallback_image, &fallback_resources);
 }

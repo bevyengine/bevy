@@ -1,7 +1,20 @@
+// TODO: Upstream `portable-atomic` support to `downcast_rs` and unconditionally
+// include it as a dependency.
+// See https://github.com/marcianx/downcast-rs/pull/22 for details
+#[cfg(feature = "downcast")]
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
-use std::any::Any;
+use core::any::Any;
+
+/// Dummy trait with the same name as `downcast_rs::Downcast`. This is to ensure
+/// the `Plugin: Downcast` bound can remain even when `downcast` isn't enabled.
+#[cfg(not(feature = "downcast"))]
+#[doc(hidden)]
+pub trait Downcast {}
+
+#[cfg(not(feature = "downcast"))]
+impl<T: ?Sized> Downcast for T {}
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -21,12 +34,46 @@ use std::any::Any;
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finish`]
 /// * and call all registered [`Plugin::cleanup`]
+///
+/// ## Defining a plugin.
+///
+/// Most plugins are simply functions that add configuration to an [`App`].
+///
+/// ```
+/// # use bevy_app::{App, Update};
+/// App::new().add_plugins(my_plugin).run();
+///
+/// // This function implements `Plugin`, along with every other `fn(&mut App)`.
+/// pub fn my_plugin(app: &mut App) {
+///     app.add_systems(Update, hello_world);
+/// }
+/// # fn hello_world() {}
+/// ```
+///
+/// For more advanced use cases, the `Plugin` trait can be implemented manually for a type.
+///
+/// ```
+/// # use bevy_app::*;
+/// pub struct AccessibilityPlugin {
+///     pub flicker_damping: bool,
+///     // ...
+/// }
+///
+/// impl Plugin for AccessibilityPlugin {
+///     fn build(&self, app: &mut App) {
+///         if self.flicker_damping {
+///             app.add_systems(PostUpdate, damp_flickering);
+///         }
+///     }
+/// }
+/// # fn damp_flickering() {}
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
-    /// Has the plugin finished it's setup? This can be useful for plugins that needs something
-    /// asynchronous to happen before they can finish their setup, like renderer initialization.
+    /// Has the plugin finished its setup? This can be useful for plugins that need something
+    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
     /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
@@ -48,7 +95,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures a name for the [`Plugin`] which is primarily used for checking plugin
     /// uniqueness and debugging.
     fn name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     /// If the plugin can be meaningfully instantiated several times in an [`App`],
@@ -58,13 +105,34 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 }
 
+#[cfg(feature = "downcast")]
 impl_downcast!(Plugin);
 
-/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// It is used for dynamically loading plugins.
-///
-/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
+    fn build(&self, app: &mut App) {
+        self(app);
+    }
+}
+
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
+/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
+pub(crate) struct PlaceholderPlugin;
+
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
 
 /// Types that represent a set of [`Plugin`]s.
 ///
@@ -75,8 +143,8 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-
-    use bevy_ecs::all_tuples;
+    use alloc::boxed::Box;
+    use variadics_please::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 
@@ -109,12 +177,15 @@ mod sealed {
     }
 
     macro_rules! impl_plugins_tuples {
-        ($(($param: ident, $plugins: ident)),*) => {
+        ($(#[$meta:meta])* $(($param: ident, $plugins: ident)),*) => {
+            $(#[$meta])*
             impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
             {
-                #[allow(non_snake_case, unused_variables)]
+                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
@@ -124,5 +195,12 @@ mod sealed {
         }
     }
 
-    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_plugins_tuples,
+        0,
+        15,
+        P,
+        S
+    );
 }
