@@ -204,21 +204,13 @@ fn update_loading_data(
         // we reset the confirmation frame count.
         loading_data.confirmation_frames_count = 0;
 
-        // Go through each asset and verify their load states.
-        // Any assets that are loaded are then added to the pop list for later removal.
-        let mut pop_list: Vec<usize> = Vec::new();
-        for (index, asset) in loading_data.loading_assets.iter().enumerate() {
+        loading_data.loading_assets.retain(|asset| {
             if let Some(state) = asset_server.get_load_states(asset) {
-                if state.2.is_loaded() {
-                    pop_list.push(index);
-                }
+                !state.2.is_loaded() // Keep only those that are not loaded
+            } else {
+                true // Keep assets for which the state is not available
             }
-        }
-
-        // Remove all loaded assets from the loading_assets list.
-        for i in pop_list.iter() {
-            loading_data.loading_assets.remove(*i);
-        }
+        });
 
         // If there are no more assets being monitored, and pipelines
         // are compiled, then start counting confirmation frames.
