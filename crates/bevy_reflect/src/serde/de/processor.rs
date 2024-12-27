@@ -49,7 +49,7 @@ use alloc::boxed::Box;
 /// # #[derive(Debug, Clone, Reflect)]
 /// # struct LoadedUntypedAsset;
 /// # #[derive(Debug, Clone, Reflect)]
-/// # struct Handle<T: Reflect>(T);
+/// # struct Handle<T: Reflect + Send + Sync>(T);
 /// # #[derive(Debug, Clone, Reflect)]
 /// # struct Mesh;
 /// #

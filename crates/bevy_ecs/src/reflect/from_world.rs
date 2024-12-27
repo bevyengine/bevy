@@ -22,7 +22,7 @@ pub struct ReflectFromWorld(ReflectFromWorldFns);
 #[derive(Clone)]
 pub struct ReflectFromWorldFns {
     /// Function pointer implementing [`ReflectFromWorld::from_world()`].
-    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
+    pub from_world: fn(&mut World) -> Box<dyn Reflect + Send + Sync>,
 }
 
 impl ReflectFromWorldFns {

@@ -371,7 +371,7 @@
 //! # use bevy_reflect::{Reflect, reflect_trait, TypeRegistry};
 //! #[reflect_trait] // Generates a `ReflectMyTrait` type
 //! pub trait MyTrait {}
-//! impl<T: Reflect> MyTrait for T {}
+//! impl<T: Reflect + Send + Sync> MyTrait for T {}
 //!
 //! let mut registry = TypeRegistry::new();
 //! registry.register_type_data::<i32, ReflectMyTrait>();

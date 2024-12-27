@@ -35,7 +35,7 @@ impl ReflectState {
     }
 }
 
-impl<S: States + Reflect> FromType<S> for ReflectState {
+impl<S: States + Reflect + Send + Sync> FromType<S> for ReflectState {
     fn from_type() -> Self {
         ReflectState(ReflectStateFns {
             reflect: |world| {

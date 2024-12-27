@@ -68,7 +68,7 @@ pub trait ReflectPath<'a>: Sized {
     /// Gets a `&T` to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::path`] for more details.
-    fn element<T: Reflect>(self, root: &(dyn PartialReflect + Send + Sync)) -> PathResult<'a, &T> {
+    fn element<T: Reflect + Send + Sync>(self, root: &(dyn PartialReflect + Send + Sync)) -> PathResult<'a, &T> {
         self.reflect_element(root).and_then(|p| {
             p.try_downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
@@ -78,7 +78,7 @@ pub trait ReflectPath<'a>: Sized {
     /// Gets a `&mut T` to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::path_mut`] for more details.
-    fn element_mut<T: Reflect>(
+    fn element_mut<T: Reflect + Send + Sync>(
         self,
         root: &mut (dyn PartialReflect + Send + Sync),
     ) -> PathResult<'a, &mut T> {
@@ -282,7 +282,7 @@ pub trait GetPath: PartialReflect + Send + Sync {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
+    fn path<'p, T: Reflect + Send + Sync>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
         path.element(self.as_partial_reflect())
     }
 
@@ -293,7 +293,7 @@ pub trait GetPath: PartialReflect + Send + Sync {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
+    fn path_mut<'p, T: Reflect + Send + Sync>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
         path.element_mut(self.as_partial_reflect_mut())
     }
 }

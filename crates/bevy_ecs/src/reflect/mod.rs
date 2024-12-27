@@ -87,7 +87,7 @@ impl DerefMut for AppFunctionRegistry {
 ///
 /// # Panics
 ///
-/// If any strategy produces a `Box<dyn Reflect>` that doesn't store a value of type `T`
+/// If any strategy produces a `Box<dyn Reflect + Send + Sync>` that doesn't store a value of type `T`
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.

@@ -180,7 +180,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 
 /// Reflect type data struct relating a [`Handle<T>`] back to the `T` asset type.
 ///
-/// Say you want to look up the asset values of a list of handles when you have access to their `&dyn Reflect` form.
+/// Say you want to look up the asset values of a list of handles when you have access to their `&(dyn Reflect + Send + Sync)` form.
 /// Assets can be looked up in the world using [`ReflectAsset`], but how do you determine which [`ReflectAsset`] to use when
 /// only looking at the handle? [`ReflectHandle`] is stored in the type registry on each `Handle<T>` type, so you can use [`ReflectHandle::asset_type_id`] to look up
 /// the [`ReflectAsset`] type data on the corresponding `T` asset type:
@@ -193,7 +193,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///
 /// # let world: &World = unimplemented!();
 /// # let type_registry: TypeRegistry = unimplemented!();
-/// let handles: Vec<&dyn Reflect> = unimplemented!();
+/// let handles: Vec<&(dyn Reflect + Send + Sync)> = unimplemented!();
 /// for handle in handles {
 ///     let reflect_handle = type_registry.get_type_data::<ReflectHandle>(handle.type_id()).unwrap();
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
@@ -207,7 +207,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 pub struct ReflectHandle {
     asset_type_id: TypeId,
     downcast_handle_untyped: fn(&dyn Any) -> Option<UntypedHandle>,
-    typed: fn(UntypedHandle) -> Box<dyn Reflect>,
+    typed: fn(UntypedHandle) -> Box<dyn Reflect + Send + Sync>,
 }
 impl ReflectHandle {
     /// The [`TypeId`] of the asset
@@ -220,9 +220,9 @@ impl ReflectHandle {
         (self.downcast_handle_untyped)(handle)
     }
 
-    /// A way to go from a [`UntypedHandle`] to a [`Handle<T>`] in a `Box<dyn Reflect>`.
+    /// A way to go from a [`UntypedHandle`] to a [`Handle<T>`] in a `Box<dyn Reflect + Send + Sync>`.
     /// Equivalent of [`UntypedHandle::typed`].
-    pub fn typed(&self, handle: UntypedHandle) -> Box<dyn Reflect> {
+    pub fn typed(&self, handle: UntypedHandle) -> Box<dyn Reflect + Send + Sync> {
         (self.typed)(handle)
     }
 }

@@ -39,7 +39,7 @@
 //! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
-//! of using generic ECS methods such as `entity.get::<C>()` to get `&dyn Reflect`
+//! of using generic ECS methods such as `entity.get::<C>()` to get `&(dyn Reflect + Send + Sync)`
 //! with underlying type `C`, without the `C` appearing in the type signature.
 //!
 //! ## A note on code generation

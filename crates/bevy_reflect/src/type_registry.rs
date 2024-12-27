@@ -743,7 +743,7 @@ impl ReflectDeserialize {
     }
 }
 
-impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
+impl<T: for<'a> Deserialize<'a> + Reflect + Send + Sync> FromType<T> for ReflectDeserialize {
     fn from_type() -> Self {
         ReflectDeserialize {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),

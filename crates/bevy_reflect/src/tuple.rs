@@ -114,32 +114,32 @@ impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 pub trait GetTupleField {
     /// Returns a reference to the value of the field with index `index`,
     /// downcast to `T`.
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T>;
+    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T>;
 
     /// Returns a mutable reference to the value of the field with index
     /// `index`, downcast to `T`.
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T>;
+    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T>;
 }
 
 impl<S: Tuple> GetTupleField for S {
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 impl GetTupleField for dyn Tuple {
-    fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
+    fn get_field<T: Reflect + Send + Sync>(&self, index: usize) -> Option<&T> {
         self.field(index)
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
             .and_then(|value| value.try_downcast_mut::<T>())
     }

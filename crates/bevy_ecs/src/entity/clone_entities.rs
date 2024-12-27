@@ -115,7 +115,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
     }
 
-    /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
+    /// Returns a reference to the component on the source entity as [`&(dyn Reflect + Send + Sync)`](bevy_reflect::Reflect).
     ///
     /// Will return `None` if:
     /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
@@ -124,7 +124,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Component does not have [`TypeId`]
     /// - Registered [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr)'s [`TypeId`] does not match component's [`TypeId`]
     #[cfg(feature = "bevy_reflect")]
-    pub fn read_source_component_reflect(&self) -> Option<&dyn bevy_reflect::Reflect> {
+    pub fn read_source_component_reflect(&self) -> Option<&(dyn bevy_reflect::Reflect + Send + Sync)> {
         let registry = self.type_registry?.read();
         let type_id = self.component_info.type_id()?;
         let reflect_from_ptr = registry.get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)?;
@@ -199,7 +199,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// - Passed component's [`TypeId`] does not match source component [`TypeId`].
     /// - Component has already been written once.
     #[cfg(feature = "bevy_reflect")]
-    pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect>) {
+    pub fn write_target_component_reflect(&mut self, component: Box<dyn bevy_reflect::Reflect + Send + Sync>) {
         if self.target_component_written {
             panic!("Trying to write component multiple times")
         }

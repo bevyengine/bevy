@@ -94,7 +94,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(self, arg: impl PartialReflect) -> Self {
+    pub fn push_owned(self, arg: impl PartialReflect + Send + Sync) -> Self {
         self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 

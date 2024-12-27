@@ -200,7 +200,7 @@ impl DynamicList {
     }
 
     /// Appends a typed value to the list.
-    pub fn push<T: PartialReflect>(&mut self, value: T) {
+    pub fn push<T: PartialReflect + Send + Sync>(&mut self, value: T) {
         self.values.push(Box::new(value));
     }
 
@@ -365,7 +365,7 @@ impl FromIterator<Box<dyn PartialReflect + Send + Sync>> for DynamicList {
     }
 }
 
-impl<T: PartialReflect> FromIterator<T> for DynamicList {
+impl<T: PartialReflect + Send + Sync> FromIterator<T> for DynamicList {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         values
             .into_iter()

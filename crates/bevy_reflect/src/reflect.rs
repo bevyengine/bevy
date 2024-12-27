@@ -82,7 +82,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
 pub trait PartialReflect: DynamicTypePath
 where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
-    Self: 'static + Send + Sync,
+    Self: 'static,
 {
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
