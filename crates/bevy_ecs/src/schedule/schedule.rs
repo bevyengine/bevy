@@ -455,8 +455,8 @@ impl Schedule {
                 .ignored_scheduling_ambiguities
                 .clone();
             self.graph.update_schedule(
+                world,
                 &mut self.executable,
-                world.components(),
                 &ignored_ambiguities,
                 self.label,
             )?;
@@ -1118,7 +1118,7 @@ impl ScheduleGraph {
     /// - checks for system access conflicts and reports ambiguities
     pub fn build_schedule(
         &mut self,
-        components: &Components,
+        world: &mut World,
         schedule_label: InternedScheduleLabel,
         ignored_ambiguities: &BTreeSet<ComponentId>,
     ) -> Result<SystemSchedule, ScheduleBuildError> {
@@ -1154,7 +1154,7 @@ impl ScheduleGraph {
         // modify graph with build passes
         let mut passes = std::mem::take(&mut self.passes);
         for pass in passes.values_mut() {
-            dependency_flattened = pass.build(self, &mut dependency_flattened)?;
+            dependency_flattened = pass.build(world, self, &mut dependency_flattened)?;
         }
         self.passes = passes;
 
@@ -1181,7 +1181,7 @@ impl ScheduleGraph {
             &ambiguous_with_flattened,
             ignored_ambiguities,
         );
-        self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
+        self.optionally_check_conflicts(&conflicting_systems, world.components(), schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
         // build the schedule
@@ -1448,8 +1448,8 @@ impl ScheduleGraph {
     /// Updates the `SystemSchedule` from the `ScheduleGraph`.
     fn update_schedule(
         &mut self,
+        world: &mut World,
         schedule: &mut SystemSchedule,
-        components: &Components,
         ignored_ambiguities: &BTreeSet<ComponentId>,
         schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
@@ -1476,7 +1476,7 @@ impl ScheduleGraph {
             self.system_set_conditions[id.index()] = conditions;
         }
 
-        *schedule = self.build_schedule(components, schedule_label, ignored_ambiguities)?;
+        *schedule = self.build_schedule(world, schedule_label, ignored_ambiguities)?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {

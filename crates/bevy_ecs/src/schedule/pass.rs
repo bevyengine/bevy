@@ -1,6 +1,7 @@
 use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
+use crate::world::World;
 use alloc::fmt::Debug;
 use bevy_utils::TypeIdMap;
 
@@ -25,6 +26,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
     /// The implementation will be able to modify the `ScheduleGraph` here.
     fn build(
         &mut self,
+        world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
     ) -> Result<DiGraph, ScheduleBuildError>;
@@ -34,6 +36,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
 pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
     fn build(
         &mut self,
+        world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
     ) -> Result<DiGraph, ScheduleBuildError>;
@@ -50,10 +53,11 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
     fn build(
         &mut self,
+        world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
     ) -> Result<DiGraph, ScheduleBuildError> {
-        self.build(graph, dependency_flattened)
+        self.build(world, graph, dependency_flattened)
     }
     fn collapse_set(
         &mut self,
