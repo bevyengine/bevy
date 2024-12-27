@@ -110,6 +110,14 @@ impl Prepare for CompileCheckNoStdCommand {
             "Please fix compiler errors in output above for bevy_app no_std compatibility.",
         ));
 
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_input --no-default-features --features bevy_math/libm,serialize,bevy_reflect --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_input no_std compatibility.",
+        ));
+
         commands
     }
 }
