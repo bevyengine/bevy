@@ -1486,9 +1486,11 @@ impl World {
     /// This will trigger the `OnRemove` and `OnReplace` component hooks without
     /// causing an archetype move.
     ///
-    /// While this is available for all components, it's recommended to only be
-    /// used with immutable components.
-    /// When available, prefer using [`get_mut`](World::get_mut).
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](World::get_mut).
     ///
     /// # Examples
     ///
@@ -1504,19 +1506,19 @@ impl World {
     /// #
     /// # let entity = world.spawn(Foo(false)).id();
     /// #
-    /// world.with_component(entity, |foo: &mut Foo| {
+    /// world.modify_component(entity, |foo: &mut Foo| {
     ///     foo.0 = true;
     /// });
     /// #
     /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
     /// ```
     #[inline]
-    pub fn with_component<T: Component, R>(
+    pub fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityFetchError> {
-        let result = DeferredWorld::from(&mut *self).with_component(entity, f)?;
+        let result = DeferredWorld::from(&mut *self).modify_component(entity, f)?;
 
         self.flush();
 

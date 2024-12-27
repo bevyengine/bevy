@@ -1104,9 +1104,11 @@ impl<'w> EntityWorldMut<'w> {
     /// This will trigger the `OnRemove` and `OnReplace` component hooks without
     /// causing an archetype move.
     ///
-    /// While this is available for all components, it's recommended to only be
-    /// used with immutable components.
-    /// When available, prefer using [`get_mut`](EntityMut::get_mut).
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](EntityWorldMut::get_mut).
     ///
     /// # Examples
     ///
@@ -1126,7 +1128,7 @@ impl<'w> EntityWorldMut<'w> {
     /// #
     /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
     /// #
-    /// entity.with_component(|foo: &mut Foo| {
+    /// entity.modify_component(|foo: &mut Foo| {
     ///     foo.0 = true;
     /// });
     /// #
@@ -1137,12 +1139,12 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn with_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+    pub fn modify_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
         self.assert_not_despawned();
 
         let result = self
             .world
-            .with_component(self.entity, f)
+            .modify_component(self.entity, f)
             .expect("entity access must be valid")?;
 
         self.update_location();
@@ -4894,7 +4896,7 @@ mod tests {
 
         assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
 
-        entity.with_component(|foo: &mut Foo| {
+        entity.modify_component(|foo: &mut Foo| {
             foo.0 = true;
             EXPECTED_VALUE.store(foo.0, Ordering::Relaxed);
         });

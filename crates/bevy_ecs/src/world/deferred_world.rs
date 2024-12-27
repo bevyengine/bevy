@@ -87,11 +87,13 @@ impl<'w> DeferredWorld<'w> {
     /// This will trigger the `OnRemove` and `OnReplace` component hooks without
     /// causing an archetype move.
     ///
-    /// While this is available for all components, it's recommended to only be
-    /// used with immutable components.
-    /// When available, prefer using [`get_mut`](DeferredWorld::get_mut).
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
-    pub(crate) fn with_component<T: Component, R>(
+    pub(crate) fn modify_component<T: Component, R>(
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
