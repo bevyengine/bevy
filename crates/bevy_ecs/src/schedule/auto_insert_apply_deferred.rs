@@ -1,4 +1,4 @@
-use alloc::collections::BTreeSet;
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
 use bevy_utils::HashMap;
 

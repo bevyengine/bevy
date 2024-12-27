@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec::Vec};
 use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
