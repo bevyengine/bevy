@@ -72,7 +72,7 @@ pub fn ktx2_buffer_to_image(
                     )))
                 }
             }
-        }).collect::<Result<Vec<_>, _>>()? // Collect results and propagate errors
+        }).collect::<Result<Vec<_>, _>>()?
     } else {
         ktx2.levels().map(<[u8]>::to_vec).collect()
     };
