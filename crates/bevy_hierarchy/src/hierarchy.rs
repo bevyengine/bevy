@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::EntityCommands,
     world::{Command, DeferredWorld, EntityWorldMut, World},
 };
-use bevy_utils::tracing::debug;
+use log::debug;
 
 /// Despawns the given entity and all its children recursively
 #[derive(Debug)]
@@ -69,11 +69,11 @@ fn despawn_children_recursive(world: &mut World, entity: Entity, warn: bool) {
 impl Command for DespawnRecursive {
     fn apply(self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
+        let _span = tracing::info_span!(
             "command",
             name = "DespawnRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity),
-            warn = bevy_utils::tracing::field::debug(self.warn)
+            entity = tracing::field::debug(self.entity),
+            warn = tracing::field::debug(self.warn)
         )
         .entered();
         despawn_with_children_recursive(world, self.entity, self.warn);
@@ -83,11 +83,11 @@ impl Command for DespawnRecursive {
 impl Command for DespawnChildrenRecursive {
     fn apply(self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
+        let _span = tracing::info_span!(
             "command",
             name = "DespawnChildrenRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity),
-            warn = bevy_utils::tracing::field::debug(self.warn)
+            entity = tracing::field::debug(self.entity),
+            warn = tracing::field::debug(self.warn)
         )
         .entered();
 
@@ -150,10 +150,10 @@ fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!(
+    let _span = tracing::info_span!(
         "despawn_recursive",
-        entity = bevy_utils::tracing::field::debug(entity),
-        warn = bevy_utils::tracing::field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
@@ -167,10 +167,10 @@ fn despawn_descendants_inner<'v, 'w>(
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!(
+    let _span = tracing::info_span!(
         "despawn_descendants",
-        entity = bevy_utils::tracing::field::debug(entity),
-        warn = bevy_utils::tracing::field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
