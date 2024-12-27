@@ -153,15 +153,7 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
-//! ## Sample request to get **all** the [fully-qualified type names] in **your** project.
-//! ```ignore
-//!    let req = BrpRequest {
-//!         jsonrpc: "2.0".to_string(),
-//!         method: BRP_LIST_METHOD.to_string(),
-//!         id: Some(ureq::json!(1)),
-//!         params: None,
-//!     };
-//! ```
+//!
 //!
 //! ### bevy/spawn
 //!
@@ -573,6 +565,26 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///         ]
 ///     }
 /// }
+/// ```
+/// Or, to list all the fully-qualified type paths in **your** project, pass Null to the
+/// `params`.
+/// ```json
+/// {
+///    "jsonrpc": "2.0",
+///    "method": "bevy/list",
+///    "id": 0,
+///    "params": null
+///}
+///```
+///
+/// In Rust:
+/// ```ignore
+///    let req = BrpRequest {
+///         jsonrpc: "2.0".to_string(),
+///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
+///         id: Some(ureq::json!(0)),
+///         params: None,
+///     };
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
