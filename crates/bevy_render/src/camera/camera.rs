@@ -19,7 +19,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::{Component, ComponentId, Mutable},
-    entity::Entity,
+    entity::{Entity, EntityBorrow},
     event::EventReader,
     prelude::{require, With},
     query::Has,
