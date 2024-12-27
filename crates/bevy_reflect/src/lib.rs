@@ -2811,7 +2811,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Reflectable> {
+        struct MyOuter<T: FromReflect + Send + Sync + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = MyInner<bool>)]
@@ -2859,7 +2859,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         #[derive(Debug)]
-        enum MyOuter<T: FromReflect + Reflectable + Debug> {
+        enum MyOuter<T: FromReflect + Send + Sync + Reflectable + Debug> {
             Unit,
             Tuple(#[reflect(remote = MyInner<T>)] external_crate::TheirInner<T>),
             Struct {
@@ -2870,7 +2870,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirInner<T>)]
         #[derive(Debug)]
-        enum MyInner<T: FromReflect + Debug> {
+        enum MyInner<T: FromReflect + Send + Sync + Debug> {
             Unit,
             Tuple(T),
             Struct { value: T },
@@ -2973,7 +2973,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Reflectable> {
+        struct MyOuter<T: FromReflect + Send + Sync + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub inner: external_crate::TheirInner<T>,
         }

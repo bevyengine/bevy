@@ -227,10 +227,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// // impl bevy_reflect::Reflect for Foo
 /// // where
 /// //   Self: Any + Send + Sync,
-/// //   Vec<Foo>: FromReflect + TypePath,
+/// //   Vec<Foo>: FromReflect + Send + Sync + TypePath,
 /// ```
 ///
-/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + TypePath`,
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + Send + Sync + TypePath`,
 /// which requires that `Foo` implements `FromReflect`,
 /// which requires that `Vec<Foo>` implements `FromReflect`,
 /// and so on, resulting in the error.
@@ -281,7 +281,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// //   Self: Any + Send + Sync,
 /// //   T::Assoc: Default,
 /// //   T: TypePath,
-/// //   T::Assoc: FromReflect + TypePath,
+/// //   T::Assoc: FromReflect + Send + Sync + TypePath,
 /// //   T::Assoc: List,
 /// // {/* ... */}
 /// ```

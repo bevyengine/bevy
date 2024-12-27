@@ -29,7 +29,7 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: FromReflect + MapEntities> FromType<C> for ReflectMapEntities {
+impl<C: FromReflect + Send + Sync + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {

@@ -433,7 +433,7 @@ mod tests {
                 Enum::NestedTupleStructWithSkip(TupleStructWithSkip(6, 7));
 
             fn assert_serialize<
-                T: Reflect + Send + Sync + FromReflect + Serialize + PartialEq + Debug,
+                T: Reflect + Send + Sync + FromReflect + Send + Sync + Serialize + PartialEq + Debug,
             >(
                 value: &T,
                 registry: &TypeRegistry,

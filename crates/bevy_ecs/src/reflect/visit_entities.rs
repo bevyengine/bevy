@@ -21,7 +21,7 @@ impl ReflectVisitEntities {
     }
 }
 
-impl<C: FromReflect + VisitEntities> FromType<C> for ReflectVisitEntities {
+impl<C: FromReflect + Send + Sync + VisitEntities> FromType<C> for ReflectVisitEntities {
     fn from_type() -> Self {
         ReflectVisitEntities {
             visit_entities: |component, f| {
@@ -53,7 +53,7 @@ impl ReflectVisitEntitiesMut {
     }
 }
 
-impl<C: FromReflect + VisitEntitiesMut> FromType<C> for ReflectVisitEntitiesMut {
+impl<C: FromReflect + Send + Sync + VisitEntitiesMut> FromType<C> for ReflectVisitEntitiesMut {
     fn from_type() -> Self {
         ReflectVisitEntitiesMut {
             visit_entities_mut: |component, f| {

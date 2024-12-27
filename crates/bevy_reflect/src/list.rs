@@ -130,7 +130,8 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + Send + Sync + MaybeTyped + TypePath>(
+    ) -> Self {
         Self {
             ty: Type::of::<TList>(),
             generics: Generics::new(),

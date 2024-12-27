@@ -26,7 +26,7 @@ use alloc::boxed::Box;
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait FromReflect: Reflect + Send + Sync + Sized {
+pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &(dyn PartialReflect + Send + Sync)) -> Option<Self>;
 
@@ -121,7 +121,7 @@ impl ReflectFromReflect {
     }
 }
 
-impl<T: FromReflect> FromType<T> for ReflectFromReflect {
+impl<T: FromReflect + Send + Sync> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {

@@ -56,7 +56,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: TypePath,
     ///   U: TypePath,
     ///   // Field bounds
-    ///   T: FromReflect + TypePath,
+    ///   T: FromReflect + Send + Sync + TypePath,
     /// ```
     ///
     /// If we had added `#[reflect(where T: MyTrait)]` to the type, it would instead generate:
@@ -69,7 +69,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: TypePath,
     ///   U: TypePath,
     ///   // Field bounds
-    ///   T: FromReflect + TypePath,
+    ///   T: FromReflect + Send + Sync + TypePath,
     ///   // Custom bounds
     ///   T: MyTrait,
     /// ```
