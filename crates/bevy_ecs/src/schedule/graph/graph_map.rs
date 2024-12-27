@@ -65,7 +65,7 @@ where
     S: BuildHasher,
 {
     /// Create a new `Graph` with estimated capacity.
-    pub(crate) fn with_capacity(nodes: usize, edges: usize) -> Self
+    pub fn with_capacity(nodes: usize, edges: usize) -> Self
     where
         S: Default,
     {
@@ -89,14 +89,14 @@ where
     }
 
     /// Add node `n` to the graph.
-    pub(crate) fn add_node(&mut self, n: NodeId) {
+    pub fn add_node(&mut self, n: NodeId) {
         self.nodes.entry(n).or_default();
     }
 
     /// Remove a node `n` from the graph.
     ///
     /// Computes in **O(N)** time, due to the removal of edges with other nodes.
-    pub(crate) fn remove_node(&mut self, n: NodeId) {
+    pub fn remove_node(&mut self, n: NodeId) {
         let Some(links) = self.nodes.swap_remove(&n) else {
             return;
         };
@@ -125,7 +125,7 @@ where
     /// For a directed graph, the edge is directed from `a` to `b`.
     ///
     /// Inserts nodes `a` and/or `b` if they aren't already part of the graph.
-    pub(crate) fn add_edge(&mut self, a: NodeId, b: NodeId) {
+    pub fn add_edge(&mut self, a: NodeId, b: NodeId) {
         if self.edges.insert(Self::edge_key(a, b)) {
             // insert in the adjacency list if it's a new edge
             self.nodes
@@ -166,7 +166,7 @@ where
     /// Remove edge from `a` to `b` from the graph.
     ///
     /// Return `false` if the edge didn't exist.
-    pub(crate) fn remove_edge(&mut self, a: NodeId, b: NodeId) -> bool {
+    pub fn remove_edge(&mut self, a: NodeId, b: NodeId) -> bool {
         let exist1 = self.remove_single_edge(a, b, Outgoing);
         let exist2 = if a != b {
             self.remove_single_edge(b, a, Incoming)
