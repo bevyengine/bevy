@@ -13,6 +13,7 @@ use bevy_ecs::{
     prelude::require,
     system::{Commands, Query},
 };
+use bevy_math::ops;
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -1231,7 +1232,7 @@ impl AxisSettings {
             return true;
         }
 
-        f32::abs(new_value - old_value.unwrap()) > self.threshold
+        ops::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
     /// Filters the `new_value` based on the `old_value`, according to the [`AxisSettings`].
@@ -1306,7 +1307,7 @@ impl ButtonAxisSettings {
             return true;
         }
 
-        f32::abs(new_value - old_value.unwrap()) > self.threshold
+        ops::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
     /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
