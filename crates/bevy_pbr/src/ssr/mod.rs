@@ -25,6 +25,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -36,7 +37,7 @@ use bevy_render::{
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureFormat, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
@@ -233,8 +234,19 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsPipeline>()
-            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
-            .add_render_graph_edges(
+            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>();
+
+        // only reference the default deferred lighting pass
+        // if it has been added
+        let has_default_deferred_lighting_pass = render_app
+            .world_mut()
+            .resource_mut::<RenderGraph>()
+            .sub_graph(Core3d)
+            .get_node_state(NodePbr::DeferredLightingPass)
+            .is_ok();
+
+        if has_default_deferred_lighting_pass {
+            render_app.add_render_graph_edges(
                 Core3d,
                 (
                     NodePbr::DeferredLightingPass,
@@ -242,6 +254,12 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                     Node3d::MainOpaquePass,
                 ),
             );
+        } else {
+            render_app.add_render_graph_edges(
+                Core3d,
+                (NodePbr::ScreenSpaceReflections, Node3d::MainOpaquePass),
+            );
+        }
     }
 }
 
@@ -354,6 +372,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
     fn from_world(world: &mut World) -> Self {
         let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter = world.resource::<RenderAdapter>();
 
         // Create the bind group layout.
         let bind_group_layout = render_device.create_bind_group_layout(
@@ -404,7 +423,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             depth_linear_sampler,
             depth_nearest_sampler,
             bind_group_layout,
-            binding_arrays_are_usable: binding_arrays_are_usable(render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
         }
     }
 }

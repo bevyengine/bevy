@@ -1,11 +1,11 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale, Val,
+    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
+    OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap, EntityHashSet},
+    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
     event::EventReader,
     query::With,
     removal_detection::RemovedComponents,
@@ -120,10 +120,12 @@ pub fn ui_layout_system(
         &mut ComputedNode,
         &mut Transform,
         &Node,
+        Option<&LayoutConfig>,
         Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
+
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -169,7 +171,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -185,7 +187,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
                             entity
                         );
                     }
@@ -294,6 +296,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 &mut commands,
                 *root,
                 &mut ui_surface,
+                true,
                 None,
                 &mut node_transform_query,
                 &ui_children,
@@ -312,11 +315,13 @@ with UI components as a child of an entity without UI components, your UI layout
         commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
+        inherited_use_rounding: bool,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
             &mut Transform,
             &Node,
+            Option<&LayoutConfig>,
             Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -330,12 +335,17 @@ with UI components as a child of an entity without UI components, your UI layout
             mut node,
             mut transform,
             style,
+            maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
+            let use_rounding = maybe_layout_config
+                .map(|layout_config| layout_config.use_rounding)
+                .unwrap_or(inherited_use_rounding);
+
+            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
                 return;
             };
 
@@ -446,6 +456,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     commands,
                     child_uinode,
                     ui_surface,
+                    use_rounding,
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
@@ -573,7 +584,7 @@ mod tests {
         let mut ui_surface = world.resource_mut::<UiSurface>();
 
         for ui_entity in [ui_root, ui_child] {
-            let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+            let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
             assert_eq!(layout.size.width, WINDOW_WIDTH);
             assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
@@ -865,12 +876,12 @@ mod tests {
                     );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
-                        "root ui node {entity:?} doesn't have a logical size"
+                        "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
                         global_transform.affine(),
                         GlobalTransform::default().affine(),
-                        "root ui node {entity:?} global transform is not populated"
+                        "root ui node {entity} global transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
@@ -962,7 +973,7 @@ mod tests {
             let mut ui_surface = world.resource_mut::<UiSurface>();
 
             let layout = ui_surface
-                .get_layout(ui_node_entity)
+                .get_layout(ui_node_entity, true)
                 .expect("failed to get layout")
                 .0;
 
@@ -1049,7 +1060,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let mut ui_surface = world.resource_mut::<UiSurface>();
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
 
         // the node should takes its size from the fixed size measure func
         assert_eq!(layout.size.width, content_size.x);
@@ -1078,7 +1089,7 @@ mod tests {
 
         // a node with a content size should have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
 
@@ -1091,7 +1102,7 @@ mod tests {
         assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
     }

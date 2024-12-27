@@ -168,14 +168,8 @@ impl Stepping {
         if self.action == Action::RunAll {
             return None;
         }
-        let label = match self.schedule_order.get(self.cursor.schedule) {
-            None => return None,
-            Some(label) => label,
-        };
-        let state = match self.schedule_states.get(label) {
-            None => return None,
-            Some(state) => state,
-        };
+        let label = self.schedule_order.get(self.cursor.schedule)?;
+        let state = self.schedule_states.get(label)?;
         state
             .node_ids
             .get(self.cursor.system)

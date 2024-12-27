@@ -20,7 +20,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -778,15 +778,20 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 ///     enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
-///     can't use them.
+///    can't use them. Adreno <= 610 claims to support bindless, but seems to be
+///    too buggy to be usable.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
 ///     accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.
-pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
+pub(crate) fn binding_arrays_are_usable(
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+) -> bool {
     !cfg!(feature = "shader_format_glsl")
+        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32
