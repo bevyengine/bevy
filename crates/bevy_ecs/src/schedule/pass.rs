@@ -2,8 +2,8 @@ use core::any::{Any, TypeId};
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
 use crate::world::World;
-use core::fmt::Debug;
 use bevy_utils::TypeIdMap;
+use core::fmt::Debug;
 
 /// A pass for modular modification of the dependency graph.
 pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {

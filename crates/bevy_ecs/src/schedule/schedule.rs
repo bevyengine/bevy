@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::{
     boxed::Box,
     collections::BTreeSet,
@@ -15,7 +16,6 @@ use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
 use pass::ScheduleBuildPassObj;
-use alloc::collections::BTreeMap;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
