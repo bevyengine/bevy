@@ -270,7 +270,7 @@ pub fn update_text2d_layout(
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
-            || queue.remove(&entity)
+            || (!queue.is_empty() && queue.remove(&entity))
         {
             let text_bounds = TextBounds {
                 width: if block.linebreak == LineBreak::NoWrap {
