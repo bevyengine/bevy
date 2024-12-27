@@ -10,7 +10,7 @@ use super::{
     ScheduleBuildPass, ScheduleGraph, SystemNode,
 };
 
-/// A [`ScheduleBuildPass`] that inserts [`apply_deferred`] systems into the schedule graph
+/// A [`ScheduleBuildPass`] that inserts [`ApplyDeferred`] systems into the schedule graph
 /// when there are [`Deferred`](crate::prelude::Deferred)
 /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
 /// such deferred buffer.
@@ -21,7 +21,7 @@ use super::{
 /// or want to manually insert all your sync points.
 #[derive(Debug, Default)]
 pub struct AutoInsertApplyDeferredPass {
-    /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
+    /// Dependency edges that will **not** automatically insert an instance of `ApplyDeferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
@@ -43,7 +43,7 @@ impl AutoInsertApplyDeferredPass {
             })
             .unwrap()
     }
-    /// add an [`apply_deferred`] system with no config
+    /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> NodeId {
         let id = NodeId::System(graph.systems.len());
 
@@ -76,7 +76,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         _world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
-    ) -> Result<DiGraph, ScheduleBuildError> {
+    ) -> Result<(), ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
@@ -118,7 +118,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             }
         }
 
-        Ok(sync_point_graph)
+        *dependency_flattened = sync_point_graph;
+        Ok(())
     }
 
     fn collapse_set(

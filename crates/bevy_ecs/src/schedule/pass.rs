@@ -29,7 +29,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
-    ) -> Result<DiGraph, ScheduleBuildError>;
+    ) -> Result<(), ScheduleBuildError>;
 }
 
 /// Object safe version of [`ScheduleBuildPass`].
@@ -39,7 +39,7 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
-    ) -> Result<DiGraph, ScheduleBuildError>;
+    ) -> Result<(), ScheduleBuildError>;
 
     fn collapse_set(
         &mut self,
@@ -56,7 +56,7 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         world: &mut World,
         graph: &mut ScheduleGraph,
         dependency_flattened: &mut DiGraph,
-    ) -> Result<DiGraph, ScheduleBuildError> {
+    ) -> Result<(), ScheduleBuildError> {
         self.build(world, graph, dependency_flattened)
     }
     fn collapse_set(

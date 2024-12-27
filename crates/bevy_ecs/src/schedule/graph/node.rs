@@ -25,7 +25,7 @@ impl Ord for NodeId {
 
 impl NodeId {
     /// Returns the internal integer value.
-    pub(crate) const fn index(&self) -> usize {
+    pub const fn index(&self) -> usize {
         match self {
             NodeId::System(index) | NodeId::Set(index) => *index,
         }

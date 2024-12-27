@@ -1154,7 +1154,7 @@ impl ScheduleGraph {
         // modify graph with build passes
         let mut passes = core::mem::take(&mut self.passes);
         for pass in passes.values_mut() {
-            dependency_flattened = pass.build(world, self, &mut dependency_flattened)?;
+            pass.build(world, self, &mut dependency_flattened)?;
         }
         self.passes = passes;
 
