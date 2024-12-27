@@ -103,7 +103,15 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         };
 
-        let entity_cell = self.get_entity_mut(entity)?;
+        let entity_cell = match self.get_entity_mut(entity) {
+            Ok(cell) => cell,
+            Err(EntityFetchError::AliasedMutability(..)) => {
+                return Err(EntityFetchError::AliasedMutability(entity))
+            }
+            Err(EntityFetchError::NoSuchEntity(..)) => {
+                return Err(EntityFetchError::NoSuchEntity(entity, self.world))
+            }
+        };
 
         if !entity_cell.contains::<T>() {
             return Ok(None);

@@ -1319,10 +1319,19 @@ impl World {
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityFetchError> {
-        let result = DeferredWorld::from(&mut *self).modify_component(entity, f)?;
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = match world.modify_component(entity, f) {
+            Ok(result) => result,
+            Err(EntityFetchError::AliasedMutability(..)) => {
+                return Err(EntityFetchError::AliasedMutability(entity))
+            }
+            Err(EntityFetchError::NoSuchEntity(..)) => {
+                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
+            }
+        };
 
         self.flush();
-
         Ok(result)
     }
 
