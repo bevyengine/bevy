@@ -5,12 +5,12 @@ use std::ops::RangeInclusive;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    render::view::NoFrustumCulling,
     text::FontAtlasSets,
     window::{PresentMode, WindowResolution},
 };
 
 use argh::FromArgs;
-use bevy_render::view::NoFrustumCulling;
 use rand::{
     seq::{IteratorRandom, SliceRandom},
     Rng, SeedableRng,
