@@ -1652,9 +1652,10 @@ mod tests {
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(static_system_param);
         assert_is_system(
-            exclusive_in_out::<(), Result<(), std::io::Error>>.map(|result| {
-                if let Err(error) = result {
-                    log::error!("{:?}", error);
+            exclusive_in_out::<(), Result<(), std::io::Error>>.map(|_out| {
+                #[cfg(feature = "trace")]
+                if let Err(error) = _out {
+                    tracing::error!("{}", error);
                 }
             }),
         );
@@ -1766,6 +1767,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn simple_fallible_system() {
         fn sys() -> Result {
             Err("error")?;

@@ -54,7 +54,7 @@
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {:?} goes BOOM!", trigger.target());
+//!             println!("Entity {} goes BOOM!", trigger.target());
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
