@@ -264,7 +264,7 @@ impl ShaderCache {
                 ));
 
                 debug!(
-                    "processing shader {:?}, with shader defs {:?}",
+                    "processing shader {}, with shader defs {:?}",
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {

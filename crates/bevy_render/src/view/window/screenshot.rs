@@ -239,7 +239,7 @@ fn extract_screenshots(
         };
         if seen_targets.contains(&render_target) {
             warn!(
-                "Duplicate render target for screenshot, skipping entity {:?}: {:?}",
+                "Duplicate render target for screenshot, skipping entity {}: {:?}",
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
@@ -273,7 +273,7 @@ fn prepare_screenshots(
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
                 let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
-                    warn!("Unknown window for screenshot, skipping: {:?}", window);
+                    warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
                 let format = surface_data.configuration.format.add_srgb_suffix();
@@ -690,7 +690,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     RenderAssetUsages::RENDER_WORLD,
                 ),
             )) {
-                error!("Failed to send screenshot: {:?}", e);
+                error!("Failed to send screenshot: {}", e);
             }
         };
 

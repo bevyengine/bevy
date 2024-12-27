@@ -72,7 +72,7 @@ fn setup(world: &mut World) {
         .on_add(|mut world, entity, component_id| {
             // You can access component data from within the hook
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} added to: {entity:?} with value {value:?}");
+            println!("Component: {component_id:?} added to: {entity} with value {value:?}");
             // Or access resources
             world
                 .resource_mut::<MyComponentIndex>()
@@ -96,7 +96,7 @@ fn setup(world: &mut World) {
         // since it runs before the component is removed you can still access the component data
         .on_remove(|mut world, entity, component_id| {
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} removed from: {entity:?} with value {value:?}");
+            println!("Component: {component_id:?} removed from: {entity} with value {value:?}");
             // You can also issue commands through `.commands()`
             world.commands().entity(entity).despawn();
         });

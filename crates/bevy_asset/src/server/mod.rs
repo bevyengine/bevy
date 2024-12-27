@@ -906,7 +906,7 @@ impl AssetServer {
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
                     error!(
-                        "Failed to load {path}. AssetSource {:?} does not exist",
+                        "Failed to load {path}. AssetSource {} does not exist",
                         path.source()
                     );
                     return;
@@ -918,7 +918,7 @@ impl AssetServer {
                         Ok(reader) => reader,
                         Err(_) => {
                             error!(
-                                "Failed to load {path}. AssetSource {:?} does not have a processed AssetReader",
+                                "Failed to load {path}. AssetSource {} does not have a processed AssetReader",
                                 path.source()
                             );
                             return;

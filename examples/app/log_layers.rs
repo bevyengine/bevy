@@ -15,9 +15,9 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
         _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
     ) {
         println!("Got event!");
-        println!("  level={:?}", event.metadata().level());
-        println!("  target={:?}", event.metadata().target());
-        println!("  name={:?}", event.metadata().name());
+        println!("  level={}", event.metadata().level());
+        println!("  target={}", event.metadata().target());
+        println!("  name={}", event.metadata().name());
     }
 }
 

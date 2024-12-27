@@ -78,8 +78,9 @@ impl FileAssetWriter {
         if create_root {
             if let Err(e) = std::fs::create_dir_all(&root_path) {
                 error!(
-                    "Failed to create root directory {:?} for file asset writer: {:?}",
-                    root_path, e
+                    "Failed to create root directory {} for file asset writer: {}",
+                    root_path.display(),
+                    e
                 );
             }
         }

@@ -147,7 +147,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
     let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
-    info!("Boom! {:?} exploded.", id.index());
+    info!("Boom! {} exploded.", id.index());
     entity.despawn();
     let mine = query.get(id).unwrap();
     // Trigger another explosion cascade.
