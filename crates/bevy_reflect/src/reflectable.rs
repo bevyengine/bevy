@@ -30,4 +30,4 @@ use crate::{GetTypeRegistration, Reflect, TypePath, Typed};
 /// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 pub trait Reflectable: Reflect + GetTypeRegistration + Typed + TypePath {}
 
-impl<T: Reflect + GetTypeRegistration + Typed + TypePath> Reflectable for T {}
+impl<T: Reflect + Send + Sync + GetTypeRegistration + Typed + TypePath> Reflectable for T {}

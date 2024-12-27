@@ -78,7 +78,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(self, arg: &'a dyn PartialReflect) -> Self {
+    pub fn push_ref(self, arg: &'a (dyn PartialReflect + Send + Sync)) -> Self {
         self.push_arg(ArgValue::Ref(arg))
     }
 
@@ -86,7 +86,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
+    pub fn push_mut(self, arg: &'a mut (dyn PartialReflect + Send + Sync)) -> Self {
         self.push_arg(ArgValue::Mut(arg))
     }
 
@@ -94,7 +94,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(self, arg: impl PartialReflect) -> Self {
+    pub fn push_owned(self, arg: impl PartialReflect + Send + Sync) -> Self {
         self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 
@@ -102,7 +102,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
+    pub fn push_boxed(self, arg: Box<dyn PartialReflect + Send + Sync>) -> Self {
         self.push_arg(ArgValue::Owned(arg))
     }
 
@@ -156,7 +156,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn take_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
+    pub fn take_owned<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<T, ArgError> {
         self.take_arg()?.take_owned()
     }
 
@@ -175,7 +175,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
+    pub fn take_ref<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<&'a T, ArgError> {
         self.take_arg()?.take_ref()
     }
 
@@ -194,7 +194,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
+    pub fn take_mut<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.take_arg()?.take_mut()
     }
 
@@ -247,7 +247,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn pop_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
+    pub fn pop_owned<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<T, ArgError> {
         self.pop_arg()?.take_owned()
     }
 
@@ -266,7 +266,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn pop_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
+    pub fn pop_ref<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<&'a T, ArgError> {
         self.pop_arg()?.take_ref()
     }
 
@@ -285,7 +285,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
+    pub fn pop_mut<T: Reflect + Send + Sync + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.pop_arg()?.take_mut()
     }
 

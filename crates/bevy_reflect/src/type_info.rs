@@ -62,26 +62,26 @@ use thiserror::Error;
 /// # }
 /// # impl PartialReflect for MyStruct {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
-/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
-/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
-/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync) { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)> { todo!() }
+/// #     fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect + Send + Sync> { todo!() }
 /// # }
 /// # impl Reflect for MyStruct {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect + Send + Sync> { todo!() }
+/// #     fn as_reflect(&self) -> &(dyn Reflect + Send + Sync) { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut (dyn Reflect + Send + Sync) { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect + Send + Sync>) -> Result<(), Box<dyn Reflect + Send + Sync>> { todo!() }
 /// # }
 /// ```
 ///
@@ -121,7 +121,7 @@ pub trait MaybeTyped: PartialReflect {
     }
 }
 
-impl<T: Typed> MaybeTyped for T {
+impl<T: Typed + Send + Sync> MaybeTyped for T {
     fn maybe_type_info() -> Option<&'static TypeInfo> {
         Some(T::type_info())
     }
@@ -556,7 +556,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
-    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
+    pub fn new<T: Reflect + Send + Sync + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),

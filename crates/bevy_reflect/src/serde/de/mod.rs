@@ -539,7 +539,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<Box<dyn PartialReflect + Send + Sync>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -591,7 +591,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<Box<dyn PartialReflect + Send + Sync>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -640,7 +640,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<Box<dyn PartialReflect + Send + Sync>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -686,7 +686,7 @@ mod tests {
                 _: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<Box<dyn PartialReflect + Send + Sync>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -728,7 +728,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _registry: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<Box<dyn PartialReflect + Send + Sync>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {

@@ -61,7 +61,7 @@ use crate::{
 /// the order in which they fire.
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
 #[reflect(Component, Debug)]
-pub struct Pointer<E: Debug + Clone + Reflect> {
+pub struct Pointer<E: Debug + Clone + Reflect + Send + Sync> {
     /// The original target of this picking event, before bubbling
     pub target: Entity,
     /// The pointer that triggered this event
@@ -85,7 +85,7 @@ pub struct PointerTraversal {
 
 impl<E> Traversal<Pointer<E>> for PointerTraversal
 where
-    E: Debug + Clone + Reflect,
+    E: Debug + Clone + Reflect + Send + Sync,
 {
     fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
         let PointerTraversalItem { parent, window } = item;
@@ -108,14 +108,14 @@ where
 
 impl<E> Event for Pointer<E>
 where
-    E: Debug + Clone + Reflect,
+    E: Debug + Clone + Reflect + Send + Sync,
 {
     type Traversal = PointerTraversal;
 
     const AUTO_PROPAGATE: bool = true;
 }
 
-impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
+impl<E: Debug + Clone + Reflect + Send + Sync> core::fmt::Display for Pointer<E> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
             "{:?}, {:.1?}, {:.1?}",
@@ -124,7 +124,7 @@ impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
     }
 }
 
-impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
+impl<E: Debug + Clone + Reflect + Send + Sync> core::ops::Deref for Pointer<E> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -132,7 +132,7 @@ impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
     }
 }
 
-impl<E: Debug + Clone + Reflect> Pointer<E> {
+impl<E: Debug + Clone + Reflect + Send + Sync> Pointer<E> {
     /// Construct a new `Pointer<E>` event.
     pub fn new(id: PointerId, location: Location, target: Entity, event: E) -> Self {
         Self {

@@ -79,7 +79,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait PartialReflect: DynamicTypePath + Send + Sync
+pub trait PartialReflect: DynamicTypePath
 where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
     Self: 'static,
@@ -104,32 +104,34 @@ where
     /// Casts this type to a boxed, reflected value.
     ///
     /// This is useful for coercing trait objects.
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect + Send + Sync>;
 
     /// Casts this type to a reflected value.
     ///
     /// This is useful for coercing trait objects.
-    fn as_partial_reflect(&self) -> &dyn PartialReflect;
+    fn as_partial_reflect(&self) -> &(dyn PartialReflect + Send + Sync);
 
     /// Casts this type to a mutable, reflected value.
     ///
     /// This is useful for coercing trait objects.
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
+    fn as_partial_reflect_mut(&mut self) -> &mut (dyn PartialReflect + Send + Sync);
 
     /// Attempts to cast this type to a boxed, [fully-reflected] value.
     ///
     /// [fully-reflected]: Reflect
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
+    fn try_into_reflect(
+        self: Box<Self>,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, Box<dyn PartialReflect + Send + Sync>>;
 
     /// Attempts to cast this type to a [fully-reflected] value.
     ///
     /// [fully-reflected]: Reflect
-    fn try_as_reflect(&self) -> Option<&dyn Reflect>;
+    fn try_as_reflect(&self) -> Option<&(dyn Reflect + Send + Sync)>;
 
     /// Attempts to cast this type to a mutable, [fully-reflected] value.
     ///
     /// [fully-reflected]: Reflect
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect>;
+    fn try_as_reflect_mut(&mut self) -> Option<&mut (dyn Reflect + Send + Sync)>;
 
     /// Applies a reflected value to this value.
     ///
@@ -179,7 +181,7 @@ where
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is an opaque type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn PartialReflect) {
+    fn apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) {
         PartialReflect::try_apply(self, value).unwrap();
     }
 
@@ -192,7 +194,7 @@ where
     ///
     /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
     /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
+    fn try_apply(&mut self, value: &(dyn PartialReflect + Send + Sync)) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.
     ///
@@ -229,7 +231,7 @@ where
     /// [`Enum::clone_dynamic`]: crate::Enum::clone_dynamic
     /// [`List`]: crate::List
     /// [`Map`]: crate::Map
-    fn clone_value(&self) -> Box<dyn PartialReflect>;
+    fn clone_value(&self) -> Box<dyn PartialReflect + Send + Sync>;
 
     /// Returns a hash of the value (which includes the type).
     ///
@@ -241,7 +243,7 @@ where
     /// Returns a "partial equality" comparison result.
     ///
     /// If the underlying type does not support equality testing, returns `None`.
-    fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, _value: &(dyn PartialReflect + Send + Sync)) -> Option<bool> {
         None
     }
 
@@ -329,28 +331,31 @@ pub trait Reflect: PartialReflect + DynamicTyped + Any {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed, fully-reflected value.
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect + Send + Sync>;
 
     /// Casts this type to a fully-reflected value.
-    fn as_reflect(&self) -> &dyn Reflect;
+    fn as_reflect(&self) -> &(dyn Reflect + Send + Sync);
 
     /// Casts this type to a mutable, fully-reflected value.
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
+    fn as_reflect_mut(&mut self) -> &mut (dyn Reflect + Send + Sync);
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
     /// If `value` does not contain a value of type `T`, returns an `Err`
     /// containing the trait object.
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
+    fn set(
+        &mut self,
+        value: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<(), Box<dyn Reflect + Send + Sync>>;
 }
 
-impl dyn PartialReflect {
+impl dyn PartialReflect + Send + Sync {
     /// Returns `true` if the underlying value represents a value of type `T`, or `false`
     /// otherwise.
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+    pub fn represents<T: Reflect + Send + Sync + TypePath>(&self) -> bool {
         self.get_represented_type_info()
             .map(|t| t.type_path() == T::type_path())
             .unwrap_or(false)
@@ -363,8 +368,8 @@ impl dyn PartialReflect {
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn try_downcast<T: Any>(
-        self: Box<dyn PartialReflect>,
-    ) -> Result<Box<T>, Box<dyn PartialReflect>> {
+        self: Box<dyn PartialReflect + Send + Sync>,
+    ) -> Result<Box<T>, Box<dyn PartialReflect + Send + Sync>> {
         self.try_into_reflect()?
             .downcast()
             .map_err(PartialReflect::into_partial_reflect)
@@ -376,7 +381,9 @@ impl dyn PartialReflect {
     /// or is not of type `T`, returns `Err(self)`.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
-    pub fn try_take<T: Any>(self: Box<dyn PartialReflect>) -> Result<T, Box<dyn PartialReflect>> {
+    pub fn try_take<T: Any>(
+        self: Box<dyn PartialReflect + Send + Sync>,
+    ) -> Result<T, Box<dyn PartialReflect + Send + Sync>> {
         self.try_downcast().map(|value| *value)
     }
 
@@ -401,7 +408,7 @@ impl dyn PartialReflect {
     }
 }
 
-impl Debug for dyn PartialReflect {
+impl Debug for dyn PartialReflect + Send + Sync {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
@@ -409,24 +416,26 @@ impl Debug for dyn PartialReflect {
 
 // The following implementation never actually shadows the concrete TypePath implementation.
 // See the comment on `dyn Reflect`'s `TypePath` implementation.
-impl TypePath for dyn PartialReflect {
+impl TypePath for dyn PartialReflect + Send + Sync {
     fn type_path() -> &'static str {
-        "dyn bevy_reflect::PartialReflect"
+        "dyn bevy_reflect::PartialReflect + Send + Sync"
     }
 
     fn short_type_path() -> &'static str {
-        "dyn PartialReflect"
+        "dyn PartialReflect + Send + Sync"
     }
 }
 
 #[deny(rustdoc::broken_intra_doc_links)]
-impl dyn Reflect {
+impl dyn Reflect + Send + Sync {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
-    pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
+    pub fn downcast<T: Any>(
+        self: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<Box<T>, Box<dyn Reflect + Send + Sync>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
         } else {
@@ -439,7 +448,9 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
-    pub fn take<T: Any>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
+    pub fn take<T: Any>(
+        self: Box<dyn Reflect + Send + Sync>,
+    ) -> Result<T, Box<dyn Reflect + Send + Sync>> {
         self.downcast::<T>().map(|value| *value)
     }
 
@@ -481,13 +492,13 @@ impl dyn Reflect {
     }
 }
 
-impl Debug for dyn Reflect {
+impl Debug for dyn Reflect + Send + Sync {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
 
-impl Typed for dyn Reflect {
+impl Typed for dyn Reflect + Send + Sync {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
@@ -496,7 +507,7 @@ impl Typed for dyn Reflect {
 
 // The following implementation never actually shadows the concrete `TypePath` implementation.
 // See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
-impl TypePath for dyn Reflect {
+impl TypePath for dyn Reflect + Send + Sync {
     fn type_path() -> &'static str {
         "dyn bevy_reflect::Reflect"
     }
@@ -521,23 +532,23 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect + Send + Sync> {
                 self
             }
 
-            fn as_reflect(&self) -> &dyn $crate::Reflect {
+            fn as_reflect(&self) -> &(dyn $crate::Reflect + Send + Sync) {
                 self
             }
 
-            fn as_reflect_mut(&mut self) -> &mut dyn $crate::Reflect {
+            fn as_reflect_mut(&mut self) -> &mut (dyn $crate::Reflect + Send + Sync) {
                 self
             }
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
-                *self = <dyn $crate::Reflect>::take(value)?;
+                value: Box<dyn $crate::Reflect + Send + Sync>,
+            ) -> Result<(), Box<dyn $crate::Reflect + Send + Sync>> {
+                *self = <dyn $crate::Reflect + Send + Sync>::take(value)?;
                 Ok(())
             }
         }
