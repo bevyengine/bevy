@@ -229,11 +229,14 @@ pub enum Chain {
     Chained(TypeIdMap<Box<dyn Any>>),
 }
 impl Chain {
+    /// Specify that the systems must be chained.
     pub fn set_chained(&mut self) {
         if matches!(self, Chain::Unchained) {
             *self = Self::Chained(Default::default());
         };
     }
+    /// Specify that the systems must be chained, and add the specified configuration for
+    /// all dependencies created between these systems.
     pub fn set_chained_with_config<T: 'static>(&mut self, config: T) {
         self.set_chained();
         if let Chain::Chained(config_map) = self {
@@ -612,6 +615,7 @@ pub struct SystemNode {
 }
 
 impl SystemNode {
+    #![allow(missing_docs)]
     pub fn new(system: ScheduleSystem) -> Self {
         Self {
             inner: Some(system),
@@ -638,11 +642,11 @@ pub struct ScheduleGraph {
     /// List of conditions for each system, in the same order as `systems`
     pub system_conditions: Vec<Vec<BoxedCondition>>,
     /// List of system sets in the schedule
-    pub system_sets: Vec<SystemSetNode>,
+    system_sets: Vec<SystemSetNode>,
     /// List of conditions for each system set, in the same order as `system_sets`
-    pub system_set_conditions: Vec<Vec<BoxedCondition>>,
+    system_set_conditions: Vec<Vec<BoxedCondition>>,
     /// Map from system set to node id
-    pub system_set_ids: HashMap<InternedSystemSet, NodeId>,
+    system_set_ids: HashMap<InternedSystemSet, NodeId>,
     /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
     /// (all the conditions after that index still need to be initialized)
     uninit: Vec<(NodeId, usize)>,
@@ -651,6 +655,7 @@ pub struct ScheduleGraph {
     /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
     ambiguous_with: UnGraph,
+    /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
     pub ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
     anonymous_sets: usize,
