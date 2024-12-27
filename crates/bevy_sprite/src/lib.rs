@@ -51,10 +51,9 @@ pub use texture_slice::*;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
@@ -122,12 +121,7 @@ impl Plugin for SpritePlugin {
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
             .register_type::<Mesh2d>()
-            .register_type::<SpriteSource>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                ExtractComponentPlugin::<SpriteSource>::default(),
-            ))
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 (
@@ -226,18 +220,6 @@ pub fn calculate_bounds_2d(
             };
             commands.entity(entity).try_insert(aabb);
         }
-    }
-}
-
-impl ExtractComponent for SpriteSource {
-    type QueryData = ();
-
-    type QueryFilter = With<SpriteSource>;
-
-    type Out = SpriteSource;
-
-    fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(SpriteSource)
     }
 }
 
