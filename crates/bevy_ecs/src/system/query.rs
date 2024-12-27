@@ -1032,7 +1032,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, D>, QueryEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1059,7 +1059,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.
@@ -1112,7 +1112,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
+    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'w, D>; N] {
         match self.get_many(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query results: {error}"),
@@ -1149,7 +1149,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1171,7 +1171,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
         // SAFETY: scheduler ensures safe Query world access
         unsafe {
             self.state
@@ -1229,7 +1229,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
+    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'w>; N] {
         match self.get_many_mut(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query result: {error}"),
@@ -1251,7 +1251,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) for the safe version.
     #[inline]
-    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1286,7 +1286,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_single`](Self::get_single) for the non-panicking version.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
     #[track_caller]
-    pub fn single(&self) -> ROQueryItem<'_, D> {
+    pub fn single(&self) -> ROQueryItem<'w, D> {
         self.get_single().unwrap()
     }
 
@@ -1322,7 +1322,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
     /// - [`single`](Self::single) for the panicking version.
     #[inline]
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
+    pub fn get_single(&self) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
         // SAFETY:
         // the query ensures that the components it accesses are not mutably accessible somewhere else
         // and the query is read only.
@@ -1363,7 +1363,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_single_mut`](Self::get_single_mut) for the non-panicking version.
     /// - [`single`](Self::single) to get the read-only query item.
     #[track_caller]
-    pub fn single_mut(&mut self) -> D::Item<'_> {
+    pub fn single_mut(&mut self) -> D::Item<'w> {
         self.get_single_mut().unwrap()
     }
 
@@ -1393,7 +1393,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_single`](Self::get_single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
-    pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
+    pub fn get_single_mut(&mut self) -> Result<D::Item<'w>, QuerySingleError> {
         // SAFETY:
         // the query ensures mutable access to the components it accesses, and the query
         // is uniquely borrowed
