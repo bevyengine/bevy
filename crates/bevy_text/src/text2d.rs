@@ -19,13 +19,13 @@ use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
@@ -94,10 +94,11 @@ pub struct Text2dBundle {}
     TextColor,
     TextBounds,
     Anchor,
-    SpriteSource,
     Visibility,
+    VisibilityClass,
     Transform
 )]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
 
 impl Text2d {

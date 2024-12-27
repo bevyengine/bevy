@@ -36,7 +36,6 @@ pub mod prelude {
     };
 }
 
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -58,7 +57,7 @@ use bevy_render::{
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{self, NoFrustumCulling, VisibilityClass, VisibilitySystems},
+    view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -88,16 +87,6 @@ pub enum SpriteSystem {
     ExtractSprites,
     ComputeSlices,
 }
-
-/// A component that marks entities that aren't themselves sprites but become
-/// sprites during rendering.
-///
-/// Right now, this is used for `Text`.
-#[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default, Debug)]
-#[require(VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
-pub struct SpriteSource;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
