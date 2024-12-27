@@ -432,7 +432,9 @@ mod tests {
             let nested_tuple_struct_with_skip =
                 Enum::NestedTupleStructWithSkip(TupleStructWithSkip(6, 7));
 
-            fn assert_serialize<T: Reflect + Send + Sync + FromReflect + Serialize + PartialEq + Debug>(
+            fn assert_serialize<
+                T: Reflect + Send + Sync + FromReflect + Serialize + PartialEq + Debug,
+            >(
                 value: &T,
                 registry: &TypeRegistry,
             ) {

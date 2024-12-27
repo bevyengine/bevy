@@ -285,7 +285,10 @@ pub trait GetPath: PartialReflect + Send + Sync {
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
     /// [`DynamicStruct`]: crate::DynamicStruct
-    fn path<'p, T: Reflect + Send + Sync + Send + Sync>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
+    fn path<'p, T: Reflect + Send + Sync + Send + Sync>(
+        &self,
+        path: impl ReflectPath<'p>,
+    ) -> PathResult<'p, &T> {
         path.element(self.as_partial_reflect())
     }
 

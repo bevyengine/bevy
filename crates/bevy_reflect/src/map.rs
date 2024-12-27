@@ -574,7 +574,9 @@ impl
     }
 }
 
-impl<K: Reflect + Send + Sync + Send + Sync, V: Reflect + Send + Sync + Send + Sync> FromIterator<(K, V)> for DynamicMap {
+impl<K: Reflect + Send + Sync + Send + Sync, V: Reflect + Send + Sync + Send + Sync>
+    FromIterator<(K, V)> for DynamicMap
+{
     fn from_iter<I: IntoIterator<Item = (K, V)>>(items: I) -> Self {
         let mut map = Self::default();
         for (key, value) in items.into_iter() {

@@ -238,7 +238,10 @@ pub trait GetField {
 
     /// Returns a mutable reference to the value of the field named `name`,
     /// downcast to `T`.
-    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T>;
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut T>;
 }
 
 impl<S: Struct> GetField for S {
@@ -247,7 +250,10 @@ impl<S: Struct> GetField for S {
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut T> {
         self.field_mut(name)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
@@ -259,7 +265,10 @@ impl GetField for dyn Struct {
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
-    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(&mut self, name: &str) -> Option<&mut T> {
+    fn get_field_mut<T: Reflect + Send + Sync + Send + Sync>(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut T> {
         self.field_mut(name)
             .and_then(|value| value.try_downcast_mut::<T>())
     }
