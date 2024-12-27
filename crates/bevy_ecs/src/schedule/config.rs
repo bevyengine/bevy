@@ -528,15 +528,17 @@ where
 {
     fn into_configs(self) -> SystemConfigs {
         let wrapper = OkWrapperSystem::new(IntoSystem::into_system(self));
-        SystemConfigs::new_system(ScheduleSystem::Fallible(Box::new(wrapper)))
+        SystemConfigs::new_system(Box::new(wrapper))
     }
 }
 
-impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(ScheduleSystem::Infallible(self))
-    }
-}
+// TODO: not sure how to make this work or even if it's needed.
+// impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
+//     fn into_configs(self) -> SystemConfigs {
+//         let wrapper = OkWrapperSystem::new(self);
+//         SystemConfigs::new_system(Box::new(wrapper))
+//     }
+// }
 
 #[doc(hidden)]
 pub struct Fallible;
@@ -547,13 +549,13 @@ where
 {
     fn into_configs(self) -> SystemConfigs {
         let boxed_system = Box::new(IntoSystem::into_system(self));
-        SystemConfigs::new_system(ScheduleSystem::Fallible(boxed_system))
+        SystemConfigs::new_system(boxed_system)
     }
 }
 
 impl IntoSystemConfigs<()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(ScheduleSystem::Fallible(self))
+        SystemConfigs::new_system(self)
     }
 }
 

@@ -1200,9 +1200,9 @@ impl ScheduleGraph {
         let id = NodeId::System(self.systems.len());
 
         self.systems
-            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
+            .push(SystemNode::new(Box::new(
                 IntoSystem::into_system(ApplyDeferred),
-            ))));
+            )));
         self.system_conditions.push(Vec::new());
 
         // ignore ambiguities with auto sync points
