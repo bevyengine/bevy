@@ -30,11 +30,12 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].
-    pub insert: fn(&mut EntityWorldMut,  &(dyn PartialReflect + Send + Sync), &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply`].
-    pub apply: fn(EntityMut,  &(dyn PartialReflect + Send + Sync), &TypeRegistry),
+    pub apply: fn(EntityMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert`].
-    pub apply_or_insert: fn(&mut EntityWorldMut,  &(dyn PartialReflect + Send + Sync), &TypeRegistry),
+    pub apply_or_insert:
+        fn(&mut EntityWorldMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectBundle::take`].
@@ -57,7 +58,7 @@ impl ReflectBundle {
     pub fn insert(
         &self,
         entity: &mut EntityWorldMut,
-        bundle:  &(dyn PartialReflect + Send + Sync),
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(entity, bundle, registry);
@@ -71,7 +72,7 @@ impl ReflectBundle {
     pub fn apply<'a>(
         &self,
         entity: impl Into<EntityMut<'a>>,
-        bundle:  &(dyn PartialReflect + Send + Sync),
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.apply)(entity.into(), bundle, registry);
@@ -81,7 +82,7 @@ impl ReflectBundle {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        bundle:  &(dyn PartialReflect + Send + Sync),
+        bundle: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, bundle, registry);
@@ -199,7 +200,11 @@ impl<B: Bundle + Reflect + Send + Sync + TypePath> FromType<B> for ReflectBundle
     }
 }
 
-fn apply_field(entity: &mut EntityMut, field:  &(dyn PartialReflect + Send + Sync), registry: &TypeRegistry) {
+fn apply_field(
+    entity: &mut EntityMut,
+    field: &(dyn PartialReflect + Send + Sync),
+    registry: &TypeRegistry,
+) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
             "`{}` did not implement `Reflect`",
@@ -220,7 +225,7 @@ fn apply_field(entity: &mut EntityMut, field:  &(dyn PartialReflect + Send + Syn
 
 fn apply_or_insert_field(
     entity: &mut EntityWorldMut,
-    field:  &(dyn PartialReflect + Send + Sync),
+    field: &(dyn PartialReflect + Send + Sync),
     registry: &TypeRegistry,
 ) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {

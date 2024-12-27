@@ -6,13 +6,17 @@ use bevy_reflect::{FromReflect, FromType, PartialReflect};
 /// See [`VisitEntities`] for more details.
 #[derive(Clone)]
 pub struct ReflectVisitEntities {
-    visit_entities: fn( &(dyn PartialReflect + Send + Sync), &mut dyn FnMut(Entity)),
+    visit_entities: fn(&(dyn PartialReflect + Send + Sync), &mut dyn FnMut(Entity)),
 }
 
 impl ReflectVisitEntities {
     /// A general method for applying an operation to all entities in a
     /// reflected component.
-    pub fn visit_entities(&self, component:  &(dyn PartialReflect + Send + Sync), f: &mut dyn FnMut(Entity)) {
+    pub fn visit_entities(
+        &self,
+        component: &(dyn PartialReflect + Send + Sync),
+        f: &mut dyn FnMut(Entity),
+    ) {
         (self.visit_entities)(component, f);
     }
 }
@@ -34,7 +38,7 @@ impl<C: FromReflect + VisitEntities> FromType<C> for ReflectVisitEntities {
 /// See [`VisitEntitiesMut`] for more details.
 #[derive(Clone)]
 pub struct ReflectVisitEntitiesMut {
-    visit_entities_mut: fn( &mut (dyn PartialReflect + Send + Sync), &mut dyn FnMut(&mut Entity)),
+    visit_entities_mut: fn(&mut (dyn PartialReflect + Send + Sync), &mut dyn FnMut(&mut Entity)),
 }
 
 impl ReflectVisitEntitiesMut {
@@ -42,7 +46,7 @@ impl ReflectVisitEntitiesMut {
     /// reflected component.
     pub fn visit_entities(
         &self,
-        component:  &mut (dyn PartialReflect + Send + Sync),
+        component: &mut (dyn PartialReflect + Send + Sync),
         f: &mut dyn FnMut(&mut Entity),
     ) {
         (self.visit_entities_mut)(component, f);

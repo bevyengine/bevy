@@ -92,7 +92,7 @@ impl DerefMut for AppFunctionRegistry {
 ///
 /// If none of the strategies succeed, this method will panic.
 pub fn from_reflect_with_fallback<T: Reflect + Send + Sync + TypePath>(
-    reflected:  &(dyn PartialReflect + Send + Sync),
+    reflected: &(dyn PartialReflect + Send + Sync),
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {

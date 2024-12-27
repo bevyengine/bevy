@@ -104,7 +104,10 @@ pub struct GizmoConfigStore {
 
 impl GizmoConfigStore {
     /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
-    pub fn get_config_dyn(&self, config_type_id: &TypeId) -> Option<(&GizmoConfig, &(dyn Reflect + Send + Sync))> {
+    pub fn get_config_dyn(
+        &self,
+        config_type_id: &TypeId,
+    ) -> Option<(&GizmoConfig, &(dyn Reflect + Send + Sync))> {
         let (config, ext) = self.store.get(config_type_id)?;
         Some((config, ext.deref()))
     }
@@ -139,7 +142,9 @@ impl GizmoConfigStore {
     }
 
     /// Returns an iterator over all [`GizmoConfig`]s.
-    pub fn iter(&self) -> impl Iterator<Item = (&TypeId, &GizmoConfig, &(dyn Reflect + Send + Sync))> + '_ {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&TypeId, &GizmoConfig, &(dyn Reflect + Send + Sync))> + '_ {
         self.store
             .iter()
             .map(|(id, (config, ext))| (id, config, ext.deref()))
@@ -148,7 +153,8 @@ impl GizmoConfigStore {
     /// Returns an iterator over all [`GizmoConfig`]s, by mutable reference.
     pub fn iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&TypeId, &mut GizmoConfig, &mut (dyn Reflect + Send + Sync))> + '_ {
+    ) -> impl Iterator<Item = (&TypeId, &mut GizmoConfig, &mut (dyn Reflect + Send + Sync))> + '_
+    {
         self.store
             .iter_mut()
             .map(|(id, (config, ext))| (id, config, ext.deref_mut()))

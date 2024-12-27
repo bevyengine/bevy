@@ -21,7 +21,8 @@ pub struct ReflectAsset {
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut (dyn Reflect + Send + Sync)>,
+    get_unchecked_mut:
+        unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut (dyn Reflect + Send + Sync)>,
     add: fn(&mut World, &(dyn PartialReflect + Send + Sync)) -> UntypedHandle,
     insert: fn(&mut World, UntypedHandle, &(dyn PartialReflect + Send + Sync)),
     len: fn(&World) -> usize,
@@ -41,7 +42,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get`]
-    pub fn get<'w>(&self, world: &'w World, handle: UntypedHandle) -> Option<&'w (dyn Reflect + Send + Sync)> {
+    pub fn get<'w>(
+        &self,
+        world: &'w World,
+        handle: UntypedHandle,
+    ) -> Option<&'w (dyn Reflect + Send + Sync)> {
         (self.get)(world, handle)
     }
 
@@ -102,16 +107,29 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &(dyn PartialReflect + Send + Sync)) -> UntypedHandle {
+    pub fn add(
+        &self,
+        world: &mut World,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &(dyn PartialReflect + Send + Sync)) {
+    pub fn insert(
+        &self,
+        world: &mut World,
+        handle: UntypedHandle,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) {
         (self.insert)(world, handle, value);
     }
 
     /// Equivalent of [`Assets::remove`]
-    pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> Option<Box<dyn Reflect + Send + Sync>> {
+    pub fn remove(
+        &self,
+        world: &mut World,
+        handle: UntypedHandle,
+    ) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.remove)(world, handle)
     }
 

@@ -404,7 +404,8 @@ mod tests {
         let entity = commands.spawn_empty().id();
         let entity2 = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
+        let boxed_reflect_component_a =
+            Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
         let boxed_reflect_component_a_clone = boxed_reflect_component_a.clone_value();
 
         commands
@@ -440,7 +441,8 @@ mod tests {
 
         let entity = commands.spawn_empty().id();
 
-        let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
+        let boxed_reflect_component_a =
+            Box::new(ComponentA(916)) as Box<dyn PartialReflect + Send + Sync>;
 
         commands
             .entity(entity)

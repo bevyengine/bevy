@@ -74,7 +74,12 @@ impl ReflectFreelyMutableStateFns {
 
 impl ReflectFreelyMutableState {
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`].
-    pub fn set_next_state(&self, world: &mut World, state: &(dyn Reflect + Send + Sync), registry: &TypeRegistry) {
+    pub fn set_next_state(
+        &self,
+        world: &mut World,
+        state: &(dyn Reflect + Send + Sync),
+        registry: &TypeRegistry,
+    ) {
         (self.0.set_next_state)(world, state, registry);
     }
 }

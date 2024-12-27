@@ -101,11 +101,12 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut,  &(dyn PartialReflect + Send + Sync), &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(EntityMut,  &(dyn PartialReflect + Send + Sync)),
+    pub apply: fn(EntityMut, &(dyn PartialReflect + Send + Sync)),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut,  &(dyn PartialReflect + Send + Sync), &TypeRegistry),
+    pub apply_or_insert:
+        fn(&mut EntityWorldMut, &(dyn PartialReflect + Send + Sync), &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -118,7 +119,8 @@ pub struct ReflectComponentFns {
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect + Send + Sync>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect + Send + Sync>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
@@ -141,7 +143,7 @@ impl ReflectComponent {
     pub fn insert(
         &self,
         entity: &mut EntityWorldMut,
-        component:  &(dyn PartialReflect + Send + Sync),
+        component: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(entity, component, registry);
@@ -154,7 +156,11 @@ impl ReflectComponent {
     /// Panics if there is no [`Component`] of the given type.
     ///
     /// Will also panic if [`Component`] is immutable.
-    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component:  &(dyn PartialReflect + Send + Sync)) {
+    pub fn apply<'a>(
+        &self,
+        entity: impl Into<EntityMut<'a>>,
+        component: &(dyn PartialReflect + Send + Sync),
+    ) {
         (self.0.apply)(entity.into(), component);
     }
 
@@ -166,7 +172,7 @@ impl ReflectComponent {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        component:  &(dyn PartialReflect + Send + Sync),
+        component: &(dyn PartialReflect + Send + Sync),
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, component, registry);
@@ -183,7 +189,10 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a (dyn Reflect + Send + Sync)> {
+    pub fn reflect<'a>(
+        &self,
+        entity: impl Into<FilteredEntityRef<'a>>,
+    ) -> Option<&'a (dyn Reflect + Send + Sync)> {
         (self.0.reflect)(entity.into())
     }
 

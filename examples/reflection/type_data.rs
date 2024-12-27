@@ -54,7 +54,9 @@ fn main() {
 
     // Now, we can create a blanket implementation of the `FromType` trait to construct our type data
     // for any type that implements `Reflect` and `Damageable`.
-    impl<T: Reflect + Damageable<Health: Reflect + Send + Sync> + Send + Sync> FromType<T> for ReflectDamageable {
+    impl<T: Reflect + Damageable<Health: Reflect + Send + Sync> + Send + Sync> FromType<T>
+        for ReflectDamageable
+    {
         fn from_type() -> Self {
             Self {
                 damage: |reflect, damage| {
@@ -70,7 +72,11 @@ fn main() {
 
     // It's also common to provide convenience methods for calling the type-specific operations.
     impl ReflectDamageable {
-        pub fn damage(&self, reflect: &mut (dyn Reflect + Send + Sync), damage: Box<dyn Reflect + Send + Sync>) {
+        pub fn damage(
+            &self,
+            reflect: &mut (dyn Reflect + Send + Sync),
+            damage: Box<dyn Reflect + Send + Sync>,
+        ) {
             (self.damage)(reflect, damage);
         }
     }
