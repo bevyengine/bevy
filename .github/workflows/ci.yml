@@ -504,12 +504,12 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_reflect/Cargo.toml
       - name: Save PR number
-        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
       - uses: actions/upload-artifact@v4
-        if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: msrv
           path: msrv/
