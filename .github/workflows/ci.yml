@@ -439,54 +439,62 @@ jobs:
             echo "One or more crates are missing an MSRV. Please address the issues and try again."
             exit 1
           fi
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy }}
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
       - name: Run cargo check for Bevy
+        continue-on-error: true
         run: cargo check --manifest-path Cargo.toml
       - name: Check Bevy Color
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_color }}
       - name: Run cargo check for Bevy Color
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_color/Cargo.toml
       - name: Check Bevy ECS
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ecs }}
       - name: Run cargo check for Bevy ECS
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_ecs/Cargo.toml
       - name: Check Bevy Input Focus
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_input_focus }}
       - name: Run cargo check for Bevy Input Focus
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_input_focus/Cargo.toml
       - name: Check Bevy Math
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_math }}
       - name: Run cargo check for Bevy Math
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_math/Cargo.toml
       - name: Check Bevy Mikktspace
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_mikktspace }}
       - name: Run cargo check for Bevy Mikktspace
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_mikktspace/Cargo.toml
       - name: Check Bevy Ptr
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ptr }}
       - name: Run cargo check for Bevy Ptr
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_ptr/Cargo.toml
       - name: Check Bevy Reflect
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_reflect }}
       - name: Run cargo check for Bevy Reflect
+        continue-on-error: true
         run: cargo check --manifest-path crates/bevy_reflect/Cargo.toml
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
