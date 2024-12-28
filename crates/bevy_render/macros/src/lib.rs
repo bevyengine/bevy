@@ -66,6 +66,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         bindless
     )
 )]
+/// See [`AsBindGroup`](crate::render_resource::AsBindGroup) for detailed information.
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
