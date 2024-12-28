@@ -4,7 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
-    ui::widget::NodeImageMode,
+    ui::widget::ImageNodeMode,
     winit::WinitSettings,
 };
 
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Button,
                         ImageNode {
                             image: image.clone(),
-                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                            image_mode: ImageNodeMode::Sliced(slicer.clone()),
                             ..default()
                         },
                         Node {

@@ -37,7 +37,7 @@ pub struct ImageNode {
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
     /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
-    pub image_mode: NodeImageMode,
+    pub image_mode: ImageNodeMode,
 }
 
 impl Default for ImageNode {
@@ -59,7 +59,7 @@ impl Default for ImageNode {
             flip_x: false,
             flip_y: false,
             rect: None,
-            image_mode: NodeImageMode::Auto,
+            image_mode: ImageNodeMode::Auto,
         }
     }
 }
@@ -85,7 +85,7 @@ impl ImageNode {
             flip_y: false,
             texture_atlas: None,
             rect: None,
-            image_mode: NodeImageMode::Auto,
+            image_mode: ImageNodeMode::Auto,
         }
     }
 
@@ -126,7 +126,7 @@ impl ImageNode {
     }
 
     #[must_use]
-    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
+    pub const fn with_mode(mut self, mode: ImageNodeMode) -> Self {
         self.image_mode = mode;
         self
     }
@@ -140,7 +140,7 @@ impl From<Handle<Image>> for ImageNode {
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
 #[derive(Default, Debug, Clone, Reflect)]
-pub enum NodeImageMode {
+pub enum ImageNodeMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
     Auto,
@@ -160,13 +160,13 @@ pub enum NodeImageMode {
     },
 }
 
-impl NodeImageMode {
-    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
+impl ImageNodeMode {
+    /// Returns true if this mode uses slices internally ([`ImageNodeMode::Sliced`] or [`ImageNodeMode::Tiled`])
     #[inline]
     pub fn uses_slices(&self) -> bool {
         matches!(
             self,
-            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
+            ImageNodeMode::Sliced(..) | ImageNodeMode::Tiled { .. }
         )
     }
 }
@@ -269,7 +269,7 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
-        if !matches!(image.image_mode, NodeImageMode::Auto)
+        if !matches!(image.image_mode, ImageNodeMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             if image.is_changed() {

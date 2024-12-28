@@ -275,10 +275,10 @@ pub fn extract_ui_texture_slices(
         };
 
         let image_scale_mode = match image.image_mode.clone() {
-            widget::NodeImageMode::Sliced(texture_slicer) => {
+            widget::ImageNodeMode::Sliced(texture_slicer) => {
                 SpriteImageMode::Sliced(texture_slicer)
             }
-            widget::NodeImageMode::Tiled {
+            widget::ImageNodeMode::Tiled {
                 tile_x,
                 tile_y,
                 stretch_value,

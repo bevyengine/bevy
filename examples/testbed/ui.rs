@@ -9,7 +9,7 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
-    ui::widget::NodeImageMode,
+    ui::widget::ImageNodeMode,
 };
 
 fn main() {
@@ -287,7 +287,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png"))
-                                .with_mode(NodeImageMode::Stretch),
+                                .with_mode(ImageNodeMode::Stretch),
                             Node {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),
