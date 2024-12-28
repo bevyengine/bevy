@@ -474,6 +474,13 @@ impl<Param: SystemParam> SystemState<Param> {
         &self.meta
     }
 
+
+    /// Gets the metadata for this instance.
+    #[inline]
+    pub unsafe fn meta_mut(&mut self) -> &mut SystemMeta {
+        &mut self.meta
+    }
+
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
     pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
