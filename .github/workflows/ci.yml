@@ -409,22 +409,22 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
-      - name: get MSRVs
+      - name: Get MSRVs
         id: msrv
         run: |
-          # bevy
-          msrv_bevy=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
-          if [ -z "$msrv" ]; then
+          echo "Fetching MSRVs for crates..."
+          # Base crate
+          msrv_bevy=$(cargo metadata --manifest-path "Cargo.toml" --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version')
+          if [ -z "$msrv_bevy" ]; then
             echo "No MSRV found for bevy. Please add \`rust-version\` to Cargo.toml."
             missing_msrv=true
           else
-            echo "msrv_$crate=$msrv" >> $GITHUB_OUTPUT
+            echo "msrv_bevy=$msrv_bevy" >> $GITHUB_OUTPUT
           fi
 
-          # crates
+          # Additional crates
           crates=("bevy_color" "bevy_ecs" "bevy_input_focus" "bevy_math" "bevy_mikktspace" "bevy_ptr" "bevy_reflect")
           for crate in "${crates[@]}"; do
-            echo "Checking MSRV for $crate"
             msrv=$(cargo metadata --manifest-path "crates/$crate/Cargo.toml" --no-deps --format-version 1 | jq --raw-output ".packages[] | select(.name==\"$crate\") | .rust_version")
             if [ -z "$msrv" ]; then
               echo "No MSRV found for $crate. Please add \`rust-version\` to $crate/Cargo.toml."
@@ -443,9 +443,50 @@ jobs:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
-      - name: Run cargo check
-        id: check
-        run: cargo check
+      - name: Run cargo check for Bevy
+        run: cargo check --manifest-path Cargo.toml
+      - name: Check Bevy Color
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_color }}
+      - name: Run cargo check for Bevy Color
+        run: cargo check --manifest-path crates/bevy_color/Cargo.toml
+      - name: Check Bevy ECS
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_ecs }}
+      - name: Run cargo check for Bevy ECS
+        run: cargo check --manifest-path crates/bevy_ecs/Cargo.toml
+      - name: Check Bevy Input Focus
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_input_focus }}
+      - name: Run cargo check for Bevy Input Focus
+        run: cargo check --manifest-path crates/bevy_input_focus/Cargo.toml
+      - name: Check Bevy Math
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_math }}
+      - name: Run cargo check for Bevy Math
+        run: cargo check --manifest-path crates/bevy_math/Cargo.toml
+      - name: Check Bevy Mikktspace
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_mikktspace }}
+      - name: Run cargo check for Bevy Mikktspace
+        run: cargo check --manifest-path crates/bevy_mikktspace/Cargo.toml
+      - name: Check Bevy Ptr
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_ptr }}
+      - name: Run cargo check for Bevy Ptr
+        run: cargo check --manifest-path crates/bevy_ptr/Cargo.toml
+      - name: Check Bevy Reflect
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy_reflect }}
+      - name: Run cargo check for Bevy Reflect
+        run: cargo check --manifest-path crates/bevy_reflect/Cargo.toml
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         run: |
