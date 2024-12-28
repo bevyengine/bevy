@@ -468,7 +468,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_input_focus }}
-      - name: Run cargo check for msrv_bevy_input_focus
+      - name: Run cargo check for bevy_input_focus
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_input_focus/Cargo.toml
       - name: Use bevy_math's minimum toolchain
@@ -476,7 +476,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_math }}
-      - name: Run cargo check for msrv_bevy_math
+      - name: Run cargo check for bevy_math
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_math/Cargo.toml
       - name: Use bevy_mikktspace's minimum toolchain
