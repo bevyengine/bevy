@@ -491,13 +491,13 @@ jobs:
       - name: Save PR number
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         run: |
-          mkdir -p ./msrv-failures
-          echo ${{ github.event.number }} > ./msrv-failures/NR
+          mkdir -p ./msrv
+          echo ${{ github.event.number }} > ./msrv/NR
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
-          name: msrv-failures
-          path: msrv-failures/
+          name: msrv
+          path: msrv/
 
   check-bevy-internal-imports:
     runs-on: ubuntu-latest

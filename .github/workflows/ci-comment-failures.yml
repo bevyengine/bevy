@@ -149,7 +149,7 @@ jobs:
                run_id: ${{ github.event.workflow_run.id }},
             });
             var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "msrv-failures"
+              return artifact.name == "msrv"
             });
             if (matchArtifacts.length == 0) { return "false" }
             var matchArtifact = matchArtifacts[0];
@@ -160,9 +160,9 @@ jobs:
                archive_format: 'zip',
             });
             var fs = require('fs');
-            fs.writeFileSync('${{github.workspace}}/msrv-failures.zip', Buffer.from(download.data));
+            fs.writeFileSync('${{github.workspace}}/msrv.zip', Buffer.from(download.data));
             return "true"
-      - run: unzip msrv-failures.zip
+      - run: unzip msrv.zip
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
