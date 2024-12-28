@@ -396,7 +396,7 @@ macro_rules! impl_build_system {
                 Input: SystemInput,
                 Out: 'static,
                 Marker,
-                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
@@ -643,6 +643,18 @@ impl<Param: SystemParam> SystemState<Param> {
             unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
         param
+    }
+
+    /// Returns a reference to the current system param states.
+    pub fn param_state(&self) -> &Param::State {
+        &self.param_state
+    }
+    
+    /// Returns a mutable reference to the current system param states.
+    /// Marked as unsafe because modifying the system states may result in violation to certain
+    /// assumptions made by the [`SystemParam`]. Use with care.
+    pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
+        &mut self.param_state
     }
 }
 
