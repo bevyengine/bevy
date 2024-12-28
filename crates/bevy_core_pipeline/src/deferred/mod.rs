@@ -3,9 +3,7 @@ pub mod node;
 
 use core::ops::Range;
 
-use crate::core_3d::Opaque3dBinKey;
-use crate::prepass::OpaqueNoLightmap3dBatchSetKey;
-use crate::prepass::OpaqueNoLightmap3dBinKey;
+use crate::prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey};
 use bevy_ecs::prelude::*;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
