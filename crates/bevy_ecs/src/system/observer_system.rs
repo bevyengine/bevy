@@ -192,6 +192,11 @@ where
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.observer.default_system_sets()
     }
+
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.observer.configurate(config)
+    }
 }
 
 #[cfg(test)]

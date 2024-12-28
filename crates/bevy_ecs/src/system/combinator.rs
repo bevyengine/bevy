@@ -212,6 +212,12 @@ where
             .extend(self.b.component_access_set().clone());
     }
 
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configurate(config);
+        self.b.configurate(config);
+    }
+
     fn check_change_tick(&mut self, change_tick: Tick) {
         self.a.check_change_tick(change_tick);
         self.b.check_change_tick(change_tick);
@@ -432,6 +438,11 @@ where
             .extend(self.a.component_access_set().clone());
         self.component_access_set
             .extend(self.b.component_access_set().clone());
+    }
+
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configurate(config);
+        self.b.configurate(config);
     }
 
     fn check_change_tick(&mut self, change_tick: Tick) {

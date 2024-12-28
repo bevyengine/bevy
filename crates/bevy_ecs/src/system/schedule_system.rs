@@ -92,6 +92,11 @@ impl<S: System<In = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.0.configurate(config);
+    }
+
+    #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
         self.0.check_change_tick(change_tick);
     }
@@ -216,6 +221,10 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
     }
+
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configurate(config);
+    }
 }
 
 /// Constructed in [`IntoSystem::with_input_from`].
@@ -325,6 +334,10 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
+    }
+
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configurate(config);
     }
 }
 

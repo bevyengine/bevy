@@ -2,7 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
-use core::fmt::Debug;
+use core::{any::Any, fmt::Debug};
 use log::warn;
 use thiserror::Error;
 
@@ -144,6 +144,12 @@ pub trait System: Send + Sync + 'static {
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
+
+    /// Provides a mechanism for custom system implementations to interact with custom schedule build passes.
+    ///
+    /// Implementations **must** ensure that if the provided `config` argument cannot be downcasted to the
+    /// expected type, the function behaves as a no-op.
+    fn configurate(&mut self, _config: &mut dyn Any) {}
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
