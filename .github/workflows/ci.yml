@@ -440,66 +440,67 @@ jobs:
           fi
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
-      - uses: dtolnay/rust-toolchain@master
+      - name: Use bevy's minimum toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy }}
-      - name: Run cargo check for Bevy
+      - name: Run cargo check for bevy
         if: '!cancelled()'
         run: cargo check --manifest-path Cargo.toml
-      - name: Check Bevy Color
+      - name: Use bevy_color's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_color }}
-      - name: Run cargo check for Bevy Color
+      - name: Run cargo check for bevy_color
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_color/Cargo.toml
-      - name: Check Bevy ECS
+      - name: Use bevy_ecs's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ecs }}
-      - name: Run cargo check for Bevy ECS
+      - name: Run cargo check for bevy_ecs
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_ecs/Cargo.toml
-      - name: Check Bevy Input Focus
+      - name: Use bevy_input_focus's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_input_focus }}
-      - name: Run cargo check for Bevy Input Focus
+      - name: Run cargo check for msrv_bevy_input_focus
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_input_focus/Cargo.toml
-      - name: Check Bevy Math
+      - name: Use bevy_math's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_math }}
-      - name: Run cargo check for Bevy Math
+      - name: Run cargo check for msrv_bevy_math
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_math/Cargo.toml
-      - name: Check Bevy Mikktspace
+      - name: Use bevy_mikktspace's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_mikktspace }}
-      - name: Run cargo check for Bevy Mikktspace
+      - name: Run cargo check for bevy_mikktspace
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_mikktspace/Cargo.toml
-      - name: Check Bevy Ptr
+      - name: Use bevy_ptr's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ptr }}
-      - name: Run cargo check for Bevy Ptr
+      - name: Run cargo check for bevy_ptr
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_ptr/Cargo.toml
-      - name: Check Bevy Reflect
+      - name: Use bevy_reflect's minimum toolchain
         if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_reflect }}
-      - name: Run cargo check for Bevy Reflect
+      - name: Run cargo check for bevy_reflect
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_reflect/Cargo.toml
       - name: Save PR number
