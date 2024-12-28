@@ -398,7 +398,6 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -410,14 +409,38 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
-      - name: get MSRV
+      - name: get MSRVs
         id: msrv
         run: |
-          msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
-          echo "msrv=$msrv" >> $GITHUB_OUTPUT
+          # bevy
+          msrv_bevy=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
+          if [ -z "$msrv" ]; then
+            echo "No MSRV found for bevy. Please add \`rust-version\` to Cargo.toml."
+            missing_msrv=true
+          else
+            echo "msrv_$crate=$msrv" >> $GITHUB_OUTPUT
+          fi
+
+          # crates
+          crates=("bevy_color" "bevy_ecs" "bevy_input_focus" "bevy_math" "bevy_mikktspace" "bevy_ptr" "bevy_reflect")
+          for crate in "${crates[@]}"; do
+            echo "Checking MSRV for $crate"
+            msrv=$(cargo metadata --manifest-path "crates/$crate/Cargo.toml" --no-deps --format-version 1 | jq --raw-output ".packages[] | select(.name==\"$crate\") | .rust_version")
+            if [ -z "$msrv" ]; then
+              echo "No MSRV found for $crate. Please add \`rust-version\` to $crate/Cargo.toml."
+              missing_msrv=true
+            else
+              echo "msrv_$crate=$msrv" >> $GITHUB_OUTPUT
+            fi
+          done
+
+          if [ "$missing_msrv" = true ]; then
+            echo "One or more crates are missing an MSRV. Please address the issues and try again."
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ steps.msrv.outputs.msrv }}
+          toolchain: ${{ steps.msrv.outputs.msrv_bevy }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Run cargo check
