@@ -447,6 +447,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path Cargo.toml
       - name: Check Bevy Color
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_color }}
@@ -454,6 +455,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_color/Cargo.toml
       - name: Check Bevy ECS
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ecs }}
@@ -461,6 +463,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_ecs/Cargo.toml
       - name: Check Bevy Input Focus
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_input_focus }}
@@ -468,6 +471,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_input_focus/Cargo.toml
       - name: Check Bevy Math
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_math }}
@@ -475,6 +479,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_math/Cargo.toml
       - name: Check Bevy Mikktspace
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_mikktspace }}
@@ -482,6 +487,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_mikktspace/Cargo.toml
       - name: Check Bevy Ptr
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_ptr }}
@@ -489,6 +495,7 @@ jobs:
         if: '!cancelled()'
         run: cargo check --manifest-path crates/bevy_ptr/Cargo.toml
       - name: Check Bevy Reflect
+        if: '!cancelled()'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv_bevy_reflect }}
