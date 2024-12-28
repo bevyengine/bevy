@@ -908,10 +908,14 @@ pub fn queue_material_meshes<M: Material>(
                             extra_index: PhaseItemExtraIndex::None,
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
+                            vertex_slab: vertex_slab.unwrap_or_default(),
+                            index_slab,
                         };
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             asset_id: mesh_instance.mesh_asset_id.into(),

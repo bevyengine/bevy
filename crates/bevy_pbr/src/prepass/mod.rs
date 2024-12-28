@@ -13,10 +13,7 @@ pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
 use bevy_core_pipeline::{
-    core_3d::{Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
-    deferred::*,
-    prelude::Camera3d,
-    prepass::*,
+    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
 use bevy_ecs::{
     prelude::*,
@@ -974,6 +971,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
+                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),
@@ -985,11 +984,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             ),
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         opaque_phase.add(
                             OpaqueNoLightmap3dBatchSetKey {
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
+                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1005,10 +1008,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 // Alpha mask
                 MeshPipelineKey::MAY_DISCARD => {
                     if deferred {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: alpha_mask_draw_deferred,
                             pipeline: pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
+                            vertex_slab: vertex_slab.unwrap_or_default(),
+                            index_slab,
                         };
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1023,10 +1030,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             ),
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
+                        let (vertex_slab, index_slab) =
+                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: alpha_mask_draw_prepass,
                             pipeline: pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
+                            vertex_slab: vertex_slab.unwrap_or_default(),
+                            index_slab,
                         };
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             asset_id: mesh_instance.mesh_asset_id.into(),
