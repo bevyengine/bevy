@@ -10,6 +10,7 @@ pub use doc_test::*;
 pub use example_check::*;
 pub use format::*;
 pub use lints::*;
+pub use msrv::*;
 pub use test::*;
 pub use test_check::*;
 
@@ -25,5 +26,6 @@ mod doc_test;
 mod example_check;
 mod format;
 mod lints;
+mod msrv;
 mod test;
 mod test_check;

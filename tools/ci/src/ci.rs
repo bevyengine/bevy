@@ -81,6 +81,7 @@ impl CI {
                 cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::MsrvCommand::default().prepare(sh, flags));
                 cmds
             }
         }
@@ -107,6 +108,7 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    Msrv(commands::MsrvCommand),
 }
 
 impl Prepare for Commands {
@@ -127,6 +129,7 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::Msrv(subcommand) => subcommand.prepare(sh, flags),
         }
     }
 }
