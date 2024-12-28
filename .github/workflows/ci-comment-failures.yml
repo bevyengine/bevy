@@ -176,7 +176,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue_number,
-              body: 'Your PR increases Bevy Minimum Supported Rust Version. Please update the `rust-version` field in the root Cargo.toml file.'
+              body: 'Your PR increases Bevy Minimum Supported Rust Version. Please update the `rust-version` field in the appropriate Cargo.toml file.'
             });
 
   make-macos-screenshots-available:
