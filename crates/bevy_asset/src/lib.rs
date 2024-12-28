@@ -633,8 +633,7 @@ mod tests {
         AssetPlugin, AssetServer, Assets,
     };
     use alloc::sync::Arc;
-    use bevy_app::{App, Update};
-    use bevy_core::TaskPoolPlugin;
+    use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
         prelude::*,
@@ -1685,9 +1684,9 @@ mod tests {
                                 );
                             }
                         }
-                        _ => panic!("Unexpected error type {:?}", read_error),
+                        _ => panic!("Unexpected error type {}", read_error),
                     },
-                    _ => panic!("Unexpected error type {:?}", error.error),
+                    _ => panic!("Unexpected error type {}", error.error),
                 }
             }
         }

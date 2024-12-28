@@ -1,11 +1,15 @@
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
+    bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+        FilteredEntityMut, FilteredEntityRef,
+    },
 };
 use alloc::vec::Vec;
 use core::{
@@ -1104,6 +1108,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, Entity, F> {}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityRef<'_>, F> {}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityMut<'_>, F> {}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, FilteredEntityRef<'_>, F>
+{
+}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, FilteredEntityMut<'_>, F>
+{
+}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+    for QueryIter<'w, 's, EntityRefExcept<'_, B>, F>
+{
+}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+    for QueryIter<'w, 's, EntityMutExcept<'_, B>, F>
+{
+}
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

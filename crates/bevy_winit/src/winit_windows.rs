@@ -290,7 +290,7 @@ impl WinitWindows {
         if !window.cursor_options.hit_test {
             if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
+                    "Could not set cursor hit test for window {}: {}",
                     window.title, err
                 );
             }

@@ -53,6 +53,12 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
+mod hash_map;
+mod hash_set;
+
+pub use hash_map::EntityHashMap;
+pub use hash_set::EntityHashSet;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
@@ -798,7 +804,7 @@ impl Entities {
     // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
         self.resolve_from_id(entity.index())
-            .map_or(false, |e| e.generation() == entity.generation())
+            .is_some_and(|e| e.generation() == entity.generation())
     }
 
     /// Clears all [`Entity`] from the World.

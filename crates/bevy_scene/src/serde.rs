@@ -935,7 +935,7 @@ mod tests {
                 .entities
                 .iter()
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
-                .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
+                .unwrap_or_else(|| panic!("missing entity (expected: `{}`)", expected.entity));
 
             assert_eq!(expected.entity, received.entity, "entities did not match");
 

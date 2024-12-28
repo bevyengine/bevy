@@ -280,7 +280,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        fetch.inner.as_mut().map_or(false, |inner| {
+        fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
                 let handle = <&A>::fetch(inner, entity, table_row);
@@ -296,8 +296,7 @@ mod tests {
     use core::num::NonZero;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, Last, Startup, Update};
-    use bevy_core::TaskPoolPlugin;
+    use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::{
         component::Component,

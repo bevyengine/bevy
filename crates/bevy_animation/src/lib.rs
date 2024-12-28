@@ -1057,8 +1057,8 @@ pub fn animate_targets(
                     (player, graph_handle.id())
                 } else {
                     trace!(
-                        "Either an animation player {:?} or a graph was missing for the target \
-                         entity {:?} ({:?}); no animations will play this frame",
+                        "Either an animation player {} or a graph was missing for the target \
+                         entity {} ({:?}); no animations will play this frame",
                         player_id,
                         entity_mut.id(),
                         entity_mut.get::<Name>(),
@@ -1262,7 +1262,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .after(bevy_render::mesh::inherit_weights)
+                        .before(bevy_render::mesh::inherit_weights)
                         .ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,

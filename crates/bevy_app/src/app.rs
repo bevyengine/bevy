@@ -103,7 +103,10 @@ impl Default for App {
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
+        {
+            app.init_resource::<AppTypeRegistry>();
+            app.register_type::<Name>();
+        }
 
         #[cfg(feature = "reflect_functions")]
         app.init_resource::<AppFunctionRegistry>();
@@ -1053,6 +1056,16 @@ impl App {
     /// Returns a mutable reference to the main [`SubApp`].
     pub fn main_mut(&mut self) -> &mut SubApp {
         &mut self.sub_apps.main
+    }
+
+    /// Returns a reference to the [`SubApps`] collection.
+    pub fn sub_apps(&self) -> &SubApps {
+        &self.sub_apps
+    }
+
+    /// Returns a mutable reference to the [`SubApps`] collection.
+    pub fn sub_apps_mut(&mut self) -> &mut SubApps {
+        &mut self.sub_apps
     }
 
     /// Returns a reference to the [`SubApp`] with the given label.
