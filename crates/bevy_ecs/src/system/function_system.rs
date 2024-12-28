@@ -1013,12 +1013,12 @@ pub struct HasSystemInput;
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
+        impl<'w, 's, Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(SystemParamItem<$param>),*) -> Out,
+                FnMut($(SystemParamItem<'w, 's, $param>),*) -> Out,
             Out: 'static
         {
             type In = ();
@@ -1026,6 +1026,7 @@ macro_rules! impl_system_function {
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
+                let param_value: SystemParamItem<'w, 's, ($($param,)*)> = unsafe { std::mem::transmute(param_value) };
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
@@ -1042,12 +1043,12 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
+        impl<'w, 's, In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut(In, $($param),*) -> Out +
-                FnMut(In::Param<'_>, $(SystemParamItem<$param>),*) -> Out,
+                FnMut(In::Param<'_>, $(SystemParamItem<'w, 's, $param>),*) -> Out,
             In: SystemInput + 'static,
             Out: 'static
         {
@@ -1056,6 +1057,7 @@ macro_rules! impl_system_function {
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+                let param_value: SystemParamItem<'w, 's, ($($param,)*)> = unsafe { std::mem::transmute(param_value) };
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
