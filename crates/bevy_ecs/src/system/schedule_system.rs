@@ -1,19 +1,17 @@
-use alloc::{borrow::Cow, vec::Vec};
-use core::any::TypeId;
+use alloc::borrow::Cow;
 
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
     result::Result,
-    schedule::InternedSystemSet,
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
 use super::IntoSystem;
 
-/// Wraps a system that returns `()` to return `Ok(())` to make it compatible with `Schedule`
+/// Wrapper for a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct OkWrapperSystem<S: System<In=(), Out=()>>(S);
 
 impl<S: System<In=(), Out=()>> OkWrapperSystem<S> {
@@ -90,5 +88,5 @@ impl<S: System<In=(), Out=()>> System for OkWrapperSystem<S> {
     }
 }
 
-
+/// Type alias for a `BoxedSystem` that a `Schedule` can store.
 pub type ScheduleSystem = BoxedSystem<(), Result>;

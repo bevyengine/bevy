@@ -519,6 +519,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
 #[doc(hidden)]
 pub struct Infallible;
 
@@ -540,6 +541,7 @@ where
 //     }
 // }
 
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
 #[doc(hidden)]
 pub struct Fallible;
 
