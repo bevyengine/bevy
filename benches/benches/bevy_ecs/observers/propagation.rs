@@ -1,9 +1,11 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
 };
 use bevy_hierarchy::{BuildChildren, Parent};
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;

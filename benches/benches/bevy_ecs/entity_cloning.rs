@@ -1,10 +1,12 @@
+use core::hint::black_box;
+
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
-use criterion::{black_box, criterion_group, criterion_main, Bencher, Criterion};
+use criterion::{criterion_group, criterion_main, Bencher, Criterion};
 
 criterion_group!(benches, reflect_benches, clone_benches);
 criterion_main!(benches);
