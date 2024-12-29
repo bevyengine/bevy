@@ -76,6 +76,7 @@ where
 mod tests {
     use super::*;
     use crate::{palettes::basic, Srgba};
+    use bevy_math::curve::{Curve, CurveExt};
 
     #[test]
     fn test_color_curve() {
