@@ -412,7 +412,7 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 fn visibility_propagate_system(
     changed: Query<
         (Entity, &Visibility, Option<&Parent>, Option<&Children>),
-        (With<InheritedVisibility>, Changed<Visibility>),
+        (With<InheritedVisibility>, Or<(Changed<Visibility>, Changed<Parent>)>),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
