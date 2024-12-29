@@ -1,5 +1,6 @@
 use core::hint::black_box;
 
+use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
 use criterion::{criterion_group, Criterion};
@@ -42,7 +43,7 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
 }
 
 fn ray_mesh_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection");
+    let mut group = c.benchmark_group(bench!("ray_mesh_intersection"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
@@ -66,7 +67,7 @@ fn ray_mesh_intersection(c: &mut Criterion) {
 }
 
 fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_cull");
+    let mut group = c.benchmark_group(bench!("ray_mesh_intersection_no_cull"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
@@ -90,7 +91,7 @@ fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
 }
 
 fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_intersection");
+    let mut group = c.benchmark_group(bench!("ray_mesh_intersection_no_intersection"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
