@@ -191,7 +191,8 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
 ///
 /// ## Further reading
-/// The Tracing crate has lots more functionality than these examples can show.
+///
+/// The `tracing` crate has much more functionality than these examples can show.
 /// Much of this configuration can be done with "layers" in the `log` crate
 /// Check out:
 /// - Using spans to add more fine grained filters to logs
