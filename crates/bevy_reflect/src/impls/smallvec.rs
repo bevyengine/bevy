@@ -4,7 +4,7 @@ use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
 
 #[cfg(not(feature = "std"))]
-use alloc::{format, vec};
+use alloc::{format, vec, vec::Vec};
 
 use crate::{
     self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,

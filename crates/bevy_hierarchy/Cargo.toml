@@ -9,23 +9,54 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["bevy_app"]
-trace = []
-bevy_app = ["reflect", "dep:bevy_app"]
-reflect = ["bevy_ecs/bevy_reflect", "bevy_reflect"]
+default = ["std", "bevy_app", "reflect"]
+
+# Functionality
+
+## Adds integration with the `bevy_app` plugin API.
+bevy_app = ["dep:bevy_app"]
+
+## Adds runtime reflection support using `bevy_reflect`.
+reflect = ["bevy_ecs/bevy_reflect", "bevy_reflect", "bevy_app?/bevy_reflect"]
+
+# Debugging Features
+
+## Enables `tracing` integration, allowing spans and other metrics to be reported
+## through that framework.
+trace = ["dep:tracing"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_app?/std",
+  "bevy_ecs/std",
+  "bevy_reflect/std",
+  "bevy_utils/std",
+  "disqualified/alloc",
+]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false, optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
-  "bevy",
   "smallvec",
-], optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-disqualified = "1.0"
+], default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+  "alloc",
+] }
+disqualified = { version = "1.0", default-features = false }
 
-smallvec = { version = "1.11", features = ["union", "const_generics"] }
+# other
+smallvec = { version = "1.11", default-features = false, features = [
+  "union",
+  "const_generics",
+] }
+tracing = { version = "0.1", default-features = false, optional = true }
+log = { version = "0.4", default-features = false }
 
 [lints]
 workspace = true
