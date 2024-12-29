@@ -1,4 +1,6 @@
-use criterion::{black_box, criterion_group, Criterion};
+use core::hint::black_box;
+
+use criterion::{criterion_group, Criterion};
 
 use bevy_render::view::RenderLayers;
 
