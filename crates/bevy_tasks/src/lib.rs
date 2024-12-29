@@ -8,6 +8,35 @@
 
 extern crate alloc;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod conditional_send {
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+    /// futures aren't Send.
+    pub trait ConditionalSend: Send {}
+    impl<T: Send> ConditionalSend for T {}
+}
+
+#[cfg(target_arch = "wasm32")]
+#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
+mod conditional_send {
+    pub trait ConditionalSend {}
+    impl<T> ConditionalSend for T {}
+}
+
+pub use conditional_send::*;
+
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
+/// futures aren't Send.
+pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
+impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+
+use alloc::boxed::Box;
+
+/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
+
+pub mod futures;
+
 mod executor;
 
 mod slice;

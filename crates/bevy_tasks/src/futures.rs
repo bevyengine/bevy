@@ -1,3 +1,5 @@
+#![expect(unsafe_code, reason = "Futures require unsafe code.")]
+
 //! Utilities for working with [`Future`]s.
 use core::{
     future::Future,

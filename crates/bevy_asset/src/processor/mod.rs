@@ -58,15 +58,14 @@ use crate::{
 };
 use alloc::{collections::VecDeque, sync::Arc};
 use bevy_ecs::prelude::*;
+#[cfg(feature = "trace")]
+use bevy_tasks::ConditionalSendFuture;
 use bevy_tasks::IoTaskPool;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::{info_span, instrument::Instrument};
 use bevy_utils::{
     tracing::{debug, error, trace, warn},
     HashMap, HashSet,
-};
-#[cfg(feature = "trace")]
-use bevy_utils::{
-    tracing::{info_span, instrument::Instrument},
-    ConditionalSendFuture,
 };
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};

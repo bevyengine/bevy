@@ -3,7 +3,8 @@ use crate::{
     ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
 };
 use atomicow::CowArc;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use bevy_utils::HashMap;
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
 
