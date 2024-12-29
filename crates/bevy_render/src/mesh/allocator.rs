@@ -785,7 +785,7 @@ impl MeshAllocator {
         slab_to_grow: SlabToReallocate,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
-            error!("Couldn't find slab {:?} to grow", slab_id);
+            error!("Couldn't find slab {} to grow", slab_id);
             return;
         };
 

@@ -1,7 +1,7 @@
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, VisitEntities, VisitEntitiesMut},
+    entity::{Entity, EntityBorrow, VisitEntities, VisitEntitiesMut},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
@@ -88,9 +88,8 @@ impl VisitEntitiesMut for WindowRef {
 )]
 pub struct NormalizedWindowRef(Entity);
 
-impl NormalizedWindowRef {
-    /// Fetch the entity of this window reference
-    pub fn entity(&self) -> Entity {
+impl EntityBorrow for NormalizedWindowRef {
+    fn entity(&self) -> Entity {
         self.0
     }
 }
