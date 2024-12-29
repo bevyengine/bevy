@@ -221,8 +221,16 @@ impl RetainedViewEntity {
     }
 }
 
+/// Describes a camera in the render world.
+///
+/// Each entity in the main world can potentially extract to multiple subviews,
+/// each of which has a [`RetainedViewEntity::subview_index`]. For instance, 3D
+/// cameras extract to both a 3D camera subview with index 0 and a special UI
+/// subview with index 1. Likewise, point lights with shadows extract to 6
+/// subviews, one for each side of the shadow cubemap.
 #[derive(Component)]
 pub struct ExtractedView {
+    /// The entity in the main world corresponding to this render world view.
     pub retained_view_entity: RetainedViewEntity,
     /// Typically a right-handed projection matrix, one of either:
     ///

@@ -22,14 +22,16 @@ use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RunGraphOnViewNode},
+    render_graph::{Node as RenderGraphNode, RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -45,6 +47,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_utils::tracing::warn;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 
@@ -58,6 +61,7 @@ use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
+use std::result::Result;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
@@ -98,6 +102,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,
@@ -126,6 +131,7 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
+                RenderUiSystem::ExtractCameraViews,
                 RenderUiSystem::ExtractBoxShadows,
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
@@ -139,7 +145,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view,
+                extract_default_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -164,7 +170,7 @@ pub fn build_ui_render(app: &mut App) {
 
     if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-        graph_2d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
         graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
         graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
@@ -172,7 +178,7 @@ pub fn build_ui_render(app: &mut App) {
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
         graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-        graph_3d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
         graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
         graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
@@ -248,6 +254,31 @@ impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
         self.glyphs.clear();
+    }
+}
+
+/// A [`RenderGraphNode`] that executes the UI rendering subgraph on the UI
+/// view.
+struct RunUiSubgraphOnUiViewNode;
+
+impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
+    fn run<'w>(
+        &self,
+        graph: &mut RenderGraphContext,
+        _: &mut RenderContext<'w>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        // Fetch the UI view.
+        let Some(mut render_views) = world.try_query::<&DefaultCameraView>() else {
+            return Ok(());
+        };
+        let Some(default_camera_view) = render_views.iter(world).next() else {
+            return Ok(());
+        };
+
+        // Run the subgraph on the UI view.
+        graph.run_sub_graph(SubGraphUi, vec![], Some(default_camera_view.0))?;
+        Ok(())
     }
 }
 
@@ -534,8 +565,30 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
+/// The ID of the subview associated with a camera on which UI is to be drawn.
+///
+/// When UI is present, 3D cameras extract to two views: a 3D one and a UI one.
+/// The main 3D camera gets subview 0, and the corresponding UI camera gets this
+/// subview, 1.
+const UI_CAMERA_SUBVIEW: u32 = 1;
+
+/// A render-world component that lives on the main render target view and
+/// specifies the corresponding UI view.
+///
+/// For example, if UI is being rendered to a 3D camera, this component lives on
+/// the 3D camera and contains the entity corresponding to the UI view.
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
+
+/// A render-world component that lives on the UI view and specifies the
+/// corresponding main render target view.
+///
+/// For example, if the UI is being rendered to a 3D camera, this component
+/// lives on the UI view and contains the entity corresponding to the 3D camera.
+///
+/// This is the inverse of [`DefaultCameraView`].
+#[derive(Component)]
+pub struct UiViewTarget(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_default_ui_camera_view(
@@ -577,9 +630,11 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
-            // We use subview index 1 here so as not to conflict with the main
-            // 3D or 2D camera, which will have subview index 0.
-            let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 1);
+            // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
+            // main 3D or 2D camera, which will have subview index 0.
+            let retained_view_entity =
+                RetainedViewEntity::new(main_entity.into(), UI_CAMERA_SUBVIEW);
+            // Creates the UI view.
             let default_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -598,12 +653,16 @@ pub fn extract_default_ui_camera_view(
                         )),
                         color_grading: Default::default(),
                     },
+                    // Link to the main camera view.
+                    UiViewTarget(entity),
                     TemporaryRenderEntity,
                 ))
                 .id();
+
             let mut entity_commands = commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
+            // Link from the main 2D/3D camera view to the UI view.
             entity_commands.insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
@@ -811,13 +870,20 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(&ExtractedView, Option<&UiAntiAlias>)>,
+    mut render_views: Query<(&DefaultCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((default_camera_view, ui_anti_alias)) =
+            render_views.get_mut(extracted_uinode.camera_entity)
+        else {
+            continue;
+        };
+
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
             continue;
         };
 
