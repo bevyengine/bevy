@@ -533,14 +533,6 @@ where
     }
 }
 
-// TODO: not sure how to make this work or even if it's needed.
-// impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
-//     fn into_configs(self) -> SystemConfigs {
-//         let wrapper = OkWrapperSystem::new(self);
-//         SystemConfigs::new_system(Box::new(wrapper))
-//     }
-// }
-
 /// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
 #[doc(hidden)]
 pub struct Fallible;
