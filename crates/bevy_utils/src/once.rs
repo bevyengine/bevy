@@ -21,6 +21,12 @@ impl OnceFlag {
     }
 }
 
+impl Default for OnceFlag {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Call some expression only once per call site.
 #[macro_export]
 macro_rules! once {
