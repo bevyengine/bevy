@@ -169,11 +169,11 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// debug!("helpful for debugging");
 /// trace!("very noisy");
 /// ```
-/// In addition to `format!` style arguments you can print a variables debug
-/// value by using syntax like `trace(?my_value)`
+/// In addition to `format!` style arguments, you can print a variables debug 
+/// value by using syntax like: `trace(?my_value)`.
 ///
 /// ## Per module logging levels
-/// Modules can have different logging levels, using syntax like `crate_name::module_name=debug`
+/// Modules can have different logging levels using syntax like `crate_name::module_name=debug`.
 ///
 ///
 /// ```no_run
@@ -188,12 +188,12 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     .run();
 /// ```
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
-/// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
+/// you just disable them. If you do need to log in the future, then you can enable the logs instead of having to rewrite them.
 ///
 /// ## Further reading
 ///
 /// The `tracing` crate has much more functionality than these examples can show.
-/// Much of this configuration can be done with "layers" in the `log` crate
+/// Much of this configuration can be done with "layers" in the `log` crate.
 /// Check out:
 /// - Using spans to add more fine grained filters to logs
 /// - Adding instruments to capture more function information
