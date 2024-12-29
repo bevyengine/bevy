@@ -12,13 +12,13 @@ fn main() {
     // create a closure, with an 'input' value.
     let complex_closure = |mut value: String| {
         move || {
-            info!("Hello from a complex closure! {:?}", value);
+            info!("Hello from a complex closure! {}", value);
 
             // we can modify the value inside the closure. this will be saved between calls.
             value = format!("{value} - updated");
 
             // you could also use an outside variable like presented in the inlined closures
-            // info!("outside_variable! {:?}", outside_variable);
+            // info!("outside_variable! {}", outside_variable);
         }
     };
 
@@ -37,7 +37,7 @@ fn main() {
         // or use variables outside a closure
         .add_systems(Update, move || {
             info!(
-                "Hello from an inlined closure that captured the 'outside_variable'! {:?}",
+                "Hello from an inlined closure that captured the 'outside_variable'! {}",
                 outside_variable
             );
             // you can use outside_variable, or any other variables inside this closure.
