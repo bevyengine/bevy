@@ -7,9 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // This system relies on system parameters that are not available at start
-        // Ignore parameter failures so that it will run when possible
-        .add_systems(Update, environment_map_load_finish.never_param_warn())
+        .add_systems(Update, environment_map_load_finish)
         .run();
 }
 
@@ -130,7 +128,7 @@ fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     environment_map: Single<&EnvironmentMapLight>,
-    label_entity: Single<Entity, With<EnvironmentMapLabel>>,
+    label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
 ) {
     if asset_server
         .load_state(&environment_map.diffuse_map)
@@ -139,7 +137,10 @@ fn environment_map_load_finish(
             .load_state(&environment_map.specular_map)
             .is_loaded()
     {
-        commands.entity(*label_entity).despawn();
+        // Do not attempt to remove `label_entity` if it has already been removed.
+        if let Some(label_entity) = label_entity {
+            commands.entity(*label_entity).despawn();
+        }
     }
 }
 
