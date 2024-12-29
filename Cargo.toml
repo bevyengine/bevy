@@ -2852,6 +2852,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_text2d"
+path = "examples/stress_tests/many_text2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_text2d]
+name = "Many Text2d"
+description = "Displays many Text2d! Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
 doc-scrape-examples = true
