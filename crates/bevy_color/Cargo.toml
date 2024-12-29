@@ -7,7 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "color"]
-rust-version = "1.82.0"
+rust-version = "1.83.0"
 
 [dependencies]
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false, features = [
