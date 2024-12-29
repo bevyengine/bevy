@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect"]
+default = ["std", "bevy_reflect", "bevy_ecs/async_executor", "smol_str"]
 
 # Functionality
 
@@ -29,6 +29,9 @@ serialize = [
   "bevy_math/serialize",
 ]
 
+## Uses the small-string optimization provided by `smol_str`.
+smol_str = ["dep:smol_str", "bevy_reflect/smol_str"]
+
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
@@ -42,6 +45,17 @@ std = [
   "bevy_reflect/std",
 ]
 
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = ["bevy_app/critical-section", "bevy_ecs/critical-section"]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = ["bevy_app/portable-atomic", "bevy_ecs/portable-atomic"]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_math/libm"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false }
@@ -50,7 +64,6 @@ bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = 
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "glam",
-  "smol_str",
 ], default-features = false, optional = true }
 
 # other
@@ -60,7 +73,7 @@ serde = { version = "1", features = [
 ], default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-smol_str = { version = "0.2", default-features = false }
+smol_str = { version = "0.2", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 
 [lints]
