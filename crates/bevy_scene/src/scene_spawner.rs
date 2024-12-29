@@ -5,9 +5,9 @@ use bevy_ecs::{
     event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
-    world::{Command, Mut, World},
+    world::{Mut, World},
 };
-use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -382,11 +382,7 @@ impl SceneSpawner {
                         // this case shouldn't happen anyway
                         .unwrap_or(true)
                     {
-                        AddChild {
-                            parent,
-                            child: entity,
-                        }
-                        .apply(world);
+                        world.entity_mut(parent).add_child(entity);
                     }
                 }
 
