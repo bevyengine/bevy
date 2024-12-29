@@ -986,7 +986,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     #[track_caller]
-    fn assert_not_despawned(&self) {
+    pub(crate) fn assert_not_despawned(&self) {
         if self.location.archetype_id == ArchetypeId::INVALID {
             self.panic_despawned();
         }
