@@ -1,8 +1,8 @@
-use core::{fmt::Write, str, time::Duration};
+use core::{fmt::Write, hint::black_box, str, time::Duration};
 
 use benches::bench;
 use bevy_reflect::ParsedPath;
-use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::{distributions::Uniform, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
