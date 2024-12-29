@@ -20,6 +20,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)

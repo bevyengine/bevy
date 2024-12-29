@@ -174,6 +174,11 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.clear();
     }
 
+    /// Removes and returns the last element in the buffer.
+    pub fn pop(&mut self) -> Option<T> {
+        self.values.pop()
+    }
+
     pub fn values(&self) -> &Vec<T> {
         &self.values
     }

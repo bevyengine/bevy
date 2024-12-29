@@ -1,8 +1,7 @@
 use core::ops::Range;
 
 use crate::{
-    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, WithSprite,
-    SPRITE_SHADER_HANDLE,
+    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -118,7 +117,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -551,7 +550,7 @@ pub fn queue_sprites(
         view_entities.clear();
         view_entities.extend(
             visible_entities
-                .iter::<WithSprite>()
+                .iter::<Sprite>()
                 .map(|(_, e)| e.index() as usize),
         );
 
@@ -577,7 +576,7 @@ pub fn queue_sprites(
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
             });
         }
     }
@@ -677,7 +676,7 @@ pub fn prepare_sprite_image_bind_groups(
                     continue;
                 };
 
-                batch_image_size = gpu_image.size.as_vec2();
+                batch_image_size = gpu_image.size_2d().as_vec2();
                 batch_image_handle = extracted_sprite.image_handle_id;
                 image_bind_groups
                     .values

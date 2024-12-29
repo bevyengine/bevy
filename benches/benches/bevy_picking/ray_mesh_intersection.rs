@@ -1,6 +1,8 @@
+use core::hint::black_box;
+
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, Criterion};
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
     let ij = (p / (size), p % (size));
@@ -117,4 +119,3 @@ criterion_group!(
     ray_mesh_intersection_no_cull,
     ray_mesh_intersection_no_intersection
 );
-criterion_main!(benches);

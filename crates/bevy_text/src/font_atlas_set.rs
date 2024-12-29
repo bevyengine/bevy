@@ -92,9 +92,7 @@ impl FontAtlasSet {
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasKey) -> bool {
         self.font_atlases
             .get(font_size)
-            .map_or(false, |font_atlas| {
-                font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key))
-            })
+            .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
     }
 
     /// Adds the given subpixel-offset glyph to the [`FontAtlas`]es in this set
@@ -200,11 +198,12 @@ impl FontAtlasSet {
             })
     }
 
-    /// Returns the number of font atlases in this set
+    /// Returns the number of font atlases in this set.
     pub fn len(&self) -> usize {
         self.font_atlases.len()
     }
-    /// Returns the number of font atlases in this set
+
+    /// Returns `true` if the set has no font atlases.
     pub fn is_empty(&self) -> bool {
         self.font_atlases.len() == 0
     }

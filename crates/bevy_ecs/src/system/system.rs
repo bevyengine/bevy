@@ -1,6 +1,6 @@
-use bevy_utils::tracing::warn;
 use core::fmt::Debug;
-use derive_more::derive::{Display, Error};
+use log::warn;
+use thiserror::Error;
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -11,7 +11,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
 use super::IntoSystem;
@@ -322,14 +322,14 @@ pub trait RunSystemOnce: Sized {
     where
         T: IntoSystem<(), Out, Marker>,
     {
-        self.run_system_once_with((), system)
+        self.run_system_once_with(system, ())
     }
 
     /// Tries to run a system with given input and apply deferred parameters.
     fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: SystemIn<'_, T::System>,
         system: T,
+        input: SystemIn<'_, T::System>,
     ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
@@ -339,8 +339,8 @@ pub trait RunSystemOnce: Sized {
 impl RunSystemOnce for &mut World {
     fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: SystemIn<'_, T::System>,
         system: T,
+        input: SystemIn<'_, T::System>,
     ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
@@ -357,13 +357,12 @@ impl RunSystemOnce for &mut World {
 }
 
 /// Running system failed.
-#[derive(Error, Display)]
+#[derive(Error)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    #[error(ignore)]
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
     InvalidParams(Cow<'static, str>),
 }
 
@@ -393,7 +392,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with(1, system).unwrap();
+        let n = world.run_system_once_with(system, 1).unwrap();
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
@@ -451,7 +450,7 @@ mod tests {
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system.param_warn_once());
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }

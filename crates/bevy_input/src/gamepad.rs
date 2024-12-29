@@ -1,12 +1,15 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_core::Name;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    name::Name,
+    prelude::require,
     system::{Commands, Query},
 };
 use bevy_math::Vec2;
@@ -18,7 +21,8 @@ use bevy_utils::{
     tracing::{info, warn},
     Duration, HashMap,
 };
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
+use thiserror::Error;
 
 /// A gamepad event.
 ///
@@ -246,26 +250,22 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Errors that occur when setting axis settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum AxisSettingsError {
     /// The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
     LiveZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
     DeadZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
     DeadZoneUpperBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
     LiveZoneUpperBoundOutOfRange(f32),
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
-    #[display("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
         /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
@@ -273,7 +273,7 @@ pub enum AxisSettingsError {
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
-    #[display("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
         /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
@@ -281,24 +281,21 @@ pub enum AxisSettingsError {
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
-    #[display("invalid threshold {_0}, expected 0.0 <= threshold <= 2.0")]
-    #[error(ignore)]
+    #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
     Threshold(f32),
 }
 
 /// Errors that occur when setting button settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ButtonSettingsError {
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid release_threshold {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
     ReleaseThresholdOutOfRange(f32),
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid press_threshold {_0}, expected [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
-    #[display("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
+    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
         /// The value of the `press_threshold` parameter.
         press_threshold: f32,
@@ -319,7 +316,7 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
-/// # use bevy_core::Name;
+/// # use bevy_ecs::name::Name;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
 ///     for (name, gamepad) in &gamepads {
@@ -336,7 +333,7 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Component))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     /// The USB vendor ID as assigned by the USB-IF, if available.
@@ -693,7 +690,11 @@ pub enum GamepadInput {
 /// should register. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding component.
 #[derive(Component, Clone, Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component)
+)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -1345,7 +1346,7 @@ pub fn gamepad_connection_system(
                 product_id,
             } => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling connection event.", id);
+                    warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
                 gamepad.insert((
@@ -1356,18 +1357,18 @@ pub fn gamepad_connection_system(
                         ..Default::default()
                     },
                 ));
-                info!("Gamepad {:?} connected.", id);
+                info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
                 // Instead of despawning, we remove Gamepad components that don't need to preserve state
                 // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
-                info!("Gamepad {:} disconnected.", id);
+                info!("Gamepad {} disconnected.", id);
             }
         }
     }
