@@ -147,10 +147,10 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         if self.target_component_written {
             panic!("Trying to write component '{short_name}' multiple times")
         }
-        if !self
+        if self
             .component_info
             .type_id()
-            .is_some_and(|id| id == TypeId::of::<T>())
+            .is_none_or(|id| id != TypeId::of::<T>())
         {
             panic!("TypeId of component '{short_name}' does not match source component TypeId")
         };
