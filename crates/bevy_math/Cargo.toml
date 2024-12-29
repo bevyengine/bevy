@@ -25,7 +25,7 @@ approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }
 variadics_please = "1.1"
@@ -52,6 +52,7 @@ std = [
   "approx?/std",
   "rand?/std",
   "rand_distr?/std",
+  "bevy_reflect?/std",
 ]
 alloc = [
   "itertools/use_alloc",
@@ -76,8 +77,8 @@ debug_glam_assert = ["glam/debug-glam-assert"]
 rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
 # Include code related to the Curve trait
 curve = []
-# Enable bevy_reflect (requires std)
-bevy_reflect = ["dep:bevy_reflect", "std"]
+# Enable bevy_reflect (requires alloc)
+bevy_reflect = ["dep:bevy_reflect", "alloc"]
 
 [lints]
 workspace = true

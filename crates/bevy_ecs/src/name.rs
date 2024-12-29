@@ -13,9 +13,12 @@ use core::{
 };
 
 #[cfg(feature = "serialize")]
-use serde::{
-    de::{Error, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
+use {
+    alloc::string::ToString,
+    serde::{
+        de::{Error, Visitor},
+        Deserialize, Deserializer, Serialize, Serializer,
+    },
 };
 
 #[cfg(feature = "bevy_reflect")]

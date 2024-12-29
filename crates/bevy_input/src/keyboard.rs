@@ -72,8 +72,14 @@ use bevy_ecs::{
     event::{Event, EventReader},
     system::ResMut,
 };
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+
+#[cfg(not(feature = "smol_str"))]
+use alloc::string::String as SmolStr;
+
+#[cfg(feature = "smol_str")]
 use smol_str::SmolStr;
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
