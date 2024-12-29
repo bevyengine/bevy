@@ -169,7 +169,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// debug!("helpful for debugging");
 /// trace!("very noisy");
 /// ```
-/// In addition to `format!` style arguments, you can print a variables debug 
+/// In addition to `format!` style arguments, you can print a variable's debug 
 /// value by using syntax like: `trace(?my_value)`.
 ///
 /// ## Per module logging levels
