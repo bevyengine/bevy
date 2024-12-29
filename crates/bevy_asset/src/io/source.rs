@@ -531,7 +531,7 @@ impl AssetSource {
                 not(target_os = "android")
             ))]
             {
-                let path = std::path::PathBuf::from(path.clone());
+                let path = super::file::get_base_path().join(path.clone());
                 if path.exists() {
                     Some(Box::new(
                         super::file::FileWatcher::new(
