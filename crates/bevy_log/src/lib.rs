@@ -140,14 +140,15 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// you can configure the plugin as below.
 ///
 /// ```no_run
- /// App::new() 
- ///     .add_plugins(DefaultPlugins.set(LogPlugin { 
- ///         filter: "warn,my_crate=trace".to_string(), //specific filters 
- ///         level: Level::TRACE,//Change this to be globally change levels 
- ///         ..Default::default() 
- ///         })) 
- ///     .add_systems(Startup, setup) 
- ///     .run(); 
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace".to_string(), //specific filters
+///         level: Level::TRACE,//Change this to be globally change levels
+///         ..Default::default()
+///         }))
+///     .run();
 /// ```
 /// The filter (in this case an EnvFilter) chooses whether to print the log, the most specific filters apply
 /// lets start with an example `filter: "warn".to_string()` will only print logs with level `warn` level or greater
@@ -159,13 +160,14 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// Events can be logged at various levels of importance.
 /// Only events at your configured log level and higher will be shown.
 /// ```no_run
-/// // here is how you write new logs at each "log level" (in "most important" to 
-/// // "least important" order) 
-/// error!("something failed"); 
-/// warn!("something bad happened that isn't a failure, but that's worth calling out"); 
-/// info!("helpful information that is worth printing by default"); 
-/// debug!("helpful for debugging"); 
-/// trace!("very noisy"); 
+/// # use bevy_log::*;
+/// // here is how you write new logs at each "log level" (in "most important" to
+/// // "least important" order)
+/// error!("something failed");
+/// warn!("something bad happened that isn't a failure, but that's worth calling out");
+/// info!("helpful information that is worth printing by default");
+/// debug!("helpful for debugging");
+/// trace!("very noisy");
 /// ```
 /// In addition to `format!` style arguments you can print a variables debug
 /// value by using syntax like `trace(?my_value)`
@@ -175,14 +177,15 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///
 ///
 /// ```no_run
-/// App::new() 
-///     .add_plugins(DefaultPlugins.set(LogPlugin { 
-///         filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters 
-///         level: Level::TRACE, // Change this to be globally change levels 
-///         ..Default::default() 
-///     })) 
-///     .add_systems(Startup, setup) 
-///     .run(); 
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters
+///         level: Level::TRACE, // Change this to be globally change levels
+///         ..Default::default()
+///     }))
+///     .run();
 /// ```
 /// The idea is that instead of deleting logs when they are no longer immediately applicable,
 /// you just disable them, if you need to log in future you can enable the logs instead of rewriting them.
