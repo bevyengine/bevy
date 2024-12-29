@@ -4,7 +4,7 @@ use std::time::Duration;
 use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
-use criterion::{criterion_group, BenchmarkId, Criterion};
+use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfiguration};
 
 criterion_group!(benches, bench);
 
@@ -98,7 +98,10 @@ fn bench(c: &mut Criterion) {
     for benchmark in Benchmarks::iter() {
         let mut group = c.benchmark_group(benchmark.name());
 
-        group.warm_up_time(Benchmarks::WARM_UP_TIME);
+        group
+            .warm_up_time(Benchmarks::WARM_UP_TIME)
+            // Make the scale logarithmic, to match `VERTICES_PER_SIDE`.
+            .plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
 
         for vertices_per_side in Benchmarks::VERTICES_PER_SIDE {
             group.bench_with_input(
