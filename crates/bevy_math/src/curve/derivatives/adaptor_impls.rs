@@ -453,7 +453,7 @@ mod tests {
 
     use super::*;
     use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator};
-    use crate::curve::{Curve, Interval};
+    use crate::curve::{Curve, CurveExt, Interval};
     use crate::{vec2, Vec2, Vec3};
 
     fn test_curve() -> CubicCurve<Vec2> {
