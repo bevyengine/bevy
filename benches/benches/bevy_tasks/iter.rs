@@ -61,7 +61,7 @@ fn bench_for_each(c: &mut Criterion) {
         b.iter(|| {
             v.iter_mut().for_each(|x| {
                 busy_work(10000);
-                *x *= *x;
+                *x = x.wrapping_mul(*x);
             });
         });
     });
@@ -77,7 +77,7 @@ fn bench_for_each(c: &mut Criterion) {
                 b.iter(|| {
                     ParChunksMut(v.chunks_mut(100)).for_each(&pool, |x| {
                         busy_work(10000);
-                        *x *= *x;
+                        *x = x.wrapping_mul(*x);
                     });
                 });
             },
