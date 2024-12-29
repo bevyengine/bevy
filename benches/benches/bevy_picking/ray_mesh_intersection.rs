@@ -1,9 +1,12 @@
 use core::hint::black_box;
+use std::time::Duration;
 
 use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
 use criterion::{criterion_group, BenchmarkId, Criterion};
+
+criterion_group!(benches, bench);
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
     let ij = (p / (size), p % (size));
@@ -42,93 +45,83 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
     }
 }
 
-fn ray_mesh_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("normal"));
-    group.warm_up_time(std::time::Duration::from_millis(500));
+/// An enum that represents the configuration for all variations of the ray mesh intersection
+/// benchmarks.
+enum Benchmarks {
+    Normal,
+    NoCull,
+    NoIntersection,
+}
 
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{}_vertices", vertices_per_side.pow(2))),
-            &vertices_per_side,
-            |b, &vertices_per_side| {
-                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-                let mesh_to_world = Mat4::IDENTITY;
-                let mesh = mesh_creation(vertices_per_side);
+impl Benchmarks {
+    const WARM_UP_TIME: Duration = Duration::from_millis(500);
+    const VERTICES_PER_SIDE: [u32; 3] = [10, 100, 1000];
 
-                b.iter(|| {
-                    black_box(ray_cast::ray_mesh_intersection(
-                        ray,
-                        &mesh_to_world,
-                        &mesh.positions,
-                        Some(&mesh.normals),
-                        Some(&mesh.indices),
-                        ray_cast::Backfaces::Cull,
-                    ));
-                });
+    /// Returns an iterator over every variant in this enum.
+    fn iter() -> impl Iterator<Item = Self> {
+        [Self::Normal, Self::NoCull, Self::NoIntersection].into_iter()
+    }
+
+    /// Returns the benchmark group name.
+    fn name(&self) -> &'static str {
+        match *self {
+            Self::Normal => bench!("normal"),
+            Self::NoCull => bench!("no_cull"),
+            Self::NoIntersection => bench!("no_intersection"),
+        }
+    }
+
+    fn ray(&self) -> Ray3d {
+        Ray3d::new(
+            Vec3::new(0.0, 1.0, 0.0),
+            match *self {
+                Self::Normal | Self::NoCull => Dir3::NEG_Y,
+                // `NoIntersection` should not hit the mesh, so it goes an orthogonal direction.
+                Self::NoIntersection => Dir3::X,
             },
-        );
+        )
+    }
+
+    fn mesh_to_world(&self) -> Mat4 {
+        Mat4::IDENTITY
+    }
+
+    fn backface_culling(&self) -> ray_cast::Backfaces {
+        match *self {
+            Self::Normal | Self::NoIntersection => ray_cast::Backfaces::Cull,
+            Self::NoCull => ray_cast::Backfaces::Include,
+        }
     }
 }
 
-fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("no_cull"));
-    group.warm_up_time(std::time::Duration::from_millis(500));
+fn bench(c: &mut Criterion) {
+    for benchmark in Benchmarks::iter() {
+        let mut group = c.benchmark_group(benchmark.name());
 
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{}_vertices", vertices_per_side.pow(2))),
-            &vertices_per_side,
-            |b, &vertices_per_side| {
-                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-                let mesh_to_world = Mat4::IDENTITY;
-                let mesh = mesh_creation(vertices_per_side);
+        group.warm_up_time(Benchmarks::WARM_UP_TIME);
 
-                b.iter(|| {
-                    black_box(ray_cast::ray_mesh_intersection(
-                        ray,
-                        &mesh_to_world,
-                        &mesh.positions,
-                        Some(&mesh.normals),
-                        Some(&mesh.indices),
-                        ray_cast::Backfaces::Include,
-                    ));
-                });
-            },
-        );
+        for vertices_per_side in Benchmarks::VERTICES_PER_SIDE {
+            group.bench_with_input(
+                BenchmarkId::from_parameter(format!("{}_vertices", vertices_per_side.pow(2))),
+                &vertices_per_side,
+                |b, &vertices_per_side| {
+                    let ray = black_box(benchmark.ray());
+                    let mesh_to_world = black_box(benchmark.mesh_to_world());
+                    let mesh = black_box(mesh_creation(vertices_per_side));
+                    let backface_culling = black_box(benchmark.backface_culling());
+
+                    b.iter(|| {
+                        ray_cast::ray_mesh_intersection(
+                            ray,
+                            &mesh_to_world,
+                            &mesh.positions,
+                            Some(&mesh.normals),
+                            Some(&mesh.indices),
+                            backface_culling,
+                        )
+                    });
+                },
+            );
+        }
     }
 }
-
-fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("no_intersection"));
-    group.warm_up_time(std::time::Duration::from_millis(500));
-
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{}_vertices", (vertices_per_side).pow(2))),
-            &vertices_per_side,
-            |b, &vertices_per_side| {
-                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
-                let mesh_to_world = Mat4::IDENTITY;
-                let mesh = mesh_creation(vertices_per_side);
-
-                b.iter(|| {
-                    black_box(ray_cast::ray_mesh_intersection(
-                        ray,
-                        &mesh_to_world,
-                        &mesh.positions,
-                        Some(&mesh.normals),
-                        Some(&mesh.indices),
-                        ray_cast::Backfaces::Cull,
-                    ));
-                });
-            },
-        );
-    }
-}
-
-criterion_group!(
-    benches,
-    ray_mesh_intersection,
-    ray_mesh_intersection_no_cull,
-    ray_mesh_intersection_no_intersection
-);
