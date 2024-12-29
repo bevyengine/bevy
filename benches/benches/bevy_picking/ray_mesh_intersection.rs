@@ -3,7 +3,7 @@ use core::hint::black_box;
 use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast;
-use criterion::{criterion_group, Criterion};
+use criterion::{criterion_group, BenchmarkId, Criterion};
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
     let ij = (p / (size), p % (size));
@@ -43,74 +43,86 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
 }
 
 fn ray_mesh_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("ray_mesh_intersection"));
+    let mut group = c.benchmark_group(bench!("normal"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}_vertices", vertices_per_side.pow(2))),
+            &vertices_per_side,
+            |b, &vertices_per_side| {
+                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+                let mesh_to_world = Mat4::IDENTITY;
+                let mesh = mesh_creation(vertices_per_side);
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    Some(&mesh.indices),
-                    ray_cast::Backfaces::Cull,
-                ));
-            });
-        });
+                b.iter(|| {
+                    black_box(ray_cast::ray_mesh_intersection(
+                        ray,
+                        &mesh_to_world,
+                        &mesh.positions,
+                        Some(&mesh.normals),
+                        Some(&mesh.indices),
+                        ray_cast::Backfaces::Cull,
+                    ));
+                });
+            },
+        );
     }
 }
 
 fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("ray_mesh_intersection_no_cull"));
+    let mut group = c.benchmark_group(bench!("no_cull"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}_vertices", vertices_per_side.pow(2))),
+            &vertices_per_side,
+            |b, &vertices_per_side| {
+                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+                let mesh_to_world = Mat4::IDENTITY;
+                let mesh = mesh_creation(vertices_per_side);
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    Some(&mesh.indices),
-                    ray_cast::Backfaces::Include,
-                ));
-            });
-        });
+                b.iter(|| {
+                    black_box(ray_cast::ray_mesh_intersection(
+                        ray,
+                        &mesh_to_world,
+                        &mesh.positions,
+                        Some(&mesh.normals),
+                        Some(&mesh.indices),
+                        ray_cast::Backfaces::Include,
+                    ));
+                });
+            },
+        );
     }
 }
 
 fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("ray_mesh_intersection_no_intersection"));
+    let mut group = c.benchmark_group(bench!("no_intersection"));
     group.warm_up_time(std::time::Duration::from_millis(500));
 
     for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", (vertices_per_side).pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}_vertices", (vertices_per_side).pow(2))),
+            &vertices_per_side,
+            |b, &vertices_per_side| {
+                let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
+                let mesh_to_world = Mat4::IDENTITY;
+                let mesh = mesh_creation(vertices_per_side);
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    Some(&mesh.indices),
-                    ray_cast::Backfaces::Cull,
-                ));
-            });
-        });
+                b.iter(|| {
+                    black_box(ray_cast::ray_mesh_intersection(
+                        ray,
+                        &mesh_to_world,
+                        &mesh.positions,
+                        Some(&mesh.normals),
+                        Some(&mesh.indices),
+                        ray_cast::Backfaces::Cull,
+                    ));
+                });
+            },
+        );
     }
 }
 
