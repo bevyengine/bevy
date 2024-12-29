@@ -73,8 +73,8 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
             let _span = tracing::info_span!(
                 "command",
                 name = "DespawnRecursive",
-                entity = field::debug(entity),
-                warn = field::debug(warn)
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
             )
             .entered();
             despawn_with_children_recursive(world, entity, warn);
@@ -88,8 +88,8 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
             let _span = tracing::info_span!(
                 "command",
                 name = "DespawnChildrenRecursive",
-                entity = field::debug(entity),
-                warn = field::debug(warn)
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
             )
             .entered();
             despawn_children_recursive(world, entity, warn);
@@ -106,8 +106,8 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
             let _span = tracing::info_span!(
                 "command",
                 name = "TryDespawnRecursive",
-                entity = field::debug(entity),
-                warn = field::debug(warn)
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
             )
             .entered();
             despawn_with_children_recursive(world, entity, warn);
@@ -121,8 +121,8 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
             let _span = tracing::info_span!(
                 "command",
                 name = "TryDespawnChildrenRecursive",
-                entity = field::debug(entity),
-                warn = field::debug(warn)
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
             )
             .entered();
             despawn_children_recursive(world, entity, warn);
@@ -135,10 +135,10 @@ fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = info_span!(
+    let _span = tracing::info_span!(
         "despawn_recursive",
-        entity = field::debug(entity),
-        warn = field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
@@ -152,10 +152,10 @@ fn despawn_descendants_inner<'v, 'w>(
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = info_span!(
+    let _span = tracing::info_span!(
         "despawn_descendants",
-        entity = field::debug(entity),
-        warn = field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
