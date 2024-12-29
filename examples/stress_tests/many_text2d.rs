@@ -59,25 +59,29 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    App::new()
-        .add_plugins((
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    ..default()
-                }),
+    let mut app = App::new();
+
+    app.add_plugins((
+        FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin::default(),
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
-        ))
-        .insert_resource(args)
-        .init_resource::<FontHandle>()
-        .add_systems(Startup, setup)
-        .add_systems(Update, (move_camera, print_counts, recompute))
-        .run();
+            ..default()
+        }),
+    ))
+    .init_resource::<FontHandle>()
+    .add_systems(Startup, setup)
+    .add_systems(Update, (move_camera, print_counts));
+
+    if args.recompute {
+        app.add_systems(Update, recompute);
+    }
+
+    app.insert_resource(args).run();
 }
 
 #[derive(Deref, DerefMut)]
@@ -201,11 +205,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .collect::<String>()
 }
 
-fn recompute(mut query: Query<&mut Text2d>, args: Res<Args>) {
-    if !args.recompute {
-        return;
-    }
-
+fn recompute(mut query: Query<&mut Text2d>) {
     for mut text2d in &mut query {
         text2d.set_changed();
     }
