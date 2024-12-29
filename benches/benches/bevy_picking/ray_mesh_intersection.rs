@@ -8,28 +8,32 @@ use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfigur
 
 criterion_group!(benches, bench);
 
-fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
-    let ij = (p / (size), p % (size));
-    (ij.0 as f32 / size as f32, ij.1 as f32 / size as f32)
-}
-
 struct SimpleMesh {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     indices: Vec<u32>,
 }
 
-fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
+fn p_to_xz_norm(p: u32, size: u32) -> (f32, f32) {
+    let i = (p / size) as f32;
+    let j = (p % size) as f32;
+
+    let size = size as f32;
+
+    (i / size, j / size)
+}
+
+fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
     let mut positions = Vec::new();
     let mut normals = Vec::new();
-    for p in 0..vertices_per_side.pow(2) {
-        let xz = ptoxznorm(p, vertices_per_side);
-        positions.push([xz.0 - 0.5, 0.0, xz.1 - 0.5]);
-        normals.push([0.0, 1.0, 0.0]);
-    }
+    let mut indices = Vec::new();
 
-    let mut indices = vec![];
     for p in 0..vertices_per_side.pow(2) {
+        let (x, z) = p_to_xz_norm(p, vertices_per_side);
+
+        positions.push([x - 0.5, 0.0, z - 0.5]);
+        normals.push([0.0, 1.0, 0.0]);
+
         if p % (vertices_per_side) != vertices_per_side - 1
             && p / (vertices_per_side) != vertices_per_side - 1
         {
@@ -110,7 +114,7 @@ fn bench(c: &mut Criterion) {
                 |b, &vertices_per_side| {
                     let ray = black_box(benchmark.ray());
                     let mesh_to_world = black_box(benchmark.mesh_to_world());
-                    let mesh = black_box(mesh_creation(vertices_per_side));
+                    let mesh = black_box(create_mesh(vertices_per_side));
                     let backface_culling = black_box(benchmark.backface_culling());
 
                     b.iter(|| {
