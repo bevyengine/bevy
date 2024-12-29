@@ -150,7 +150,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         }))
 ///     .run();
 /// ```
-/// The filter (in this case an EnvFilter) chooses whether to print the log, the most specific filters apply
+/// The filter (in this case an `EnvFilter`) chooses whether to print the log, the most specific filters apply
 /// lets start with an example `filter: "warn".to_string()` will only print logs with level `warn` level or greater
 /// From here we can change to `filter: "warn,my_crate=trace".to_string()` logs will only print at warn unless it's in `mycrate`
 /// which will print at `trace` level `my_crate=trace` as that clause is more specific
