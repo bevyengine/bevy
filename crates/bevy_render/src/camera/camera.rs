@@ -1220,10 +1220,7 @@ pub fn sort_cameras(
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
     sorted_cameras
         .0
-        .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
-            ord => ord,
-        });
+        .sort_by(|c1, c2| (c1.order, &c1.target).cmp(&(c2.order, &c2.target)));
     let mut previous_order_target = None;
     let mut ambiguities = <HashSet<_>>::default();
     let mut target_counts = <HashMap<_, _>>::default();
