@@ -3435,7 +3435,6 @@ pub enum TryFromFilteredError {
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
-#[derive(Clone)]
 pub struct EntityRefExcept<'w, B>
 where
     B: Bundle,
@@ -3521,6 +3520,14 @@ where
     }
 }
 
+impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+
 impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
@@ -3567,7 +3574,6 @@ unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
-#[derive(Clone)]
 pub struct EntityMutExcept<'w, B>
 where
     B: Bundle,
