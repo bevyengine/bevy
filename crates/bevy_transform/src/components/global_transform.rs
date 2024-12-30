@@ -1,7 +1,7 @@
 use core::ops::Mul;
 
 use super::Transform;
-use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A, ops};
+use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 use derive_more::derive::From;
 
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
