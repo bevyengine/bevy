@@ -104,8 +104,7 @@ where
     /// the same pipeline. The first bin, corresponding to the cubes, will have
     /// two entities in it. The second bin, corresponding to the sphere, will
     /// have one entity in it.
-    pub multidrawable_mesh_values:
-        HashMap<BPI::BatchSetKey, HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>>,
+    pub multidrawable_mesh_values: HashMap<BPI::BatchSetKey, HashMap<BPI::BinKey, RenderBin>>,
 
     /// A list of `BinKey`s for batchable items that aren't multidrawable.
     ///
@@ -122,7 +121,7 @@ where
     ///
     /// For multidrawable entities, use `multidrawable_mesh_values`; for
     /// unbatchable entities, use `unbatchable_values`.
-    pub batchable_mesh_values: HashMap<(BPI::BatchSetKey, BPI::BinKey), Vec<(Entity, MainEntity)>>,
+    pub batchable_mesh_values: HashMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -156,6 +155,14 @@ where
     /// Multidrawable entities come first, then batchable entities, then
     /// unbatchable entities.
     pub(crate) batch_sets: BinnedRenderPhaseBatchSets<BPI::BinKey>,
+}
+
+/// All entities that share a mesh and a material and can be batched as part of
+/// a [`BinnedRenderPhase`].
+#[derive(Default)]
+pub struct RenderBin {
+    /// A list of the entities in each bin.
+    pub entities: Vec<(Entity, MainEntity)>,
 }
 
 /// How we store and render the batch sets.
@@ -342,19 +349,29 @@ where
         &mut self,
         batch_set_key: BPI::BatchSetKey,
         bin_key: BPI::BinKey,
-        entity: (Entity, MainEntity),
+        (entity, main_entity): (Entity, MainEntity),
         phase_type: BinnedRenderPhaseType,
     ) {
         match phase_type {
             BinnedRenderPhaseType::MultidrawableMesh => {
                 match self.multidrawable_mesh_values.entry(batch_set_key.clone()) {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().entry(bin_key).or_default().push(entity);
+                        entry
+                            .get_mut()
+                            .entry(bin_key)
+                            .or_default()
+                            .entities
+                            .push((entity, main_entity));
                     }
                     Entry::Vacant(entry) => {
                         self.multidrawable_mesh_keys.push(batch_set_key);
                         let mut new_batch_set = HashMap::default();
-                        new_batch_set.insert(bin_key, vec![entity]);
+                        new_batch_set.insert(
+                            bin_key,
+                            RenderBin {
+                                entities: vec![(entity, main_entity)],
+                            },
+                        );
                         entry.insert(new_batch_set);
                     }
                 }
@@ -365,10 +382,14 @@ where
                     .batchable_mesh_values
                     .entry((batch_set_key.clone(), bin_key.clone()).clone())
                 {
-                    Entry::Occupied(mut entry) => entry.get_mut().push(entity),
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().entities.push((entity, main_entity))
+                    }
                     Entry::Vacant(entry) => {
                         self.batchable_mesh_keys.push((batch_set_key, bin_key));
-                        entry.insert(vec![entity]);
+                        entry.insert(RenderBin {
+                            entities: vec![(entity, main_entity)],
+                        });
                     }
                 }
             }
@@ -376,13 +397,15 @@ where
             BinnedRenderPhaseType::UnbatchableMesh => {
                 match self
                     .unbatchable_mesh_values
-                    .entry((batch_set_key.clone(), bin_key.clone()).clone())
+                    .entry((batch_set_key.clone(), bin_key.clone()))
                 {
-                    Entry::Occupied(mut entry) => entry.get_mut().entities.push(entity),
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().entities.push((entity, main_entity));
+                    }
                     Entry::Vacant(entry) => {
                         self.unbatchable_mesh_keys.push((batch_set_key, bin_key));
                         entry.insert(UnbatchableBinnedEntities {
-                            entities: vec![entity],
+                            entities: vec![(entity, main_entity)],
                             buffer_indices: default(),
                         });
                     }
@@ -391,7 +414,8 @@ where
 
             BinnedRenderPhaseType::NonMesh => {
                 // We don't process these items further.
-                self.non_mesh_items.push((batch_set_key, bin_key, entity));
+                self.non_mesh_items
+                    .push((batch_set_key, bin_key, (entity, main_entity)));
             }
         }
     }
