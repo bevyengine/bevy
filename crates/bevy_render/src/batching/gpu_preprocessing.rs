@@ -24,7 +24,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, NoIndirectDrawing, ViewTarget},
+    view::{ExtractedView, NoIndirectDrawing},
     Render, RenderApp, RenderSet,
 };
 
