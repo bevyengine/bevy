@@ -701,6 +701,16 @@ pub fn prepare_sprite_image_bind_groups(
                             )),
                         )
                     });
+
+                batch_item_index = item_index;
+
+                batches.push((
+                    item_entity.0,
+                    SpriteBatch {
+                        image_handle_id: batch_image_handle,
+                        range: index..index,
+                    },
+                ));
             }
 
             if extracted_sprite.group_indices.is_empty() {
@@ -753,32 +763,9 @@ pub fn prepare_sprite_image_bind_groups(
                         &uv_offset_scale,
                     ));
 
-                if batch_image_changed {
-                    batch_item_index = item_index;
-
-                    batches.push((
-                        item_entity.0,
-                        SpriteBatch {
-                            image_handle_id: batch_image_handle,
-                            range: index..index,
-                        },
-                    ));
-                }
-
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             } else {
-                if batch_image_changed {
-                    batch_item_index = item_index;
-
-                    batches.push((
-                        item_entity.0,
-                        SpriteBatch {
-                            image_handle_id: batch_image_handle,
-                            range: index..index,
-                        },
-                    ));
-                }
                 for i in extracted_sprite.group_indices.clone() {
                     let sprite = &extracted_sprites.grouped_sprites[i];
                     let rect = sprite.rect;
