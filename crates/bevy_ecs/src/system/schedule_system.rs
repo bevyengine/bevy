@@ -11,6 +11,7 @@ use crate::{
 
 use super::IntoSystem;
 
+// This is breaking some things because the system type set is now wrong.
 /// Wrapper for a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
 pub struct OkWrapperSystem<S: System<In = (), Out = ()>>(S);
 
