@@ -231,7 +231,7 @@ pub fn update_interactions(
         if let Some(pointers_hovered_entities) = hover_map.get(pointer) {
             // Insert a sorted list of hit entities into the pointer's interaction component.
             let mut sorted_entities: Vec<_> = pointers_hovered_entities.clone().drain().collect();
-            sorted_entities.sort_by_key(|(_entity, hit)| FloatOrd(hit.depth));
+            sorted_entities.sort_by_key(|(_, hit)| FloatOrd(hit.depth));
             pointer_interaction.sorted_entities = sorted_entities;
 
             for hovered_entity in pointers_hovered_entities.iter().map(|(entity, _)| entity) {
