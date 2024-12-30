@@ -8,19 +8,25 @@ use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfigur
 
 criterion_group!(benches, bench);
 
+/// A mesh that can be passed to [`ray_cast::ray_mesh_intersection()`].
 struct SimpleMesh {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     indices: Vec<u32>,
 }
 
-fn p_to_xz_norm(p: u32, size: u32) -> (f32, f32) {
-    let i = (p / size) as f32;
-    let j = (p % size) as f32;
+/// Selects a point within a normal square.
+///
+/// `p` is an index within `0..vertices_per_side.pow(2)`. The returned value is a coordinate where
+/// both `x` and `z` are within `0..1`.
+fn p_to_xz_norm(p: u32, vertices_per_side: u32) -> (f32, f32) {
+    let x = (p / vertices_per_side) as f32;
+    let z = (p % vertices_per_side) as f32;
 
-    let size = size as f32;
+    let vertices_per_side = vertices_per_side as f32;
 
-    (i / size, j / size)
+    // Scale `x` and `z` to be between 0 and 1.
+    (x / vertices_per_side, z / vertices_per_side)
 }
 
 fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
@@ -31,11 +37,17 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
     for p in 0..vertices_per_side.pow(2) {
         let (x, z) = p_to_xz_norm(p, vertices_per_side);
 
+        // Push a new vertice to the mesh. We translate all vertices so the final square is
+        // centered at (0, 0), instead of (0.5, 0.5).
         positions.push([x - 0.5, 0.0, z - 0.5]);
+
+        // All vertices have the same normal.
         normals.push([0.0, 1.0, 0.0]);
 
-        if p % (vertices_per_side) != vertices_per_side - 1
-            && p / (vertices_per_side) != vertices_per_side - 1
+        // Extend the indices for for all vertices except for the final row and column, since
+        // indices are "between" points.
+        if p % vertices_per_side != vertices_per_side - 1
+            && p / vertices_per_side != vertices_per_side - 1
         {
             indices.extend_from_slice(&[p, p + 1, p + vertices_per_side]);
             indices.extend_from_slice(&[p + vertices_per_side, p + 1, p + vertices_per_side + 1]);
@@ -98,6 +110,11 @@ impl Benchmarks {
     }
 }
 
+/// A benchmark that times [`ray_cast::ray_mesh_intersection()`].
+///
+/// There are multiple different scenarios that are tracked, which are described by the
+/// [`Benchmarks`] enum. Each scenario has its own benchmark group, where individual benchmarks
+/// track a ray intersecting a square mesh of an increasing amount of vertices.
 fn bench(c: &mut Criterion) {
     for benchmark in Benchmarks::iter() {
         let mut group = c.benchmark_group(benchmark.name());
