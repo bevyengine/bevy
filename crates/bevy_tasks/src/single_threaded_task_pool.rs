@@ -198,7 +198,7 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(all(target_arch = "wasm32", feature = "std"))]
+        #[cfg(target_arch = "wasm32")]
         return Task::wrap_future(future);
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
@@ -210,7 +210,7 @@ impl TaskPool {
             Task::new(task)
         });
 
-        #[cfg(not(feature = "std"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
         return {
             let task = LOCAL_EXECUTOR.spawn(future);
             // Loop until all tasks are done
