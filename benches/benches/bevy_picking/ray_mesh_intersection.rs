@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use benches::bench;
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
-use bevy_picking::mesh_picking::ray_cast;
+use bevy_picking::mesh_picking::ray_cast::{self, Backfaces};
 use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfiguration};
 
 criterion_group!(benches, bench);
@@ -102,10 +102,10 @@ impl Benchmarks {
         Mat4::IDENTITY
     }
 
-    fn backface_culling(&self) -> ray_cast::Backfaces {
+    fn backface_culling(&self) -> Backfaces {
         match *self {
-            Self::CullIntersect | Self::CullNoIntersect => ray_cast::Backfaces::Cull,
-            Self::NoCullIntersect => ray_cast::Backfaces::Include,
+            Self::CullIntersect | Self::CullNoIntersect => Backfaces::Cull,
+            Self::NoCullIntersect => Backfaces::Include,
         }
     }
 }
