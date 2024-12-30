@@ -26,7 +26,9 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
+use bevy_sprite::{
+    Anchor, ExtractedGroupSprite, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout,
+};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -156,6 +158,9 @@ pub fn extract_text2d_sprite(
     >,
     text_styles: Extract<Query<(&TextFont, &TextColor)>>,
 ) {
+    let mut start = 0;
+    let mut end = 1;
+
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -183,12 +188,16 @@ pub fn extract_text2d_sprite(
             * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            span_index,
-            ..
-        } in &text_layout_info.glyphs
+
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *span_index != current_span {
                 color = text_styles
@@ -203,25 +212,48 @@ pub fn extract_text2d_sprite(
                     .unwrap_or_default();
                 current_span = *span_index;
             }
-            let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_sprites
+                .grouped_sprites
+                .push(ExtractedGroupSprite {
+                    position: *position,
+                    rect,
+                });
 
-            extracted_sprites.sprites.insert(
-                (
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    original_entity.into(),
-                ),
-                ExtractedSprite {
-                    transform: transform * GlobalTransform::from_translation(position.extend(0.)),
-                    color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
-                    custom_size: None,
-                    image_handle_id: atlas_info.texture.id(),
-                    flip_x: false,
-                    flip_y: false,
-                    anchor: Anchor::Center.as_vec(),
-                    original_entity: Some(original_entity),
-                },
-            );
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .map(|info| {
+                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+                })
+                .unwrap_or(true)
+            {
+                extracted_sprites.sprites.insert(
+                    (
+                        commands.spawn(TemporaryRenderEntity).id(),
+                        original_entity.into(),
+                    ),
+                    ExtractedSprite {
+                        transform,
+                        color,
+                        rect: None,
+                        custom_size: None,
+                        image_handle_id: atlas_info.texture.id(),
+                        flip_x: false,
+                        flip_y: false,
+                        anchor: Anchor::Center.as_vec(),
+                        original_entity: Some(original_entity),
+                        group_indices: start..end,
+                    },
+                );
+                start = end;
+            }
+
+            end += 1;
         }
     }
 }
