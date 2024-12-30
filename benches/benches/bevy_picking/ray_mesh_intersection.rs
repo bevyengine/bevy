@@ -64,8 +64,13 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
 /// An enum that represents the configuration for all variations of the ray mesh intersection
 /// benchmarks.
 enum Benchmarks {
+    /// The ray intersects the mesh, and culling is enabled.
     CullIntersect,
+
+    /// The ray intersects the mesh, and culling is disabled.
     NoCullIntersect,
+
+    /// The ray does not intersect the mesh, and culling is enabled.
     CullNoIntersect,
 }
 
@@ -75,7 +80,12 @@ impl Benchmarks {
 
     /// Returns an iterator over every variant in this enum.
     fn iter() -> impl Iterator<Item = Self> {
-        [Self::CullIntersect, Self::NoCullIntersect, Self::CullNoIntersect].into_iter()
+        [
+            Self::CullIntersect,
+            Self::NoCullIntersect,
+            Self::CullNoIntersect,
+        ]
+        .into_iter()
     }
 
     /// Returns the benchmark group name.
