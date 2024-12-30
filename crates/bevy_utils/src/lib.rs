@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![expect(
     unsafe_code,
-    reason = "Some utilities, such as futures and cells, require unsafe code."
+    reason = "Some utilities, such as cells, require unsafe code."
 )]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -23,7 +23,6 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod futures;
 pub mod synccell;
 pub mod syncunsafecell;
 
@@ -34,6 +33,9 @@ mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;
 mod time;
+
+#[doc(hidden)]
+pub use once::OnceFlag;
 
 /// For when you want a deterministic hasher.
 ///
@@ -65,9 +67,6 @@ pub use time::*;
 pub use tracing;
 
 #[cfg(feature = "alloc")]
-use alloc::boxed::Box;
-
-#[cfg(feature = "alloc")]
 use core::any::TypeId;
 use core::{
     fmt::Debug,
@@ -76,32 +75,6 @@ use core::{
     mem::ManuallyDrop,
     ops::Deref,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-    /// futures aren't Send.
-    pub trait ConditionalSend: Send {}
-    impl<T: Send> ConditionalSend for T {}
-}
-
-#[cfg(target_arch = "wasm32")]
-#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
-mod conditional_send {
-    pub trait ConditionalSend {}
-    impl<T> ConditionalSend for T {}
-}
-
-pub use conditional_send::*;
-
-/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
-/// futures aren't Send.
-pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
-impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
-
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-#[cfg(feature = "alloc")]
-pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 #[cfg(feature = "alloc")]
@@ -397,34 +370,6 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
-    }
-}
-
-/// Calls the [`tracing::info!`] macro on a value.
-#[cfg(feature = "tracing")]
-pub fn info<T: Debug>(data: T) {
-    tracing::info!("{:?}", data);
-}
-
-/// Calls the [`tracing::debug!`] macro on a value.
-#[cfg(feature = "tracing")]
-pub fn dbg<T: Debug>(data: T) {
-    tracing::debug!("{:?}", data);
-}
-
-/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
-#[cfg(feature = "tracing")]
-pub fn warn<E: Debug>(result: Result<(), E>) {
-    if let Err(warn) = result {
-        tracing::warn!("{:?}", warn);
-    }
-}
-
-/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
-#[cfg(feature = "tracing")]
-pub fn error<E: Debug>(result: Result<(), E>) {
-    if let Err(error) = result {
-        tracing::error!("{:?}", error);
     }
 }
 

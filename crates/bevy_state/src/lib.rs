@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //!
 //! This module provides 3 distinct types of state, all of which implement the [`States`](state::States) trait:
@@ -35,6 +37,8 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+
+extern crate alloc;
 
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods

@@ -4,7 +4,7 @@ use accesskit::{Node as Accessible, Role};
 use bevy::{
     a11y::AccessibilityNode,
     input::mouse::{MouseScrollUnit, MouseWheel},
-    picking::focus::HoverMap,
+    picking::hover::HoverMap,
     prelude::*,
     winit::WinitSettings,
 };

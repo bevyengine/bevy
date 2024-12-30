@@ -128,7 +128,7 @@ fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     environment_map: Single<&EnvironmentMapLight>,
-    label_entity: Single<Entity, With<EnvironmentMapLabel>>,
+    label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
 ) {
     if asset_server
         .load_state(&environment_map.diffuse_map)
@@ -137,7 +137,10 @@ fn environment_map_load_finish(
             .load_state(&environment_map.specular_map)
             .is_loaded()
     {
-        commands.entity(*label_entity).despawn();
+        // Do not attempt to remove `label_entity` if it has already been removed.
+        if let Some(label_entity) = label_entity {
+            commands.entity(*label_entity).despawn();
+        }
     }
 }
 

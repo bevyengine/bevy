@@ -233,7 +233,10 @@ bevy_ui = [
 bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
-bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_winit = ["bevy_internal/bevy_winit", "bevy_window"]
+
+# Load and access image data. Usually added by an image format
+bevy_image = ["bevy_internal/bevy_image"]
 
 # Adds support for rendering gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
@@ -2827,6 +2830,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_text2d"
+path = "examples/stress_tests/many_text2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_text2d]
+name = "Many Text2d"
+description = "Displays many Text2d! Used for performance testing."
 category = "Stress Tests"
 wasm = true
 
