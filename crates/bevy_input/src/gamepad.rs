@@ -1820,7 +1820,7 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter_with_old_raw_value() {
         let cases = [
-            // 0.43 gets rescaled to 0.42222223 0.05..=0.95 -> 0.0..=1.0
+            // 0.43 gets rescaled to 0.42222223 (0.05..=0.95 -> 0.0..=1.0)
             (0.43, Some(0.44001), Some(0.42222223)),
             (0.43, Some(0.44), None),
             (0.43, Some(0.43), None),
@@ -1852,6 +1852,7 @@ mod tests {
 
     #[test]
     fn test_axis_settings_default_filter() {
+        // new (raw), expected (rescaled linearly)
         let cases = [
             // high enough to round to 1.0
             (1.0, Some(1.0)),
@@ -1896,6 +1897,8 @@ mod tests {
     #[test]
     fn test_axis_settings_default_filter_with_old_raw_values() {
         let threshold = 0.01;
+        // expected values are hardcoded to be rescaled to from 0.05..=0.95 to 0.0..=1.0
+        // new (raw), old (raw), expected
         let cases = [
             // enough increase to change
             (0.43, Some(0.43 + threshold * 1.1), Some(0.42222223)),
