@@ -2168,6 +2168,36 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    ///
+    pub fn silent_on_error(&mut self) -> &mut Self {
+        self.entity_commands.silent_on_error();
+        self
+    }
+
+    ///
+    pub fn warn_on_error(&mut self) -> &mut Self {
+        self.entity_commands.warn_on_error();
+        self
+    }
+
+    ///
+    pub fn panic_on_error(&mut self) -> &mut Self {
+        self.entity_commands.panic_on_error();
+        self
+    }
+
+    ///
+    pub fn set_error_mode(&mut self, error_mode: CommandErrorMode) -> &mut Self {
+        self.entity_commands.set_error_mode(error_mode);
+        self
+    }
+
+    ///
+    pub fn reset_error_mode(&mut self) -> &mut Self {
+        self.entity_commands.reset_error_mode();
+        self
+    }
+
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
