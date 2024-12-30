@@ -125,7 +125,7 @@ impl Animatable for bool {
     #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         inputs
-            .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
+            .max_by_key(|x| FloatOrd(x.weight))
             .map(|input| input.value)
             .unwrap_or(false)
     }
