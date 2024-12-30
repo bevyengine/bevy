@@ -204,9 +204,9 @@ mod tests {
         },
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
-        world::{Command, World},
+        world::World,
     };
-    use bevy_hierarchy::{AddChild, Parent};
+    use bevy_hierarchy::{BuildChildren, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
@@ -271,11 +271,9 @@ mod tests {
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        AddChild {
-            parent: original_parent_entity,
-            child: original_child_entity,
-        }
-        .apply(&mut world);
+        world
+            .entity_mut(original_parent_entity)
+            .add_child(original_child_entity);
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
@@ -292,11 +290,9 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        AddChild {
-            parent: original_child_entity,
-            child: from_scene_parent_entity,
-        }
-        .apply(&mut world);
+        world
+            .entity_mut(original_child_entity)
+            .add_child(from_scene_parent_entity);
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.
