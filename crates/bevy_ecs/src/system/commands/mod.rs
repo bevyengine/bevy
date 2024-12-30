@@ -17,8 +17,9 @@ use crate::{
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command,
-        CommandErrorMode, CommandQueue, EntityWorldMut, FromWorld, SpawnBatchIter, World,
+        command_queue::RawCommandQueue, error::EntityFetchError,
+        unsafe_world_cell::UnsafeWorldCell, Command, CommandErrorMode, CommandQueue,
+        EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -453,23 +454,23 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
-            panic!(
-                "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details_message(entity)
-            );
+        if !self.entities.contains(entity) {
+            let error_mode = self.error_mode.unwrap_or(CommandErrorMode::Panic);
+            match error_mode {
+                CommandErrorMode::Silent => (),
+                CommandErrorMode::Warn => warn!(
+                    "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
+                ),
+                CommandErrorMode::Panic => panic!(
+                    "Attempted to create an EntityCommands for entity {entity}, which {}",
+                    self.entities.entity_does_not_exist_error_details_message(entity)
+                ),
+            }
         }
 
-        if self.get_entity(entity).is_some() {
-            EntityCommands {
-                entity,
-                commands: self.reborrow(),
-            }
-        } else {
-            panic_no_entity(self.entities, entity)
+        EntityCommands {
+            entity,
+            commands: self.reborrow(),
         }
     }
 
@@ -2270,7 +2271,7 @@ where
     }
 
     fn with_error_handling(self, _: CommandErrorMode) -> impl FnOnce(&mut World) + Send + 'static {
-        warn!("Calling `with_error_handling` doesn't do anything if the closure doesn't return a `Result`");
+        warn!("Calling `with_error_handling` on a closure command doesn't do anything if the closure doesn't return a `Result`");
         self
     }
 }
@@ -2289,8 +2290,12 @@ where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(id, world);
-        Ok(())
+        if world.entities().contains(id) {
+            self(id, world);
+            Ok(())
+        } else {
+            Err(EntityFetchError::NoSuchEntity(id))?
+        }
     }
 }
 
@@ -2299,7 +2304,11 @@ where
     F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result {
-        self(id, world)
+        if world.entities().contains(id) {
+            self(id, world)
+        } else {
+            Err(EntityFetchError::NoSuchEntity(id))?
+        }
     }
 }
 
@@ -2308,13 +2317,9 @@ where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result {
-        match world.get_entity_mut(id) {
-            Ok(entity) => {
-                self(entity);
-                Ok(())
-            }
-            Err(error) => Err(Box::new(error)),
-        }
+        let entity = world.get_entity_mut(id)?;
+        self(entity);
+        Ok(())
     }
 }
 
@@ -2323,10 +2328,8 @@ where
     F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result {
-        match world.get_entity_mut(id) {
-            Ok(entity) => self(entity),
-            Err(error) => Err(Box::new(error)),
-        }
+        let entity = world.get_entity_mut(id)?;
+        self(entity)
     }
 }
 
