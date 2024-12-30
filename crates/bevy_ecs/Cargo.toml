@@ -8,7 +8,7 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.81.0"
+rust-version = "1.83.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor"]
@@ -84,7 +84,7 @@ critical-section = [
 ]
 
 ## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
+## operations, even on targets without native support.
 portable-atomic = [
   "dep:portable-atomic",
   "dep:portable-atomic-util",
