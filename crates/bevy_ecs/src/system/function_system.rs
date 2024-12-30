@@ -664,6 +664,8 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Modifying the system param states may have unintended consequences.
     /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
+    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
     }
