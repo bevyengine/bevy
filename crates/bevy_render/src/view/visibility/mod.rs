@@ -757,6 +757,45 @@ mod test {
         );
     }
 
+
+
+    #[test]
+    fn test_visibility_propagation_on_parent_change() {
+        // Setup the world and schedule
+        let mut app = App::new();
+         
+        app.add_systems(Update,visibility_propagate_system);
+
+        // Create entities with visibility and hierarchy
+        let parent1 = app.world_mut().spawn((Visibility::Hidden,)).id();
+        let parent2 = app.world_mut().spawn((Visibility::Visible,)).id();
+        let child1 = app.world_mut().spawn((Visibility::Inherited,)).id();
+        let child2 = app.world_mut().spawn((Visibility::Inherited,)).id();
+
+        // Build hierarchy
+        app.world_mut().entity_mut(parent1).add_children(&[child1, child2]);
+
+        // Run the system initially to set up visibility
+        app.update();
+
+        // Change parent visibility to Hidden
+        app.world_mut().entity_mut(parent2).insert(Visibility::Visible);
+        // Simulate a change in the parent component
+        app.world_mut().entity_mut(child2).set_parent(parent2);  // example of changing parent
+
+        // Run the system again to propagate changes
+        app.update();
+
+        // Retrieve and assert visibility
+        let inherited_visibility1 = app.world_mut().entity(child1).get::<InheritedVisibility>().unwrap(); 
+        assert_eq!(inherited_visibility1.get(), false, "Child1 should inherit visibility from parent");
+
+        let inherited_visibility2 = app.world_mut().entity(child2).get::<InheritedVisibility>().unwrap();
+        assert_eq!(inherited_visibility2.get(), true, "Child2 should inherit visibility from parent");
+    }
+
+
+
     #[test]
     fn visibility_propagation_unconditional_visible() {
         use Visibility::{Hidden, Inherited, Visible};
