@@ -8,7 +8,6 @@
 //! [`async-executor`]: https://crates.io/crates/async-executor
 //! [`edge-executor`]: https://crates.io/crates/edge-executor
 
-pub use async_task::Task;
 use core::{
     fmt,
     panic::{RefUnwindSafe, UnwindSafe},
