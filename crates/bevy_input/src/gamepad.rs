@@ -207,7 +207,7 @@ pub struct GamepadButtonChangedEvent {
     pub button: GamepadButton,
     /// The pressed state of the button.
     pub state: ButtonState,
-    /// The analog value of the button rescaled to be in the 0.0..=1.0 range.
+    /// The analog value of the button (rescaled to be in the 0.0..=1.0 range).
     pub value: f32,
 }
 
@@ -236,7 +236,7 @@ pub struct GamepadAxisChangedEvent {
     pub entity: Entity,
     /// The gamepad axis assigned to the event.
     pub axis: GamepadAxis,
-    /// The value of this axis.
+    /// The value of this axis (rescaled to account for axis settings).
     pub value: f32,
 }
 
