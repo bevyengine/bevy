@@ -1,5 +1,6 @@
 use core::hint::black_box;
 
+use benches::bench;
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
@@ -8,7 +9,7 @@ use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{criterion_group, Bencher, Criterion};
 
-criterion_group!(benches, reflect_benches, clone_benches);
+criterion_group!(benches, with_reflect, with_clone);
 
 #[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component)]
@@ -135,38 +136,46 @@ fn simple<C: Bundle + Default + GetTypeRegistration>(b: &mut Bencher, clone_via_
     });
 }
 
-fn reflect_benches(c: &mut Criterion) {
-    c.bench_function("many components reflect", |b| {
+fn with_reflect(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("with_reflect"));
+
+    group.bench_function("simple", |b| {
         simple::<ComplexBundle>(b, true);
     });
 
-    c.bench_function("hierarchy wide reflect", |b| {
+    group.bench_function("hierarchy_wide", |b| {
         hierarchy::<C1>(b, 10, 4, true);
     });
 
-    c.bench_function("hierarchy tall reflect", |b| {
+    group.bench_function("hierarchy_tall", |b| {
         hierarchy::<C1>(b, 1, 50, true);
     });
 
-    c.bench_function("hierarchy many reflect", |b| {
+    group.bench_function("hierarchy_many", |b| {
         hierarchy::<ComplexBundle>(b, 5, 5, true);
     });
+
+    group.finish();
 }
 
-fn clone_benches(c: &mut Criterion) {
-    c.bench_function("many components clone", |b| {
+fn with_clone(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("with_clone"));
+
+    group.bench_function("simple", |b| {
         simple::<ComplexBundle>(b, false);
     });
 
-    c.bench_function("hierarchy wide clone", |b| {
+    group.bench_function("hierarchy_wide", |b| {
         hierarchy::<C1>(b, 10, 4, false);
     });
 
-    c.bench_function("hierarchy tall clone", |b| {
+    group.bench_function("hierarchy_tall", |b| {
         hierarchy::<C1>(b, 1, 50, false);
     });
 
-    c.bench_function("hierarchy many clone", |b| {
+    group.bench_function("hierarchy_many", |b| {
         hierarchy::<ComplexBundle>(b, 5, 5, false);
     });
+
+    group.finish();
 }
