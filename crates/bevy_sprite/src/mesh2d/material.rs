@@ -278,7 +278,7 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     }
 }
 
-fn extract_mesh_materials_2d<M: Material2d>(
+pub fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
 ) {
