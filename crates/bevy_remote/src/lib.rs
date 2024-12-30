@@ -134,7 +134,7 @@
 //! `params`:
 //! - `data`:
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch, see
-//! _below_ example for a query to list all the type names in **your** project.
+//!   _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!      reported as boolean values.
@@ -143,7 +143,7 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
-//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
 //!   components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
