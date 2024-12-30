@@ -43,6 +43,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Resource},
@@ -96,13 +97,44 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-pub trait Command: Send + 'static {
+pub trait Command<Marker = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
+    fn apply(self, world: &mut World) -> Result;
+
+    /// Returns a new [`Command`] that, when applied, will apply the original command
+    /// and handle any resulting errors according to the provided [`CommandErrorMode`].
+    fn with_error_handling(
+        self,
+        error_mode: CommandErrorMode,
+    ) -> impl FnOnce(&mut World) + Send + 'static
+    where
+        Self: Sized,
+    {
+        move |world: &mut World| {
+            if let Err(error) = self.apply(world) {
+                match error_mode {
+                    CommandErrorMode::Silent => (),
+                    CommandErrorMode::Warn => warn!("Command returned an error: {error}"),
+                    CommandErrorMode::Panic => panic!("Command returned an error: {error}"),
+                }
+            }
+        }
+    }
+}
+
+/// How a [`Command`] should respond upon encountering an [`Error`](crate::result::Error).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum CommandErrorMode {
+    /// Fail silently.
+    Silent,
+    /// Send a warning.
+    Warn,
+    /// Start a panic.
+    Panic,
 }
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,

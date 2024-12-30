@@ -4,8 +4,6 @@ use thiserror::Error;
 
 use crate::{component::ComponentId, entity::Entity, schedule::InternedScheduleLabel};
 
-use super::unsafe_world_cell::UnsafeWorldCell;
-
 /// The error type returned by [`World::try_run_schedule`] if the provided schedule does not exist.
 ///
 /// [`World::try_run_schedule`]: crate::world::World::try_run_schedule
@@ -25,53 +23,41 @@ pub enum EntityComponentError {
 }
 
 /// An error that occurs when fetching entities mutably from a world.
-#[derive(Clone, Copy)]
-pub enum EntityFetchError<'w> {
+#[derive(Clone)]
+pub enum EntityFetchError {
     /// The entity with the given ID does not exist.
-    NoSuchEntity(Entity, UnsafeWorldCell<'w>),
+    NoSuchEntity(Entity, String),
     /// The entity with the given ID was requested mutably more than once.
     AliasedMutability(Entity),
 }
 
-impl<'w> core::error::Error for EntityFetchError<'w> {}
+impl core::error::Error for EntityFetchError {}
 
-impl<'w> core::fmt::Display for EntityFetchError<'w> {
+impl core::fmt::Display for EntityFetchError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match *self {
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "Entity {entity} {}",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
+        match self {
+            Self::NoSuchEntity(entity, details) => {
+                write!(f, "Entity {} {}", *entity, details)
             }
             Self::AliasedMutability(entity) => {
-                write!(f, "Entity {entity} was requested mutably more than once")
+                write!(f, "Entity {} was requested mutably more than once", *entity)
             }
         }
     }
 }
 
-impl<'w> core::fmt::Debug for EntityFetchError<'w> {
+impl core::fmt::Debug for EntityFetchError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match *self {
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "NoSuchEntity({entity} {})",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
+        match self {
+            Self::NoSuchEntity(entity, details) => {
+                write!(f, "NoSuchEntity({} {})", *entity, details)
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }
     }
 }
 
-impl<'w> PartialEq for EntityFetchError<'w> {
+impl PartialEq for EntityFetchError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
@@ -81,4 +67,4 @@ impl<'w> PartialEq for EntityFetchError<'w> {
     }
 }
 
-impl<'w> Eq for EntityFetchError<'w> {}
+impl Eq for EntityFetchError {}
