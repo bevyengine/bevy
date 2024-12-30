@@ -1,5 +1,7 @@
 //! The gamepad input functionality.
 
+use core::ops::RangeInclusive;
+
 use crate::{Axis, ButtonInput, ButtonState};
 use alloc::string::String;
 #[cfg(feature = "bevy_reflect")]
@@ -930,7 +932,8 @@ impl ButtonSettings {
 /// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
 /// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded
 /// to 0.0.
-/// Otherwise, values will not be rounded.
+/// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
+/// For example, a value that is one fourth of the way from `deadzone_upperbound` to `livezone_upperbound` will be scaled to 0.25.
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, PartialEq)]
@@ -1041,7 +1044,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than the dead zone upper bound,
+    /// If the value passed is less than the deadzone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
     /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
@@ -1117,7 +1120,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than the dead zone lower bound,
+    /// If the value passed is less than the deadzone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
     /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
@@ -1227,25 +1230,112 @@ impl AxisSettings {
 
     /// Determines whether the change from `old_value` to `new_value` should
     /// be registered as a change, according to the [`AxisSettings`].
+    #[inline(always)]
     fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        if old_value.is_none() {
-            return true;
+        match old_value {
+            None => true,
+            Some(old_value) => ops::abs(new_value - old_value) > self.threshold,
         }
-
-        ops::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
     /// Filters the `new_value` based on the `old_value`, according to the [`AxisSettings`].
     ///
-    /// Returns the clamped `new_value` if the change exceeds the settings threshold,
+    /// Returns the clamped and scaled `new_value` if the change exceeds the settings threshold,
     /// and `None` otherwise.
-    pub fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = self.clamp(new_value);
-
-        if self.should_register_change(new_value, old_value) {
-            return Some(new_value);
+    #[inline(always)]
+    fn filter(
+        &self,
+        new_raw_value: f32,
+        old_value: Option<f32>,
+    ) -> Option<ScaledAxisWithDeadZonePosition> {
+        let clamped_unscaled = self.clamp(new_raw_value);
+        let scaled = self.get_axis_position_from_value(clamped_unscaled);
+        match self.should_register_change(scaled.to_f32(), old_value) {
+            true => Some(scaled),
+            false => None,
         }
-        None
+    }
+
+    #[inline(always)]
+    fn get_axis_position_from_value(&self, value: f32) -> ScaledAxisWithDeadZonePosition {
+        if value < self.deadzone_upperbound && value > self.deadzone_lowerbound {
+            ScaledAxisWithDeadZonePosition::Dead
+        } else if value > self.livezone_upperbound {
+            ScaledAxisWithDeadZonePosition::AboveHigh
+        } else if value < self.livezone_lowerbound {
+            ScaledAxisWithDeadZonePosition::BelowLow
+        } else if value >= self.deadzone_upperbound {
+            ScaledAxisWithDeadZonePosition::High(linear_remapping(
+                value,
+                self.deadzone_upperbound..=self.livezone_upperbound,
+                0.0..=1.0,
+            ))
+        } else if value <= self.deadzone_lowerbound {
+            ScaledAxisWithDeadZonePosition::Low(linear_remapping(
+                value,
+                self.livezone_lowerbound..=self.deadzone_lowerbound,
+                -1.0..=0.0,
+            ))
+        } else {
+            unreachable!();
+        }
+    }
+}
+
+/// A linear remapping of `value` from `old` to `new`
+#[inline(always)]
+fn linear_remapping(value: f32, old: RangeInclusive<f32>, new: RangeInclusive<f32>) -> f32 {
+    // https://stackoverflow.com/a/929104
+    ((value - old.start()) / (old.end() - old.start())) * (new.end() - new.start()) + new.start()
+}
+
+#[derive(Debug, Clone, Copy)]
+/// Deadzone-aware axis position.
+enum ScaledAxisWithDeadZonePosition {
+    /// The input clipped below the valid range of the axis
+    BelowLow,
+    /// The input is lower than the deadzone
+    Low(f32),
+    /// The input falls within the deadzone, meaning it is counted as 0
+    Dead,
+    /// The input is higher than the deadzone
+    High(f32),
+    /// The input clipped above the valid range of the axis
+    AboveHigh,
+}
+
+impl ScaledAxisWithDeadZonePosition {
+    /// Converts the value into a float in the range [-1, 1]
+    fn to_f32(self) -> f32 {
+        match self {
+            ScaledAxisWithDeadZonePosition::BelowLow => -1.,
+            ScaledAxisWithDeadZonePosition::Low(scaled)
+            | ScaledAxisWithDeadZonePosition::High(scaled) => scaled,
+            ScaledAxisWithDeadZonePosition::Dead => 0.,
+            ScaledAxisWithDeadZonePosition::AboveHigh => 1.,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+/// Low/High-aware axis position.
+enum ScaledAxisPosition {
+    /// The input fell short of the "low" value
+    ClampedLow,
+    /// The input was in the normal range
+    Scaled(f32),
+    /// The input surpassed the "high" value
+    ClampedHigh,
+}
+
+impl ScaledAxisPosition {
+    /// Converts the value into a float in the range [0, 1]
+    fn to_f32(self) -> f32 {
+        match self {
+            ScaledAxisPosition::ClampedLow => 0.,
+            ScaledAxisPosition::Scaled(scaled) => scaled,
+            ScaledAxisPosition::ClampedHigh => 1.,
+        }
     }
 }
 
@@ -1302,25 +1392,43 @@ impl ButtonAxisSettings {
 
     /// Determines whether the change from an `old_value` to a `new_value` should
     /// be registered as a change event, according to the specified settings.
+    #[inline(always)]
     fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        if old_value.is_none() {
-            return true;
+        match old_value {
+            None => true,
+            Some(old_value) => ops::abs(new_value - old_value) > self.threshold,
         }
-
-        ops::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
     /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
     ///
-    /// Returns the clamped `new_value`, according to the [`ButtonAxisSettings`], if the change
+    /// Returns the clamped and scaled `new_value`, according to the [`ButtonAxisSettings`], if the change
     /// exceeds the settings threshold, and `None` otherwise.
-    pub fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = self.clamp(new_value);
-
-        if self.should_register_change(new_value, old_value) {
-            return Some(new_value);
+    #[inline(always)]
+    fn filter(&self, new_raw_value: f32, old_value: Option<f32>) -> Option<(f32, ScaledAxisPosition)> {
+        let clamped_unscaled = self.clamp(new_raw_value);
+        let scaled = self.get_axis_position_from_value(clamped_unscaled);
+        match self.should_register_change(clamped_unscaled, old_value) {
+            true => Some((clamped_unscaled, scaled)),
+            false => None,
         }
-        None
+    }
+
+    /// Clamps and scales the `value` according to the specified settings.
+    ///
+    /// If the `value` is:
+    /// - lower than or equal to `low` it will be rounded to 0.0.
+    /// - higher than or equal to `high` it will be rounded to 1.0.
+    /// - Otherwise, it will be scaled from (low, high) to (0, 1).
+    #[inline(always)]
+    fn get_axis_position_from_value(&self, value: f32) -> ScaledAxisPosition {
+        if value <= self.low {
+            ScaledAxisPosition::ClampedLow
+        } else if value >= self.high {
+            ScaledAxisPosition::ClampedHigh
+        } else {
+            ScaledAxisPosition::Scaled(linear_remapping(value, self.low..=self.high, 0.0..=1.0))
+        }
     }
 }
 
@@ -1441,9 +1549,9 @@ pub fn gamepad_event_processing_system(
                 else {
                     continue;
                 };
-
-                gamepad_axis.analog.set(axis, filtered_value);
-                let send_event = GamepadAxisChangedEvent::new(gamepad, axis, filtered_value);
+                let interpreted_value = filtered_value.to_f32();
+                gamepad_axis.analog.set(axis, interpreted_value);
+                let send_event = GamepadAxisChangedEvent::new(gamepad, axis, interpreted_value);
                 processed_axis_events.send(send_event);
                 processed_events.send(GamepadEvent::from(send_event));
             }
@@ -1463,9 +1571,9 @@ pub fn gamepad_event_processing_system(
                     continue;
                 };
                 let button_settings = settings.get_button_settings(button);
-                gamepad_buttons.analog.set(button, filtered_value);
+                gamepad_buttons.analog.set(button, filtered_value.0);
 
-                if button_settings.is_released(filtered_value) {
+                if button_settings.is_released(filtered_value.0) {
                     // Check if button was previously pressed
                     if gamepad_buttons.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
@@ -1477,7 +1585,7 @@ pub fn gamepad_event_processing_system(
                     // We don't have to check if the button was previously pressed here
                     // because that check is performed within Input<T>::release()
                     gamepad_buttons.digital.release(button);
-                } else if button_settings.is_pressed(filtered_value) {
+                } else if button_settings.is_pressed(filtered_value.0) {
                     // Check if button was previously not pressed
                     if !gamepad_buttons.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
@@ -1494,8 +1602,12 @@ pub fn gamepad_event_processing_system(
                 } else {
                     ButtonState::Released
                 };
-                let send_event =
-                    GamepadButtonChangedEvent::new(gamepad, button, button_state, filtered_value);
+                let send_event = GamepadButtonChangedEvent::new(
+                    gamepad,
+                    button,
+                    button_state,
+                    filtered_value.0,
+                );
                 processed_analog_events.send(send_event);
                 processed_events.send(GamepadEvent::from(send_event));
             }
@@ -1632,7 +1744,7 @@ impl GamepadRumbleRequest {
 #[cfg(test)]
 mod tests {
     use super::{
-        gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
+        gamepad_connection_system, gamepad_event_processing_system, linear_remapping, AxisSettings,
         AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
         GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
@@ -1640,7 +1752,7 @@ mod tests {
         GamepadConnectionEvent, GamepadEvent, GamepadSettings, RawGamepadAxisChangedEvent,
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
-    use crate::ButtonState;
+    use crate::{gamepad::ScaledAxisWithDeadZonePosition, ButtonState};
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
@@ -1652,7 +1764,7 @@ mod tests {
         old_value: Option<f32>,
         expected: Option<f32>,
     ) {
-        let actual = settings.filter(new_value, old_value);
+        let actual = settings.filter(new_value, old_value).map(|f| f.1.to_f32());
         assert_eq!(
             expected, actual,
             "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
@@ -1662,14 +1774,17 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter() {
         let cases = [
+            // clamped
             (1.0, None, Some(1.0)),
             (0.99, None, Some(1.0)),
             (0.96, None, Some(1.0)),
             (0.95, None, Some(1.0)),
-            (0.9499, None, Some(0.9499)),
-            (0.84, None, Some(0.84)),
-            (0.43, None, Some(0.43)),
-            (0.05001, None, Some(0.05001)),
+             // linearly rescaled from 0.05..=0.95 to 0.0..=1.0
+            (0.9499, None, Some(0.9998889)),
+            (0.84, None, Some(0.87777776)),
+            (0.43, None, Some(0.42222223)),
+            (0.05001, None, Some(0.000011109644)),
+            // clamped
             (0.05, None, Some(0.0)),
             (0.04, None, Some(0.0)),
             (0.01, None, Some(0.0)),
@@ -1685,12 +1800,13 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter_with_old_value() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
+            // 0.43 gets rescaled to 0.42222223 0.05..=0.95 -> 0.0..=1.0
+            (0.43, Some(0.44001), Some(0.42222223)),
             (0.43, Some(0.44), None),
             (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.41999), Some(0.42222223)),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
         ];
@@ -1709,7 +1825,7 @@ mod tests {
     ) {
         let actual = settings.filter(new_value, old_value);
         assert_eq!(
-            expected, actual,
+            expected, actual.map(ScaledAxisWithDeadZonePosition::to_f32),
             "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
         );
     }
@@ -1717,26 +1833,35 @@ mod tests {
     #[test]
     fn test_axis_settings_default_filter() {
         let cases = [
+            // high enough to round to 1.0
             (1.0, Some(1.0)),
             (0.99, Some(1.0)),
             (0.96, Some(1.0)),
             (0.95, Some(1.0)),
-            (0.9499, Some(0.9499)),
-            (0.84, Some(0.84)),
-            (0.43, Some(0.43)),
-            (0.05001, Some(0.05001)),
+            // for the following, remember that 0.05 is the "low" value and 0.95 is the "high" value
+            // barely below the high value means barely below 1 after scaling
+            (0.9499, Some(0.9998889)), // scaled as: (0.9499 - 0.05) / (0.95 - 0.05)
+            (0.84, Some(0.87777776)),  // scaled as: (0.84 - 0.05) / (0.95 - 0.05)
+            (0.43, Some(0.42222223)),  // scaled as: (0.43 - 0.05) / (0.95 - 0.05)
+            // barely above the low value means barely above 0 after scaling
+            (0.05001, Some(0.000011109644)), // scaled as: (0.05001 - 0.05) / (0.95 - 0.05)
+            // low enough to be rounded to 0 (dead zone)
             (0.05, Some(0.0)),
             (0.04, Some(0.0)),
             (0.01, Some(0.0)),
             (0.0, Some(0.0)),
+            // same exact tests as above, but below 0 (bottom half of the dead zone and live zone)
+            // low enough to be rounded to -1
             (-1.0, Some(-1.0)),
             (-0.99, Some(-1.0)),
             (-0.96, Some(-1.0)),
             (-0.95, Some(-1.0)),
-            (-0.9499, Some(-0.9499)),
-            (-0.84, Some(-0.84)),
-            (-0.43, Some(-0.43)),
-            (-0.05001, Some(-0.05001)),
+            // scaled inputs
+            (-0.9499, Some(-0.9998889)), // scaled as: (-0.9499 - -0.05) / (-0.95 - -0.05)
+            (-0.84, Some(-0.87777776)),  // scaled as: (-0.84 - -0.05) / (-0.95 - -0.05)
+            (-0.43, Some(-0.42222226)),  // scaled as: (-0.43 - -0.05) / (-0.95 - -0.05)
+            (-0.05001, Some(-0.000011146069)), // scaled as: (-0.05001 - -0.05) / (-0.95 - -0.05)
+            // high enough to be rounded to 0 (dead zone)
             (-0.05, Some(0.0)),
             (-0.04, Some(0.0)),
             (-0.01, Some(0.0)),
@@ -1750,27 +1875,42 @@ mod tests {
 
     #[test]
     fn test_axis_settings_default_filter_with_old_values() {
+        let threshold = 0.01;
+        let scale_pos = |raw| linear_remapping(raw, 0.05..=0.95, 0.0..=1.0);
+        let scale_neg = |raw| linear_remapping(raw, -0.95..=-0.05, -1.0..=0.0);
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
-            (0.05, Some(0.055), Some(0.0)),
-            (0.95, Some(0.945), Some(1.0)),
-            (-0.43, Some(-0.44001), Some(-0.43)),
-            (-0.43, Some(-0.44), None),
-            (-0.43, Some(-0.43), None),
-            (-0.43, Some(-0.41999), Some(-0.43)),
-            (-0.43, Some(-0.17), Some(-0.43)),
-            (-0.43, Some(-0.84), Some(-0.43)),
-            (-0.05, Some(-0.055), Some(0.0)),
-            (-0.95, Some(-0.945), Some(-1.0)),
+            // enough increase to change
+            (0.43, Some(scale_pos(0.43 + threshold)), Some(0.42222223)),
+            // enough decrease to change
+            (0.43, Some(scale_pos(0.43 - threshold)), Some(0.42222223)),
+            // not enough increase to change
+            (0.43, Some(scale_pos(0.43 + threshold / 2.0)), None),
+            // not enough decrease to change
+            (0.43, Some(scale_pos(0.43 - threshold / 2.0)), None),
+            // enough increase to change
+            (-0.43, Some(scale_neg(-0.43 + threshold)), Some(-0.42222226)),
+            // enough decrease to change
+            (-0.43, Some(scale_neg(-0.43 - threshold)), Some(-0.42222226)),
+            // not enough increase to change
+            (-0.43, Some(scale_neg(-0.43 + threshold / 2.0)), None),
+            // not enough decrease to change
+            (-0.43, Some(scale_neg(-0.43 - threshold / 2.0)), None),
+            // test upper deadzone logic
+            (0.05, Some(0.0), None),
+            (0.06, Some(0.0), Some(0.0111111095)),
+            // test lower deadzone logic
+            (-0.05, Some(0.0), None),
+            (-0.06, Some(0.0), Some(-0.011111081)),
+            // test upper livezone logic
+            (0.95, Some(1.0), None),
+            (0.94, Some(1.0), Some(0.9888889)),
+            // test lower livezone logic
+            (-0.95, Some(-1.0), None),
+            (-0.94, Some(-1.0), Some(-0.9888889)),
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, threshold).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }
