@@ -52,10 +52,7 @@ impl Ord for SweepLineEvent {
 
 /// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X and then -Y to Y.
 fn xy_order(a: Vec2, b: Vec2) -> Ordering {
-    match a.x.total_cmp(&b.x) {
-        Ordering::Equal => a.y.total_cmp(&b.y),
-        ord => ord,
-    }
+    a.x.total_cmp(&b.x).then_with(|| a.y.total_cmp(&b.y))
 }
 
 /// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
@@ -121,6 +118,7 @@ impl PartialEq for Segment {
     }
 }
 impl Eq for Segment {}
+
 impl PartialOrd for Segment {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -128,10 +126,10 @@ impl PartialOrd for Segment {
 }
 impl Ord for Segment {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.left.y.total_cmp(&other.left.y) {
-            Ordering::Equal => self.right.y.total_cmp(&other.right.y),
-            ord => ord,
-        }
+        self.left
+            .y
+            .total_cmp(&other.left.y)
+            .then_with(|| self.right.y.total_cmp(&other.right.y))
     }
 }
 

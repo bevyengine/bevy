@@ -333,52 +333,26 @@ impl WinitWindows {
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-
-    fn abs_diff(a: u32, b: u32) -> u32 {
-        if a > b {
-            return a - b;
-        }
-        b - a
-    }
-
-    modes.sort_by(|a, b| {
-        use core::cmp::Ordering::*;
-        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
-            Equal => {
-                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b
-                        .refresh_rate_millihertz()
-                        .cmp(&a.refresh_rate_millihertz()),
-                    default => default,
-                }
-            }
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
+    monitor
+        .video_modes()
+        .max_by_key(|x| {
+            (
+                x.size().width.abs_diff(width),
+                x.size().height.abs_diff(height),
+                x.refresh_rate_millihertz(),
+            )
+        })
+        .unwrap()
 }
 
 /// Gets the "best" video-mode handle from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-    modes.sort_by(|a, b| {
-        use core::cmp::Ordering::*;
-        match b.size().width.cmp(&a.size().width) {
-            Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b
-                    .refresh_rate_millihertz()
-                    .cmp(&a.refresh_rate_millihertz()),
-                default => default,
-            },
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
+    monitor
+        .video_modes()
+        .max_by_key(|x| (x.size(), x.refresh_rate_millihertz()))
+        .unwrap()
 }
 
 pub(crate) fn attempt_grab(
