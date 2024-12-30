@@ -355,8 +355,8 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{self as bevy_ecs, result::Result};
     use crate::system::Resource;
+    use crate::{self as bevy_ecs, result::Result};
     use alloc::sync::Arc;
     use core::{
         panic::AssertUnwindSafe,
@@ -379,7 +379,9 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn apply(self, _: &mut World) -> Result { Ok(()) }
+        fn apply(self, _: &mut World) -> Result {
+            Ok(())
+        }
     }
 
     #[test]
@@ -532,7 +534,9 @@ mod test {
     #[allow(dead_code)]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn apply(self, _: &mut World) -> Result { Ok(()) }
+        fn apply(self, _: &mut World) -> Result {
+            Ok(())
+        }
     }
 
     #[cfg(miri)]

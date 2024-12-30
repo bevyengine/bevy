@@ -459,8 +459,16 @@ impl ChildBuild for WorldChildBuilder<'_> {
     }
 
     fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
-        command.apply(self.world);
+        self.world.commands().queue(command);
         self
+    }
+}
+
+impl WorldChildBuilder<'_> {
+    /// Calls the world's [`World::flush`] to apply any commands
+    /// queued by [`Self::queue_command`].
+    pub fn flush_world(&mut self) {
+        self.world.flush();
     }
 }
 

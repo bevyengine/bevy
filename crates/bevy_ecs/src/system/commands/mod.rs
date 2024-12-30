@@ -938,10 +938,9 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.run_system_with(id, input) {
-                warn!("{error}");
-            }
+        self.queue(move |world: &mut World| -> Result {
+            world.run_system_with(id, input)?;
+            Ok(())
         });
     }
 
@@ -1004,11 +1003,7 @@ impl<'w, 's> Commands<'w, 's> {
     {
         let entity = self.spawn_empty().id();
         let system = RegisteredSystem::new(Box::new(IntoSystem::into_system(system)));
-        self.queue(move |world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert(system);
-            }
-        });
+        self.entity(entity).insert(system);
         SystemId::from_entity(entity)
     }
 
@@ -1020,10 +1015,9 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.unregister_system(system_id) {
-                warn!("{error}");
-            }
+        self.queue(move |world: &mut World| -> Result {
+            world.unregister_system(system_id)?;
+            Ok(())
         });
     }
 
@@ -1039,10 +1033,9 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.unregister_system_cached(system) {
-                warn!("{error}");
-            }
+        self.queue(move |world: &mut World| -> Result {
+            world.unregister_system_cached(system)?;
+            Ok(())
         });
     }
 
@@ -1067,10 +1060,9 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, (), M> + Send + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.run_system_cached_with(system, input) {
-                warn!("{error}");
-            }
+        self.queue(move |world: &mut World| -> Result {
+            world.run_system_cached_with(system, input)?;
+            Ok(())
         });
     }
 
