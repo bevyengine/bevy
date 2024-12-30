@@ -202,7 +202,7 @@ where
     M: Material,
 {
     /// Creates or recreates any bind groups that were modified this frame.
-    pub(crate) fn prepare_bind_groups(
+    pub fn prepare_bind_groups(
         &mut self,
         render_device: &RenderDevice,
         fallback_image: &FallbackImage,
@@ -221,12 +221,12 @@ where
 
     /// Returns the bind group with the given index, if it exists.
     #[inline]
-    pub(crate) fn get(&self, index: MaterialBindGroupIndex) -> Option<&MaterialBindGroup<M>> {
+    pub fn get(&self, index: MaterialBindGroupIndex) -> Option<&MaterialBindGroup<M>> {
         self.bind_groups.get(index.0 as usize)
     }
 
     /// Allocates a new binding slot and returns its ID.
-    pub(crate) fn allocate(&mut self) -> MaterialBindingId {
+    pub fn allocate(&mut self) -> MaterialBindingId {
         let group_index = self.free_bind_groups.pop().unwrap_or_else(|| {
             let group_index = self.bind_groups.len() as u32;
             self.bind_groups
@@ -249,7 +249,7 @@ where
 
     /// Assigns an unprepared bind group to the group and slot specified in the
     /// [`MaterialBindingId`].
-    pub(crate) fn init(
+    pub fn init(
         &mut self,
         render_device: &RenderDevice,
         material_binding_id: MaterialBindingId,
@@ -268,7 +268,7 @@ where
     /// This is only a meaningful operation for non-bindless bind groups. It's
     /// rarely used, but see the `texture_binding_array` example for an example
     /// demonstrating how this feature might see use in practice.
-    pub(crate) fn init_custom(
+    pub fn init_custom(
         &mut self,
         material_binding_id: MaterialBindingId,
         bind_group: BindGroup,
@@ -279,7 +279,7 @@ where
     }
 
     /// Marks the slot corresponding to the given [`MaterialBindingId`] as free.
-    pub(crate) fn free(&mut self, material_binding_id: MaterialBindingId) {
+    pub fn free(&mut self, material_binding_id: MaterialBindingId) {
         let bind_group = &mut self.bind_groups[material_binding_id.group.0 as usize];
         let was_full = bind_group.is_full();
 
