@@ -476,7 +476,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Gets the metadata for this instance.
     #[inline]
-    pub unsafe fn meta_mut(&mut self) -> &mut SystemMeta {
+    pub fn meta_mut(&mut self) -> &mut SystemMeta {
         &mut self.meta
     }
 
@@ -659,6 +659,10 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Returns a mutable reference to the current system param states.
     /// Marked as unsafe because modifying the system states may result in violation to certain
     /// assumptions made by the [`SystemParam`]. Use with care.
+    /// 
+    /// Safety: Modifying the system param states may have unintented consequences.
+    /// the param state is generally considered to be owned by the [`SystemParam`]. Modifications
+    /// should respect any invariants as required by the [`SystemParam`].
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
     }
