@@ -852,7 +852,7 @@ pub fn prepare_lights(
     //   shadows
     // - then by entity as a stable key to ensure that a consistent set of
     //   lights are chosen if the light count limit is exceeded.
-    // - because entities are unique, we can use `sort_unstable_by_key` 
+    // - because entities are unique, we can use `sort_unstable_by_key`
     //   and still end up with a stable order.
     directional_lights
         .sort_unstable_by_key(|(entity, light)| (light.volumetric, light.shadows_enabled, *entity));
