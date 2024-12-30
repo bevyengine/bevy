@@ -765,9 +765,6 @@ pub fn prepare_sprite_image_bind_groups(
                     ));
                 }
 
-                transparent_phase.items[batch_item_index]
-                    .batch_range_mut()
-                    .end += 1;
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             } else {
@@ -826,13 +823,13 @@ pub fn prepare_sprite_image_bind_groups(
                             &uv_offset_scale,
                         ));
 
-                    transparent_phase.items[batch_item_index]
-                        .batch_range_mut()
-                        .end += 1;
                     batches.last_mut().unwrap().1.range.end += 1;
                     index += 1;
                 }
             }
+            transparent_phase.items[batch_item_index]
+                .batch_range_mut()
+                .end += 1;
         }
     }
     sprite_meta
