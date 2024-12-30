@@ -36,7 +36,6 @@ pub mod prelude {
     };
 }
 
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
@@ -51,15 +50,14 @@ pub use texture_slice::*;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{self, NoFrustumCulling, VisibilityClass, VisibilitySystems},
+    view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -90,16 +88,6 @@ pub enum SpriteSystem {
     ComputeSlices,
 }
 
-/// A component that marks entities that aren't themselves sprites but become
-/// sprites during rendering.
-///
-/// Right now, this is used for `Text`.
-#[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default, Debug)]
-#[require(VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
-pub struct SpriteSource;
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -122,12 +110,7 @@ impl Plugin for SpritePlugin {
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
             .register_type::<Mesh2d>()
-            .register_type::<SpriteSource>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                ExtractComponentPlugin::<SpriteSource>::default(),
-            ))
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 (
@@ -226,18 +209,6 @@ pub fn calculate_bounds_2d(
             };
             commands.entity(entity).try_insert(aabb);
         }
-    }
-}
-
-impl ExtractComponent for SpriteSource {
-    type QueryData = ();
-
-    type QueryFilter = With<SpriteSource>;
-
-    type Out = SpriteSource;
-
-    fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(SpriteSource)
     }
 }
 
