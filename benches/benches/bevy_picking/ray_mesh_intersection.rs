@@ -64,9 +64,9 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
 /// An enum that represents the configuration for all variations of the ray mesh intersection
 /// benchmarks.
 enum Benchmarks {
-    Normal,
-    NoCull,
-    NoIntersection,
+    CullIntersect,
+    NoCullIntersect,
+    CullNoIntersect,
 }
 
 impl Benchmarks {
@@ -75,15 +75,15 @@ impl Benchmarks {
 
     /// Returns an iterator over every variant in this enum.
     fn iter() -> impl Iterator<Item = Self> {
-        [Self::Normal, Self::NoCull, Self::NoIntersection].into_iter()
+        [Self::CullIntersect, Self::NoCullIntersect, Self::CullNoIntersect].into_iter()
     }
 
     /// Returns the benchmark group name.
     fn name(&self) -> &'static str {
         match *self {
-            Self::Normal => bench!("normal"),
-            Self::NoCull => bench!("no_cull"),
-            Self::NoIntersection => bench!("no_intersection"),
+            Self::CullIntersect => bench!("cull_intersect"),
+            Self::NoCullIntersect => bench!("no_cull_intersect"),
+            Self::CullNoIntersect => bench!("cull_no_intersect"),
         }
     }
 
@@ -91,9 +91,9 @@ impl Benchmarks {
         Ray3d::new(
             Vec3::new(0.0, 1.0, 0.0),
             match *self {
-                Self::Normal | Self::NoCull => Dir3::NEG_Y,
+                Self::CullIntersect | Self::NoCullIntersect => Dir3::NEG_Y,
                 // `NoIntersection` should not hit the mesh, so it goes an orthogonal direction.
-                Self::NoIntersection => Dir3::X,
+                Self::CullNoIntersect => Dir3::X,
             },
         )
     }
@@ -104,8 +104,8 @@ impl Benchmarks {
 
     fn backface_culling(&self) -> ray_cast::Backfaces {
         match *self {
-            Self::Normal | Self::NoIntersection => ray_cast::Backfaces::Cull,
-            Self::NoCull => ray_cast::Backfaces::Include,
+            Self::CullIntersect | Self::CullNoIntersect => ray_cast::Backfaces::Cull,
+            Self::NoCullIntersect => ray_cast::Backfaces::Include,
         }
     }
 }
