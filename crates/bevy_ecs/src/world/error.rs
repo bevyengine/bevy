@@ -23,48 +23,12 @@ pub enum EntityComponentError {
 }
 
 /// An error that occurs when fetching entities mutably from a world.
-#[derive(Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum EntityFetchError {
     /// The entity with the given ID does not exist.
-    NoSuchEntity(Entity, String),
+    #[error("The entity with ID {0} does not exist.")]
+    NoSuchEntity(Entity),
     /// The entity with the given ID was requested mutably more than once.
+    #[error("The entity with ID {0} was requested mutably more than once.")]
     AliasedMutability(Entity),
 }
-
-impl core::error::Error for EntityFetchError {}
-
-impl core::fmt::Display for EntityFetchError {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match self {
-            Self::NoSuchEntity(entity, details) => {
-                write!(f, "Entity {} {}", *entity, details)
-            }
-            Self::AliasedMutability(entity) => {
-                write!(f, "Entity {} was requested mutably more than once", *entity)
-            }
-        }
-    }
-}
-
-impl core::fmt::Debug for EntityFetchError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::NoSuchEntity(entity, details) => {
-                write!(f, "NoSuchEntity({} {})", *entity, details)
-            }
-            Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
-        }
-    }
-}
-
-impl PartialEq for EntityFetchError {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
-            (Self::AliasedMutability(e1), Self::AliasedMutability(e2)) if e1 == e2 => true,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for EntityFetchError {}

@@ -2272,7 +2272,7 @@ where
     }
 
     fn with_error_handling(self, _: CommandErrorMode) -> impl FnOnce(&mut World) + Send + 'static {
-        warn!("Calling `with_error_handling` doesn't do anything if the command doesn't return a `Result`");
+        warn!("Calling `with_error_handling` doesn't do anything if the closure doesn't return a `Result`");
         self
     }
 }
