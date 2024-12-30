@@ -660,8 +660,9 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Marked as unsafe because modifying the system states may result in violation to certain
     /// assumptions made by the [`SystemParam`]. Use with care.
     ///
-    /// Safety: Modifying the system param states may have unintended consequences.
-    /// the param state is generally considered to be owned by the [`SystemParam`]. Modifications
+    /// # Safety
+    /// Modifying the system param states may have unintended consequences.
+    /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
         &mut self.param_state
