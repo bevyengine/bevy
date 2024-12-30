@@ -65,13 +65,13 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
 /// benchmarks.
 enum Benchmarks {
     /// The ray intersects the mesh, and culling is enabled.
-    CullIntersect,
+    CullHit,
 
     /// The ray intersects the mesh, and culling is disabled.
-    NoCullIntersect,
+    NoCullHit,
 
     /// The ray does not intersect the mesh, and culling is enabled.
-    CullNoIntersect,
+    CullMiss,
 }
 
 impl Benchmarks {
@@ -81,9 +81,9 @@ impl Benchmarks {
     /// Returns an iterator over every variant in this enum.
     fn iter() -> impl Iterator<Item = Self> {
         [
-            Self::CullIntersect,
-            Self::NoCullIntersect,
-            Self::CullNoIntersect,
+            Self::CullHit,
+            Self::NoCullHit,
+            Self::CullMiss,
         ]
         .into_iter()
     }
@@ -91,9 +91,9 @@ impl Benchmarks {
     /// Returns the benchmark group name.
     fn name(&self) -> &'static str {
         match *self {
-            Self::CullIntersect => bench!("cull_intersect"),
-            Self::NoCullIntersect => bench!("no_cull_intersect"),
-            Self::CullNoIntersect => bench!("cull_no_intersect"),
+            Self::CullHit => bench!("cull_intersect"),
+            Self::NoCullHit => bench!("no_cull_intersect"),
+            Self::CullMiss => bench!("cull_no_intersect"),
         }
     }
 
@@ -101,9 +101,9 @@ impl Benchmarks {
         Ray3d::new(
             Vec3::new(0.0, 1.0, 0.0),
             match *self {
-                Self::CullIntersect | Self::NoCullIntersect => Dir3::NEG_Y,
+                Self::CullHit | Self::NoCullHit => Dir3::NEG_Y,
                 // `NoIntersection` should not hit the mesh, so it goes an orthogonal direction.
-                Self::CullNoIntersect => Dir3::X,
+                Self::CullMiss => Dir3::X,
             },
         )
     }
@@ -114,8 +114,8 @@ impl Benchmarks {
 
     fn backface_culling(&self) -> Backfaces {
         match *self {
-            Self::CullIntersect | Self::CullNoIntersect => Backfaces::Cull,
-            Self::NoCullIntersect => Backfaces::Include,
+            Self::CullHit | Self::CullMiss => Backfaces::Cull,
+            Self::NoCullHit => Backfaces::Include,
         }
     }
 }
