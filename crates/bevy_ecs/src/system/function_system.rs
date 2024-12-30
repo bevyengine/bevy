@@ -659,8 +659,8 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Returns a mutable reference to the current system param states.
     /// Marked as unsafe because modifying the system states may result in violation to certain
     /// assumptions made by the [`SystemParam`]. Use with care.
-    /// 
-    /// Safety: Modifying the system param states may have unintented consequences.
+    ///
+    /// Safety: Modifying the system param states may have unintended consequences.
     /// the param state is generally considered to be owned by the [`SystemParam`]. Modifications
     /// should respect any invariants as required by the [`SystemParam`].
     pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
@@ -678,7 +678,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+/// becomes the functions first parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
 ///
