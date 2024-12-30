@@ -60,7 +60,6 @@ use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
-use std::result::Result;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
