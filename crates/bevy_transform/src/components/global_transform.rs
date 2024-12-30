@@ -1,7 +1,7 @@
 use core::ops::Mul;
 
 use super::Transform;
-use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A, ops};
 use derive_more::derive::From;
 
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -241,7 +241,7 @@ impl GlobalTransform {
         //Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
         let det = self.0.matrix3.determinant();
         Vec3::new(
-            self.0.matrix3.x_axis.length() * det.signum(),
+            self.0.matrix3.x_axis.length() * ops::copysign(1., det),
             self.0.matrix3.y_axis.length(),
             self.0.matrix3.z_axis.length(),
         )
