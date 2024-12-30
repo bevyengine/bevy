@@ -33,7 +33,7 @@ approx = "0.5.1"
 [features]
 # Turning off default features leaves you with a barebones
 # definition of transform.
-default = ["bevy-support", "bevy_reflect"]
+default = ["std", "bevy-support", "bevy_reflect"]
 
 # Functionality
 
