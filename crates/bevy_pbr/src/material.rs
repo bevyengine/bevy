@@ -547,7 +547,7 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-fn extract_mesh_materials<M: Material>(
+pub fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
