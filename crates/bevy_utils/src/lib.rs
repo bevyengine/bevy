@@ -34,6 +34,9 @@ mod once;
 mod parallel_queue;
 mod time;
 
+#[doc(hidden)]
+pub use once::OnceFlag;
+
 /// For when you want a deterministic hasher.
 ///
 /// Seed was randomly generated with a fair dice roll. Guaranteed to be random:
