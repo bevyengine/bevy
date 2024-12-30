@@ -205,11 +205,9 @@ fn update_loading_data(
         loading_data.confirmation_frames_count = 0;
 
         loading_data.loading_assets.retain(|asset| {
-            if let Some(state) = asset_server.get_load_states(asset) {
-                !state.2.is_loaded() // Keep only those that are not loaded
-            } else {
-                true // Keep assets for which the state is not available
-            }
+            asset_server
+                .get_recursive_dependency_load_state(asset)
+                .is_none_or(|state| !state.is_loaded())
         });
 
         // If there are no more assets being monitored, and pipelines
