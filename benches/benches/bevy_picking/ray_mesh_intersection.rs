@@ -80,12 +80,7 @@ impl Benchmarks {
 
     /// Returns an iterator over every variant in this enum.
     fn iter() -> impl Iterator<Item = Self> {
-        [
-            Self::CullHit,
-            Self::NoCullHit,
-            Self::CullMiss,
-        ]
-        .into_iter()
+        [Self::CullHit, Self::NoCullHit, Self::CullMiss].into_iter()
     }
 
     /// Returns the benchmark group name.
@@ -118,6 +113,15 @@ impl Benchmarks {
             Self::NoCullHit => Backfaces::Include,
         }
     }
+
+    /// Returns whether the ray should intersect with the mesh.
+    #[cfg(test)]
+    fn should_intersect(&self) -> bool {
+        match *self {
+            Self::CullHit | Self::NoCullHit => true,
+            Self::CullMiss => false,
+        }
+    }
 }
 
 /// A benchmark that times [`ray_cast::ray_mesh_intersection()`].
@@ -145,14 +149,19 @@ fn bench(c: &mut Criterion) {
                     let backface_culling = black_box(benchmark.backface_culling());
 
                     b.iter(|| {
-                        ray_cast::ray_mesh_intersection(
+                        let intersected = ray_cast::ray_mesh_intersection(
                             ray,
                             &mesh_to_world,
                             &mesh.positions,
                             Some(&mesh.normals),
                             Some(&mesh.indices),
                             backface_culling,
-                        )
+                        );
+
+                        #[cfg(test)]
+                        assert_eq!(intersected.is_some(), benchmark.should_intersect());
+
+                        intersected
                     });
                 },
             );
