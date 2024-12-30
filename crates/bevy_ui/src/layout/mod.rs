@@ -171,7 +171,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -187,7 +187,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
                             entity
                         );
                     }
@@ -876,12 +876,12 @@ mod tests {
                     );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
-                        "root ui node {entity:?} doesn't have a logical size"
+                        "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
                         global_transform.affine(),
                         GlobalTransform::default().affine(),
-                        "root ui node {entity:?} global transform is not populated"
+                        "root ui node {entity} global transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
