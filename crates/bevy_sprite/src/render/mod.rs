@@ -325,6 +325,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
     }
 }
 
+pub struct ExtractedGroupSprite {
+    pub position: Vec2,
+    pub rect: Rect,
+}
+
 pub struct ExtractedSprite {
     pub transform: GlobalTransform,
     pub color: LinearRgba,
@@ -341,11 +346,13 @@ pub struct ExtractedSprite {
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
+    pub group_indices: Range<usize>,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
+    pub grouped_sprites: Vec<ExtractedGroupSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -381,6 +388,7 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
+    extracted_sprites.grouped_sprites.clear();
     for (original_entity, entity, view_visibility, sprite, transform, slices) in sprite_query.iter()
     {
         if !view_visibility.get() {
@@ -432,6 +440,7 @@ pub fn extract_sprites(
                     image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
+                    group_indices: 0..0,
                 },
             );
         }
@@ -662,7 +671,8 @@ pub fn prepare_sprite_image_bind_groups(
         // Compatible items share the same entity.
         for item_index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[item_index];
-            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
+            let item_entity = item.entity;
+            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item_entity) else {
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
@@ -693,72 +703,136 @@ pub fn prepare_sprite_image_bind_groups(
                     });
             }
 
-            // By default, the size of the quad is the size of the texture
-            let mut quad_size = batch_image_size;
+            if extracted_sprite.group_indices.is_empty() {
+                // By default, the size of the quad is the size of the texture
+                let mut quad_size = batch_image_size;
 
-            // Calculate vertex data for this item
-            let mut uv_offset_scale: Vec4;
+                // Calculate vertex data for this item
+                let mut uv_offset_scale: Vec4;
 
-            // If a rect is specified, adjust UVs and the size of the quad
-            if let Some(rect) = extracted_sprite.rect {
-                let rect_size = rect.size();
-                uv_offset_scale = Vec4::new(
-                    rect.min.x / batch_image_size.x,
-                    rect.max.y / batch_image_size.y,
-                    rect_size.x / batch_image_size.x,
-                    -rect_size.y / batch_image_size.y,
-                );
-                quad_size = rect_size;
+                // If a rect is specified, adjust UVs and the size of the quad
+                if let Some(rect) = extracted_sprite.rect {
+                    let rect_size = rect.size();
+                    uv_offset_scale = Vec4::new(
+                        rect.min.x / batch_image_size.x,
+                        rect.max.y / batch_image_size.y,
+                        rect_size.x / batch_image_size.x,
+                        -rect_size.y / batch_image_size.y,
+                    );
+                    quad_size = rect_size;
+                } else {
+                    uv_offset_scale = Vec4::new(0.0, 1.0, 1.0, -1.0);
+                }
+
+                if extracted_sprite.flip_x {
+                    uv_offset_scale.x += uv_offset_scale.z;
+                    uv_offset_scale.z *= -1.0;
+                }
+                if extracted_sprite.flip_y {
+                    uv_offset_scale.y += uv_offset_scale.w;
+                    uv_offset_scale.w *= -1.0;
+                }
+
+                // Override the size if a custom one is specified
+                if let Some(custom_size) = extracted_sprite.custom_size {
+                    quad_size = custom_size;
+                }
+                let transform = extracted_sprite.transform.affine()
+                    * Affine3A::from_scale_rotation_translation(
+                        quad_size.extend(1.0),
+                        Quat::IDENTITY,
+                        (quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5))).extend(0.0),
+                    );
+
+                // Store the vertex data and add the item to the render phase
+                sprite_meta
+                    .sprite_instance_buffer
+                    .push(SpriteInstance::from(
+                        &transform,
+                        &extracted_sprite.color,
+                        &uv_offset_scale,
+                    ));
+
+                if batch_image_changed {
+                    batch_item_index = item_index;
+
+                    batches.push((
+                        item_entity.0,
+                        SpriteBatch {
+                            image_handle_id: batch_image_handle,
+                            range: index..index,
+                        },
+                    ));
+                }
+
+                transparent_phase.items[batch_item_index]
+                    .batch_range_mut()
+                    .end += 1;
+                batches.last_mut().unwrap().1.range.end += 1;
+                index += 1;
             } else {
-                uv_offset_scale = Vec4::new(0.0, 1.0, 1.0, -1.0);
+                if batch_image_changed {
+                    batch_item_index = item_index;
+
+                    batches.push((
+                        item_entity.0,
+                        SpriteBatch {
+                            image_handle_id: batch_image_handle,
+                            range: index..index,
+                        },
+                    ));
+                }
+                for i in extracted_sprite.group_indices.clone() {
+                    let sprite = &extracted_sprites.grouped_sprites[i];
+                    let rect = sprite.rect;
+
+                    // Calculate vertex data for this item
+                    let mut uv_offset_scale: Vec4;
+
+                    // If a rect is specified, adjust UVs and the size of the quad
+
+                    let rect_size = rect.size();
+                    uv_offset_scale = Vec4::new(
+                        rect.min.x / batch_image_size.x,
+                        rect.max.y / batch_image_size.y,
+                        rect_size.x / batch_image_size.x,
+                        -rect_size.y / batch_image_size.y,
+                    );
+
+                    if extracted_sprite.flip_x {
+                        uv_offset_scale.x += uv_offset_scale.z;
+                        uv_offset_scale.z *= -1.0;
+                    }
+                    if extracted_sprite.flip_y {
+                        uv_offset_scale.y += uv_offset_scale.w;
+                        uv_offset_scale.w *= -1.0;
+                    }
+
+                    let transform = extracted_sprite.transform.affine()
+                        * Affine3A::from_scale_rotation_translation(
+                            rect_size.extend(1.0),
+                            Quat::IDENTITY,
+                            (rect_size * (-extracted_sprite.anchor - Vec2::splat(0.5))
+                                + sprite.position)
+                                .extend(0.0),
+                        );
+
+                    // Store the vertex data and add the item to the render phase
+                    sprite_meta
+                        .sprite_instance_buffer
+                        .push(SpriteInstance::from(
+                            &transform,
+                            &extracted_sprite.color,
+                            &uv_offset_scale,
+                        ));
+
+                    transparent_phase.items[batch_item_index]
+                        .batch_range_mut()
+                        .end += 1;
+                    batches.last_mut().unwrap().1.range.end += 1;
+                    index += 1;
+                }
             }
-
-            if extracted_sprite.flip_x {
-                uv_offset_scale.x += uv_offset_scale.z;
-                uv_offset_scale.z *= -1.0;
-            }
-            if extracted_sprite.flip_y {
-                uv_offset_scale.y += uv_offset_scale.w;
-                uv_offset_scale.w *= -1.0;
-            }
-
-            // Override the size if a custom one is specified
-            if let Some(custom_size) = extracted_sprite.custom_size {
-                quad_size = custom_size;
-            }
-            let transform = extracted_sprite.transform.affine()
-                * Affine3A::from_scale_rotation_translation(
-                    quad_size.extend(1.0),
-                    Quat::IDENTITY,
-                    (quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5))).extend(0.0),
-                );
-
-            // Store the vertex data and add the item to the render phase
-            sprite_meta
-                .sprite_instance_buffer
-                .push(SpriteInstance::from(
-                    &transform,
-                    &extracted_sprite.color,
-                    &uv_offset_scale,
-                ));
-
-            if batch_image_changed {
-                batch_item_index = item_index;
-
-                batches.push((
-                    item.entity(),
-                    SpriteBatch {
-                        image_handle_id: batch_image_handle,
-                        range: index..index,
-                    },
-                ));
-            }
-
-            transparent_phase.items[batch_item_index]
-                .batch_range_mut()
-                .end += 1;
-            batches.last_mut().unwrap().1.range.end += 1;
-            index += 1;
         }
     }
     sprite_meta
