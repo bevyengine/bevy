@@ -791,26 +791,23 @@ mod test {
         // Run the system again to propagate changes
         app.update();
 
+        let is_visible = |e: Entity| {
+            app.world()
+                .entity(e)
+                .get::<InheritedVisibility>()
+                .unwrap()
+                .get()
+        };
+
         // Retrieve and assert visibility
-        let inherited_visibility1 = app
-            .world_mut()
-            .entity(child1)
-            .get::<InheritedVisibility>()
-            .unwrap();
-        assert_eq!(
-            inherited_visibility1.get(),
-            false,
+
+        assert!(
+            !is_visible(child1),
             "Child1 should inherit visibility from parent"
         );
 
-        let inherited_visibility2 = app
-            .world_mut()
-            .entity(child2)
-            .get::<InheritedVisibility>()
-            .unwrap();
-        assert_eq!(
-            inherited_visibility2.get(),
-            true,
+        assert!(
+            is_visible(child2),
             "Child2 should inherit visibility from parent"
         );
     }
