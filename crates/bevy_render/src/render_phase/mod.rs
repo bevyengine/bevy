@@ -383,7 +383,7 @@ where
                     .entry((batch_set_key.clone(), bin_key.clone()).clone())
                 {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().entities.push((entity, main_entity))
+                        entry.get_mut().entities.push((entity, main_entity));
                     }
                     Entry::Vacant(entry) => {
                         self.batchable_mesh_keys.push((batch_set_key, bin_key));
