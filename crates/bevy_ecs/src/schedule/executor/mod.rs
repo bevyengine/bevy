@@ -18,10 +18,10 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
+    result::Result,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
-    result::Result,
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
@@ -159,7 +159,7 @@ pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = Result<(), >;
+    type Out = Result<()>;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed("bevy_ecs::apply_deferred")

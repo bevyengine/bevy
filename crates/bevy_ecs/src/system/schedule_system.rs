@@ -12,16 +12,16 @@ use crate::{
 use super::IntoSystem;
 
 /// Wrapper for a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
-pub struct OkWrapperSystem<S: System<In=(), Out=()>>(S);
+pub struct OkWrapperSystem<S: System<In = (), Out = ()>>(S);
 
-impl<S: System<In=(), Out=()>> OkWrapperSystem<S> {
+impl<S: System<In = (), Out = ()>> OkWrapperSystem<S> {
     /// Create a new `OkWrapperSystem`
     pub fn new(system: S) -> Self {
         Self(IntoSystem::into_system(system))
     }
 }
 
-impl<S: System<In=(), Out=()>> System for OkWrapperSystem<S> {
+impl<S: System<In = (), Out = ()>> System for OkWrapperSystem<S> {
     type In = ();
     type Out = Result;
 
@@ -56,8 +56,11 @@ impl<S: System<In=(), Out=()>> System for OkWrapperSystem<S> {
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         self.0.run_unsafe(input, world);
         Ok(())
     }
