@@ -3,9 +3,12 @@ use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 use bevy_hierarchy::ValidParentCheckPlugin;
 
 use crate::{
-    prelude::{GlobalTransform, Transform},
+    components::GlobalTransform,
     systems::{propagate_transforms, sync_simple_transforms},
 };
+
+#[cfg(feature = "bevy_reflect")]
+use crate::components::Transform;
 
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -25,9 +28,11 @@ impl Plugin for TransformPlugin {
         #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
         struct PropagateTransformsSet;
 
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<Transform>()
-            .register_type::<GlobalTransform>()
-            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
+            .register_type::<GlobalTransform>();
+
+        app.add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),

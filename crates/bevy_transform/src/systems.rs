@@ -1,4 +1,5 @@
 use crate::components::{GlobalTransform, Transform};
+use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
