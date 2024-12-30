@@ -622,7 +622,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue after calling
     /// [`Command::with_error_handling`] with the [`Commands`] instance's
     /// error mode if set, or [`CommandErrorMode::Panic`] otherwise.
-    pub fn queue_with_error_handling<C, M>(&mut self, command: C)
+    pub fn queue_fallible<C, M>(&mut self, command: C)
     where
         C: Command<M>,
         M: 'static,
@@ -633,7 +633,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a generic [`Command`] to the command queue after calling
     /// [`Command::with_error_handling`] with the [`Commands`] instance's
     /// error mode if set, or `default_error_mode` otherwise.
-    pub fn queue_with_error_handling_and_mode<C, M>(
+    pub fn queue_fallible_with_error_mode<C, M>(
         &mut self,
         command: C,
         default_error_mode: CommandErrorMode,
@@ -938,7 +938,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(move |world: &mut World| -> Result {
+        self.queue_fallible(move |world: &mut World| -> Result {
             world.run_system_with(id, input)?;
             Ok(())
         });
@@ -1015,7 +1015,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(move |world: &mut World| -> Result {
+        self.queue_fallible(move |world: &mut World| -> Result {
             world.unregister_system(system_id)?;
             Ok(())
         });
@@ -1033,7 +1033,7 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(move |world: &mut World| -> Result {
+        self.queue_fallible(move |world: &mut World| -> Result {
             world.unregister_system_cached(system)?;
             Ok(())
         });
@@ -1060,7 +1060,7 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, (), M> + Send + 'static,
     {
-        self.queue(move |world: &mut World| -> Result {
+        self.queue_fallible(move |world: &mut World| -> Result {
             world.run_system_cached_with(system, input)?;
             Ok(())
         });
@@ -1168,7 +1168,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.queue_with_error_handling(move |world: &mut World| -> Result {
+        self.queue_fallible(move |world: &mut World| -> Result {
             world.try_run_schedule(label)?;
             Ok(())
         });
@@ -1833,7 +1833,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands
-            .queue_with_error_handling(command.with_entity(self.entity));
+            .queue_fallible(command.with_entity(self.entity));
         self
     }
 
@@ -1846,10 +1846,8 @@ impl<'a> EntityCommands<'a> {
         command: impl EntityCommand<M>,
         default_error_mode: CommandErrorMode,
     ) -> &mut Self {
-        self.commands.queue_with_error_handling_and_mode(
-            command.with_entity(self.entity),
-            default_error_mode,
-        );
+        self.commands
+            .queue_fallible_with_error_mode(command.with_entity(self.entity), default_error_mode);
         self
     }
 

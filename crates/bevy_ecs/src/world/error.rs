@@ -23,7 +23,7 @@ pub enum EntityComponentError {
 }
 
 /// An error that occurs when fetching entities mutably from a world.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityFetchError {
     /// The entity with the given ID does not exist.
     #[error("The entity with ID {0} does not exist.")]
