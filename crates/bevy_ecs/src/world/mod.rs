@@ -55,7 +55,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{any::TypeId, fmt};
-use log::warn;
+use log::{error, warn};
 
 #[cfg(not(feature = "portable-atomic"))]
 use core::sync::atomic::{AtomicU32, Ordering};
@@ -119,7 +119,9 @@ pub trait Command<Marker = ()>: Send + 'static {
                 match error_mode {
                     CommandErrorMode::Silent => (),
                     CommandErrorMode::Warn => warn!("Command returned an error: {error}"),
+                    CommandErrorMode::Error => error!("Command returned an error: {error}"),
                     CommandErrorMode::Panic => panic!("Command returned an error: {error}"),
+                    CommandErrorMode::Override(function) => function(),
                 }
             }
         }
@@ -129,12 +131,18 @@ pub trait Command<Marker = ()>: Send + 'static {
 /// How a [`Command`] should respond upon encountering an [`Error`](crate::result::Error).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CommandErrorMode {
-    /// Fail silently.
+    /// The command will fail silently.
     Silent,
-    /// Send a warning.
+    /// The command will send a warning.
     Warn,
-    /// Start a panic.
+    /// The command will send an error.
+    Error,
+    /// The command will start a panic.
     Panic,
+    /// The command will call a custom function.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    Override(fn()),
 }
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,

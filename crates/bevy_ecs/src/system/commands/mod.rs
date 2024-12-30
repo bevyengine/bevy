@@ -86,7 +86,7 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
-    error_mode: Option<CommandErrorMode>,
+    pub error_mode: Option<CommandErrorMode>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -455,16 +455,19 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            let error_mode = self.error_mode.unwrap_or(CommandErrorMode::Panic);
-            match error_mode {
+            match self.decide_error_mode(CommandErrorMode::Panic) {
                 CommandErrorMode::Silent => (),
                 CommandErrorMode::Warn => warn!(
+                    "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
+                ),
+                CommandErrorMode::Error => error!(
                     "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
                 ),
                 CommandErrorMode::Panic => panic!(
                     "Attempted to create an EntityCommands for entity {entity}, which {}",
                     self.entities.entity_does_not_exist_error_details_message(entity)
                 ),
+                CommandErrorMode::Override(function) => function(),
             }
         }
 
@@ -628,7 +631,7 @@ impl<'w, 's> Commands<'w, 's> {
         C: Command<M>,
         M: 'static,
     {
-        self.queue(command.with_error_handling(self.error_mode.unwrap_or(CommandErrorMode::Panic)));
+        self.queue_fallible_with_error_mode(command, CommandErrorMode::Panic);
     }
 
     /// Pushes a generic [`Command`] to the command queue after calling
@@ -642,7 +645,8 @@ impl<'w, 's> Commands<'w, 's> {
         C: Command<M>,
         M: 'static,
     {
-        self.queue(command.with_error_handling(self.error_mode.unwrap_or(default_error_mode)));
+        let error_mode = self.decide_error_mode(default_error_mode);
+        self.queue(command.with_error_handling(error_mode));
     }
 
     ///
@@ -656,18 +660,35 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     ///
+    pub fn error_message_on_error(&mut self) {
+        self.error_mode = Some(CommandErrorMode::Error);
+    }
+
+    ///
     pub fn panic_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Panic);
     }
 
     ///
-    pub fn set_error_mode(&mut self, error_mode: CommandErrorMode) {
-        self.error_mode = Some(error_mode);
+    pub fn override_error_mode(&mut self, function: fn()) {
+        self.error_mode = Some(CommandErrorMode::Override(function))
     }
 
-    ///
+    /// Resets the [`Commands`] instance's error mode, allowing individual
+    /// commands to choose their own error mode.
     pub fn reset_error_mode(&mut self) {
         self.error_mode = None;
+    }
+
+    /// Helper function to choose the right error mode with the following priority order:
+    /// 1) The newest [override](CommandErrorMode::Override), if any.
+    /// 2) The [`Commands`] instance's error mode, if set.
+    /// 3) `default_error_mode`
+    fn decide_error_mode(&self, default_error_mode: CommandErrorMode) -> CommandErrorMode {
+        match default_error_mode {
+            CommandErrorMode::Override(f) => CommandErrorMode::Override(f),
+            other => self.error_mode.clone().unwrap_or(other),
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -1865,18 +1886,19 @@ impl<'a> EntityCommands<'a> {
     }
 
     ///
+    pub fn error_message_on_error(&mut self) -> &mut Self {
+        self.commands.error_message_on_error();
+        self
+    }
+
+    ///
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.commands.panic_on_error();
         self
     }
 
-    ///
-    pub fn set_error_mode(&mut self, error_mode: CommandErrorMode) -> &mut Self {
-        self.commands.set_error_mode(error_mode);
-        self
-    }
-
-    ///
+    /// Resets the [`EntityCommands`] instance's error mode, allowing individual
+    /// commands to choose their own error mode.
     pub fn reset_error_mode(&mut self) -> &mut Self {
         self.commands.reset_error_mode();
         self
@@ -2181,18 +2203,19 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     }
 
     ///
+    pub fn error_message_on_error(&mut self) -> &mut Self {
+        self.entity_commands.error_message_on_error();
+        self
+    }
+
+    ///
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.entity_commands.panic_on_error();
         self
     }
 
-    ///
-    pub fn set_error_mode(&mut self, error_mode: CommandErrorMode) -> &mut Self {
-        self.entity_commands.set_error_mode(error_mode);
-        self
-    }
-
-    ///
+    /// Resets the [`EntityEntryCommands`] instance's error mode, allowing individual
+    /// commands to choose their own error mode.
     pub fn reset_error_mode(&mut self) -> &mut Self {
         self.entity_commands.reset_error_mode();
         self
