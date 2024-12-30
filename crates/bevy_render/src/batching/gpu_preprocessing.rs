@@ -24,7 +24,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, NoIndirectDrawing, ViewTarget},
+    view::{ExtractedView, NoIndirectDrawing},
     Render, RenderApp, RenderSet,
 };
 
@@ -489,22 +489,22 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 }
 
 /// A system that removes GPU preprocessing work item buffers that correspond to
-/// deleted [`ViewTarget`]s.
+/// deleted [`ExtractedView`]s.
 ///
 /// This is a separate system from [`clear_batched_gpu_instance_buffers`]
-/// because [`ViewTarget`]s aren't created until after the extraction phase is
-/// completed.
+/// because [`ExtractedView`]s aren't created until after the extraction phase
+/// is completed.
 pub fn delete_old_work_item_buffers<GFBD>(
     mut gpu_batched_instance_buffers: ResMut<
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
-    view_targets: Query<Entity, With<ViewTarget>>,
+    extracted_views: Query<Entity, With<ExtractedView>>,
 ) where
     GFBD: GetFullBatchData,
 {
     gpu_batched_instance_buffers
         .work_item_buffers
-        .retain(|entity, _| view_targets.contains(*entity));
+        .retain(|entity, _| extracted_views.contains(*entity));
 }
 
 /// Batch the items in a sorted render phase, when GPU instance buffer building
