@@ -207,7 +207,7 @@ pub struct GamepadButtonChangedEvent {
     pub button: GamepadButton,
     /// The pressed state of the button.
     pub state: ButtonState,
-    /// The analog value of the button.
+    /// The analog value of the button rescaled to be in the 0.0..=1.0 range.
     pub value: f32,
 }
 
@@ -1216,42 +1216,44 @@ impl AxisSettings {
     }
 
     /// Clamps the `raw_value` according to the `AxisSettings`.
-    pub fn clamp(&self, new_value: f32) -> f32 {
-        if self.deadzone_lowerbound <= new_value && new_value <= self.deadzone_upperbound {
+    pub fn clamp(&self, raw_value: f32) -> f32 {
+        if self.deadzone_lowerbound <= raw_value && raw_value <= self.deadzone_upperbound {
             0.0
-        } else if new_value >= self.livezone_upperbound {
+        } else if raw_value >= self.livezone_upperbound {
             1.0
-        } else if new_value <= self.livezone_lowerbound {
+        } else if raw_value <= self.livezone_lowerbound {
             -1.0
         } else {
-            new_value
+            raw_value
         }
     }
 
-    /// Determines whether the change from `old_value` to `new_value` should
+    /// Determines whether the change from `old_raw_value` to `new_raw_value` should
     /// be registered as a change, according to the [`AxisSettings`].
     #[inline(always)]
-    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        match old_value {
+    fn should_register_change(&self, new_raw_value: f32, old_raw_value: Option<f32>) -> bool {
+        match old_raw_value {
             None => true,
-            Some(old_value) => ops::abs(new_value - old_value) > self.threshold,
+            Some(old_raw_value) => ops::abs(new_raw_value - old_raw_value) >= self.threshold,
         }
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the [`AxisSettings`].
+    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the [`AxisSettings`].
     ///
-    /// Returns the clamped and scaled `new_value` if the change exceeds the settings threshold,
+    /// Returns the clamped and scaled `new_raw_value` if the change exceeds the settings threshold,
     /// and `None` otherwise.
     #[inline(always)]
     fn filter(
         &self,
         new_raw_value: f32,
-        old_value: Option<f32>,
-    ) -> Option<ScaledAxisWithDeadZonePosition> {
+        old_raw_value: Option<f32>,
+    ) -> Option<FilteredAxisPosition> {
         let clamped_unscaled = self.clamp(new_raw_value);
-        let scaled = self.get_axis_position_from_value(clamped_unscaled);
-        match self.should_register_change(scaled.to_f32(), old_value) {
-            true => Some(scaled),
+        match self.should_register_change(clamped_unscaled, old_raw_value) {
+            true => Some(FilteredAxisPosition {
+                scaled: self.get_axis_position_from_value(clamped_unscaled),
+                raw: new_raw_value,
+            }),
             false => None,
         }
     }
@@ -1304,6 +1306,11 @@ enum ScaledAxisWithDeadZonePosition {
     AboveHigh,
 }
 
+struct FilteredAxisPosition {
+    scaled: ScaledAxisWithDeadZonePosition,
+    raw: f32,
+}
+
 impl ScaledAxisWithDeadZonePosition {
     /// Converts the value into a float in the range [-1, 1]
     fn to_f32(self) -> f32 {
@@ -1326,6 +1333,11 @@ enum ScaledAxisPosition {
     Scaled(f32),
     /// The input surpassed the "high" value
     ClampedHigh,
+}
+
+struct FilteredButtonAxisPosition {
+    scaled: ScaledAxisPosition,
+    raw: f32,
 }
 
 impl ScaledAxisPosition {
@@ -1390,26 +1402,32 @@ impl ButtonAxisSettings {
         raw_value
     }
 
-    /// Determines whether the change from an `old_value` to a `new_value` should
+    /// Determines whether the change from an `old_raw_value` to a `new_raw_value` should
     /// be registered as a change event, according to the specified settings.
     #[inline(always)]
-    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        match old_value {
+    fn should_register_change(&self, new_raw_value: f32, old_raw_value: Option<f32>) -> bool {
+        match old_raw_value {
             None => true,
-            Some(old_value) => ops::abs(new_value - old_value) > self.threshold,
+            Some(old_raw_value) => ops::abs(new_raw_value - old_raw_value) >= self.threshold,
         }
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
+    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the [`ButtonAxisSettings`].
     ///
-    /// Returns the clamped and scaled `new_value`, according to the [`ButtonAxisSettings`], if the change
+    /// Returns the clamped and scaled `new_raw_value`, according to the [`ButtonAxisSettings`], if the change
     /// exceeds the settings threshold, and `None` otherwise.
     #[inline(always)]
-    fn filter(&self, new_raw_value: f32, old_value: Option<f32>) -> Option<(f32, ScaledAxisPosition)> {
+    fn filter(
+        &self,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
+    ) -> Option<FilteredButtonAxisPosition> {
         let clamped_unscaled = self.clamp(new_raw_value);
-        let scaled = self.get_axis_position_from_value(clamped_unscaled);
-        match self.should_register_change(clamped_unscaled, old_value) {
-            true => Some((clamped_unscaled, scaled)),
+        match self.should_register_change(clamped_unscaled, old_raw_value) {
+            true => Some(FilteredButtonAxisPosition {
+                scaled: self.get_axis_position_from_value(clamped_unscaled),
+                raw: new_raw_value,
+            }),
             false => None,
         }
     }
@@ -1549,9 +1567,9 @@ pub fn gamepad_event_processing_system(
                 else {
                     continue;
                 };
-                let interpreted_value = filtered_value.to_f32();
-                gamepad_axis.analog.set(axis, interpreted_value);
-                let send_event = GamepadAxisChangedEvent::new(gamepad, axis, interpreted_value);
+                gamepad_axis.analog.set(axis, filtered_value.raw);
+                let send_event =
+                    GamepadAxisChangedEvent::new(gamepad, axis, filtered_value.scaled.to_f32());
                 processed_axis_events.send(send_event);
                 processed_events.send(GamepadEvent::from(send_event));
             }
@@ -1571,9 +1589,9 @@ pub fn gamepad_event_processing_system(
                     continue;
                 };
                 let button_settings = settings.get_button_settings(button);
-                gamepad_buttons.analog.set(button, filtered_value.0);
+                gamepad_buttons.analog.set(button, filtered_value.raw);
 
-                if button_settings.is_released(filtered_value.0) {
+                if button_settings.is_released(filtered_value.raw) {
                     // Check if button was previously pressed
                     if gamepad_buttons.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
@@ -1585,7 +1603,7 @@ pub fn gamepad_event_processing_system(
                     // We don't have to check if the button was previously pressed here
                     // because that check is performed within Input<T>::release()
                     gamepad_buttons.digital.release(button);
-                } else if button_settings.is_pressed(filtered_value.0) {
+                } else if button_settings.is_pressed(filtered_value.raw) {
                     // Check if button was previously not pressed
                     if !gamepad_buttons.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
@@ -1606,7 +1624,7 @@ pub fn gamepad_event_processing_system(
                     gamepad,
                     button,
                     button_state,
-                    filtered_value.0,
+                    filtered_value.scaled.to_f32(),
                 );
                 processed_analog_events.send(send_event);
                 processed_events.send(GamepadEvent::from(send_event));
@@ -1744,7 +1762,7 @@ impl GamepadRumbleRequest {
 #[cfg(test)]
 mod tests {
     use super::{
-        gamepad_connection_system, gamepad_event_processing_system, linear_remapping, AxisSettings,
+        gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
         AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
         GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
@@ -1752,7 +1770,7 @@ mod tests {
         GamepadConnectionEvent, GamepadEvent, GamepadSettings, RawGamepadAxisChangedEvent,
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
-    use crate::{gamepad::ScaledAxisWithDeadZonePosition, ButtonState};
+    use crate::ButtonState;
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
@@ -1760,14 +1778,16 @@ mod tests {
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,
-        new_value: f32,
-        old_value: Option<f32>,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
         expected: Option<f32>,
     ) {
-        let actual = settings.filter(new_value, old_value).map(|f| f.1.to_f32());
+        let actual = settings
+            .filter(new_raw_value, old_raw_value)
+            .map(|f| f.scaled.to_f32());
         assert_eq!(
             expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
+            "Testing filtering for {settings:?} with new_raw_value = {new_raw_value:?}, old_raw_value = {old_raw_value:?}",
         );
     }
 
@@ -1779,7 +1799,7 @@ mod tests {
             (0.99, None, Some(1.0)),
             (0.96, None, Some(1.0)),
             (0.95, None, Some(1.0)),
-             // linearly rescaled from 0.05..=0.95 to 0.0..=1.0
+            // linearly rescaled from 0.05..=0.95 to 0.0..=1.0
             (0.9499, None, Some(0.9998889)),
             (0.84, None, Some(0.87777776)),
             (0.43, None, Some(0.42222223)),
@@ -1791,14 +1811,14 @@ mod tests {
             (0.0, None, Some(0.0)),
         ];
 
-        for (new_value, old_value, expected) in cases {
+        for (new_raw_value, old_raw_value, expected) in cases {
             let settings = ButtonAxisSettings::default();
-            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+            test_button_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
     #[test]
-    fn test_button_axis_settings_default_filter_with_old_value() {
+    fn test_button_axis_settings_default_filter_with_old_raw_value() {
         let cases = [
             // 0.43 gets rescaled to 0.42222223 0.05..=0.95 -> 0.0..=1.0
             (0.43, Some(0.44001), Some(0.42222223)),
@@ -1811,22 +1831,22 @@ mod tests {
             (0.95, Some(0.945), Some(1.0)),
         ];
 
-        for (new_value, old_value, expected) in cases {
+        for (new_raw_value, old_raw_value, expected) in cases {
             let settings = ButtonAxisSettings::default();
-            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+            test_button_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
     fn test_axis_settings_filter(
         settings: AxisSettings,
-        new_value: f32,
-        old_value: Option<f32>,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
         expected: Option<f32>,
     ) {
-        let actual = settings.filter(new_value, old_value);
+        let actual = settings.filter(new_raw_value, old_raw_value);
         assert_eq!(
-            expected, actual.map(ScaledAxisWithDeadZonePosition::to_f32),
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
+            expected, actual.map(|f| f.scaled.to_f32()),
+            "Testing filtering for {settings:?} with new_raw_value = {new_raw_value:?}, old_raw_value = {old_raw_value:?}",
         );
     }
 
@@ -1867,34 +1887,32 @@ mod tests {
             (-0.01, Some(0.0)),
         ];
 
-        for (new_value, expected) in cases {
+        for (new_raw_value, expected) in cases {
             let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
-            test_axis_settings_filter(settings, new_value, None, expected);
+            test_axis_settings_filter(settings, new_raw_value, None, expected);
         }
     }
 
     #[test]
-    fn test_axis_settings_default_filter_with_old_values() {
+    fn test_axis_settings_default_filter_with_old_raw_values() {
         let threshold = 0.01;
-        let scale_pos = |raw| linear_remapping(raw, 0.05..=0.95, 0.0..=1.0);
-        let scale_neg = |raw| linear_remapping(raw, -0.95..=-0.05, -1.0..=0.0);
         let cases = [
             // enough increase to change
-            (0.43, Some(scale_pos(0.43 + threshold)), Some(0.42222223)),
+            (0.43, Some(0.43 + threshold * 1.1), Some(0.42222223)),
             // enough decrease to change
-            (0.43, Some(scale_pos(0.43 - threshold)), Some(0.42222223)),
+            (0.43, Some(0.43 - threshold * 1.1), Some(0.42222223)),
             // not enough increase to change
-            (0.43, Some(scale_pos(0.43 + threshold / 2.0)), None),
+            (0.43, Some(0.43 + threshold * 0.9), None),
             // not enough decrease to change
-            (0.43, Some(scale_pos(0.43 - threshold / 2.0)), None),
+            (0.43, Some(0.43 - threshold * 0.9), None),
             // enough increase to change
-            (-0.43, Some(scale_neg(-0.43 + threshold)), Some(-0.42222226)),
+            (-0.43, Some(-0.43 + threshold * 1.1), Some(-0.42222226)),
             // enough decrease to change
-            (-0.43, Some(scale_neg(-0.43 - threshold)), Some(-0.42222226)),
+            (-0.43, Some(-0.43 - threshold * 1.1), Some(-0.42222226)),
             // not enough increase to change
-            (-0.43, Some(scale_neg(-0.43 + threshold / 2.0)), None),
+            (-0.43, Some(-0.43 + threshold * 0.9), None),
             // not enough decrease to change
-            (-0.43, Some(scale_neg(-0.43 - threshold / 2.0)), None),
+            (-0.43, Some(-0.43 - threshold * 0.9), None),
             // test upper deadzone logic
             (0.05, Some(0.0), None),
             (0.06, Some(0.0), Some(0.0111111095)),
@@ -1909,9 +1927,9 @@ mod tests {
             (-0.94, Some(-1.0), Some(-0.9888889)),
         ];
 
-        for (new_value, old_value, expected) in cases {
+        for (new_raw_value, old_raw_value, expected) in cases {
             let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, threshold).unwrap();
-            test_axis_settings_filter(settings, new_value, old_value, expected);
+            test_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
