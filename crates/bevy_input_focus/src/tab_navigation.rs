@@ -315,7 +315,7 @@ pub fn handle_tab_navigation(
         && key_event.state == ButtonState::Pressed
         && !key_event.repeat
     {
-        let next = nav.navigate(
+        let maybe_next = nav.navigate(
             &focus,
             if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
                 NavAction::Previous
@@ -324,7 +324,7 @@ pub fn handle_tab_navigation(
             },
         );
 
-        match next {
+        match maybe_next {
             Ok(next) => {
                 trigger.propagate(false);
                 focus.set(next);
