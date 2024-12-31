@@ -986,7 +986,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     #[track_caller]
-    fn assert_not_despawned(&self) {
+    pub(crate) fn assert_not_despawned(&self) {
         if self.location.archetype_id == ArchetypeId::INVALID {
             self.panic_despawned();
         }
@@ -1202,6 +1202,59 @@ impl<'w> EntityWorldMut<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: trait bound `Mutability = Mutable` ensures `T` is mutable
         unsafe { self.get_mut_assume_mutable() }
+    }
+
+    /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
+    /// provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](EntityWorldMut::get_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Foo(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.register_component::<Foo>();
+    /// #
+    /// # let entity = world.spawn(Foo(false)).id();
+    /// #
+    /// # let mut entity = world.entity_mut(entity);
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+    /// #
+    /// entity.modify_component(|foo: &mut Foo| {
+    ///     foo.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn modify_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+        self.assert_not_despawned();
+
+        let result = self
+            .world
+            .modify_component(self.entity, f)
+            .expect("entity access must be valid")?;
+
+        self.update_location();
+
+        Some(result)
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -3435,7 +3488,6 @@ pub enum TryFromFilteredError {
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
-#[derive(Clone)]
 pub struct EntityRefExcept<'w, B>
 where
     B: Bundle,
@@ -3521,6 +3573,14 @@ where
     }
 }
 
+impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+
 impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
@@ -3567,7 +3627,6 @@ unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
-#[derive(Clone)]
 pub struct EntityMutExcept<'w, B>
 where
     B: Bundle,
@@ -5390,5 +5449,88 @@ mod tests {
                 .entity_get_spawned_or_despawned_by(entity)
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn with_component_activates_hooks() {
+        use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        #[component(immutable)]
+        struct Foo(bool);
+
+        static EXPECTED_VALUE: AtomicBool = AtomicBool::new(false);
+
+        static ADD_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REMOVE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REPLACE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static INSERT_COUNT: AtomicU8 = AtomicU8::new(0);
+
+        let mut world = World::default();
+
+        world.register_component::<Foo>();
+        world
+            .register_component_hooks::<Foo>()
+            .on_add(|world, entity, _| {
+                ADD_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_remove(|world, entity, _| {
+                REMOVE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_replace(|world, entity, _| {
+                REPLACE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_insert(|world, entity, _| {
+                INSERT_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            });
+
+        let entity = world.spawn(Foo(false)).id();
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 1);
+
+        let mut entity = world.entity_mut(entity);
+
+        let archetype_pointer_before = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+
+        entity.modify_component(|foo: &mut Foo| {
+            foo.0 = true;
+            EXPECTED_VALUE.store(foo.0, Ordering::Relaxed);
+        });
+
+        let archetype_pointer_after = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
+
+        assert_eq!(archetype_pointer_before, archetype_pointer_after);
     }
 }

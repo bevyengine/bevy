@@ -1,3 +1,5 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -5,7 +7,7 @@ use bevy_ecs::{
     system::{Query, SystemState},
     world::World,
 };
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
