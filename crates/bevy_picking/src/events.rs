@@ -3,7 +3,7 @@
 //!
 //! # Usage
 //!
-//! To receive events from this module, you must use an [`Observer`]
+//! To receive events from this module, you must use an [`Observer`] or [`EventReader`] with [`Pointer<E>`] events.
 //! The simplest example, registering a callback when an entity is hovered over by a pointer, looks like this:
 //!
 //! ```rust
@@ -35,7 +35,7 @@
 //! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 //!
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
-//! general metadata about the pointer and it's location.
+//! general metadata about the pointer event.
 
 use core::fmt::Debug;
 
