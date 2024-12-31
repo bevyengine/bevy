@@ -9,7 +9,7 @@ use crate::{
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, IntoSystem, InfallibleSystemWrapper, ScheduleSystem, System},
+    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
