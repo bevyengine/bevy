@@ -1053,7 +1053,7 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
+    /// Initializes any newly-added systems and conditions by calling [`System::initialize`](crate::system::System)
     pub fn initialize(&mut self, world: &mut World) {
         for (id, i) in self.uninit.drain(..) {
             match id {
