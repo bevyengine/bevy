@@ -21,7 +21,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 ///     Paused,
 /// }
 ///
-/// app.add_systems(Update, 
+/// app.add_systems(Update,
 ///     // `state_exists` will only return true if the
 ///     // given state exists
 ///     my_system.run_if(state_exists::<GameState>),
@@ -128,7 +128,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 ///
 /// world.init_resource::<State<GameState>>();
 ///
-/// app.add_systems(Update, 
+/// app.add_systems(Update,
 ///     // `state_changed` will only return true if the
 ///     // given states value has just been updated or
 ///     // the state has just been added
