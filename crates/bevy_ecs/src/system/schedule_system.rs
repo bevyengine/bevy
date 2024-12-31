@@ -67,6 +67,12 @@ impl<S: System<In = (), Out = ()>> System for OkWrapperSystem<S> {
     }
 
     #[inline]
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        self.0.run(input, world);
+        Ok(())
+    }
+
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.0.apply_deferred(world);
     }
@@ -104,6 +110,10 @@ impl<S: System<In = (), Out = ()>> System for OkWrapperSystem<S> {
     #[inline]
     fn set_last_run(&mut self, last_run: Tick) {
         self.0.set_last_run(last_run);
+    }
+
+    fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
+        self.0.default_system_sets()
     }
 }
 
