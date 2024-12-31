@@ -36,6 +36,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
@@ -43,6 +44,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
         world,
         |encoder| {
