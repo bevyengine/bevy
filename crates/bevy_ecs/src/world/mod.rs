@@ -97,6 +97,18 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
+///
+/// ## Implementation
+///
+/// The `Marker` generic is necessary to allow for multiple blanket implementations
+/// of `Command` for closures, like so (simplified):
+/// ```ignore (This would conflict with the real implementations)
+/// impl Command for FnOnce(&mut World)
+/// impl Command<Result> for FnOnce(&mut World) -> Result
+/// ```
+/// Without the generic, Rust would consider the two implementations to be conflicting.
+///
+/// The type used for `Marker` has no connection to anything else in the implementation.
 pub trait Command<Marker = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///

@@ -86,6 +86,9 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
+    /// How the [`Commands`] instance will response upon encountering an error.
+    ///
+    /// If this is unset ([`None`]), commands can choose their error mode individually.
     pub error_mode: Option<CommandErrorMode>,
 }
 
@@ -648,33 +651,86 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command.with_error_handling(error_mode));
     }
 
+    /// Sets the [`Commands`] instance to fail silently upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn silent_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Silent);
     }
 
+    /// Sets the [`Commands`] instance to log a warning upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn log_warning_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Warning);
     }
 
+    /// Sets the [`Commands`] instance to log an error message upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn log_error_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Error);
     }
 
+    /// Sets the [`Commands`] instance to start a panic upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn panic_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Panic);
     }
 
+    /// Sets the [`EntityCommands`] instance call a custom function upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    ///
+    /// If an error is encountered in a situation without `&mut World` access
+    /// (e.g. a non-deferred [`Commands`] method), this mode will instead panic.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
     pub fn custom_error_mode(&mut self, function: fn(&mut World, Result)) {
         self.error_mode = Some(CommandErrorMode::Custom(function))
     }
 
-    /// Resets the [`Commands`] instance's error mode, allowing individual
-    /// commands to choose their own error mode.
+    /// Resets the [`Commands`] instance's error mode, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error mode was previously set
+    /// by one of the following commands:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn reset_error_mode(&mut self) {
         self.error_mode = None;
     }
@@ -1238,6 +1294,20 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
+///
+/// ## Implementation
+///
+/// The `Marker` generic is necessary to allow for multiple blanket implementations
+/// of `EntityCommand` for closures, like so (simplified):
+/// ```ignore (This would conflict with the real implementations)
+/// impl EntityCommand for FnOnce(Entity, &mut World)
+/// impl EntityCommand<World> for FnOnce(EntityWorldMut)
+/// impl EntityCommand<Result> for FnOnce(Entity, &mut World) -> Result
+/// impl EntityCommand<(World, Result)> for FnOnce(EntityWorldMut) -> Result
+/// ```
+/// Without the generic, Rust would consider the implementations to be conflicting.
+///
+/// The type used for `Marker` has no connection to anything else in the implementation.
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`] and
     /// returns a [`Result`] for error handling.
@@ -1861,38 +1931,88 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
+    /// Sets the [`EntityCommands`] instance to fail silently upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn silent_on_error(&mut self) -> &mut Self {
         self.commands.silent_on_error();
         self
     }
 
+    /// Sets the [`EntityCommands`] instance to log a warning upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn log_warning_on_error(&mut self) -> &mut Self {
         self.commands.log_warning_on_error();
         self
     }
 
+    /// Sets the [`EntityCommands`] instance to log an error message upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn log_error_on_error(&mut self) -> &mut Self {
         self.commands.log_error_on_error();
         self
     }
 
+    /// Sets the [`EntityCommands`] instance to start a panic upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.commands.panic_on_error();
         self
     }
 
+    /// Sets the [`EntityCommands`] instance call a custom function upon encountering an error.
     ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    ///
+    /// See also:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
     pub fn custom_error_mode(&mut self, function: fn(&mut World, Result)) -> &mut Self {
         self.commands.custom_error_mode(function);
         self
     }
 
-    /// Resets the [`EntityCommands`] instance's error mode, allowing individual
-    /// commands to choose their own error mode.
+    /// Resets the [`EntityCommands`] instance's error mode, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error mode was previously set
+    /// by one of the following commands:
+    /// - [`Self::silent_on_error`]
+    /// - [`Self::log_warning_on_error`]
+    /// - [`Self::log_error_on_error`]
+    /// - [`Self::panic_on_error`]
+    /// - [`Self::custom_error_mode`]
     pub fn reset_error_mode(&mut self) -> &mut Self {
         self.commands.reset_error_mode();
         self
@@ -2184,11 +2304,20 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Sets the [`EntityEntryCommands`] instance to respond according to `error_mode`
+    /// upon encountering an error.
+    ///
+    /// You can use [`Self::reset_error_mode`] to undo this.
     pub fn with_error_mode(&mut self, error_mode: CommandErrorMode) -> &mut Self {
         self.entity_commands.commands.error_mode = Some(error_mode);
         self
     }
 
+    /// Resets the [`EntityEntryCommands`] instance's error mode, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error mode was previously set
+    /// by [`Self::with_error_mode`].
     pub fn reset_error_mode(&mut self) -> &mut Self {
         self.entity_commands.reset_error_mode();
         self
