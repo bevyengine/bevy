@@ -21,7 +21,7 @@ mod sealed {
 
 /// A [`States`] type or tuple of types which implement [`States`].
 ///
-/// This trait is used allow implementors of [`States`], as well
+/// This trait is used to allow implementors of [`States`], as well
 /// as tuples containing exclusively implementors of [`States`], to
 /// be used as [`ComputedStates::SourceStates`].
 ///
