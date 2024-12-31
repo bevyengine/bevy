@@ -1,12 +1,14 @@
-//! This crate provides 'picking' capabilities for the Bevy game engine. That means, in simple terms, figuring out
-//! how to connect up a user's clicks or taps to the entities they are trying to interact with.
+//! This crate provides 'picking' capabilities for the Bevy game engine, allowing pointers to interact with
+//! entities using hover, click, and drag events.
 //!
 //! ## Overview
 //!
 //! In the simplest case, this plugin allows you to click on things in the scene. However, it also
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
-//! element and drops it on a 3d mesh rendered to a different camera. The crate also provides a set of
-//! interaction callbacks, allowing you to receive input directly on entities like here:
+//! element and drops it on a 3d mesh rendered to a different camera.
+//!
+//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to succinctly
+//! express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::*;
@@ -16,7 +18,8 @@
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
-//!         // Get the underlying event type
+//!         println!("I was just clicked!");
+//!         // Get the underlying pointer event data
 //!         let click_event: &Pointer<Click> = trigger.event();
 //!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
@@ -29,10 +32,12 @@
 //!
 //! ## Expressive Events
 //!
-//! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
-//! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
+//! Although the events in this module (see [`events`]) can be listened to with normal `EventReader`s, using 
+//! observers is often more expressive, with less boilerplate. This is because observers allow you to attach
+//! event handling logic to specific entities, as well as make use of event bubbling. 
+//! 
+//! When events are generated, they bubble up the entity hierarchy starting from their target, until they
+//! reach the root or bubbling is halted with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
 //! This allows you to run callbacks when any children of an entity are interacted with, and leads
