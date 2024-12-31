@@ -2,7 +2,7 @@ use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
 use bevy_utils::HashMap;
 
-use crate::system::{IntoSystem, ScheduleSystem, System};
+use crate::system::IntoSystem;
 use crate::world::World;
 
 use super::{
@@ -49,8 +49,8 @@ impl AutoInsertApplyDeferredPass {
 
         graph
             .systems
-            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
-                IntoSystem::into_system(ApplyDeferred),
+            .push(SystemNode::new(Box::new(IntoSystem::into_system(
+                ApplyDeferred,
             ))));
         graph.system_conditions.push(Vec::new());
 

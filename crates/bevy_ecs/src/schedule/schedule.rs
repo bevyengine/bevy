@@ -26,7 +26,7 @@ use crate::{
     prelude::Component,
     result::Result,
     schedule::*,
-    system::{IntoSystem, Resource, ScheduleSystem},
+    system::{Resource, ScheduleSystem},
     world::World,
 };
 
