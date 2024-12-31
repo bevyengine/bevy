@@ -11,18 +11,17 @@ use crate::{
 
 use super::IntoSystem;
 
-// This is breaking some things because the system type set is now wrong.
-/// Wrapper for a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
-pub struct OkWrapperSystem<S: System<In = (), Out = ()>>(S);
+/// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
+pub struct InfallibleSystemWrapper<S: System<In = (), Out = ()>>(S);
 
-impl<S: System<In = (), Out = ()>> OkWrapperSystem<S> {
+impl<S: System<In = (), Out = ()>> InfallibleSystemWrapper<S> {
     /// Create a new `OkWrapperSystem`
     pub fn new(system: S) -> Self {
         Self(IntoSystem::into_system(system))
     }
 }
 
-impl<S: System<In = (), Out = ()>> System for OkWrapperSystem<S> {
+impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     type In = ();
     type Out = Result;
 
