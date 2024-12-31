@@ -54,19 +54,25 @@ impl Plugin for CameraProjectionPlugin {
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
-/// Trait to control the projection matrix of a camera.
+/// Describes a type that can generate a projection matrix, allowing it to be added to a
+/// [`Camera`]'s [`Projection`] component.
 ///
-/// Components implementing this trait are automatically polled for changes, and used
-/// to recompute the camera projection matrix of the [`Camera`] component attached to
-/// the same entity as the component implementing this trait.
+/// Once implemented, the projection can be added to a camera using [`Projection::custom`].
 ///
-/// Use the plugins [`CameraProjectionPlugin`] and `bevy::pbr::PbrProjectionPlugin` to setup the
-/// systems for your [`CameraProjection`] implementation.
+/// The projection will be automatically updated as the render area is resized. This is useful when,
+/// for example, a projection type has a field like `fov` that should change when the window width
+/// is changed but not when the height changes.
+///
+/// This trait is implemented by bevy's built-in projections [`PerspectiveProjection`] and
+/// [`OrthographicProjection`].
 ///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
+    /// When the area this camera renders to changes dimensions, this method will be automatically
+    /// called. Use this to update any projection properties that depend on the aspect ratio or
+    /// dimensions of the render area.
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -88,11 +94,17 @@ pub trait CameraProjection {
 }
 
 mod sealed {
+    use downcast_rs::Downcast;
+
+    /// A wrapper trait to make it possible to implement Clone for boxed [`CameraProjection`] trait
+    /// objects, without breaking object safety rules by making it `Sized`.
     pub trait CameraProjectionClone:
-        super::CameraProjection + core::fmt::Debug + Send + Sync
+        super::CameraProjection + core::fmt::Debug + Send + Sync + Downcast
     {
         fn clone_box(&self) -> Box<dyn CameraProjectionClone>;
     }
+
+    downcast_rs::impl_downcast!(CameraProjectionClone);
 
     impl<T> CameraProjectionClone for T
     where
@@ -104,12 +116,63 @@ mod sealed {
     }
 }
 
+/// Holds a dynamic [`CameraProjection`] trait object. Use [`Projection::custom()`] to construct a
+/// custom projection.
 #[derive(Component, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
 pub struct CustomProjection {
     #[reflect(ignore)]
     #[deref]
     inner: Box<dyn sealed::CameraProjectionClone>,
+}
+
+impl CustomProjection {
+    /// Returns a reference to the [`CameraProjection`] `P`.
+    ///
+    /// Returns `None` if this dynamic object is not a projection of type `P`.
+    ///
+    /// ```
+    /// # use bevy_render::prelude::{Projection, PerspectiveProjection};
+    /// // For simplicity's sake, use perspective as a custom projection:
+    /// let projection = Projection::custom(PerspectiveProjection::default());
+    /// let Projection::Custom(custom) = projection else { return };
+    ///
+    /// // At this point the projection type is erased.
+    /// // We can use `get()` if we know what kind of projection we have.
+    /// let perspective = custom.get::<PerspectiveProjection>().unwrap();
+    ///
+    /// assert_eq!(perspective.fov, PerspectiveProjection::default().fov);
+    /// ```
+    pub fn get<P>(&self) -> Option<&P>
+    where
+        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+    {
+        self.inner.downcast_ref()
+    }
+
+    /// Returns a mutable  reference to the [`CameraProjection`] `P`.
+    ///
+    /// Returns `None` if this dynamic object is not a projection of type `P`.
+    ///
+    /// ```
+    /// # use bevy_render::prelude::{Projection, PerspectiveProjection};
+    /// // For simplicity's sake, use perspective as a custom projection:
+    /// let projection = Projection::custom(PerspectiveProjection::default());
+    /// let Projection::Custom(custom) = projection else { return };
+    ///
+    /// // At this point the projection type is erased.
+    /// // We can use `get()` if we know what kind of projection we have.
+    /// let perspective = custom.get::<PerspectiveProjection>().unwrap();
+    ///
+    /// assert_eq!(perspective.fov, PerspectiveProjection::default().fov);
+    /// perspective.fov = 1.0;
+    /// ```
+    pub fn get_mut<P>(&mut self) -> Option<&mut P>
+    where
+        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+    {
+        self.inner.downcast_mut()
+    }
 }
 
 impl Default for CustomProjection {
@@ -128,7 +191,25 @@ impl Clone for CustomProjection {
     }
 }
 
-/// A configurable [`CameraProjection`] that can select its projection type at runtime.
+/// Component that defines how to compute a [`Camera`]'s projection matrix.
+///
+/// Common projections, like perspective and orthographic, are provided out of the box to handle the
+/// majority of use cases. Custom projections can be added using the [`CameraProjection`] trait and
+/// the [`Projection::custom`] constructor.
+///
+/// ## What's a projection?
+///
+/// A camera projection essentially describes how 3d points from the point of view of a camera are
+/// projected onto a 2d screen. This is where properties like a camera's field of view are defined.
+/// More specifically, a projection is a 4x4 matrix that transforms points from view space (the
+/// point of view of the camera) into clip space. Clip space is almost, but not quite, equivalent to
+/// the rectangle that is rendered to your screen, with a depth axis. Any points that land outside
+/// the bounds of this cuboid are "clipped" and not rendered.
+///
+/// You can also think of the projection as the thing that describes the shape of a camera's
+/// frustum: the volume in 3d space that is visible to a camera.
+///
+/// [`Camera`]: crate::camera::Camera
 #[derive(Component, Debug, Clone, Reflect, From)]
 #[reflect(Component, Default, Debug)]
 pub enum Projection {
@@ -141,6 +222,10 @@ impl Projection {
     /// Construct a new custom camera projection from a type that implements [`CameraProjection`].
     pub fn custom<P>(projection: P) -> Self
     where
+        // Implementation note: pushing these trait bounds all the way out to this function makes
+        // errors nice for users. If a trait is missing, they will get a helpful error telling them
+        // that, say, the `Debug` implementation is missing. Wrapping these traits behind a super
+        // trait or some other indirection will make the errors harder to understand.
         P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
     {
         Projection::Custom(CustomProjection {
