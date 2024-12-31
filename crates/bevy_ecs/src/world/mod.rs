@@ -1877,12 +1877,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_added(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Returns `true` if a resource of type `R` exists and was modified since the world's
@@ -1895,8 +1894,7 @@ impl World {
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_changed_by_id(component_id))
-            .unwrap_or(false)
+            .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
@@ -1910,12 +1908,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Retrieves the change ticks for the given resource.
