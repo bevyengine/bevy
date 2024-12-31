@@ -43,6 +43,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
         world,
         |encoder| {

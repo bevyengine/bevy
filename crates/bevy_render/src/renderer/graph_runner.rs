@@ -68,6 +68,7 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
