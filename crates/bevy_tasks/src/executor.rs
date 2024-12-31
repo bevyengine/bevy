@@ -14,7 +14,7 @@ use core::{
 };
 use derive_more::{Deref, DerefMut};
 
-#[cfg(feature = "multi_threaded")]
+#[cfg(all(feature = "multi_threaded", not(target_arch = "wasm32")))]
 pub use async_task::FallibleTask;
 
 #[cfg(feature = "async_executor")]
