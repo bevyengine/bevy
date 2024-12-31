@@ -13,7 +13,9 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = App::new();
-/// # app.init_resource::<Counter>();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -35,7 +37,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// app.run();
 /// assert_eq!(app.world().resource::<Counter>().0, 0);
 ///
-/// app.init_resource::<State<GameState>>();
+/// app.init_state::<GameState>();
 ///
 /// // `GameState` now exists so `my_system` will run
 /// app.run();
@@ -59,7 +61,9 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = App::new();
-/// # app.init_resource::<Counter>();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -68,7 +72,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// }
 ///
 /// app
-///     .init_resource::<State<GameState>>()
+///     .init_state::<GameState>()
 ///     .add_systems(Update, (
 ///         // `in_state` will only return true if the
 ///         // given state equals the given value
@@ -88,7 +92,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// app.run();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
-/// app.insert_resource(State::new(GameState::Paused));
+/// app.insert_state(GameState::Paused);
 ///
 /// // Now that we are in `GameState::Pause`, `pause_system` will run
 /// app.run();
@@ -118,7 +122,9 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = App::new();
-/// # app.init_resource::<Counter>();
+/// # app
+/// #   .init_resource::<Counter>()
+/// #   .add_plugins(StatesPlugin);
 /// #[derive(States, Clone, Copy, Default, Eq, PartialEq, Hash, Debug)]
 /// enum GameState {
 ///     #[default]
@@ -127,7 +133,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// }
 ///
 /// app
-///     .init_resource::<State<GameState>>()
+///     .init_state::<GameState>()
 ///     .add_systems(Update,
 ///         // `state_changed` will only return true if the
 ///         // given states value has just been updated or
@@ -147,7 +153,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// app.run();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
-/// app.insert_resource(State::new(GameState::Paused));
+/// app.insert_state(GameState::Paused);
 ///
 /// // Now that `GameState` has been updated `my_system` will run
 /// app.run();
