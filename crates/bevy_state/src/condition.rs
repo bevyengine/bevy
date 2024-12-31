@@ -68,7 +68,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// }
 ///
 /// app
-///     .init_state<GameState>()
+///     .init_state::<GameState>()
 ///     .add_systems(Update, (
 ///         // `in_state` will only return true if the
 ///         // given state equals the given value
