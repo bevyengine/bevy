@@ -45,7 +45,7 @@ use crate::{FocusedInput, InputFocus, InputFocusVisible};
 ///
 /// Note that you must also add the [`TabGroup`] component to the entity's ancestor in order
 /// for this component to have any effect.
-#[derive(Debug, Default, Component, Copy, Clone)]
+#[derive(Debug, Default, Component, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TabIndex(pub i32);
 
 /// A component used to mark a tree of entities as containing tabbable elements.
@@ -179,7 +179,7 @@ impl TabNavigation<'_, '_> {
                     .map(|(e, tg, _)| (e, *tg))
                     .collect();
                 // Stable sort by group order
-                tab_groups.sort_by(compare_tab_groups);
+                tab_groups.sort_by_key(|(_, tg)| tg.order);
 
                 // Search group descendants
                 tab_groups.iter().for_each(|(tg_entity, _)| {
@@ -194,7 +194,7 @@ impl TabNavigation<'_, '_> {
         }
 
         // Stable sort by tabindex
-        focusable.sort_by(compare_tab_indices);
+        focusable.sort_by_key(|(_, idx)| *idx);
 
         let index = focusable.iter().position(|e| Some(e.0) == focus.0);
         let count = focusable.len();
@@ -231,15 +231,6 @@ impl TabNavigation<'_, '_> {
             }
         }
     }
-}
-
-fn compare_tab_groups(a: &(Entity, TabGroup), b: &(Entity, TabGroup)) -> core::cmp::Ordering {
-    a.1.order.cmp(&b.1.order)
-}
-
-// Stable sort which compares by tab index
-fn compare_tab_indices(a: &(Entity, TabIndex), b: &(Entity, TabIndex)) -> core::cmp::Ordering {
-    a.1 .0.cmp(&b.1 .0)
 }
 
 /// Plugin for navigating between focusable entities using keyboard input.

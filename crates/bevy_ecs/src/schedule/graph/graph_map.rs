@@ -125,7 +125,7 @@ where
     /// For a directed graph, the edge is directed from `a` to `b`.
     ///
     /// Inserts nodes `a` and/or `b` if they aren't already part of the graph.
-    pub(crate) fn add_edge(&mut self, a: NodeId, b: NodeId) {
+    pub fn add_edge(&mut self, a: NodeId, b: NodeId) {
         if self.edges.insert(Self::edge_key(a, b)) {
             // insert in the adjacency list if it's a new edge
             self.nodes

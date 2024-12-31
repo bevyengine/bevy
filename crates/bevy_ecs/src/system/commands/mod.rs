@@ -11,7 +11,7 @@ use crate::{
     change_detection::Mut,
     component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
-    event::{Event, SendEvent},
+    event::{Event, Events},
     observer::{Observer, TriggerTargets},
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
@@ -1060,10 +1060,15 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`EventWriter`]: crate::event::EventWriter
     #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.queue(SendEvent {
-            event,
-            #[cfg(feature = "track_change_detection")]
-            caller: Location::caller(),
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
+        self.queue(move |world: &mut World| {
+            let mut events = world.resource_mut::<Events<E>>();
+            events.send_with_caller(
+                event,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         });
         self
     }
