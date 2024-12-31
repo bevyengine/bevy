@@ -64,6 +64,8 @@ fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
     return vec2(u, v);
 }
 
+//Note: I think I took this from the unreal implementation. licensing issue?
+
 fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     let x = (azimuth * FRAC_2_PI) + 0.5;
 
