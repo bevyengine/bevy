@@ -2,8 +2,12 @@
 
 use crate::{
     component::{Tick, TickCells},
+    entity::Entity,
+    prelude::Component,
     ptr::PtrMut,
-    system::Resource,
+    query::{Changed, QueryData, QueryFilter, ReadOnlyQueryData},
+    system::{Commands, Local, Query, ReadOnlySystemParam, Resource, SystemState},
+    world::{DeferredWorld, FromWorld, World},
 };
 use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -1190,6 +1194,173 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
     }
 }
 
+/// Reactive [`QueryData`].
+pub trait ReactiveQueryData<F: QueryFilter>: ReadOnlyQueryData + Sized {
+    /// The reactive state of this query.
+    type State: Send + Sync + 'static;
+
+    /// Initializes the reactive state of this query.
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State;
+
+    /// Returns `true` if the query has changed since the last system run.
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool;
+}
+
+impl<F: QueryFilter> ReactiveQueryData<F> for Entity {
+    type State = ();
+
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State {
+        let _ = world;
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool {
+        let _ = world;
+        let _ = state;
+
+        false
+    }
+}
+
+impl<F, T> ReactiveQueryData<F> for &T
+where
+    F: QueryFilter + 'static,
+    T: Component,
+{
+    type State = SystemState<Query<'static, 'static, (), (Changed<T>, F)>>;
+
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State {
+        SystemState::new(world)
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool {
+        !state.get(&world).is_empty()
+    }
+}
+
+macro_rules! impl_reactive_query_data {
+    ($($t:tt),*) => {
+        impl<F: QueryFilter + 'static, $($t: ReactiveQueryData<F>),*> ReactiveQueryData<F> for ($($t,)*) {
+            type State = ($(<$t as ReactiveQueryData<F>>::State,)*);
+
+            fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State  {
+                ($(<$t as ReactiveQueryData<F>>::init(world),)*)
+            }
+
+            fn is_changed(mut world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State ) -> bool {
+                #[allow(non_snake_case)]
+                let ($($t,)*) = state;
+                $($t::is_changed(world.reborrow(), $t)) ||*
+            }
+        }
+    };
+}
+
+impl_reactive_query_data!(T1);
+impl_reactive_query_data!(T1, T2);
+impl_reactive_query_data!(T1, T2, T3);
+impl_reactive_query_data!(T1, T2, T3, T4);
+impl_reactive_query_data!(T1, T2, T3, T4, T5);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6, T7);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6, T7, T8);
+
+/// A reactive system parameter that implements change detection.
+pub trait ReactiveSystemParam: ReadOnlySystemParam {
+    /// The reactive state of this parameter.
+    type State: Send + Sync + 'static;
+
+    /// Initializes the reactive state of this parameter.
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State;
+
+    /// Returns `true` if the parameter has changed since the last system run.
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool;
+}
+
+impl ReactiveSystemParam for Commands<'_, '_> {
+    type State = ();
+
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+        let _ = world;
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+        let _ = world;
+        let _ = state;
+
+        false
+    }
+}
+
+impl<T: FromWorld + Send> ReactiveSystemParam for Local<'_, T> {
+    type State = ();
+
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+        let _ = world;
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+        let _ = world;
+        let _ = state;
+
+        false
+    }
+}
+
+impl<D, F> ReactiveSystemParam for Query<'_, '_, D, F>
+where
+    D: ReactiveQueryData<F> + QueryData + 'static,
+    F: QueryFilter + 'static,
+{
+    type State = <D as ReactiveQueryData<F>>::State;
+
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+        <D as ReactiveQueryData<F>>::init(world)
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+        <D as ReactiveQueryData<F>>::is_changed(world, state)
+    }
+}
+
+impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
+    type State = SystemState<Res<'static, T>>;
+
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+        SystemState::new(world)
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+        state.get(&world).is_changed()
+    }
+}
+
+macro_rules! impl_reactive_system_param {
+    ($($t:tt),*) => {
+        impl<$($t: ReactiveSystemParam),*> ReactiveSystemParam for ($($t,)*) {
+            type State = ($(<$t as ReactiveSystemParam>::State,)*);
+
+            fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+                ($(<$t as ReactiveSystemParam>::init_state(world),)*)
+            }
+
+            fn is_changed(mut world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+                #[allow(non_snake_case)]
+                let ($($t,)*) = state;
+                $($t::is_changed(world.reborrow(), $t)) ||*
+            }
+        }
+    };
+}
+
+impl_reactive_system_param!(T1);
+impl_reactive_system_param!(T1, T2);
+impl_reactive_system_param!(T1, T2, T3);
+impl_reactive_system_param!(T1, T2, T3, T4);
+impl_reactive_system_param!(T1, T2, T3, T4, T5);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6, T7);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6, T7, T8);
+
 /// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
 /// enabled, and the unit type `()` when it is not.
 ///
@@ -1260,7 +1431,7 @@ mod tests {
         world::World,
     };
 
-    use super::{DetectChanges, DetectChangesMut, MutUntyped};
+    use super::{DetectChanges, DetectChangesMut, MutUntyped, ReactiveSystemParam, Res};
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -1612,5 +1783,33 @@ mod tests {
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
         assert_eq!(4, into_mut.ticks.this_run.get());
+    }
+
+    #[test]
+    fn reactive_system_param() {
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        // Ensure the param is marked as changed for the first tick.
+        let mut state = Res::<R>::init_state(&mut world);
+        assert!(<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
+
+        // Ensure the param is not marked as changed for the next tick.
+        world.increment_change_tick();
+        assert!(!<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
+
+        // Trigger a change.
+        *world.resource_mut::<R>() = R;
+
+        assert!(<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
     }
 }
