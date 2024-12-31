@@ -36,6 +36,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
