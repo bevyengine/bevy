@@ -118,10 +118,10 @@ pub trait Command<Marker = ()>: Send + 'static {
             if let Err(error) = self.apply(world) {
                 match error_mode {
                     CommandErrorMode::Silent => (),
-                    CommandErrorMode::Warn => warn!("Command returned an error: {error}"),
+                    CommandErrorMode::Warning => warn!("Command returned an error: {error}"),
                     CommandErrorMode::Error => error!("Command returned an error: {error}"),
                     CommandErrorMode::Panic => panic!("Command returned an error: {error}"),
-                    CommandErrorMode::Override(function) => function(),
+                    CommandErrorMode::Custom(function) => function(world, Err(error)),
                 }
             }
         }
@@ -131,18 +131,22 @@ pub trait Command<Marker = ()>: Send + 'static {
 /// How a [`Command`] should respond upon encountering an [`Error`](crate::result::Error).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CommandErrorMode {
-    /// The command will fail silently.
+    /// Upon encountering an error, the command will fail silently.
     Silent,
-    /// The command will send a warning.
-    Warn,
-    /// The command will send an error.
+    /// Upon encountering an error, the command will send a warning with [`warn!`].
+    Warning,
+    /// Upon encountering an error, the command will send an error message with [`error!`].
     Error,
-    /// The command will start a panic.
+    /// Upon encountering an error, the command will start a panic.
     Panic,
-    /// The command will call a custom function.
+    /// Upon encountering an error, the command will call a custom function,
+    /// passing in its `&mut World` access and the error.
     ///
     /// `fn()` can be a closure if it doesn't capture its environment.
-    Override(fn()),
+    ///
+    /// If `CommandErrorMode` is used in a situation without `&mut World` access
+    /// (e.g. a non-deferred [`Commands`] method), this mode will instead panic.
+    Custom(fn(&mut World, Result)),
 }
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,

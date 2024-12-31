@@ -455,19 +455,18 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            match self.decide_error_mode(CommandErrorMode::Panic) {
+            match self.error_mode.clone().unwrap_or(CommandErrorMode::Panic) {
                 CommandErrorMode::Silent => (),
-                CommandErrorMode::Warn => warn!(
+                CommandErrorMode::Warning => warn!(
                     "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
                 ),
                 CommandErrorMode::Error => error!(
                     "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
                 ),
-                CommandErrorMode::Panic => panic!(
+                CommandErrorMode::Panic | CommandErrorMode::Custom(_) => panic!(
                     "Attempted to create an EntityCommands for entity {entity}, which {}",
                     self.entities.entity_does_not_exist_error_details_message(entity)
                 ),
-                CommandErrorMode::Override(function) => function(),
             }
         }
 
@@ -645,7 +644,7 @@ impl<'w, 's> Commands<'w, 's> {
         C: Command<M>,
         M: 'static,
     {
-        let error_mode = self.decide_error_mode(default_error_mode);
+        let error_mode = self.error_mode.clone().unwrap_or(default_error_mode);
         self.queue(command.with_error_handling(error_mode));
     }
 
@@ -655,12 +654,12 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     ///
-    pub fn warn_on_error(&mut self) {
-        self.error_mode = Some(CommandErrorMode::Warn);
+    pub fn log_warning_on_error(&mut self) {
+        self.error_mode = Some(CommandErrorMode::Warning);
     }
 
     ///
-    pub fn error_message_on_error(&mut self) {
+    pub fn log_error_on_error(&mut self) {
         self.error_mode = Some(CommandErrorMode::Error);
     }
 
@@ -670,25 +669,14 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     ///
-    pub fn override_error_mode(&mut self, function: fn()) {
-        self.error_mode = Some(CommandErrorMode::Override(function))
+    pub fn custom_error_mode(&mut self, function: fn(&mut World, Result)) {
+        self.error_mode = Some(CommandErrorMode::Custom(function))
     }
 
     /// Resets the [`Commands`] instance's error mode, allowing individual
     /// commands to choose their own error mode.
     pub fn reset_error_mode(&mut self) {
         self.error_mode = None;
-    }
-
-    /// Helper function to choose the right error mode with the following priority order:
-    /// 1) The newest [override](CommandErrorMode::Override), if any.
-    /// 2) The [`Commands`] instance's error mode, if set.
-    /// 3) `default_error_mode`
-    fn decide_error_mode(&self, default_error_mode: CommandErrorMode) -> CommandErrorMode {
-        match default_error_mode {
-            CommandErrorMode::Override(f) => CommandErrorMode::Override(f),
-            other => self.error_mode.clone().unwrap_or(other),
-        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -1825,7 +1813,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue_with_error_mode(despawn(), CommandErrorMode::Warn);
+        self.queue_with_error_mode(despawn(), CommandErrorMode::Warning);
     }
 
     /// Despawns the entity.
@@ -1880,20 +1868,26 @@ impl<'a> EntityCommands<'a> {
     }
 
     ///
-    pub fn warn_on_error(&mut self) -> &mut Self {
-        self.commands.warn_on_error();
+    pub fn log_warning_on_error(&mut self) -> &mut Self {
+        self.commands.log_warning_on_error();
         self
     }
 
     ///
-    pub fn error_message_on_error(&mut self) -> &mut Self {
-        self.commands.error_message_on_error();
+    pub fn log_error_on_error(&mut self) -> &mut Self {
+        self.commands.log_error_on_error();
         self
     }
 
     ///
     pub fn panic_on_error(&mut self) -> &mut Self {
         self.commands.panic_on_error();
+        self
+    }
+
+    ///
+    pub fn custom_error_mode(&mut self, function: fn(&mut World, Result)) -> &mut Self {
+        self.commands.custom_error_mode(function);
         self
     }
 
@@ -2190,32 +2184,11 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
-    ///
-    pub fn silent_on_error(&mut self) -> &mut Self {
-        self.entity_commands.silent_on_error();
+    pub fn with_error_mode(&mut self, error_mode: CommandErrorMode) -> &mut Self {
+        self.entity_commands.commands.error_mode = Some(error_mode);
         self
     }
 
-    ///
-    pub fn warn_on_error(&mut self) -> &mut Self {
-        self.entity_commands.warn_on_error();
-        self
-    }
-
-    ///
-    pub fn error_message_on_error(&mut self) -> &mut Self {
-        self.entity_commands.error_message_on_error();
-        self
-    }
-
-    ///
-    pub fn panic_on_error(&mut self) -> &mut Self {
-        self.entity_commands.panic_on_error();
-        self
-    }
-
-    /// Resets the [`EntityEntryCommands`] instance's error mode, allowing individual
-    /// commands to choose their own error mode.
     pub fn reset_error_mode(&mut self) -> &mut Self {
         self.entity_commands.reset_error_mode();
         self
