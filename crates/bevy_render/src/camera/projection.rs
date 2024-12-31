@@ -19,30 +19,16 @@ impl Plugin for CameraProjectionPlugin {
         app.register_type::<Projection>()
             .add_systems(
                 PostStartup,
-                crate::camera::camera_system
-                    .in_set(CameraUpdateSystem)
-                    // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monomorphizations.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(CameraUpdateSystem),
+                crate::camera::camera_system.in_set(CameraUpdateSystem),
             )
             .add_systems(
                 PostUpdate,
                 (
-                    crate::camera::camera_system
-                        .in_set(CameraUpdateSystem)
-                        // We assume that each camera will only have one projection,
-                        // so we can ignore ambiguities with all other monomorphizations.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(CameraUpdateSystem),
+                    crate::camera::camera_system.in_set(CameraUpdateSystem),
                     crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
                         .after(crate::camera::camera_system)
-                        .after(TransformSystem::TransformPropagate)
-                        // We assume that no camera will have more than one projection component,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(VisibilitySystems::UpdateFrusta),
+                        .after(TransformSystem::TransformPropagate),
                 ),
             );
     }
