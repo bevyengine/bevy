@@ -94,8 +94,7 @@ impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
     pub fn mouse_over(&self) -> bool {
         self.normalized
-            .map(|position| self.normalized_visible_node_rect.contains(position))
-            .unwrap_or(false)
+            .is_some_and(|position| self.normalized_visible_node_rect.contains(position))
     }
 }
 
@@ -274,15 +273,13 @@ pub fn ui_focus_system(
             };
 
             let contains_cursor = relative_cursor_position_component.mouse_over()
-                && cursor_position
-                    .map(|point| {
-                        pick_rounded_rect(
-                            *point - node_rect.center(),
-                            node_rect.size(),
-                            node.node.border_radius,
-                        )
-                    })
-                    .unwrap_or(false);
+                && cursor_position.is_some_and(|point| {
+                    pick_rounded_rect(
+                        *point - node_rect.center(),
+                        node_rect.size(),
+                        node.node.border_radius,
+                    )
+                });
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position

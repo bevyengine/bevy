@@ -98,8 +98,7 @@ fn sprite_picking(
                 camera
                     .target
                     .normalize(primary_window)
-                    .map(|x| x == location.target)
-                    .unwrap_or(false)
+                    .is_some_and(|x| x == location.target)
             })
         else {
             continue;

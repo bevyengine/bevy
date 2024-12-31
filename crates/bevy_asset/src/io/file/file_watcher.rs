@@ -54,10 +54,7 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, boo
             root.display()
         )
     });
-    let is_meta = relative_path
-        .extension()
-        .map(|e| e == "meta")
-        .unwrap_or(false);
+    let is_meta = relative_path.extension().is_some_and(|e| e == "meta");
     let asset_path = if is_meta {
         relative_path.with_extension("")
     } else {
