@@ -2,6 +2,7 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
 use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
@@ -379,6 +380,7 @@ pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     force_serial: bool,
     diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
@@ -387,6 +389,7 @@ impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(
         render_device: RenderDevice,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
@@ -394,7 +397,10 @@ impl<'w> RenderContext<'w> {
         #[cfg(target_os = "windows")]
         let force_serial =
             adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(not(any(
+            target_os = "windows",
+            all(target_arch = "wasm32", target_feature = "atomics")
+        )))]
         let force_serial = {
             drop(adapter_info);
             false
@@ -404,6 +410,7 @@ impl<'w> RenderContext<'w> {
             render_device,
             command_encoder: None,
             command_buffer_queue: Vec::new(),
+            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             force_serial,
             diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }
