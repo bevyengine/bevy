@@ -1,183 +1,120 @@
 use alloc::{borrow::Cow, vec::Vec};
-use core::any::TypeId;
 
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
     result::Result,
-    schedule::InternedSystemSet,
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-/// A type which wraps and unifies the different sorts of systems that can be added to a schedule.
-pub enum ScheduleSystem {
-    /// A system that does not return a result.
-    Infallible(BoxedSystem<(), ()>),
-    /// A system that does return a result.
-    Fallible(BoxedSystem<(), Result>),
+use super::IntoSystem;
+
+/// A wrapper system to change a system that returns `()` to return `Ok(())` to make it into a [`ScheduleSystem`]
+pub struct InfallibleSystemWrapper<S: System<In = (), Out = ()>>(S);
+
+impl<S: System<In = (), Out = ()>> InfallibleSystemWrapper<S> {
+    /// Create a new `OkWrapperSystem`
+    pub fn new(system: S) -> Self {
+        Self(IntoSystem::into_system(system))
+    }
 }
 
-impl System for ScheduleSystem {
+impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     type In = ();
     type Out = Result;
 
-    #[inline(always)]
+    #[inline]
     fn name(&self) -> Cow<'static, str> {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.name(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.name(),
-        }
+        self.0.name()
     }
 
-    #[inline(always)]
-    fn type_id(&self) -> TypeId {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.type_id(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.type_id(),
-        }
-    }
-
-    #[inline(always)]
+    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.component_access(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.component_access(),
-        }
+        self.0.component_access()
     }
 
-    #[inline(always)]
+    #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.archetype_component_access(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.archetype_component_access(),
-        }
+        self.0.archetype_component_access()
     }
 
-    #[inline(always)]
+    #[inline]
+    fn is_send(&self) -> bool {
+        self.0.is_send()
+    }
+
+    #[inline]
     fn is_exclusive(&self) -> bool {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.is_exclusive(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.is_exclusive(),
-        }
+        self.0.is_exclusive()
     }
 
-    #[inline(always)]
+    #[inline]
     fn has_deferred(&self) -> bool {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.has_deferred(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.has_deferred(),
-        }
+        self.0.has_deferred()
     }
 
-    #[inline(always)]
+    #[inline]
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => {
-                inner_system.run_unsafe(input, world);
-                Ok(())
-            }
-            ScheduleSystem::Fallible(inner_system) => inner_system.run_unsafe(input, world),
-        }
+        self.0.run_unsafe(input, world);
+        Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => {
-                inner_system.run(input, world);
-                Ok(())
-            }
-            ScheduleSystem::Fallible(inner_system) => inner_system.run(input, world),
-        }
+        self.0.run(input, world);
+        Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.apply_deferred(world),
-            ScheduleSystem::Fallible(inner_system) => inner_system.apply_deferred(world),
-        }
+        self.0.apply_deferred(world);
     }
 
-    #[inline(always)]
+    #[inline]
     fn queue_deferred(&mut self, world: DeferredWorld) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.queue_deferred(world),
-            ScheduleSystem::Fallible(inner_system) => inner_system.queue_deferred(world),
-        }
+        self.0.queue_deferred(world);
     }
 
-    #[inline(always)]
-    fn is_send(&self) -> bool {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.is_send(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.is_send(),
-        }
-    }
-
-    #[inline(always)]
+    #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.validate_param_unsafe(world),
-            ScheduleSystem::Fallible(inner_system) => inner_system.validate_param_unsafe(world),
-        }
+        self.0.validate_param_unsafe(world)
     }
 
-    #[inline(always)]
+    #[inline]
     fn initialize(&mut self, world: &mut World) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.initialize(world),
-            ScheduleSystem::Fallible(inner_system) => inner_system.initialize(world),
-        }
+        self.0.initialize(world);
     }
 
-    #[inline(always)]
+    #[inline]
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => {
-                inner_system.update_archetype_component_access(world);
-            }
-            ScheduleSystem::Fallible(inner_system) => {
-                inner_system.update_archetype_component_access(world);
-            }
-        }
+        self.0.update_archetype_component_access(world);
     }
 
-    #[inline(always)]
+    #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.check_change_tick(change_tick),
-            ScheduleSystem::Fallible(inner_system) => inner_system.check_change_tick(change_tick),
-        }
+        self.0.check_change_tick(change_tick);
     }
 
-    #[inline(always)]
-    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.default_system_sets(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.default_system_sets(),
-        }
-    }
-
-    #[inline(always)]
+    #[inline]
     fn get_last_run(&self) -> Tick {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.get_last_run(),
-            ScheduleSystem::Fallible(inner_system) => inner_system.get_last_run(),
-        }
+        self.0.get_last_run()
     }
 
-    #[inline(always)]
+    #[inline]
     fn set_last_run(&mut self, last_run: Tick) {
-        match self {
-            ScheduleSystem::Infallible(inner_system) => inner_system.set_last_run(last_run),
-            ScheduleSystem::Fallible(inner_system) => inner_system.set_last_run(last_run),
-        }
+        self.0.set_last_run(last_run);
+    }
+
+    fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
+        self.0.default_system_sets()
     }
 }
+
+/// Type alias for a `BoxedSystem` that a `Schedule` can store.
+pub type ScheduleSystem = BoxedSystem<(), Result>;
