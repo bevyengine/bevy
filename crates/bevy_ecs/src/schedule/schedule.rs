@@ -21,7 +21,7 @@ use crate::{
     prelude::Component,
     result::Result,
     schedule::*,
-    system::{IntoSystem, Resource, ScheduleSystem, System},
+    system::{IntoSystem, Resource, ScheduleSystem},
     world::World,
 };
 
@@ -1053,7 +1053,7 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    /// Initializes any newly-added systems and conditions by calling [`System::initialize`]
+    /// Initializes any newly-added systems and conditions by calling [`System::initialize`](crate::system::System)
     pub fn initialize(&mut self, world: &mut World) {
         for (id, i) in self.uninit.drain(..) {
             match id {
@@ -1200,8 +1200,8 @@ impl ScheduleGraph {
         let id = NodeId::System(self.systems.len());
 
         self.systems
-            .push(SystemNode::new(ScheduleSystem::Infallible(Box::new(
-                IntoSystem::into_system(ApplyDeferred),
+            .push(SystemNode::new(Box::new(IntoSystem::into_system(
+                ApplyDeferred,
             ))));
         self.system_conditions.push(Vec::new());
 
