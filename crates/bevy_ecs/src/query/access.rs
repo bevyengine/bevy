@@ -1207,6 +1207,14 @@ impl<T: SparseSetIndex> Clone for FilteredAccessSet<T> {
 }
 
 impl<T: SparseSetIndex> FilteredAccessSet<T> {
+    /// Creates an empty [`FilteredAccessSet`].
+    pub const fn new() -> Self {
+        Self {
+            combined_access: Access::new(),
+            filtered_accesses: Vec::new(),
+        }
+    }
+
     /// Returns a reference to the unfiltered access of the entire set.
     #[inline]
     pub fn combined_access(&self) -> &Access<T> {
@@ -1326,10 +1334,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
 
 impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
     fn default() -> Self {
-        Self {
-            combined_access: Default::default(),
-            filtered_accesses: Vec::new(),
-        }
+        Self::new()
     }
 }
 
