@@ -50,7 +50,7 @@ macro_rules! impl_sparse_array {
             #[inline]
             pub fn contains(&self, index: I) -> bool {
                 let index = index.sparse_set_index();
-                self.values.get(index).is_some_and(|v| v.is_some())
+                self.values.get(index).is_some_and(Option::is_some)
             }
 
             /// Returns a reference to the value at `index`.
