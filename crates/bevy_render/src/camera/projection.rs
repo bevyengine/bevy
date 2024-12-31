@@ -54,13 +54,26 @@ pub struct CameraUpdateSystem;
 ///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
+    /// Generate the projection matrix.
     fn get_clip_from_view(&self) -> Mat4;
+
+    /// Generate the projection matrix for a [`SubCameraView`](super::SubCameraView).
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
+
     /// When the area this camera renders to changes dimensions, this method will be automatically
     /// called. Use this to update any projection properties that depend on the aspect ratio or
     /// dimensions of the render area.
     fn update(&mut self, width: f32, height: f32);
+
+    /// The far plane distance of the projection.
     fn far(&self) -> f32;
+
+    /// The eight corners of the camera frustum, as defined by this projection.
+    ///
+    /// The corners should be provided in the following order: first the bottom right, top right,
+    /// top left, bottom left for the near plane, then similar for the far plane.
+    // TODO: This seems somewhat redundant with `compute_frustum`, and similarly should be possible
+    // to compute with a default impl.
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
 
     /// Compute camera frustum for camera with given projection and transform.
