@@ -10,6 +10,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
 /// # use bevy_app::{App, Update};
+/// # use bevy_state::app::StatesPlugin;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = App::new();
@@ -58,6 +59,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
 /// # use bevy_app::{App, Update};
+/// # use bevy_state::app::StatesPlugin;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = App::new();
@@ -118,6 +120,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
+/// # use bevy_state::app::StatesPlugin;
 /// # use bevy_app::{App, Update};
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
