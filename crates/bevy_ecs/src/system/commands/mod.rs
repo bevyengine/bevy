@@ -271,7 +271,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             },
             entities: self.entities,
-            error_mode: None,
+            error_mode: self.error_mode,
         }
     }
 
@@ -458,7 +458,7 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            match self.error_mode.clone().unwrap_or(CommandErrorMode::Panic) {
+            match self.error_mode.unwrap_or(CommandErrorMode::Panic) {
                 CommandErrorMode::Silent => (),
                 CommandErrorMode::Warning => warn!(
                     "Attempted to create an EntityCommands for entity {entity}, which does not exist; returned invalid EntityCommands"
@@ -588,9 +588,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// struct AddToCounter(u64);
     ///
     /// impl Command for AddToCounter {
-    ///     fn apply(self, world: &mut World) {
+    ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += self.0;
+    ///         Ok(())
     ///     }
     /// }
     ///
@@ -647,7 +648,7 @@ impl<'w, 's> Commands<'w, 's> {
         C: Command<M>,
         M: 'static,
     {
-        let error_mode = self.error_mode.clone().unwrap_or(default_error_mode);
+        let error_mode = self.error_mode.unwrap_or(default_error_mode);
         self.queue(command.with_error_handling(error_mode));
     }
 
@@ -718,7 +719,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`Self::log_error_on_error`]
     /// - [`Self::panic_on_error`]
     pub fn custom_error_mode(&mut self, function: fn(&mut World, Result)) {
-        self.error_mode = Some(CommandErrorMode::Custom(function))
+        self.error_mode = Some(CommandErrorMode::Custom(function));
     }
 
     /// Resets the [`Commands`] instance's error mode, allowing commands
@@ -1297,7 +1298,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// ## Implementation
 ///
-/// The `Marker` generic is necessary to allow for multiple blanket implementations
+/// The `Marker` generic is necessary to allow multiple blanket implementations
 /// of `EntityCommand` for closures, like so (simplified):
 /// ```ignore (This would conflict with the real implementations)
 /// impl EntityCommand for FnOnce(Entity, &mut World)

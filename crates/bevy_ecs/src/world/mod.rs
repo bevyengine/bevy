@@ -87,9 +87,10 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
+///     fn apply(self, world: &mut World) -> Result {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
+///         Ok(())
 ///     }
 /// }
 ///
@@ -100,7 +101,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///
 /// ## Implementation
 ///
-/// The `Marker` generic is necessary to allow for multiple blanket implementations
+/// The `Marker` generic is necessary to allow multiple blanket implementations
 /// of `Command` for closures, like so (simplified):
 /// ```ignore (This would conflict with the real implementations)
 /// impl Command for FnOnce(&mut World)

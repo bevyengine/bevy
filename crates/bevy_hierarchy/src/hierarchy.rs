@@ -309,6 +309,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
+            commands.silent_on_error();
             commands.entity(parent_entity).despawn_recursive();
             // despawning the same entity twice should not panic
             commands.entity(parent_entity).despawn_recursive();
