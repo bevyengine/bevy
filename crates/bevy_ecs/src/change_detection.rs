@@ -5,6 +5,7 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
+use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
     mem,
@@ -266,6 +267,55 @@ pub trait DetectChangesMut: DetectChanges {
             Some(previous)
         } else {
             None
+        }
+    }
+
+    /// Overwrites this smart pointer with a clone of the given value, if and only if `*self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
+    ///
+    /// This method is useful when the caller only has a borrowed form of `Inner`,
+    /// e.g. when writing a `&str` into a `Mut<String>`.
+    ///
+    /// # Examples
+    /// ```
+    /// # extern crate alloc;
+    /// # use alloc::borrow::ToOwned;
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// #[derive(Resource)]
+    /// pub struct Message(String);
+    ///
+    /// fn update_message(mut message: ResMut<Message>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     ResMut::map_unchanged(message, |Message(msg)| msg).clone_from_if_neq("another string");
+    /// }
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Message("initial string".into()));
+    /// # let mut message_changed = IntoSystem::into_system(resource_changed::<Message>);
+    /// # message_changed.initialize(&mut world);
+    /// # message_changed.run((), &mut world);
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(update_message);
+    /// #
+    /// # // first time `reset_score` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(message_changed.run((), &mut world));
+    /// # // second time `reset_score` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!message_changed.run((), &mut world));
+    /// ```
+    fn clone_from_if_neq<T>(&mut self, value: &T) -> bool
+    where
+        T: ToOwned<Owned = Self::Inner> + ?Sized,
+        Self::Inner: PartialEq<T>,
+    {
+        let old = self.bypass_change_detection();
+        if old != value {
+            value.clone_into(old);
+            self.set_changed();
+            true
+        } else {
+            false
         }
     }
 }
