@@ -156,12 +156,12 @@ impl CustomProjection {
     /// ```
     /// # use bevy_render::prelude::{Projection, PerspectiveProjection};
     /// // For simplicity's sake, use perspective as a custom projection:
-    /// let projection = Projection::custom(PerspectiveProjection::default());
-    /// let Projection::Custom(custom) = projection else { return };
+    /// let mut projection = Projection::custom(PerspectiveProjection::default());
+    /// let Projection::Custom(mut custom) = projection else { return };
     ///
     /// // At this point the projection type is erased.
-    /// // We can use `get()` if we know what kind of projection we have.
-    /// let perspective = custom.get::<PerspectiveProjection>().unwrap();
+    /// // We can use `get_mut()` if we know what kind of projection we have.
+    /// let perspective = custom.get_mut::<PerspectiveProjection>().unwrap();
     ///
     /// assert_eq!(perspective.fov, PerspectiveProjection::default().fov);
     /// perspective.fov = 1.0;
