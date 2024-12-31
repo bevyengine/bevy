@@ -80,17 +80,25 @@ impl TabGroup {
     }
 }
 
-/// A navigation action for tabbing.
+/// A navigation action that users might take to navigate your user interface in a cyclic fashion.
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
+    ///
+    /// This is commonly triggered by pressing the Tab key.
     Next,
     /// Navigate to the previous focusable entity, wrapping around to the end if at the beginning.
+    ///
+    /// This is commonly triggered by pressing Shift+Tab.
     Previous,
     /// Navigate to the first focusable entity.
+    ///
+    /// This is commonly triggered by pressing Home.
     First,
     /// Navigate to the last focusable entity.
+    ///
+    /// This is commonly triggered by pressing End.
     Last,
 }
 
