@@ -99,7 +99,7 @@ impl Decodable for AudioSource {
     type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
-        rodio::Decoder::new(Cursor::new(self.clone())).unwrap()
+        rodio::Decoder::new(Cursor::new(self.clone())).expect("Failed to create audio decoder. Ensure the audio format is supported.")
     }
 }
 
