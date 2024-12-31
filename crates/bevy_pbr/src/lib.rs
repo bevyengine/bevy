@@ -474,7 +474,7 @@ impl Plugin for PbrPlugin {
     }
 }
 
-/// Camera projection specific PBR functionality.
+/// Camera projection PBR functionality.
 #[derive(Default)]
 pub struct PbrProjectionPlugin;
 impl Plugin for PbrProjectionPlugin {

@@ -80,12 +80,10 @@ pub trait CameraProjection {
 }
 
 mod sealed {
-    use downcast_rs::Downcast;
-
-    /// A wrapper trait to make it possible to implement Clone for boxed [`CameraProjection`] trait
-    /// objects, without breaking object safety rules by making it `Sized`.
+    /// A wrapper trait to make it possible to implement Clone for boxed [`super::CameraProjection`]
+    /// trait objects, without breaking object safety rules by making it `Sized`.
     pub trait CameraProjectionClone:
-        super::CameraProjection + core::fmt::Debug + Send + Sync + Downcast
+        super::CameraProjection + core::fmt::Debug + Send + Sync + downcast_rs::Downcast
     {
         fn clone_box(&self) -> Box<dyn CameraProjectionClone>;
     }
@@ -104,6 +102,8 @@ mod sealed {
 
 /// Holds a dynamic [`CameraProjection`] trait object. Use [`Projection::custom()`] to construct a
 /// custom projection.
+///
+/// The contained dynamic object can be downcast into a static type using [`CustomProjection::get`].
 #[derive(Component, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
 pub struct CustomProjection {

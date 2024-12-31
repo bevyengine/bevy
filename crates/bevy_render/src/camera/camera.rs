@@ -883,13 +883,7 @@ impl NormalizedRenderTarget {
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
 /// The system detects window creation, resize, and scale factor change events to update the camera
-/// projection if needed. It also queries any [`CameraProjection`] component associated with the same
-/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
-///
-/// The system function is generic over the camera projection type, and only instances of
-/// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`].
-/// The system runs during [`PostUpdate`](bevy_app::PostUpdate).
+/// [`Projection`] if needed.
 ///
 /// ## World Resources
 ///
