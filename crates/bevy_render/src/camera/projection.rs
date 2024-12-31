@@ -1,12 +1,9 @@
-use core::marker::PhantomData;
-
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::{component::Mutable, prelude::*};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
-use bevy_reflect::{
-    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
-};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
@@ -14,17 +11,15 @@ use serde::{Deserialize, Serialize};
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
 ///
 /// If you are using `bevy_pbr`, then you need to add `PbrProjectionPlugin` along with this.
-pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
-    PhantomData<T>,
-);
-impl<T: CameraProjection + Component<Mutability = Mutable> + GetTypeRegistration> Plugin
-    for CameraProjectionPlugin<T>
-{
+#[derive(Default)]
+pub struct CameraProjectionPlugin;
+
+impl Plugin for CameraProjectionPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<T>()
+        app.register_type::<Projection>()
             .add_systems(
                 PostStartup,
-                crate::camera::camera_system::<T>
+                crate::camera::camera_system
                     .in_set(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
@@ -34,15 +29,15 @@ impl<T: CameraProjection + Component<Mutability = Mutable> + GetTypeRegistration
             .add_systems(
                 PostUpdate,
                 (
-                    crate::camera::camera_system::<T>
+                    crate::camera::camera_system
                         .in_set(CameraUpdateSystem)
                         // We assume that each camera will only have one projection,
                         // so we can ignore ambiguities with all other monomorphizations.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                         .ambiguous_with(CameraUpdateSystem),
-                    crate::view::update_frusta::<T>
+                    crate::view::update_frusta
                         .in_set(VisibilitySystems::UpdateFrusta)
-                        .after(crate::camera::camera_system::<T>)
+                        .after(crate::camera::camera_system)
                         .after(TransformSystem::TransformPropagate)
                         // We assume that no camera will have more than one projection component,
                         // so these systems will run independently of one another.
@@ -50,11 +45,6 @@ impl<T: CameraProjection + Component<Mutability = Mutable> + GetTypeRegistration
                         .ambiguous_with(VisibilitySystems::UpdateFrusta),
                 ),
             );
-    }
-}
-impl<T: CameraProjection + Component + GetTypeRegistration> Default for CameraProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
     }
 }
 
@@ -97,12 +87,66 @@ pub trait CameraProjection {
     }
 }
 
+mod sealed {
+    pub trait CameraProjectionClone:
+        super::CameraProjection + core::fmt::Debug + Send + Sync
+    {
+        fn clone_box(&self) -> Box<dyn CameraProjectionClone>;
+    }
+
+    impl<T> CameraProjectionClone for T
+    where
+        T: 'static + super::CameraProjection + core::fmt::Debug + Send + Sync + Clone,
+    {
+        fn clone_box(&self) -> Box<dyn CameraProjectionClone> {
+            Box::new(self.clone())
+        }
+    }
+}
+
+#[derive(Component, Debug, Reflect, Deref, DerefMut)]
+#[reflect(Default)]
+pub struct CustomProjection {
+    #[reflect(ignore)]
+    #[deref]
+    inner: Box<dyn sealed::CameraProjectionClone>,
+}
+
+impl Default for CustomProjection {
+    fn default() -> Self {
+        Self {
+            inner: Box::new(PerspectiveProjection::default()),
+        }
+    }
+}
+
+impl Clone for CustomProjection {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.as_ref().clone_box(),
+        }
+    }
+}
+
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
 #[derive(Component, Debug, Clone, Reflect, From)]
 #[reflect(Component, Default, Debug)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
+    Custom(CustomProjection),
+}
+
+impl Projection {
+    /// Construct a new custom camera projection from a type that implements [`CameraProjection`].
+    pub fn custom<P>(projection: P) -> Self
+    where
+        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+    {
+        Projection::Custom(CustomProjection {
+            inner: Box::new(projection),
+        })
+    }
 }
 
 impl CameraProjection for Projection {
@@ -110,6 +154,7 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.get_clip_from_view(),
             Projection::Orthographic(projection) => projection.get_clip_from_view(),
+            Projection::Custom(projection) => projection.get_clip_from_view(),
         }
     }
 
@@ -117,6 +162,7 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
             Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
+            Projection::Custom(projection) => projection.get_clip_from_view_for_sub(sub_view),
         }
     }
 
@@ -124,6 +170,7 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.update(width, height),
             Projection::Orthographic(projection) => projection.update(width, height),
+            Projection::Custom(projection) => projection.update(width, height),
         }
     }
 
@@ -131,6 +178,7 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.far(),
             Projection::Orthographic(projection) => projection.far(),
+            Projection::Custom(projection) => projection.far(),
         }
     }
 
@@ -138,6 +186,7 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
             Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
+            Projection::Custom(projection) => projection.get_frustum_corners(z_near, z_far),
         }
     }
 }
@@ -149,8 +198,8 @@ impl Default for Projection {
 }
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Debug)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -341,8 +390,8 @@ pub enum ScalingMode {
 ///     ..OrthographicProjection::default_2d()
 /// });
 /// ```
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, FromWorld)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Debug, FromWorld)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
