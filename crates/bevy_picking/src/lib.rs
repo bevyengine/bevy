@@ -1,12 +1,14 @@
-//! This crate provides 'picking' capabilities for the Bevy game engine. That means, in simple terms, figuring out
-//! how to connect up a user's clicks or taps to the entities they are trying to interact with.
+//! This crate provides 'picking' capabilities for the Bevy game engine, allowing pointers to
+//! interact with entities using hover, click, and drag events.
 //!
 //! ## Overview
 //!
 //! In the simplest case, this plugin allows you to click on things in the scene. However, it also
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
-//! element and drops it on a 3d mesh rendered to a different camera. The crate also provides a set of
-//! interaction callbacks, allowing you to receive input directly on entities like here:
+//! element and drops it on a 3d mesh rendered to a different camera.
+//!
+//! Pointer events bubble up the entity hieararchy and can be used with observers, allowing you to
+//! succinctly express rich interaction behaviors by attaching pointer callbacks to entities:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::*;
@@ -16,7 +18,8 @@
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
 //!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
-//!         // Get the underlying event type
+//!         println!("I was just clicked!");
+//!         // Get the underlying pointer event data
 //!         let click_event: &Pointer<Click> = trigger.event();
 //!         // Stop the event from bubbling up the entity hierarchy
 //!         trigger.propagate(false);
@@ -24,16 +27,19 @@
 //! ```
 //!
 //! At its core, this crate provides a robust abstraction for computing picking state regardless of
-//! pointing devices, or what you are hit testing against. It is designed to work with any input, including
-//! mouse, touch, pens, or virtual pointers controlled by gamepads.
+//! pointing devices, or what you are hit testing against. It is designed to work with any input,
+//! including mouse, touch, pens, or virtual pointers controlled by gamepads.
 //!
 //! ## Expressive Events
 //!
-//! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
-//! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
-//! See [`Observer`] for details.
+//! Although the events in this module (see [`events`]) can be listened to with normal
+//! `EventReader`s, using observers is often more expressive, with less boilerplate. This is because
+//! observers allow you to attach event handling logic to specific entities, as well as make use of
+//! event bubbling.
+//!
+//! When events are generated, they bubble up the entity hierarchy starting from their target, until
+//! they reach the root or bubbling is halted with a call to
+//! [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate). See [`Observer`] for details.
 //!
 //! This allows you to run callbacks when any children of an entity are interacted with, and leads
 //! to succinct, expressive code:
@@ -74,8 +80,9 @@
 //! #### Input Agnostic
 //!
 //! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
-//! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
+//! types of input devices. Pointers can be controlled with anything, whether it's the included
+//! mouse or touch inputs, or a custom gamepad input system you write yourself to control a virtual
+//! pointer.
 //!
 //! ## Robustness
 //!
@@ -90,8 +97,8 @@
 //! #### Next Steps
 //!
 //! To learn more, take a look at the examples in the
-//! [examples](https://github.com/bevyengine/bevy/tree/main/examples/picking). You
-//! can read the next section to understand how the plugin works.
+//! [examples](https://github.com/bevyengine/bevy/tree/main/examples/picking). You can read the next
+//! section to understand how the plugin works.
 //!
 //! # The Picking Pipeline
 //!
@@ -101,11 +108,11 @@
 //! #### Pointers ([`pointer`](mod@pointer))
 //!
 //! The first stage of the pipeline is to gather inputs and update pointers. This stage is
-//! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The provided
-//! crate does this automatically for mouse, touch, and pen inputs. If you wanted to implement your own
-//! pointer, controlled by some other input, you can do that here. The ordering of events within the
-//! [`PointerInput`](pointer::PointerInput) stream is meaningful for events with the same
-//! [`PointerId`](pointer::PointerId), but not between different pointers.
+//! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The
+//! provided crate does this automatically for mouse, touch, and pen inputs. If you wanted to
+//! implement your own pointer, controlled by some other input, you can do that here. The ordering
+//! of events within the [`PointerInput`](pointer::PointerInput) stream is meaningful for events
+//! with the same [`PointerId`](pointer::PointerId), but not between different pointers.
 //!
 //! Because pointer positions and presses are driven by these events, you can use them to mock
 //! inputs for testing.
@@ -115,18 +122,18 @@
 //!
 //! #### Backend ([`backend`])
 //!
-//! A picking backend only has one job: reading [`PointerLocation`](pointer::PointerLocation) components,
-//! and producing [`PointerHits`](backend::PointerHits). You can find all documentation and types needed to
-//! implement a backend at [`backend`].
+//! A picking backend only has one job: reading [`PointerLocation`](pointer::PointerLocation)
+//! components, and producing [`PointerHits`](backend::PointerHits). You can find all documentation
+//! and types needed to implement a backend at [`backend`].
 //!
 //! You will eventually need to choose which picking backend(s) you want to use. This crate does not
-//! supply any backends, and expects you to select some from the other bevy crates or the third-party
-//! ecosystem.
+//! supply any backends, and expects you to select some from the other bevy crates or the
+//! third-party ecosystem.
 //!
 //! It's important to understand that you can mix and match backends! For example, you might have a
 //! backend for your UI, and one for the 3d scene, with each being specialized for their purpose.
-//! Bevy provides some backends out of the box, but you can even write your own. It's been
-//! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
+//! Bevy provides some backends out of the box, but you can even write your own. It's been made as
+//! easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
 //! #### Hover ([`hover`])
 //!
@@ -135,8 +142,8 @@
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
 //! multiple backends may be reporting that a pointer is hitting an entity, the hover system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
-//! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
-//! if one entity is in front of another, usually only the topmost one will be hovered.
+//! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other
+//! words, if one entity is in front of another, usually only the topmost one will be hovered.
 //!
 //! #### Events ([`events`])
 //!
@@ -144,9 +151,8 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
-//! extend the plugin with arbitrary backends and input methods, yet still use all the high level
-//! features.
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
+//! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
 #![deny(missing_docs)]
 
