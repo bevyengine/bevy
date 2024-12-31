@@ -186,9 +186,7 @@ fn sprite_picking(
                 };
 
                 blocked = cursor_in_valid_pixels_of_sprite
-                    && picking_behavior
-                        .map(|p| p.should_block_lower)
-                        .unwrap_or(true);
+                    && picking_behavior.is_none_or(|p| p.should_block_lower);
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
