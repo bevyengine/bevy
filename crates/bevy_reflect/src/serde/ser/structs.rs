@@ -48,10 +48,7 @@ impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
         )?;
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
-            if serialization_data
-                .map(|data| data.is_field_skipped(index))
-                .unwrap_or(false)
-            {
+            if serialization_data.is_some_and(|data| data.is_field_skipped(index)) {
                 continue;
             }
             let key = struct_info.field_at(index).unwrap().name();
