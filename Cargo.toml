@@ -31,6 +31,9 @@ members = [
 ]
 
 [workspace.lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
 doc_markdown = "warn"
 manual_let_else = "warn"
 match_same_arms = "warn"
