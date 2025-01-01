@@ -133,7 +133,8 @@
 //!
 //! `params`:
 //! - `data`:
-//!   - `components` (optional): An array of [fully-qualified type names] of components to fetch.
+//!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
+//!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!      reported as boolean values.
@@ -142,8 +143,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
-//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!   components is not present or can not be reflected. Defaults to false.
+//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!     components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -151,6 +152,8 @@
 //!   entity if the component is present.
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
+//!
+//!
 //!
 //! ### bevy/spawn
 //!
@@ -566,6 +569,26 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///         ]
 ///     }
 /// }
+/// ```
+/// Or, to list all the fully-qualified type paths in **your** project, pass Null to the
+/// `params`.
+/// ```json
+/// {
+///    "jsonrpc": "2.0",
+///    "method": "bevy/list",
+///    "id": 0,
+///    "params": null
+///}
+///```
+///
+/// In Rust:
+/// ```ignore
+///    let req = BrpRequest {
+///         jsonrpc: "2.0".to_string(),
+///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
+///         id: Some(ureq::json!(0)),
+///         params: None,
+///     };
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
