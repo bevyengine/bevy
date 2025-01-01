@@ -68,6 +68,8 @@ jobs:
           wayland: true
           xkb: true
       - name: CI job
+        env:
+          RUSTFLAGS: "-D warnings"
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
 
@@ -124,6 +126,8 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
+        env:
+          RUSTFLAGS: "-D warnings"
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
   check-compiles-no-std:
@@ -149,6 +153,8 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
+        env:
+          RUSTFLAGS: "-D warnings"
         run: cargo run -p ci -- compile-check-no-std
 
   build-wasm:
