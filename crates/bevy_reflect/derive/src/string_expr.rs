@@ -44,9 +44,11 @@ impl StringExpr {
     ///
     /// [already owned]: StringExpr::Owned
     pub fn into_owned(self) -> TokenStream {
+        let bevy_reflect_path = crate::meta::get_bevy_reflect_path();
+
         match self {
             Self::Const(tokens) | Self::Borrowed(tokens) => quote! {
-                ::std::string::ToString::to_string(#tokens)
+                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#tokens)
             },
             Self::Owned(owned) => owned,
         }

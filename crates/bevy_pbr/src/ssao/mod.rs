@@ -9,7 +9,7 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{require, Bundle, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
@@ -448,6 +448,7 @@ impl FromWorld for SsaoPipelines {
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         let spatial_denoise_pipeline =
@@ -461,6 +462,7 @@ impl FromWorld for SsaoPipelines {
                 shader: SPATIAL_DENOISE_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         Self {
@@ -511,6 +513,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
             shader: SSAO_SHADER_HANDLE,
             shader_defs,
             entry_point: "ssao".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

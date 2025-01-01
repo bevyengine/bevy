@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::ComponentId,
+    component::{ComponentId, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
@@ -14,7 +14,7 @@ use crate::{
     world::{error::EntityFetchError, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -71,12 +71,97 @@ impl<'w> DeferredWorld<'w> {
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
     /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
         // - `&mut self` ensures no other borrows on world data
         unsafe { self.world.get_entity(entity)?.get_mut() }
+    }
+
+    /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
+    /// runs the provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
+    #[inline]
+    pub(crate) fn modify_component<T: Component, R>(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Result<Option<R>, EntityFetchError> {
+        // If the component is not registered, then it doesn't exist on this entity, so no action required.
+        let Some(component_id) = self.component_id::<T>() else {
+            return Ok(None);
+        };
+
+        let entity_cell = match self.get_entity_mut(entity) {
+            Ok(cell) => cell,
+            Err(EntityFetchError::AliasedMutability(..)) => {
+                return Err(EntityFetchError::AliasedMutability(entity))
+            }
+            Err(EntityFetchError::NoSuchEntity(..)) => {
+                return Err(EntityFetchError::NoSuchEntity(entity, self.world))
+            }
+        };
+
+        if !entity_cell.contains::<T>() {
+            return Ok(None);
+        }
+
+        let archetype = &raw const *entity_cell.archetype();
+
+        // SAFETY:
+        // - DeferredWorld ensures archetype pointer will remain valid as no
+        //   relocations will occur.
+        // - component_id exists on this world and this entity
+        // - ON_REPLACE is able to accept ZST events
+        unsafe {
+            let archetype = &*archetype;
+            self.trigger_on_replace(archetype, entity, [component_id].into_iter());
+            if archetype.has_replace_observer() {
+                self.trigger_observers(ON_REPLACE, entity, [component_id].into_iter());
+            }
+        }
+
+        let mut entity_cell = self
+            .get_entity_mut(entity)
+            .expect("entity access confirmed above");
+
+        // SAFETY: we will run the required hooks to simulate removal/replacement.
+        let mut component = unsafe {
+            entity_cell
+                .get_mut_assume_mutable::<T>()
+                .expect("component access confirmed above")
+        };
+
+        let result = f(&mut component);
+
+        // Simulate adding this component by updating the relevant ticks
+        *component.ticks.added = *component.ticks.changed;
+
+        // SAFETY:
+        // - DeferredWorld ensures archetype pointer will remain valid as no
+        //   relocations will occur.
+        // - component_id exists on this world and this entity
+        // - ON_REPLACE is able to accept ZST events
+        unsafe {
+            let archetype = &*archetype;
+            self.trigger_on_insert(archetype, entity, [component_id].into_iter());
+            if archetype.has_insert_observer() {
+                self.trigger_observers(ON_INSERT, entity, [component_id].into_iter());
+            }
+        }
+
+        Ok(Some(result))
     }
 
     /// Returns [`EntityMut`]s that expose read and write operations for the
@@ -353,7 +438,10 @@ impl<'w> DeferredWorld<'w> {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!("Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ", core::any::type_name::<E>());
+            log::error!(
+                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
+                core::any::type_name::<E>()
+            );
             return None;
         };
         Some(events_resource.send_batch(events))
@@ -398,7 +486,12 @@ impl<'w> DeferredWorld<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
+        unsafe {
+            self.world
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
+                .ok()
+        }
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
@@ -497,13 +590,13 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        entity: Entity,
+        target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
-            entity,
+            target,
             components,
             &mut (),
             &mut false,
@@ -518,18 +611,18 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
-        mut entity: Entity,
+        mut target: Entity,
         components: &[ComponentId],
         data: &mut E,
         mut propagate: bool,
     ) where
-        T: Traversal,
+        T: Traversal<E>,
     {
         loop {
             Observers::invoke::<_>(
                 self.reborrow(),
                 event,
-                entity,
+                target,
                 components.iter().copied(),
                 data,
                 &mut propagate,
@@ -538,12 +631,12 @@ impl<'w> DeferredWorld<'w> {
                 break;
             }
             if let Some(traverse_to) = self
-                .get_entity(entity)
+                .get_entity(target)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
-                .and_then(T::traverse)
+                .and_then(|item| T::traverse(item, data))
             {
-                entity = traverse_to;
+                target = traverse_to;
             } else {
                 break;
             }
@@ -551,7 +644,7 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
-    pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
+    pub fn trigger(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 

@@ -15,13 +15,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::RenderDevice,
-    texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
+    texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -171,7 +172,7 @@ impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
     }
 }
 
-fn buffer_layout(
+pub(crate) fn buffer_layout(
     buffer_binding_type: BufferBindingType,
     has_dynamic_offset: bool,
     min_binding_size: Option<NonZero<u64>>,
@@ -227,7 +228,7 @@ fn layout_entries(
             // Point Shadow Texture Array Comparison Sampler
             (3, sampler(SamplerBindingType::Comparison)),
             // Point Shadow Texture Array Linear Sampler
-            #[cfg(feature = "pbr_pcss")]
+            #[cfg(feature = "experimental_pbr_pcss")]
             (4, sampler(SamplerBindingType::Filtering)),
             // Directional Shadow Texture Array
             (
@@ -244,7 +245,7 @@ fn layout_entries(
             // Directional Shadow Texture Array Comparison Sampler
             (6, sampler(SamplerBindingType::Comparison)),
             // Directional Shadow Texture Array Linear Sampler
-            #[cfg(feature = "pbr_pcss")]
+            #[cfg(feature = "experimental_pbr_pcss")]
             (7, sampler(SamplerBindingType::Filtering)),
             // PointLights
             (
@@ -311,7 +312,8 @@ fn layout_entries(
     );
 
     // EnvironmentMapLight
-    let environment_map_entries = environment_map::get_bind_group_layout_entries(render_device);
+    let environment_map_entries =
+        environment_map::get_bind_group_layout_entries(render_device, render_adapter);
     entries = entries.extend_with_indices((
         (17, environment_map_entries[0]),
         (18, environment_map_entries[1]),
@@ -322,7 +324,7 @@ fn layout_entries(
     // Irradiance volumes
     if IRRADIANCE_VOLUMES_ARE_USABLE {
         let irradiance_volume_entries =
-            irradiance_volume::get_bind_group_layout_entries(render_device);
+            irradiance_volume::get_bind_group_layout_entries(render_device, render_adapter);
         entries = entries.extend_with_indices((
             (21, irradiance_volume_entries[0]),
             (22, irradiance_volume_entries[1]),
@@ -377,7 +379,10 @@ fn layout_entries(
                 // oit_layer_ids,
                 (32, storage_buffer_sized(false, None)),
                 // oit_layer_count
-                (33, uniform_buffer::<i32>(true)),
+                (
+                    33,
+                    uniform_buffer::<OrderIndependentTransparencySettings>(true),
+                ),
             ));
         }
     }
@@ -489,6 +494,7 @@ pub struct MeshViewBindGroup {
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusterableObjectMeta>),
@@ -576,11 +582,11 @@ pub fn prepare_mesh_view_bind_groups(
                 (1, light_binding.clone()),
                 (2, &shadow_bindings.point_light_depth_texture_view),
                 (3, &shadow_samplers.point_light_comparison_sampler),
-                #[cfg(feature = "pbr_pcss")]
+                #[cfg(feature = "experimental_pbr_pcss")]
                 (4, &shadow_samplers.point_light_linear_sampler),
                 (5, &shadow_bindings.directional_light_depth_texture_view),
                 (6, &shadow_samplers.directional_light_comparison_sampler),
-                #[cfg(feature = "pbr_pcss")]
+                #[cfg(feature = "experimental_pbr_pcss")]
                 (7, &shadow_samplers.directional_light_linear_sampler),
                 (8, clusterable_objects_binding.clone()),
                 (
@@ -603,6 +609,7 @@ pub fn prepare_mesh_view_bind_groups(
                 &images,
                 &fallback_image,
                 &render_device,
+                &render_adapter,
             );
 
             match environment_map_bind_group_entries {
@@ -638,6 +645,7 @@ pub fn prepare_mesh_view_bind_groups(
                     &images,
                     &fallback_image,
                     &render_device,
+                    &render_adapter,
                 ))
             } else {
                 None
@@ -694,16 +702,16 @@ pub fn prepare_mesh_view_bind_groups(
                 if let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),
-                    Some(oit_layers_count_uniforms_binding),
+                    Some(oit_settings_binding),
                 ) = (
                     oit_buffers.layers.binding(),
                     oit_buffers.layer_ids.binding(),
-                    oit_buffers.layers_count_uniforms.binding(),
+                    oit_buffers.settings.binding(),
                 ) {
                     entries = entries.extend_with_indices((
                         (31, oit_layers_binding.clone()),
                         (32, oit_layer_ids_binding.clone()),
-                        (33, oit_layers_count_uniforms_binding.clone()),
+                        (33, oit_settings_binding.clone()),
                     ));
                 }
             }

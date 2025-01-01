@@ -19,6 +19,7 @@ bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.15.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
@@ -31,11 +32,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 cosmic-text = { version = "0.12", features = ["shape-run-cache"] }
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = "1.13"
 unicode-bidi = "0.3.13"

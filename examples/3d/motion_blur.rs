@@ -1,14 +1,15 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*};
+use bevy::{
+    core_pipeline::motion_blur::MotionBlur,
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
+    math::ops,
+    prelude::*,
+};
 
 fn main() {
     let mut app = App::new();
-
-    // MSAA and Motion Blur together are not compatible on WebGL
-    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-    app.insert_resource(Msaa::Off);
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
@@ -28,6 +29,9 @@ fn setup_camera(mut commands: Commands) {
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding: Default::default(),
         },
+        // MSAA and Motion Blur together are not compatible on WebGL
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 }
 
@@ -58,6 +62,7 @@ fn setup_scene(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
+        ..default()
     });
     commands.insert_resource(CameraMode::Chase);
     commands.spawn((
@@ -350,7 +355,7 @@ fn move_camera(
 }
 
 fn uv_debug_texture() -> Image {
-    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*, texture::*};
+    use bevy::render::{render_asset::RenderAssetUsages, render_resource::*};
     const TEXTURE_SIZE: usize = 7;
 
     let mut palette = [

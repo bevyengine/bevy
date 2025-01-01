@@ -10,9 +10,9 @@ use bevy_reflect::Reflect;
 /// sections will be scaled or tiled.
 ///
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 pub struct TextureSlicer {
-    /// The sprite borders, defining the 9 sections of the image
+    /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
     /// Defines how the center part of the 9 slices will scale
     pub center_scale_mode: SliceScaleMode,
@@ -23,7 +23,7 @@ pub struct TextureSlicer {
 }
 
 /// Defines how a texture slice scales when resized
-#[derive(Debug, Copy, Clone, Default, Reflect)]
+#[derive(Debug, Copy, Clone, Default, Reflect, PartialEq)]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]

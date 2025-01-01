@@ -1,6 +1,6 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 #[derive(Default)]
 /// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`](bevy_asset::AssetServer)
@@ -8,12 +8,14 @@ pub struct FontLoader;
 
 /// Possible errors that can be produced by [`FontLoader`]
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum FontLoaderError {
     /// The contents that could not be parsed
-    Content(cosmic_text::ttf_parser::FaceParsingError),
+    #[error(transparent)]
+    Content(#[from] cosmic_text::ttf_parser::FaceParsingError),
     /// An [IO](std::io) Error
-    Io(std::io::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl AssetLoader for FontLoader {

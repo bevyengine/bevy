@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{component::Mutable, prelude::*};
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
@@ -17,7 +17,9 @@ use serde::{Deserialize, Serialize};
 pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
     PhantomData<T>,
 );
-impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
+impl<T: CameraProjection + Component<Mutability = Mutable> + GetTypeRegistration> Plugin
+    for CameraProjectionPlugin<T>
+{
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_systems(
@@ -488,8 +490,8 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = projection_width * self.viewport_origin.x;
-        let origin_y = projection_height * self.viewport_origin.y;
+        let origin_x = (projection_width * self.viewport_origin.x).round();
+        let origin_y = (projection_height * self.viewport_origin.y).round();
 
         self.area = Rect::new(
             self.scale * -origin_x,

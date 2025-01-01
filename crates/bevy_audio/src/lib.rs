@@ -21,7 +21,7 @@
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
 //!     commands.spawn((
-//!         AudioPlayer::<AudioSource>(asset_server.load("background_audio.ogg")),
+//!         AudioPlayer::new(asset_server.load("background_audio.ogg")),
 //!         PlaybackSettings::LOOP,
 //!     ));
 //! }
@@ -34,6 +34,7 @@ mod audio_output;
 mod audio_source;
 mod pitch;
 mod sinks;
+mod volume;
 
 /// The audio prelude.
 ///
@@ -51,6 +52,7 @@ pub mod prelude {
 pub use audio::*;
 pub use audio_source::*;
 pub use pitch::*;
+pub use volume::*;
 
 pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;

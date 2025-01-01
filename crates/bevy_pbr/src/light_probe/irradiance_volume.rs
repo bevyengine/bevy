@@ -133,15 +133,17 @@
 //! [Why ambient cubes?]: #why-ambient-cubes
 
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage, Image},
+    renderer::{RenderAdapter, RenderDevice},
+    texture::{FallbackImage, GpuImage},
 };
+use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
@@ -165,7 +167,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 /// The component that defines an irradiance volume.
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
-#[derive(Clone, Default, Reflect, Component, Debug)]
+#[derive(Clone, Reflect, Component, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
@@ -179,6 +181,30 @@ pub struct IrradianceVolume {
     ///
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
+
+    /// Whether the light from this irradiance volume has an effect on meshes
+    /// with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the light from this
+    /// irradiance volume into the lightmaps in order to avoid counting the
+    /// irradiance twice. Frequently, applications use irradiance volumes as a
+    /// lower-quality alternative to lightmaps for capturing indirect
+    /// illumination on dynamic objects, and such applications will want to set
+    /// this value to false.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_meshes: bool,
+}
+
+impl Default for IrradianceVolume {
+    #[inline]
+    fn default() -> Self {
+        IrradianceVolume {
+            voxels: default(),
+            intensity: 0.0,
+            affects_lightmapped_meshes: true,
+        }
+    }
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
@@ -216,8 +242,9 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             RenderViewIrradianceVolumeBindGroupEntries::get_multiple(
                 render_view_irradiance_volumes,
                 images,
@@ -302,10 +329,11 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
 /// respectively.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 2] {
     let mut texture_3d_binding =
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_3d_binding =
             texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
@@ -333,6 +361,10 @@ impl LightProbeComponent for IrradianceVolume {
 
     fn intensity(&self) -> f32 {
         self.intensity
+    }
+
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
+        self.affects_lightmapped_meshes
     }
 
     fn create_render_view_light_probes(

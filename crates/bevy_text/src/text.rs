@@ -28,7 +28,8 @@ impl Default for CosmicBuffer {
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
@@ -41,7 +42,8 @@ pub struct TextEntity {
 /// See [`TextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Debug, Default)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -49,6 +51,7 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
     /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
+    #[reflect(ignore)]
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     ///
@@ -229,7 +232,8 @@ impl From<String> for TextSpan {
 /// This only affects the internal positioning of the lines of text within a text entity and
 /// does not affect the text entity's position.
 ///
-/// _Has no affect on a single line text entity._
+/// _Has no affect on a single line text entity_, unless used together with a
+/// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum JustifyText {
@@ -286,6 +290,28 @@ pub struct TextFont {
 }
 
 impl TextFont {
+    /// Returns a new [`TextFont`] with the specified font face handle.
+    pub fn from_font(font: Handle<Font>) -> Self {
+        Self::default().with_font(font)
+    }
+
+    /// Returns a new [`TextFont`] with the specified font size.
+    pub fn from_font_size(font_size: f32) -> Self {
+        Self::default().with_font_size(font_size)
+    }
+
+    /// Returns this [`TextFont`] with the specified font face handle.
+    pub fn with_font(mut self, font: Handle<Font>) -> Self {
+        self.font = font;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font size.
+    pub const fn with_font_size(mut self, font_size: f32) -> Self {
+        self.font_size = font_size;
+        self
+    }
+
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
@@ -417,12 +443,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            warn_once!(
-                "found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once",
-                root,
-                core::any::type_name::<Root>()
-            );
+            warn_once!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once", root, core::any::type_name::<Root>());
             continue;
         };
         computed.needs_rerender = true;
@@ -434,8 +456,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!(
-                "found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
+            warn_once!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity,
                 core::any::type_name::<Root>()
@@ -444,7 +465,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
 
         let Some(span_parent) = maybe_span_parent else {
             warn_once!(
-                "found entity {:?} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
                 entity,
                 core::any::type_name::<Root>()
@@ -458,12 +479,9 @@ pub fn detect_text_needs_rerender<Root: Component>(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                warn_once!(
-                    "found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
-                    component that points at non-existent entity {:?}; this warning only prints once",
-                    entity,
-                    parent
-                );
+                warn_once!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+                    component that points at non-existent entity {}; this warning only prints once",
+                    entity, parent);
                 break;
             };
             if let Some(mut computed) = maybe_computed {
@@ -471,8 +489,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             }
             if !has_span {
-                warn_once!(
-                    "found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
+                warn_once!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity,
                     parent
@@ -481,7 +498,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             }
             let Some(next_parent) = maybe_parent else {
                 warn_once!(
-                    "found entity {:?} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
                     entity,
                     core::any::type_name::<Root>()

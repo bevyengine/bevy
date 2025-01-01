@@ -127,20 +127,19 @@ fn setup(
 fn environment_map_load_finish(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    environment_maps: Query<&EnvironmentMapLight>,
-    label_query: Query<Entity, With<EnvironmentMapLabel>>,
+    environment_map: Single<&EnvironmentMapLight>,
+    label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
 ) {
-    if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server
-            .load_state(&environment_map.diffuse_map)
+    if asset_server
+        .load_state(&environment_map.diffuse_map)
+        .is_loaded()
+        && asset_server
+            .load_state(&environment_map.specular_map)
             .is_loaded()
-            && asset_server
-                .load_state(&environment_map.specular_map)
-                .is_loaded()
-        {
-            if let Ok(label_entity) = label_query.get_single() {
-                commands.entity(label_entity).despawn();
-            }
+    {
+        // Do not attempt to remove `label_entity` if it has already been removed.
+        if let Some(label_entity) = label_entity {
+            commands.entity(*label_entity).despawn();
         }
     }
 }

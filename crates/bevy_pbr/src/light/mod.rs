@@ -1,6 +1,9 @@
 use core::ops::DerefMut;
 
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -10,8 +13,8 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
-        VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
+        VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -500,6 +503,9 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
+pub struct LightVisibilityClass;
+
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
@@ -511,27 +517,9 @@ pub enum SimulationLightSystems {
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
-}
-
-// Sort lights by
-// - those with volumetric (and shadows) enabled first, so that the volumetric
-//   lighting pass can quickly find the volumetric lights;
-// - then those with shadows enabled second, so that the index can be used to
-//   render at most `directional_light_shadow_maps_count` directional light
-//   shadows;
-// - then by entity as a stable key to ensure that a consistent set of lights
-//   are chosen if the light count limit is exceeded.
-pub(crate) fn directional_light_order(
-    (entity_1, volumetric_1, shadows_enabled_1): (&Entity, &bool, &bool),
-    (entity_2, volumetric_2, shadows_enabled_2): (&Entity, &bool, &bool),
-) -> core::cmp::Ordering {
-    volumetric_2
-        .cmp(volumetric_1) // volumetric before shadows
-        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
-        .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
 pub fn update_directional_light_frusta(
@@ -836,6 +824,7 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
@@ -872,10 +861,17 @@ pub fn check_point_light_mesh_visibility(
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut checked_lights: Local<EntityHashSet>,
 ) {
+    checked_lights.clear();
+
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
+            if !checked_lights.insert(light_entity) {
+                continue;
+            }
+
             // Point lights
             if let Ok((
                 point_light,

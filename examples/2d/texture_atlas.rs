@@ -7,7 +7,7 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
+use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
 
 fn main() {
     App::new()
@@ -228,7 +228,7 @@ fn create_texture_atlas(
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
             warn!(
-                "{:?} did not resolve to an `Image` asset.",
+                "{} did not resolve to an `Image` asset.",
                 handle.path().unwrap()
             );
             continue;

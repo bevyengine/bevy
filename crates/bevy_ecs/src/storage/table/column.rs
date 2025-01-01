@@ -3,6 +3,7 @@ use crate::{
     component::TickCells,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
+use alloc::vec::Vec;
 use bevy_ptr::PtrMut;
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
@@ -16,7 +17,7 @@ pub struct ThinColumn {
     pub(super) data: BlobArray,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(super) changed_by: ThinArrayPtr<UnsafeCell<&'static Location<'static>>>,
 }
 
@@ -30,7 +31,7 @@ impl ThinColumn {
             },
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: ThinArrayPtr::with_capacity(capacity),
         }
     }
@@ -53,7 +54,7 @@ impl ThinColumn {
             .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
         self.changed_ticks
             .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by
             .swap_remove_unchecked_nonoverlapping(row.as_usize(), last_element_index);
     }
@@ -75,7 +76,7 @@ impl ThinColumn {
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
         self.changed_ticks
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by
             .swap_remove_and_drop_unchecked(row.as_usize(), last_element_index);
     }
@@ -98,7 +99,7 @@ impl ThinColumn {
             .swap_remove_unchecked(row.as_usize(), last_element_index);
         self.changed_ticks
             .swap_remove_unchecked(row.as_usize(), last_element_index);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by
             .swap_remove_unchecked(row.as_usize(), last_element_index);
     }
@@ -116,7 +117,7 @@ impl ThinColumn {
         self.data.realloc(current_capacity, new_capacity);
         self.added_ticks.realloc(current_capacity, new_capacity);
         self.changed_ticks.realloc(current_capacity, new_capacity);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.realloc(current_capacity, new_capacity);
     }
 
@@ -126,7 +127,7 @@ impl ThinColumn {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);
         self.changed_ticks.alloc(new_capacity);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.alloc(new_capacity);
     }
 
@@ -143,7 +144,7 @@ impl ThinColumn {
         row: TableRow,
         data: OwningPtr<'_>,
         tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         self.data.initialize_unchecked(row.as_usize(), data);
         *self.added_ticks.get_unchecked_mut(row.as_usize()).get_mut() = tick;
@@ -151,7 +152,7 @@ impl ThinColumn {
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
             .get_mut() = tick;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by.get_unchecked_mut(row.as_usize()).get_mut() = caller;
         }
@@ -168,14 +169,14 @@ impl ThinColumn {
         row: TableRow,
         data: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         self.data.replace_unchecked(row.as_usize(), data);
         *self
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
             .get_mut() = change_tick;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by.get_unchecked_mut(row.as_usize()).get_mut() = caller;
         }
@@ -217,11 +218,11 @@ impl ThinColumn {
             .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
         self.changed_ticks
             .initialize_unchecked(dst_row.as_usize(), changed_tick);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let changed_by = other
             .changed_by
             .swap_remove_unchecked(src_row.as_usize(), other_last_element_index);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by
             .initialize_unchecked(dst_row.as_usize(), changed_by);
     }
@@ -257,7 +258,7 @@ impl ThinColumn {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
         self.data.clear(len);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.clear_elements(len);
     }
 
@@ -272,7 +273,7 @@ impl ThinColumn {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
         self.data.drop(cap, len);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.drop(cap, len);
     }
 
@@ -284,7 +285,7 @@ impl ThinColumn {
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
         core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         core::ptr::drop_in_place(self.changed_by.get_unchecked_raw(last_element_index));
         self.data.drop_last_element(last_element_index);
     }
@@ -318,7 +319,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub unsafe fn get_changed_by_slice(
         &self,
         len: usize,
@@ -342,7 +343,7 @@ pub struct Column {
     pub(super) data: BlobVec,
     pub(super) added_ticks: Vec<UnsafeCell<Tick>>,
     pub(super) changed_ticks: Vec<UnsafeCell<Tick>>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     changed_by: Vec<UnsafeCell<&'static Location<'static>>>,
 }
 
@@ -355,7 +356,7 @@ impl Column {
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: Vec::with_capacity(capacity),
         }
     }
@@ -377,7 +378,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
@@ -385,7 +386,7 @@ impl Column {
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
             .get_mut() = change_tick;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by.get_unchecked_mut(row.as_usize()).get_mut() = caller;
         }
@@ -417,7 +418,7 @@ impl Column {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());
         self.added_ticks.swap_remove(row.as_usize());
         self.changed_ticks.swap_remove(row.as_usize());
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.swap_remove(row.as_usize());
     }
 
@@ -441,9 +442,9 @@ impl Column {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = self.changed_by.swap_remove(row.as_usize()).into_inner();
-        #[cfg(not(feature = "track_change_detection"))]
+        #[cfg(not(feature = "track_location"))]
         let caller = ();
         (data, ComponentTicks { added, changed }, caller)
     }
@@ -456,12 +457,12 @@ impl Column {
         &mut self,
         ptr: OwningPtr<'_>,
         ticks: ComponentTicks,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.push(UnsafeCell::new(caller));
     }
 
@@ -643,7 +644,7 @@ impl Column {
         self.data.clear();
         self.added_ticks.clear();
         self.changed_ticks.clear();
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.changed_by.clear();
     }
 
@@ -665,7 +666,7 @@ impl Column {
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by(&self, row: TableRow) -> Option<&UnsafeCell<&'static Location<'static>>> {
         self.changed_by.get(row.as_usize())
     }
@@ -677,7 +678,7 @@ impl Column {
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub unsafe fn get_changed_by_unchecked(
         &self,
         row: TableRow,

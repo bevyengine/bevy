@@ -5,7 +5,7 @@ use crate::io::{
 };
 use alloc::sync::Arc;
 use bevy_utils::{tracing::warn, Duration, HashMap};
-use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
+use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
 use std::{
     fs::File,
@@ -18,7 +18,7 @@ use std::{
 /// This watcher will watch for changes to the "source files", read the contents of changed files from the file system
 /// and overwrite the initial static bytes of the file embedded in the binary with the new dynamically loaded bytes.
 pub struct EmbeddedWatcher {
-    _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl EmbeddedWatcher {

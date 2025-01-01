@@ -5,11 +5,11 @@ mod camera_controller;
 
 use bevy::{
     core_pipeline::Skybox,
+    image::CompressedImageFormats,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,
-        texture::CompressedImageFormats,
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -86,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AmbientLight {
         color: Color::srgb_u8(210, 220, 240),
         brightness: 1.0,
+        ..default()
     });
 
     commands.insert_resource(Cubemap {

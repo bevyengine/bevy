@@ -6,7 +6,6 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::{CompassOctant, Vec2};
-#[cfg(feature = "custom_cursor")]
 use bevy_window::SystemCursorIcon;
 use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
@@ -19,6 +18,7 @@ pub fn convert_keyboard_input(
         state: convert_element_state(keyboard_input.state),
         key_code: convert_physical_key_code(keyboard_input.physical_key),
         logical_key: convert_logical_key(&keyboard_input.logical_key),
+        text: keyboard_input.text.clone(),
         repeat: keyboard_input.repeat,
         window,
     }
@@ -630,7 +630,6 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
     }
 }
 
-#[cfg(feature = "custom_cursor")]
 /// Converts a [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
 pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::window::CursorIcon {
     match cursor_icon {

@@ -1,15 +1,16 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::{SystemId, SystemInput},
 };
-
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
 use core::fmt::Debug;
+
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -37,6 +38,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 ///
 /// // Create a sub-app with the same resource and a single schedule.
 /// let mut sub_app = SubApp::new();
+/// sub_app.update_schedule = Some(Main.intern());
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
@@ -162,6 +164,35 @@ impl SubApp {
     {
         self.extract = Some(Box::new(extract));
         self
+    }
+
+    /// Take the function that will be called by [`extract`](Self::extract) out of the app, if any was set,
+    /// and replace it with `None`.
+    ///
+    /// If you use Bevy, `bevy_render` will set a default extract function used to extract data from
+    /// the main world into the render world as part of the Extract phase. In that case, you cannot replace
+    /// it with your own function. Instead, take the Bevy default function with this, and install your own
+    /// instead which calls the Bevy default.
+    ///
+    /// ```
+    /// # use bevy_app::SubApp;
+    /// # let mut app = SubApp::new();
+    /// let default_fn = app.take_extract();
+    /// app.set_extract(move |main, render| {
+    ///     // Do pre-extract custom logic
+    ///     // [...]
+    ///
+    ///     // Call Bevy's default, which executes the Extract phase
+    ///     if let Some(f) = default_fn.as_ref() {
+    ///         f(main, render);
+    ///     }
+    ///
+    ///     // Do post-extract custom logic
+    ///     // [...]
+    /// });
+    /// ```
+    pub fn take_extract(&mut self) -> Option<ExtractFn> {
+        self.extract.take()
     }
 
     /// See [`App::insert_resource`].
@@ -331,6 +362,7 @@ impl SubApp {
     }
 
     /// See [`App::get_added_plugins`].
+    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,

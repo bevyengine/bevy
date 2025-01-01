@@ -61,11 +61,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             continue;
         }
 
-        info!(
-            "Creating new window {:?} ({:?})",
-            window.title.as_str(),
-            entity
-        );
+        info!("Creating new window {} ({})", window.title.as_str(), entity);
 
         let winit_window = winit_windows.create_window(
             event_loop,
@@ -158,6 +154,16 @@ pub fn create_monitors(
                 seen_monitors[idx] = true;
                 continue 'outer;
             }
+            // on iOS, equality doesn't work, so we need to compare the names
+            // otherwise the monitor entity is recreated every time
+            // TODO: remove after https://github.com/rust-windowing/winit/pull/4013 has been released
+            #[cfg(target_os = "ios")]
+            {
+                if monitor.name() == m.name() {
+                    seen_monitors[idx] = true;
+                    continue 'outer;
+                }
+            }
         }
 
         let size = monitor.size();
@@ -199,7 +205,7 @@ pub fn create_monitors(
             idx += 1;
             true
         } else {
-            info!("Monitor removed {:?}", entity);
+            info!("Monitor removed {}", entity);
             commands.entity(*entity).despawn();
             idx += 1;
             false
@@ -224,7 +230,7 @@ pub(crate) fn despawn_windows(
         closing_events.send(WindowClosing { window });
     }
     for window in closed.read() {
-        info!("Closing window {:?}", window);
+        info!("Closing window {}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added
         // and removed in the same frame.
@@ -380,13 +386,16 @@ pub(crate) fn changed_windows(
                 let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                 if let Err(err) = winit_window.set_cursor_position(position) {
-                    error!("could not set cursor position: {:?}", err);
+                    error!("could not set cursor position: {}", err);
                 }
             }
         }
 
-        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode);
+        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
+                .is_err()
+        {
+            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
         if window.cursor_options.visible != cache.window.cursor_options.visible {
@@ -397,7 +406,7 @@ pub(crate) fn changed_windows(
             if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 window.cursor_options.hit_test = cache.window.cursor_options.hit_test;
                 warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
+                    "Could not set cursor hit test for window {}: {}",
                     window.title, err
                 );
             }

@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
+    ecs::component::Mutable,
     prelude::*,
     winit::WinitSettings,
 };
@@ -42,7 +43,7 @@ impl<T> Target<T> {
 }
 
 trait TargetUpdate {
-    type TargetComponent: Component;
+    type TargetComponent: Component<Mutability = Mutable>;
     const NAME: &'static str;
     fn update_target(&self, target: &mut Self::TargetComponent) -> String;
 }

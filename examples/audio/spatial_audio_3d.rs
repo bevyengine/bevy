@@ -11,6 +11,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_positions)
         .add_systems(Update, update_listener)
+        .add_systems(Update, mute)
         .run();
 }
 
@@ -29,7 +30,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP.with_spatial(true),
     ));
 
@@ -64,7 +65,9 @@ fn setup(
 
     // example instructions
     commands.spawn((
-        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Text::new(
+            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement\nM: Toggle Mute",
+        ),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -126,5 +129,13 @@ fn update_listener(
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
         listeners.translation.z -= speed * time.delta_secs();
+    }
+}
+
+fn mute(keyboard_input: Res<ButtonInput<KeyCode>>, mut sinks: Query<&mut SpatialAudioSink>) {
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut sink in sinks.iter_mut() {
+            sink.toggle_mute();
+        }
     }
 }

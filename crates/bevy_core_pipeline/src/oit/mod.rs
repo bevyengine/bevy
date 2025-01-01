@@ -2,18 +2,24 @@
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, Shader, TextureUsages},
+    render_resource::{
+        BufferUsages, BufferVec, DynamicUniformBuffer, Shader, ShaderType, TextureUsages,
+    },
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::trace, HashSet, Instant};
+use bevy_utils::{
+    tracing::{trace, warn},
+    HashSet, Instant,
+};
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
@@ -25,7 +31,7 @@ use crate::core_3d::{
     Camera3d,
 };
 
-/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen.
+/// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
 /// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
@@ -36,17 +42,42 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(404252
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component.
-#[derive(Component, Clone, Copy, ExtractComponent)]
+// We use the same struct to pass on the settings to the drawing shader.
+#[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many layers will be used to compute the blending.
     /// The more layers you use the more memory it will use but it will also give better results.
-    /// 8 is generally recommended, going above 16 is probably not worth it in the vast majority of cases
-    pub layer_count: u8,
+    /// 8 is generally recommended, going above 32 is probably not worth it in the vast majority of cases
+    pub layer_count: i32,
+    /// Threshold for which fragments will be added to the blending layers.
+    /// This can be tweaked to optimize quality / layers count. Higher values will
+    /// allow lower number of layers and a better performance, compromising quality.
+    pub alpha_threshold: f32,
 }
 
 impl Default for OrderIndependentTransparencySettings {
     fn default() -> Self {
-        Self { layer_count: 8 }
+        Self {
+            layer_count: 8,
+            alpha_threshold: 0.0,
+        }
+    }
+}
+
+// OrderIndependentTransparencySettings is also a Component. We explicitly implement the trait so
+// we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
+impl Component for OrderIndependentTransparencySettings {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutability = Mutable;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_add(|world, entity, _| {
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(entity) {
+                if value.layer_count > 32 {
+                    warn!("OrderIndependentTransparencySettings layer_count set to {} might be too high.", value.layer_count);
+                }
+            }
+        });
     }
 }
 
@@ -82,7 +113,8 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages);
+        .add_systems(Last, configure_depth_texture_usages)
+        .register_type::<OrderIndependentTransparencySettings>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -128,7 +160,7 @@ fn configure_depth_texture_usages(
 
     // Find all the render target that potentially uses OIT
     let primary_window = p.get_single().ok();
-    let mut render_target_has_oit = HashSet::new();
+    let mut render_target_has_oit = <HashSet<_>>::default();
     for (camera, has_oit) in &cameras {
         if has_oit {
             render_target_has_oit.insert(camera.target.normalize(primary_window));
@@ -154,7 +186,7 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
 }
 
 /// Holds the buffers that contain the data of all OIT layers.
-/// We use one big buffer for the entire app. Each camaera will reuse it so it will
+/// We use one big buffer for the entire app. Each camera will reuse it so it will
 /// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
@@ -164,7 +196,7 @@ pub struct OitBuffers {
     pub layers: BufferVec<UVec2>,
     /// Buffer containing the index of the last layer that was written for each fragment.
     pub layer_ids: BufferVec<i32>,
-    pub layers_count_uniforms: DynamicUniformBuffer<i32>,
+    pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
 }
 
 impl FromWorld for OitBuffers {
@@ -184,19 +216,19 @@ impl FromWorld for OitBuffers {
         layer_ids.reserve(1, render_device);
         layer_ids.write_buffer(render_device, render_queue);
 
-        let mut layers_count_uniforms = DynamicUniformBuffer::default();
-        layers_count_uniforms.set_label(Some("oit_layers_count"));
+        let mut settings = DynamicUniformBuffer::default();
+        settings.set_label(Some("oit_settings"));
 
         Self {
             layers,
             layer_ids,
-            layers_count_uniforms,
+            settings,
         }
     }
 }
 
 #[derive(Component)]
-pub struct OitLayersCountOffset {
+pub struct OrderIndependentTransparencySettingsOffset {
     pub offset: u32,
 }
 
@@ -268,16 +300,16 @@ pub fn prepare_oit_buffers(
         );
     }
 
-    if let Some(mut writer) = buffers.layers_count_uniforms.get_writer(
+    if let Some(mut writer) = buffers.settings.get_writer(
         camera_oit_uniforms.iter().len(),
         &render_device,
         &render_queue,
     ) {
         for (entity, settings) in &camera_oit_uniforms {
-            let offset = writer.write(&(settings.layer_count as i32));
+            let offset = writer.write(settings);
             commands
                 .entity(entity)
-                .insert(OitLayersCountOffset { offset });
+                .insert(OrderIndependentTransparencySettingsOffset { offset });
         }
     }
 }

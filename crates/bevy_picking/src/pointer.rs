@@ -9,7 +9,7 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_utils::HashMap;
@@ -146,9 +146,9 @@ impl PointerPress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub enum PressDirection {
     /// The pointer button was just pressed
-    Down,
+    Pressed,
     /// The pointer button was just released
-    Up,
+    Released,
 }
 
 /// The button that was just pressed or released
@@ -233,14 +233,9 @@ impl Location {
             return false;
         }
 
-        let position = Vec2::new(self.position.x, self.position.y);
-
         camera
             .logical_viewport_rect()
-            .map(|Rect { min, max }| {
-                (position - min).min_element() >= 0.0 && (position - max).max_element() <= 0.0
-            })
-            .unwrap_or(false)
+            .is_some_and(|rect| rect.contains(self.position))
     }
 }
 
@@ -249,7 +244,7 @@ impl Location {
 pub enum PointerAction {
     /// A button has been pressed on the pointer.
     Pressed {
-        /// The press direction, either down or up.
+        /// The press state, either pressed or released.
         direction: PressDirection,
         /// The button that was pressed.
         button: PointerButton,
@@ -286,6 +281,26 @@ impl PointerInput {
         }
     }
 
+    /// Returns true if the `target_button` of this pointer was just pressed.
+    #[inline]
+    pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Pressed && button == target_button
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the `target_button` of this pointer was just released.
+    #[inline]
+    pub fn button_just_released(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Released && button == target_button
+        } else {
+            false
+        }
+    }
+
     /// Updates pointer entities according to the input events.
     pub fn receive(
         mut events: EventReader<PointerInput>,
@@ -298,11 +313,11 @@ impl PointerInput {
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
                             if *pointer_id == event.pointer_id {
-                                let is_down = direction == PressDirection::Down;
+                                let is_pressed = direction == PressDirection::Pressed;
                                 match button {
-                                    PointerButton::Primary => pointer.primary = is_down,
-                                    PointerButton::Secondary => pointer.secondary = is_down,
-                                    PointerButton::Middle => pointer.middle = is_down,
+                                    PointerButton::Primary => pointer.primary = is_pressed,
+                                    PointerButton::Secondary => pointer.secondary = is_pressed,
+                                    PointerButton::Middle => pointer.middle = is_pressed,
                                 }
                             }
                         });
