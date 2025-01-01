@@ -175,7 +175,7 @@ jobs:
       - name: Check no_panic
         env:
           RUSTFLAGS: "-D warnings"
-        run: cargo check -p bevy_math --features check_no_panic
+        run: cargo test -p bevy_math --features check_no_panic
 
   build-wasm:
     runs-on: ubuntu-latest
