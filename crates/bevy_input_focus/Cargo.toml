@@ -17,6 +17,8 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", default-f
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
 bevy_window = { path = "../bevy_window", version = "0.15.0-dev", default-features = false }
 
+thiserror = { version = "2", default-features = false }
+
 [dev-dependencies]
 smol_str = "0.2"
 
