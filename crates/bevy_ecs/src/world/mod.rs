@@ -3231,7 +3231,6 @@ impl<'w> World {
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()
     }
-}
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
@@ -3527,7 +3526,7 @@ impl<'w> World {
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
-    pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+    pub fn remove_resource_by_id(&'w mut self, component_id: ComponentId) -> Option<()> {
         self.storages
             .resources
             .get_mut(component_id)?
@@ -3542,7 +3541,7 @@ impl<'w> World {
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+    pub fn remove_non_send_by_id(&'w mut self, component_id: ComponentId) -> Option<()> {
         self.storages
             .non_send_resources
             .get_mut(component_id)?
@@ -3591,16 +3590,15 @@ impl<'w> World {
                 .ok()
         }
     }
-}
 
-// Schedule-related methods
-impl World {
+    // Schedule-related methods
+
     /// Adds the specified [`Schedule`] to the world. The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
-    pub fn add_schedule(&mut self, schedule: Schedule) {
+    pub fn add_schedule(&'w mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
     }
@@ -3617,9 +3615,9 @@ impl World {
     /// consider using [`World::try_run_schedule`] instead.
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
-        &mut self,
+        &'w mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+        f: impl FnOnce(&'w mut World, &'w mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.intern();
         let Some(mut schedule) = self
@@ -3677,9 +3675,9 @@ impl World {
     ///
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
-        &mut self,
+        &'w mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+        f: impl FnOnce(&'w mut World, &'w mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
             .unwrap_or_else(|e| panic!("{e}"))
@@ -3693,7 +3691,7 @@ impl World {
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
-        &mut self,
+        &'w mut self,
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
@@ -3709,19 +3707,19 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+    pub fn run_schedule(&'w mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
-    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+    pub fn allow_ambiguous_component<T: Component>(&'w mut self) {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_component::<T>(self);
         self.insert_resource(schedules);
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
-    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+    pub fn allow_ambiguous_resource<T: Resource>(&'w mut self) {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);

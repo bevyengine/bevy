@@ -432,9 +432,10 @@ pub struct WorldChildBuilder<'w> {
 }
 
 impl<'world> ChildBuild for WorldChildBuilder<'world> {
-    type SpawnOutput<'w> = EntityWorldMut<'w>
-        where
-            Self: 'w;
+    type SpawnOutput<'w>
+        = EntityWorldMut<'w>
+    where
+        Self: 'w;
 
     fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
