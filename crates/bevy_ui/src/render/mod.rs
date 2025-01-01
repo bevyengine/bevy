@@ -226,7 +226,6 @@ pub enum ExtractedUiItem {
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
-        atlas_scaling: Vec2,
         /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
     },
@@ -716,10 +715,7 @@ pub fn extract_text_sections(
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
                         rect,
-                        item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::ONE,
-                            range: start..end,
-                        },
+                        item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                     },
                 );
@@ -1114,15 +1110,12 @@ pub fn prepare_uinodes(
                             vertices_index += 6;
                             indices_index += 4;
                         }
-                        ExtractedUiItem::Glyphs {
-                            atlas_scaling,
-                            range,
-                        } => {
+                        ExtractedUiItem::Glyphs { range } => {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2();
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {
