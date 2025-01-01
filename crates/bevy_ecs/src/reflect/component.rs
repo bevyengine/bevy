@@ -193,7 +193,7 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub fn reflect_mut<'a>(
+    pub fn reflect_mut<'w>(
         &self,
         entity: impl Into<FilteredEntityMut<'w>>,
     ) -> Option<Mut<'w, dyn Reflect>> {
@@ -209,7 +209,7 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub unsafe fn reflect_unchecked_mut<'a>(
+    pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
         entity: UnsafeEntityCell<'w>,
     ) -> Option<Mut<'w, dyn Reflect>> {

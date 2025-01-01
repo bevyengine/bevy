@@ -986,7 +986,7 @@ impl<'w> World {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &'w mut self,
         entities: F,
-    ) -> Result<F::Mut<'w>, EntityFetchError> {
+    ) -> Result<F::Mut<'w>, EntityFetchError<'w>> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -2057,7 +2057,7 @@ impl<'w> World {
     pub fn get_resource_or_insert_with<R: Resource>(
         &'w mut self,
         func: impl FnOnce() -> R,
-    ) -> Mut<'_, R> {
+    ) -> Mut<'w, R> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
@@ -2121,7 +2121,7 @@ impl<'w> World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'w, R> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
@@ -2174,7 +2174,7 @@ impl<'w> World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
+    pub fn non_send_resource<R: 'static>(&'w self) -> &'w R {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
@@ -3355,7 +3355,7 @@ impl<'w> World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&'w self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'w>)> {
+    pub fn iter_resources(&'w self) -> impl Iterator<Item = (&'w ComponentInfo, Ptr<'w>)> {
         self.storages
             .resources
             .iter()
@@ -3438,7 +3438,7 @@ impl<'w> World {
     #[inline]
     pub fn iter_resources_mut(
         &'w mut self,
-    ) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'w>)> {
+    ) -> impl Iterator<Item = (&'w ComponentInfo, MutUntyped<'w>)> {
         self.storages
             .resources
             .iter()

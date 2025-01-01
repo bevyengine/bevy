@@ -1102,7 +1102,7 @@ unsafe fn get_component<'w>(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<Ptr<'_>> {
+) -> Option<Ptr<'w>> {
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
@@ -1129,7 +1129,7 @@ unsafe fn get_component_and_ticks<'w>(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
+) -> Option<(Ptr<'w>, TickCells<'w>, MaybeUnsafeCellLocation<'w>)> {
     match storage_type {
         StorageType::Table => {
             let table = world.fetch_table(location)?;
