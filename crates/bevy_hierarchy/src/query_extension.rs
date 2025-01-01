@@ -139,10 +139,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
+                .ok()
                 // These are leaf nodes if they have the `Children` component but it's empty
-                .map(|children| children.is_empty())
                 // Or if they don't have the `Children` component at all
-                .unwrap_or(true)
+                .is_none_or(|children| children.is_empty())
         })
     }
 

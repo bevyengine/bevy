@@ -5,7 +5,6 @@ use tracing::info_span;
 
 use crate::{
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::System,
     world::World,
 };
 

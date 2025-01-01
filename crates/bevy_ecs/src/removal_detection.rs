@@ -233,8 +233,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Returns `true` if there are no events available to read.
     pub fn is_empty(&self) -> bool {
         self.events()
-            .map(|events| self.reader.is_empty(events))
-            .unwrap_or(true)
+            .is_none_or(|events| self.reader.is_empty(events))
     }
 
     /// Consumes all available events.

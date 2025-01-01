@@ -23,7 +23,7 @@ use crate::{
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
@@ -516,7 +516,7 @@ impl BundleInfo {
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -535,14 +535,14 @@ impl BundleInfo {
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
@@ -561,7 +561,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -576,7 +576,7 @@ impl BundleInfo {
                 change_tick,
                 table_row,
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -604,7 +604,7 @@ impl BundleInfo {
         component_id: ComponentId,
         storage_type: StorageType,
         component_ptr: OwningPtr,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         {
             match storage_type {
@@ -617,7 +617,7 @@ impl BundleInfo {
                         table_row,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -630,7 +630,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1019,7 +1019,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1070,7 +1070,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1112,7 +1112,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1195,7 +1195,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1330,7 +1330,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1355,7 +1355,7 @@ impl<'w> BundleSpawner<'w> {
                 self.change_tick,
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             entities.set(entity.index(), location);
@@ -1404,7 +1404,7 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
@@ -1412,7 +1412,7 @@ impl<'w> BundleSpawner<'w> {
             self.spawn_non_existent(
                 entity,
                 bundle,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
