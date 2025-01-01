@@ -34,7 +34,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 ///     counter.0 += 1;
 /// }
 ///
-/// // `GameState` does not yet exist `my_system` won't run
+/// // `GameState` does not yet exist so `my_system` won't run
 /// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 0);
 ///
