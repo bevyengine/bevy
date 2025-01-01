@@ -7,11 +7,11 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Component;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
+    component::{require, Component},
     entity::Entity,
-    event::EventReader,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
@@ -20,17 +20,16 @@ use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window};
 
 /// [`Text2dBundle`] was removed in favor of required components.
 /// The core component is now [`Text2d`] which can contain a single text segment.
@@ -95,10 +94,11 @@ pub struct Text2dBundle {}
     TextColor,
     TextBounds,
     Anchor,
-    SpriteSource,
     Visibility,
+    VisibilityClass,
     Transform
 )]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
 
 impl Text2d {
@@ -235,12 +235,12 @@ pub fn extract_text2d_sprite(
 /// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
+    mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -255,9 +255,6 @@ pub fn update_text2d_layout(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    // We need to consume the entire iterator, hence `last`
-    let factor_changed = scale_factor_changed.read().last().is_some();
-
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
@@ -266,11 +263,14 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
+    let factor_changed = *last_scale_factor != scale_factor;
+    *last_scale_factor = scale_factor;
+
     for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
-            || queue.remove(&entity)
+            || (!queue.is_empty() && queue.remove(&entity))
         {
             let text_bounds = TextBounds {
                 width: if block.linebreak == LineBreak::NoWrap {
@@ -359,7 +359,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
+    use bevy_ecs::schedule::IntoSystemConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 
@@ -374,7 +374,6 @@ mod tests {
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
-            .init_resource::<Events<WindowScaleFactorChanged>>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()

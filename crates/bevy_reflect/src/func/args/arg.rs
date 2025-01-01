@@ -2,7 +2,11 @@ use crate::{
     func::args::{ArgError, FromArg, Ownership},
     PartialReflect, Reflect, TypePath,
 };
+use alloc::boxed::Box;
 use core::ops::Deref;
+
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec};
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -178,6 +182,14 @@ impl<'a> Arg<'a> {
                     })?)
             }
         }
+    }
+
+    /// Returns `true` if the argument is of type `T`.
+    pub fn is<T: TypePath>(&self) -> bool {
+        self.value
+            .try_as_reflect()
+            .map(<dyn Reflect>::is::<T>)
+            .unwrap_or_default()
     }
 }
 

@@ -1,6 +1,8 @@
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{
     cmp::Ordering,
     fmt,
@@ -38,7 +40,7 @@ pub trait Event: Component {
     /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate
-    type Traversal: Traversal;
+    type Traversal: Traversal<Self>;
 
     /// When true, this event will always attempt to propagate when [triggered], without requiring a call
     /// to [`Trigger::propagate`].
@@ -59,6 +61,9 @@ pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
+    /// The source code location that triggered this event.
+    #[cfg(feature = "track_change_detection")]
+    pub caller: &'static Location<'static>,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(super) _marker: PhantomData<E>,
 }

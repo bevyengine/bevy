@@ -3,7 +3,7 @@ use crate::{
     struct_utility::FieldAccessors,
     ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -134,8 +134,8 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
-                #FQBox::new(#bevy_reflect_path::Struct::clone_dynamic(self))
+            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
 
             #[inline]
@@ -174,7 +174,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
             #[inline]
-            fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }
 

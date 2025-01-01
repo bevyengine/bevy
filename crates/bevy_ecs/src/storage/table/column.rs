@@ -3,6 +3,7 @@ use crate::{
     component::TickCells,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
+use alloc::vec::Vec;
 use bevy_ptr::PtrMut;
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.

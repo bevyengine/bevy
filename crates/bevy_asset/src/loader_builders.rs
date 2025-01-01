@@ -428,7 +428,7 @@ impl<'builder, 'reader, 'ctx, T> NestedLoader<'ctx, 'builder, T, Immediate<'buil
 
         let asset = self
             .load_context
-            .load_direct_internal(path.clone(), meta, &*loader, reader.as_mut())
+            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
             .await?;
         Ok((loader, asset))
     }

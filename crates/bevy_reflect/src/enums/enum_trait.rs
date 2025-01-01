@@ -4,7 +4,7 @@ use crate::{
     type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, format, string::String, sync::Arc};
 use bevy_utils::HashMap;
 use core::slice::Iter;
 

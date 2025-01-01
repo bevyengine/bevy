@@ -7,7 +7,7 @@ use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
 use self::gpu_preprocessing::IndirectParametersBuffer;
-use crate::sync_world::MainEntity;
+use crate::{render_phase::PhaseItemExtraIndex, sync_world::MainEntity};
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
@@ -54,7 +54,12 @@ impl<T: PartialEq> BatchMeta<T> {
         BatchMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.extra_index().as_dynamic_offset(),
+            dynamic_offset: match item.extra_index() {
+                PhaseItemExtraIndex::DynamicOffset(dynamic_offset) => {
+                    NonMaxU32::new(dynamic_offset)
+                }
+                PhaseItemExtraIndex::None | PhaseItemExtraIndex::IndirectParametersIndex(_) => None,
+            },
             user_data,
         }
     }
@@ -99,7 +104,7 @@ pub trait GetBatchData {
 pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the
     /// [`crate::render_resource::BufferVec`] during extraction.
-    type BufferInputData: Pod + Sync + Send;
+    type BufferInputData: Pod + Default + Sync + Send;
 
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`].
@@ -109,7 +114,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -121,7 +126,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -133,21 +138,21 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
-    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// Writes the [`gpu_preprocessing::IndirectParameters`] necessary to draw
+    /// this batch into the given [`IndirectParametersBuffer`] at the given
     /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    fn get_batch_indirect_parameters_index(
+    fn write_batch_indirect_parameters(
         param: &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32>;
+        indirect_parameters_offset: u32,
+        entity: MainEntity,
+    );
 }
 
 /// Sorts a render phase that uses bins.

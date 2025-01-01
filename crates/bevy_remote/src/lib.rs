@@ -142,6 +142,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!   components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -305,7 +307,7 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    schedule::{IntoSystemConfigs, ScheduleLabel},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
@@ -404,6 +406,10 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
             )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
+            )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
                 builtin_methods::process_remote_get_watching_request,
@@ -442,21 +448,36 @@ impl Plugin for RemotePlugin {
         app.insert_resource(remote_methods)
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
+            .configure_sets(
+                RemoteLast,
+                (RemoteSet::ProcessRequests, RemoteSet::Cleanup).chain(),
+            )
             .add_systems(
                 RemoteLast,
                 (
-                    process_remote_requests,
-                    process_ongoing_watching_requests,
-                    remove_closed_watching_requests,
-                )
-                    .chain(),
+                    (process_remote_requests, process_ongoing_watching_requests)
+                        .chain()
+                        .in_set(RemoteSet::ProcessRequests),
+                    remove_closed_watching_requests.in_set(RemoteSet::Cleanup),
+                ),
             );
     }
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-struct RemoteLast;
+pub struct RemoteLast;
+
+/// The systems sets of the [`RemoteLast`] schedule.
+///
+/// These can be useful for ordering.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RemoteSet {
+    /// Processing of remote requests.
+    ProcessRequests,
+    /// Cleanup (remove closed watchers etc)
+    Cleanup,
+}
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -785,7 +806,7 @@ fn process_remote_requests(world: &mut World) {
 
         match handler {
             RemoteMethodSystemId::Instant(id) => {
-                let result = match world.run_system_with_input(id, message.params) {
+                let result = match world.run_system_with(id, message.params) {
                     Ok(result) => result,
                     Err(error) => {
                         let _ = message.sender.force_send(Err(BrpError {
@@ -835,7 +856,7 @@ fn process_single_ongoing_watching_request(
     system_id: &RemoteWatchingMethodSystemId,
 ) -> BrpResult<Option<Value>> {
     world
-        .run_system_with_input(*system_id, message.params.clone())
+        .run_system_with(*system_id, message.params.clone())
         .map_err(|error| BrpError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Failed to run method handler: {error}"),

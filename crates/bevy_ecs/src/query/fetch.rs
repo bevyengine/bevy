@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -12,9 +12,9 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
+use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -272,7 +272,8 @@ use smallvec::SmallVec;
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid to request as data in a `Query`",
-    label = "invalid `Query` data"
+    label = "invalid `Query` data",
+    note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
@@ -1607,7 +1608,7 @@ unsafe impl<T: Component> WorldQuery for &mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
@@ -2365,7 +2366,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
                 #[cfg(debug_assertions)]
                 unreachable!();
                 #[cfg(not(debug_assertions))]
-                std::hint::unreachable_unchecked()
+                core::hint::unreachable_unchecked()
             }
         }
     }

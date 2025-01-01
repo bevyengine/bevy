@@ -4,8 +4,8 @@ use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
-    utils::hashbrown::HashSet,
 };
+use std::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //
@@ -108,6 +108,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .init_resource::<AppState>()
         .run();
