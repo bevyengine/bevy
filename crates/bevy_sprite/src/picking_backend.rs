@@ -91,15 +91,16 @@ fn sprite_picking(
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) = cameras
-            .iter()
-            .filter(|(_, camera, _, _)| camera.is_active)
-            .find(|(_, camera, _, _)| {
-                camera
-                    .target
-                    .normalize(primary_window)
-                    .is_some_and(|x| x == location.target)
-            })
+        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) =
+            cameras
+                .iter()
+                .filter(|(_, camera, _, _)| camera.is_active)
+                .find(|(_, camera, _, _)| {
+                    camera
+                        .target
+                        .normalize(primary_window)
+                        .is_some_and(|x| x == location.target)
+                })
         else {
             continue;
         };
