@@ -152,7 +152,6 @@ macro_rules! impl_custom_attribute_methods {
             $self.custom_attributes().get::<T>()
         }
 
-        #[allow(rustdoc::redundant_explicit_links)]
         /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).

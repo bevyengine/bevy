@@ -11,6 +11,10 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason
+)]
 
 //! Reflection in Rust.
 //!
@@ -683,8 +687,7 @@ pub mod __macro_exports {
         note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
     )]
     pub trait RegisterForReflection {
-        #[allow(unused_variables)]
-        fn __register(registry: &mut TypeRegistry) {}
+        fn __register(_registry: &mut TypeRegistry) {}
     }
 
     impl<T: GetTypeRegistration> RegisterForReflection for T {
@@ -709,7 +712,10 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use alloc::borrow::Cow;
@@ -866,7 +872,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -2138,7 +2143,7 @@ mod tests {
             enum_struct: SomeEnum,
             custom: CustomDebug,
             #[reflect(ignore)]
-            #[allow(dead_code)]
+            #[expect(dead_code, reason = "This value is intended to not be reflected.")]
             ignored: isize,
         }
 
