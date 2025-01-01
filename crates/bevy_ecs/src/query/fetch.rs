@@ -11,11 +11,10 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
-use bevy_ecs_macros::impl_data_set;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
-use variadics_please::all_tuples;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1719,8 +1718,8 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 }
 
 /// A collection of potentially conflicting [`QueryData`]s allowed by disjoint access.
-
 /// Allows queries to safely access and interact with up to 8 mutually exclusive [`QueryData`]s in a single iteration.
+/// This query only matches entity if it is possible to access all members of the set for this entity.
 ///
 /// Each individual [`QueryData`] can be accessed by using the functions `d0()`, `d1()`, ..., `d7()`,
 /// according to the order they are defined in the `DataSet`. This ensures that there's
@@ -1864,7 +1863,141 @@ pub struct DataSet<'a, T: QueryData> {
     table_row: TableRow,
 }
 
-impl_data_set!();
+macro_rules! impl_data_set {
+    ($(($index: tt, $data: ident, $detupled: ident, $fn_name: ident)),*) => {
+        // SAFETY: All members are constrained to ReadOnlyQueryData, so World is only read
+        unsafe impl<'a, $($data,)*> ReadOnlyQueryData for DataSet<'a, ($($data,)*)>
+        where $($data: ReadOnlyQueryData,)*
+        { }
+
+        // SAFETY: defers to soundness of `#data: WorldQuery` impl
+        unsafe impl<'a, $($data: QueryData,)*> QueryData for DataSet<'a, ($($data,)*)> {
+            type ReadOnly = DataSet<'a, ($($data::ReadOnly,)*)>;
+        }
+
+        // SAFETY:
+        // for each member of the set accessed by `fetch`, [`update_component_access`]
+        // - adds corresponding access to `access`
+        // - panics if it's access conflicts with access that has already been added before calling `update_component_access`
+        //
+        // If `fetch` mutably accesses a member of the set, it is impossible to access any other members.
+        unsafe impl<'_a, $($data: QueryData,)*> WorldQuery for DataSet<'_a, ($($data,)*)>
+        {
+            type Item<'w> = DataSet<'w, ($($data,)*)>;
+            type Fetch<'w> = ($($data::Fetch<'w>,)*);
+            type State = ($($data::State,)*);
+
+            fn shrink<'wlong: 'wshort, 'wshort>(
+                item: Self::Item<'wlong>,
+            ) -> Self::Item<'wshort> {
+                DataSet {
+                    fetch: Self::shrink_fetch(item.fetch),
+                    entity: item.entity,
+                    table_row: item.table_row,
+                }
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+                fetch: Self::Fetch<'wlong>,
+            ) -> Self::Fetch<'wshort> {
+                <($($data,)*) as WorldQuery>::shrink_fetch(fetch)
+            }
+
+            unsafe fn init_fetch<'w>(
+                world: UnsafeWorldCell<'w>,
+                state: &Self::State,
+                last_run: Tick,
+                this_run: Tick,
+            ) -> Self::Fetch<'w> {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::init_fetch(world, state, last_run, this_run) }
+            }
+
+            const IS_DENSE: bool = <($($data,)*) as WorldQuery>::IS_DENSE;
+
+            unsafe fn set_archetype<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                archetype: &'w Archetype,
+                table: &'w Table,
+            ) {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table); }
+            }
+
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+                // SAFETY: The invariants are uphold by the caller.
+                unsafe { <($($data,)*) as WorldQuery>::set_table(fetch, state, table); }
+            }
+
+            unsafe fn fetch<'w>(
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> Self::Item<'w> {
+                DataSet {
+                    fetch: fetch.clone(),
+                    entity,
+                    table_row,
+                }
+            }
+
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+                let ($($detupled,)*) = state;
+
+                $(
+                    // Making sure each individual member of the set doesn't conflict with other query access.
+                    // Panics if one of the members conflicts with previous access.
+                    $data::update_component_access($detupled, &mut access.clone());
+                )*
+                $(
+                    // Updating empty [`FilteredAccess`] and then extending passed access.
+                    // This is done to avoid conflicts with other members of the set.
+                    let mut current_access = FilteredAccess::default();
+                    $data::update_component_access($detupled, &mut current_access);
+                    access.extend(&current_access);
+                )*
+            }
+
+            fn init_state(world: &mut World) -> Self::State {
+                <($($data,)*) as WorldQuery>::init_state(world)
+            }
+
+            fn get_state(components: &Components) -> Option<Self::State> {
+                <($($data,)*) as WorldQuery>::get_state(components)
+            }
+
+            fn matches_component_set(
+                state: &Self::State,
+                set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
+                <($($data,)*) as WorldQuery>::matches_component_set(state, set_contains_id)
+            }
+        }
+
+        impl<$($data: QueryData,)*> DataSet<'_, ($($data,)*)>
+        {
+            $(
+                /// Gets exclusive access to the data set member at index
+                #[doc = stringify!($index)]
+                /// .
+                /// No other members may be accessed while this one is active.
+                pub fn $fn_name<'a>(&'a mut self) -> QueryItem<'a, $data> {
+                    // SAFETY: since it's only possible to create instance of `DataSet` using
+                    // `<DataSet as WorldQuery>::fetch`, following safety rules were upheld by the caller.
+                    // - [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`] have been called for `DataSet`,
+                    //   so it was called for each `data` (as implementation of those functions for `DataSet` suggests).
+                    // - `entity` and `table_row` are in the range of the current table and archetype.
+                    $data::shrink(unsafe {
+                        $data::fetch(&mut self.fetch.$index, self.entity, self.table_row)
+                    })
+                }
+            )*
+        }
+    }
+}
+
+all_tuples_enumerated!(impl_data_set, 1, 8, P, detupled, d);
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
