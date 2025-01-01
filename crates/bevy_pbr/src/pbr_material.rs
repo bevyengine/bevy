@@ -1238,7 +1238,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         }
 
         key.insert(StandardMaterialKey::from_bits_retain(
-            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+            (material.depth_bias as i32 as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
         key
     }
