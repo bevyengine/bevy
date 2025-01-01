@@ -1282,6 +1282,59 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
     }
 
+    /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
+    /// runs the provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](World::get_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Foo(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.register_component::<Foo>();
+    /// #
+    /// # let entity = world.spawn(Foo(false)).id();
+    /// #
+    /// world.modify_component(entity, |foo: &mut Foo| {
+    ///     foo.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(world.get::<Foo>(entity), Some(&Foo(true)));
+    /// ```
+    #[inline]
+    pub fn modify_component<T: Component, R>(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Result<Option<R>, EntityFetchError> {
+        let mut world = DeferredWorld::from(&mut *self);
+
+        let result = match world.modify_component(entity, f) {
+            Ok(result) => result,
+            Err(EntityFetchError::AliasedMutability(..)) => {
+                return Err(EntityFetchError::AliasedMutability(entity))
+            }
+            Err(EntityFetchError::NoSuchEntity(..)) => {
+                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
+            }
+        };
+
+        self.flush();
+        Ok(result)
+    }
+
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
     /// the `entity` does not exist.
@@ -1610,7 +1663,7 @@ impl World {
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -1686,7 +1739,7 @@ impl World {
             .storages
             .non_send_resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -1824,12 +1877,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_added(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Returns `true` if a resource of type `R` exists and was modified since the world's
@@ -1842,8 +1894,7 @@ impl World {
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_changed_by_id(component_id))
-            .unwrap_or(false)
+            .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
@@ -1857,12 +1908,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Retrieves the change ticks for the given resource.
@@ -2079,7 +2129,7 @@ impl World {
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
