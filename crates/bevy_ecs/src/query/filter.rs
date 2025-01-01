@@ -7,8 +7,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
+use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -356,7 +356,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
-///         println!("Entity {:?} got a new style or color", entity);
+///         println!("Entity {} got a new style or color", entity);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);

@@ -4,9 +4,8 @@
 use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::{
-    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
-};
+use wgpu::TextureViewDescriptor;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -284,14 +283,18 @@ pub fn dds_format_to_texture_format(
 
 #[cfg(test)]
 mod test {
-    use wgpu::{util::TextureDataOrder, TextureDescriptor, TextureDimension};
+    use wgpu::util::TextureDataOrder;
+    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat};
 
     use crate::CompressedImageFormats;
 
     use super::dds_buffer_to_image;
 
     /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to your GPU
-    fn fake_wgpu_create_texture_with_data(desc: &TextureDescriptor<'_>, data: &[u8]) {
+    fn fake_wgpu_create_texture_with_data(
+        desc: &TextureDescriptor<Option<&'_ str>, &'_ [TextureFormat]>,
+        data: &[u8],
+    ) {
         // Will return None only if it's a combined depth-stencil format
         // If so, default to 4, validation will fail later anyway since the depth or stencil
         // aspect needs to be written to individually

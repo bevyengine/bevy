@@ -378,6 +378,7 @@ impl_reflect_opaque!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
 
 #[cfg(test)]
 mod tests {
+    use alloc::format;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,

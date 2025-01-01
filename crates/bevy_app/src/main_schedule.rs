@@ -1,4 +1,5 @@
 use crate::{App, Plugin};
+use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     schedule::{
         ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
@@ -180,6 +181,10 @@ pub struct PostUpdate;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Last;
+
+/// Animation system set. This exists in [`PostUpdate`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.

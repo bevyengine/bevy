@@ -16,8 +16,6 @@ extern crate alloc;
 use alloc::sync::Arc;
 use std::sync::Mutex;
 
-use bevy_a11y::Focus;
-
 mod event;
 mod monitor;
 mod raw_handle;
@@ -118,17 +116,10 @@ impl Plugin for WindowPlugin {
             .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
-            let initial_focus = app
-                .world_mut()
-                .spawn(primary_window.clone())
-                .insert((
-                    PrimaryWindow,
-                    RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
-                ))
-                .id();
-            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
-                **focus = Some(initial_focus);
-            }
+            app.world_mut().spawn(primary_window.clone()).insert((
+                PrimaryWindow,
+                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+            ));
         }
 
         match self.exit_condition {
@@ -164,7 +155,8 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<AppLifecycle>();
+            .register_type::<AppLifecycle>()
+            .register_type::<Monitor>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

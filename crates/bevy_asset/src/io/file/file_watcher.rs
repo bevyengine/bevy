@@ -26,13 +26,13 @@ pub struct FileWatcher {
 
 impl FileWatcher {
     pub fn new(
-        root: PathBuf,
+        path: PathBuf,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(super::get_base_path().join(root).as_path());
+        let root = normalize_path(&path);
         let watcher = new_asset_event_debouncer(
-            root.clone(),
+            path.clone(),
             debounce_wait_time,
             FileEventHandler {
                 root,
@@ -49,15 +49,12 @@ impl AssetWatcher for FileWatcher {}
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
     let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
         panic!(
-            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}",
-            absolute_path,
-            root
+            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={}, root={}",
+            absolute_path.display(),
+            root.display()
         )
     });
-    let is_meta = relative_path
-        .extension()
-        .map(|e| e == "meta")
-        .unwrap_or(false);
+    let is_meta = relative_path.extension().is_some_and(|e| e == "meta");
     let asset_path = if is_meta {
         relative_path.with_extension("")
     } else {

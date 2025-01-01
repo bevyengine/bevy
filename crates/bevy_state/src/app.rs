@@ -1,6 +1,7 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
 use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
-use bevy_utils::{tracing::warn, warn_once};
+use bevy_utils::once;
+use log::warn;
 
 use crate::{
     state::{
@@ -58,7 +59,10 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
-    /// For more information refer to [`state_scoped`](crate::state_scoped).
+    /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
+    /// will be called automatically.
+    ///
+    /// For more information refer to [`crate::state_scoped`].
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
@@ -84,7 +88,9 @@ pub trait AppExtStates {
 /// Separate function to only warn once for all state installation methods.
 fn warn_if_no_states_plugin_installed(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
-        warn_once!("States were added to the app, but `StatesPlugin` is not installed.");
+        once!(warn!(
+            "States were added to the app, but `StatesPlugin` is not installed."
+        ));
     }
 }
 
@@ -104,6 +110,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
+            if S::SCOPED_ENTITIES_ENABLED {
+                self.enable_state_scoped_entities::<S>();
+            }
         } else {
             let name = core::any::type_name::<S>();
             warn!("State {} is already initialized.", name);
@@ -126,6 +135,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
+            if S::SCOPED_ENTITIES_ENABLED {
+                self.enable_state_scoped_entities::<S>();
+            }
         } else {
             // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
@@ -160,6 +172,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+            if S::SCOPED_ENTITIES_ENABLED {
+                self.enable_state_scoped_entities::<S>();
+            }
         } else {
             let name = core::any::type_name::<S>();
             warn!("Computed state {} is already initialized.", name);
@@ -188,6 +203,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+            if S::SCOPED_ENTITIES_ENABLED {
+                self.enable_state_scoped_entities::<S>();
+            }
         } else {
             let name = core::any::type_name::<S>();
             warn!("Sub state {} is already initialized.", name);

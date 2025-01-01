@@ -1,8 +1,7 @@
 use core::ops::Range;
 
 use crate::{
-    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, WithSprite,
-    SPRITE_SHADER_HANDLE,
+    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -20,7 +19,6 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
-use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -33,7 +31,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntityHashMap, RenderEntity, TemporaryRenderEntity},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -118,7 +116,7 @@ impl FromWorld for SpritePipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -342,11 +340,12 @@ pub struct ExtractedSprite {
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
+    pub render_entity: Entity,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
+    pub sprites: MainEntityHashMap<ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -391,16 +390,13 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, original_entity, sprite)
-                    .map(|e| {
-                        (
-                            (
-                                commands.spawn(TemporaryRenderEntity).id(),
-                                original_entity.into(),
-                            ),
-                            e,
-                        )
-                    }),
+                    .extract_sprites(
+                        transform,
+                        original_entity,
+                        commands.spawn(TemporaryRenderEntity).id(),
+                        sprite,
+                    )
+                    .map(|e| (original_entity.into(), e)),
             );
         } else {
             let atlas_rect = sprite
@@ -421,7 +417,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                (entity, original_entity.into()),
+                original_entity.into(),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
@@ -433,6 +429,7 @@ pub fn extract_sprites(
                     image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
+                    render_entity: entity,
                 },
             );
         }
@@ -551,7 +548,7 @@ pub fn queue_sprites(
         view_entities.clear();
         view_entities.extend(
             visible_entities
-                .iter::<WithSprite>()
+                .iter::<Sprite>()
                 .map(|(_, e)| e.index() as usize),
         );
 
@@ -559,8 +556,11 @@ pub fn queue_sprites(
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
-            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
+        for (main_entity, extracted_sprite) in extracted_sprites.sprites.iter() {
+            let index = extracted_sprite
+                .original_entity
+                .unwrap_or(extracted_sprite.render_entity)
+                .index();
 
             if !view_entities.contains(index as usize) {
                 continue;
@@ -573,11 +573,11 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: (*entity, *main_entity),
+                entity: (extracted_sprite.render_entity, *main_entity),
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
             });
         }
     }
@@ -663,7 +663,7 @@ pub fn prepare_sprite_image_bind_groups(
         // Compatible items share the same entity.
         for item_index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[item_index];
-            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
+            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity.1) else {
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
@@ -671,13 +671,12 @@ pub fn prepare_sprite_image_bind_groups(
                 continue;
             };
 
-            let batch_image_changed = batch_image_handle != extracted_sprite.image_handle_id;
-            if batch_image_changed {
+            if batch_image_handle != extracted_sprite.image_handle_id {
                 let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                     continue;
                 };
 
-                batch_image_size = gpu_image.size.as_vec2();
+                batch_image_size = gpu_image.size_2d().as_vec2();
                 batch_image_handle = extracted_sprite.image_handle_id;
                 image_bind_groups
                     .values
@@ -692,6 +691,15 @@ pub fn prepare_sprite_image_bind_groups(
                             )),
                         )
                     });
+
+                batch_item_index = item_index;
+                batches.push((
+                    item.entity(),
+                    SpriteBatch {
+                        image_handle_id: batch_image_handle,
+                        range: index..index,
+                    },
+                ));
             }
 
             // By default, the size of the quad is the size of the texture
@@ -742,18 +750,6 @@ pub fn prepare_sprite_image_bind_groups(
                     &extracted_sprite.color,
                     &uv_offset_scale,
                 ));
-
-            if batch_image_changed {
-                batch_item_index = item_index;
-
-                batches.push((
-                    item.entity(),
-                    SpriteBatch {
-                        image_handle_id: batch_image_handle,
-                        range: index..index,
-                    },
-                ));
-            }
 
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()
