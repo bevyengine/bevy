@@ -2121,7 +2121,7 @@ impl<'w> World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'w, R> {
+    pub fn get_resource_or_init<R: Resource + FromWorld>(&'w mut self) -> Mut<'w, R> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
@@ -2214,7 +2214,7 @@ impl<'w> World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+    pub fn get_non_send_resource<R: 'static>(&'w self) -> Option<&'w R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
@@ -3615,9 +3615,9 @@ impl<'w> World {
     /// consider using [`World::try_run_schedule`] instead.
     /// For other use cases, see the example on [`World::schedule_scope`].
     pub fn try_schedule_scope<R>(
-        &'w mut self,
+        &mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&'w mut World, &'w mut Schedule) -> R,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.intern();
         let Some(mut schedule) = self
@@ -3675,9 +3675,9 @@ impl<'w> World {
     ///
     /// If the requested schedule does not exist.
     pub fn schedule_scope<R>(
-        &'w mut self,
+        &mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&'w mut World, &'w mut Schedule) -> R,
+        f: impl FnOnce(&mut World, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
             .unwrap_or_else(|e| panic!("{e}"))

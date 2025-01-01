@@ -410,7 +410,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
 
     fn commit<'w>(
         &mut self,
-        mut entity: AnimationEntityMut<'a>,
+        mut entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         let property = self.property.get_mut(&mut entity)?;
         *property = self
@@ -598,7 +598,7 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
 
     fn commit<'w>(
         &mut self,
-        mut entity: AnimationEntityMut<'a>,
+        mut entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
             return Ok(());
@@ -907,7 +907,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// the stack, not blended with it.
     fn commit<'w>(
         &mut self,
-        entity: AnimationEntityMut<'a>,
+        entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError>;
 }
 
