@@ -19,7 +19,7 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     alloc::Layout,
@@ -1901,14 +1901,14 @@ pub enum RequiredComponentsError {
 }
 
 /// A Required Component constructor. See [`Component`] for details.
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
 );
 
 /// A Required Component constructor. See [`Component`] for details.
-#[cfg(not(feature = "track_change_detection"))]
+#[cfg(not(feature = "track_location"))]
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
@@ -1931,7 +1931,7 @@ impl RequiredComponentConstructor {
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         (self.0)(
             table,
@@ -1939,7 +1939,7 @@ impl RequiredComponentConstructor {
             change_tick,
             table_row,
             entity,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2046,7 +2046,7 @@ impl RequiredComponents {
             #[cfg(feature = "portable-atomic")]
             use alloc::boxed::Box;
 
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             type Constructor = dyn for<'a, 'b> Fn(
                 &'a mut Table,
                 &'b mut SparseSets,
@@ -2056,7 +2056,7 @@ impl RequiredComponents {
                 &'static Location<'static>,
             );
 
-            #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(not(feature = "track_location"))]
             type Constructor =
                 dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
 
@@ -2072,7 +2072,7 @@ impl RequiredComponents {
                       change_tick,
                       table_row,
                       entity,
-                      #[cfg(feature = "track_change_detection")] caller| {
+                      #[cfg(feature = "track_location")] caller| {
                     OwningPtr::make(constructor(), |ptr| {
                         // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
                         // pass in a valid table_row and entity requiring a C constructor
@@ -2088,7 +2088,7 @@ impl RequiredComponents {
                                 component_id,
                                 C::STORAGE_TYPE,
                                 ptr,
-                                #[cfg(feature = "track_change_detection")]
+                                #[cfg(feature = "track_location")]
                                 caller,
                             );
                         }

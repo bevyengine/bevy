@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 use nonmax::NonMaxUsize;
@@ -173,7 +173,7 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
@@ -182,7 +182,7 @@ impl ComponentSparseSet {
                 dense_index,
                 value,
                 change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         } else {
@@ -190,7 +190,7 @@ impl ComponentSparseSet {
             self.dense.push(
                 value,
                 ComponentTicks::new(change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             self.sparse
@@ -253,9 +253,9 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 self.dense.get_changed_by_unchecked(dense_index),
-                #[cfg(not(feature = "track_change_detection"))]
+                #[cfg(not(feature = "track_location"))]
                 (),
             ))
         }
@@ -301,7 +301,7 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         entity: Entity,

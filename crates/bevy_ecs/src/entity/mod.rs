@@ -73,7 +73,7 @@ use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 
 #[cfg(feature = "serialize")]
@@ -968,7 +968,7 @@ impl Entities {
 
     /// Sets the source code location from which this entity has last been spawned
     /// or despawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     #[inline]
     pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
         let meta = self
@@ -980,7 +980,7 @@ impl Entities {
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if this entity has never existed.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
@@ -992,7 +992,7 @@ impl Entities {
 
     /// Constructs a message explaining why an entity does not exists, if known.
     pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
                 format!("was despawned by {location}",)
@@ -1000,9 +1000,9 @@ impl Entities {
                 "was never spawned".to_owned()
             }
         }
-        #[cfg(not(feature = "track_change_detection"))]
+        #[cfg(not(feature = "track_location"))]
         {
-            "does not exist (enable `track_change_detection` feature for more details)".to_owned()
+            "does not exist (enable `track_location` feature for more details)".to_owned()
         }
     }
 }
@@ -1014,7 +1014,7 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     spawned_or_despawned_by: Option<&'static Location<'static>>,
 }
 
@@ -1023,7 +1023,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         spawned_or_despawned_by: None,
     };
 }

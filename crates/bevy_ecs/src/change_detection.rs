@@ -11,7 +11,7 @@ use core::{
     mem,
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use {
     bevy_ptr::ThinSlicePtr,
     core::{cell::UnsafeCell, panic::Location},
@@ -73,7 +73,7 @@ pub trait DetectChanges {
     fn last_changed(&self) -> Tick;
 
     /// The location that last caused this to change.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     fn changed_by(&self) -> &'static Location<'static>;
 }
 
@@ -343,7 +343,7 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             fn changed_by(&self) -> &'static Location<'static> {
                 self.changed_by
             }
@@ -376,7 +376,7 @@ macro_rules! change_detection_mut_impl {
             #[track_caller]
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 {
                     *self.changed_by = Location::caller();
                 }
@@ -386,7 +386,7 @@ macro_rules! change_detection_mut_impl {
             #[track_caller]
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 {
                     *self.changed_by = Location::caller();
                 }
@@ -403,7 +403,7 @@ macro_rules! change_detection_mut_impl {
             #[track_caller]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 {
                     *self.changed_by = Location::caller();
                 }
@@ -444,7 +444,7 @@ macro_rules! impl_methods {
                         last_run: self.ticks.last_run,
                         this_run: self.ticks.this_run,
                     },
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: self.changed_by,
                 }
             }
@@ -475,7 +475,7 @@ macro_rules! impl_methods {
                 Mut {
                     value: f(self.value),
                     ticks: self.ticks,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: self.changed_by,
                 }
             }
@@ -489,7 +489,7 @@ macro_rules! impl_methods {
                 value.map(|value| Mut {
                     value,
                     ticks: self.ticks,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: self.changed_by,
                 })
             }
@@ -600,7 +600,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'static Location<'static>,
 }
 
@@ -614,7 +614,7 @@ impl<'w, T: Resource> Res<'w, T> {
         Self {
             value: this.value,
             ticks: this.ticks.clone(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: this.changed_by,
         }
     }
@@ -632,7 +632,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: res.changed_by,
         }
     }
@@ -645,7 +645,7 @@ impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: res.changed_by,
         }
     }
@@ -678,7 +678,7 @@ impl_debug!(Res<'w, T>, Resource);
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
@@ -719,7 +719,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: other.changed_by,
         }
     }
@@ -739,7 +739,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
@@ -755,7 +755,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: other.changed_by,
         }
     }
@@ -788,7 +788,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 pub struct Ref<'w, T: ?Sized> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'static Location<'static>,
 }
 
@@ -806,7 +806,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         Ref {
             value: f(self.value),
             ticks: self.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: self.changed_by,
         }
     }
@@ -828,7 +828,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         changed: &'w Tick,
         last_run: Tick,
         this_run: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> Ref<'w, T> {
         Ref {
             value,
@@ -838,7 +838,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
                 last_run,
                 this_run,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: caller,
         }
     }
@@ -921,7 +921,7 @@ impl_debug!(Ref<'w, T>,);
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
@@ -947,7 +947,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'w mut &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'w mut &'static Location<'static>,
     ) -> Self {
         Self {
             value,
@@ -957,7 +957,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 last_run,
                 this_run,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: caller,
         }
     }
@@ -968,7 +968,7 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
         Self {
             value: mut_ref.value,
             ticks: mut_ref.ticks.into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: mut_ref.changed_by,
         }
     }
@@ -1015,7 +1015,7 @@ impl_debug!(Mut<'w, T>,);
 pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
@@ -1041,7 +1041,7 @@ impl<'w> MutUntyped<'w> {
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: self.changed_by,
         }
     }
@@ -1093,7 +1093,7 @@ impl<'w> MutUntyped<'w> {
         Mut {
             value: f(self.value),
             ticks: self.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: self.changed_by,
         }
     }
@@ -1108,7 +1108,7 @@ impl<'w> MutUntyped<'w> {
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
             // SAFETY: `caller` is `Aligned`.
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: self.changed_by,
         }
     }
@@ -1135,7 +1135,7 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     }
 
     #[inline]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     fn changed_by(&self) -> &'static Location<'static> {
         self.changed_by
     }
@@ -1148,7 +1148,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     #[track_caller]
     fn set_changed(&mut self) {
         *self.ticks.changed = self.ticks.this_run;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by = Location::caller();
         }
@@ -1158,7 +1158,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by = Location::caller();
         }
@@ -1184,13 +1184,13 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
         MutUntyped {
             value: value.value.into(),
             ticks: value.ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: value.changed_by,
         }
     }
 }
 
-/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_location` feature is
 /// enabled, and the unit type `()` when it is not.
 ///
 /// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
@@ -1198,10 +1198,10 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 /// `Location` at all.
 ///
 /// Please use this type sparingly: prefer normal `#[cfg(...)]` attributes when possible.
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 pub(crate) type MaybeLocation = &'static Location<'static>;
 
-/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_location` feature is
 /// enabled, and the unit type `()` when it is not.
 ///
 /// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
@@ -1209,36 +1209,36 @@ pub(crate) type MaybeLocation = &'static Location<'static>;
 /// `Location` at all.
 ///
 /// Please use this type sparingly: prefer normal `#[cfg(...)]` attributes when possible.
-#[cfg(not(feature = "track_change_detection"))]
+#[cfg(not(feature = "track_location"))]
 pub(crate) type MaybeLocation = ();
 
-/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detection`
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_location`
 /// feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 pub(crate) type MaybeUnsafeCellLocation<'a> = &'a UnsafeCell<&'static Location<'static>>;
 
-/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detection`
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_location`
 /// feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
-#[cfg(not(feature = "track_change_detection"))]
+#[cfg(not(feature = "track_location"))]
 pub(crate) type MaybeUnsafeCellLocation<'a> = ();
 
 /// A type alias to `ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>` when the
-/// `track_change_detection` feature is enabled, and the unit type `()` when it is not.
+/// `track_location` feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 pub(crate) type MaybeThinSlicePtrLocation<'w> =
     ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>;
 
 /// A type alias to `ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>` when the
-/// `track_change_detection` feature is enabled, and the unit type `()` when it is not.
+/// `track_location` feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
-#[cfg(not(feature = "track_change_detection"))]
+#[cfg(not(feature = "track_location"))]
 pub(crate) type MaybeThinSlicePtrLocation<'w> = ();
 
 #[cfg(test)]
@@ -1247,7 +1247,7 @@ mod tests {
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
     use core::ops::{Deref, DerefMut};
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     use core::panic::Location;
 
     use crate::{
@@ -1379,13 +1379,13 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let res_mut = ResMut {
             value: &mut res,
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut caller,
         };
 
@@ -1403,7 +1403,7 @@ mod tests {
             changed: Tick::new(3),
         };
         let mut res = R {};
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let val = Mut::new(
@@ -1412,7 +1412,7 @@ mod tests {
             &mut component_ticks.changed,
             Tick::new(2), // last_run
             Tick::new(4), // this_run
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             &mut caller,
         );
 
@@ -1433,13 +1433,13 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut caller,
         };
 
@@ -1469,13 +1469,13 @@ mod tests {
         };
 
         let mut outer = Outer(0);
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let ptr = Mut {
             value: &mut outer,
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut caller,
         };
         assert!(!ptr.is_changed());
@@ -1559,13 +1559,13 @@ mod tests {
         };
 
         let mut value: i32 = 5;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let value = MutUntyped {
             value: PtrMut::from(&mut value),
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut caller,
         };
 
@@ -1597,13 +1597,13 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut c = C {};
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let mut caller = Location::caller();
 
         let mut_typed = Mut {
             value: &mut c,
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut caller,
         };
 

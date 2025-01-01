@@ -461,7 +461,7 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 bevy_state = ["bevy_internal/bevy_state"]
 
 # Enables source location tracking for change detection and spawning/despawning, which can assist with debugging
-track_change_detection = ["bevy_internal/track_change_detection"]
+track_location = ["bevy_internal/track_location"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
@@ -1871,7 +1871,7 @@ wasm = false
 name = "change_detection"
 path = "examples/ecs/change_detection.rs"
 doc-scrape-examples = true
-required-features = ["track_change_detection"]
+required-features = ["track_location"]
 
 [package.metadata.example.change_detection]
 name = "Change Detection"
