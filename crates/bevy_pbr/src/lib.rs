@@ -46,7 +46,6 @@ mod volumetric_fog;
 use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
-use core::marker::PhantomData;
 
 pub use bundle::*;
 pub use cluster::*;
@@ -121,10 +120,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{
-        CameraProjection, CameraUpdateSystem, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    },
+    camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
@@ -341,9 +337,7 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                PbrProjectionPlugin::<Projection>::default(),
-                PbrProjectionPlugin::<PerspectiveProjection>::default(),
-                PbrProjectionPlugin::<OrthographicProjection>::default(),
+                PbrProjectionPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -480,20 +474,16 @@ impl Plugin for PbrPlugin {
     }
 }
 
-/// [`CameraProjection`] specific PBR functionality.
-pub struct PbrProjectionPlugin<T: CameraProjection + Component>(PhantomData<T>);
-impl<T: CameraProjection + Component> Plugin for PbrProjectionPlugin<T> {
+/// Camera projection PBR functionality.
+#[derive(Default)]
+pub struct PbrProjectionPlugin;
+impl Plugin for PbrProjectionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            build_directional_light_cascades::<T>
+            build_directional_light_cascades
                 .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                 .after(clear_directional_light_cascades),
         );
-    }
-}
-impl<T: CameraProjection + Component> Default for PbrProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
     }
 }
