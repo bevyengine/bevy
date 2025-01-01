@@ -1663,7 +1663,7 @@ impl World {
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -1739,7 +1739,7 @@ impl World {
             .storages
             .non_send_resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -2129,7 +2129,7 @@ impl World {
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
