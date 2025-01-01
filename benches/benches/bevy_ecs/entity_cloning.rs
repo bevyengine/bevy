@@ -55,6 +55,31 @@ struct C10(Mat4);
 
 type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 
+/// Sets the [`ComponentCloneHandler`] for all explicit and required components in a bundle `B` to
+/// use the [`Reflect`] trait instead of [`Clone`].
+fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World) {
+    // Get mutable access to the type registry, creating it if it does not exist yet.
+    let registry = world.get_resource_or_init::<AppTypeRegistry>();
+
+    // Recursively register all components in the bundle to the reflection type registry.
+    {
+        let mut r = registry.write();
+        r.register::<B>();
+    }
+
+    // Recursively register all components in the bundle, then save the component IDs to a list.
+    // This uses `contributed_components()`, meaning both explicit and required component IDs in
+    // this bundle are saved.
+    let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
+
+    let clone_handlers = world.get_component_clone_handlers_mut();
+
+    // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
+    for component in component_ids {
+        clone_handlers.set_component_handler(component, ComponentCloneHandler::reflect_handler());
+    }
+}
+
 fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     width: usize,
@@ -62,24 +87,9 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     clone_via_reflect: bool,
 ) {
     let mut world = World::default();
-    let registry = AppTypeRegistry::default();
-    {
-        let mut r = registry.write();
-        r.register::<C>();
-    }
-    world.insert_resource(registry);
-    world.register_bundle::<C>();
+
     if clone_via_reflect {
-        let mut components = Vec::new();
-        C::get_component_ids(world.components(), &mut |id| components.push(id.unwrap()));
-        for component in components {
-            world
-                .get_component_clone_handlers_mut()
-                .set_component_handler(
-                    component,
-                    bevy_ecs::component::ComponentCloneHandler::reflect_handler(),
-                );
-        }
+        set_reflect_clone_handler::<C>(&mut world);
     }
 
     let id = world.spawn(black_box(C::default())).id();
@@ -99,6 +109,8 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
             }
         }
     }
+
+    // Flush all `set_parent()` commands.
     world.flush();
 
     b.iter(move || {
@@ -111,39 +123,22 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
 
 /// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
 /// bundle `B`.
-/// 
+///
 /// The bundle must implement [`Default`], which is used to create the first entity that gets cloned
 /// in the benchmark.
-/// 
+///
 /// If `clone_via_reflect` is false, this will use the default [`ComponentCloneHandler`] for all
 /// components (which is usually [`ComponentCloneHandler::clone_handler()`]). If `clone_via_reflect`
 /// is true, it will overwrite the handler for all components in the bundle to be
 /// [`ComponentCloneHandler::reflect_handler()`].
-fn bench_clone<B: Bundle + Default + GetTypeRegistration>(b: &mut Bencher, clone_via_reflect: bool) {
+fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
+    b: &mut Bencher,
+    clone_via_reflect: bool,
+) {
     let mut world = World::default();
 
     if clone_via_reflect {
-        let registry = AppTypeRegistry::default();
-
-        {
-            let mut r = registry.write();
-
-            // Recursively register all components in the bundle to the reflection type registry.
-            r.register::<B>();
-        }
-
-        world.insert_resource(registry);
-
-        // Recursively register all components in the bundle, then save the component IDs to a list.
-        let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
-
-        // Overwrite the clone handler for all components in the bundle to use `Reflect`, not
-        // `Clone`.
-        for component in component_ids {
-            world
-                .get_component_clone_handlers_mut()
-                .set_component_handler(component, ComponentCloneHandler::reflect_handler());
-        }
+        set_reflect_clone_handler::<B>(&mut world);
     }
 
     // Spawn the first entity, which will be cloned in the benchmark routine.
