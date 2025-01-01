@@ -91,17 +91,15 @@ fn sprite_picking(
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) =
-            cameras
-                .iter()
-                .filter(|(_, camera, _, _)| camera.is_active)
-                .find(|(_, camera, _, _)| {
-                    camera
-                        .target
-                        .normalize(primary_window)
-                        .map(|x| x == location.target)
-                        .unwrap_or(false)
-                })
+        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) = cameras
+            .iter()
+            .filter(|(_, camera, _, _)| camera.is_active)
+            .find(|(_, camera, _, _)| {
+                camera
+                    .target
+                    .normalize(primary_window)
+                    .is_some_and(|x| x == location.target)
+            })
         else {
             continue;
         };
@@ -187,9 +185,7 @@ fn sprite_picking(
                 };
 
                 blocked = cursor_in_valid_pixels_of_sprite
-                    && picking_behavior
-                        .map(|p| p.should_block_lower)
-                        .unwrap_or(true);
+                    && picking_behavior.is_none_or(|p| p.should_block_lower);
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =

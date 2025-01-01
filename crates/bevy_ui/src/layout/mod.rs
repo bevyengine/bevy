@@ -215,8 +215,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.is_changed() || c.measure.is_some())
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.is_changed() || c.measure.is_some())
                 {
                     let layout_context = LayoutContext::new(
                         camera.scale_factor,

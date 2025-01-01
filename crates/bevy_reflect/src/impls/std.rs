@@ -920,7 +920,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.remove(value))
+                    .is_some_and(|value| self.remove(value))
             }
 
             fn contains(&self, value: &dyn PartialReflect) -> bool {
@@ -931,7 +931,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.contains(value))
+                    .is_some_and(|value| self.contains(value))
             }
         }
 
