@@ -837,6 +837,24 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn conflicting_data_set_with_query_system() {
+        fn sys(_query_1: Query<DataSet<(&mut A, &B)>>, _query_2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_data_set_in_second_item_system() {
+        fn sys(_query_1: Query<DataSet<(&B, &A)>>, _query_2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
     fn conflicting_data_sets_system() {
         fn sys(_query_1: Query<DataSet<(&mut A,)>>, _query_2: Query<DataSet<(&mut A, &B)>>) {}
 

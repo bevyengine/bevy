@@ -1951,7 +1951,7 @@ macro_rules! impl_data_set {
                     $data::update_component_access($detupled, &mut access.clone());
                 )*
                 $(
-                    // Updating empty [`FilteredAccess`] and then extending passed access.
+                    // Updating empty [`FilteredAccess`] and then extending main access.
                     // This is done to avoid conflicts with other members of the set.
                     let mut current_access = FilteredAccess::default();
                     $data::update_component_access($detupled, &mut current_access);
