@@ -872,7 +872,7 @@ where
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
-unsafe impl<B> QueryData for EntityRefExcept<'_, B>
+unsafe impl<'w, B> QueryData for EntityRefExcept<'w, B>
 where
     B: Bundle,
 {
@@ -881,12 +881,12 @@ where
 
 /// SAFETY: `EntityRefExcept` enforces read-only access to its contained
 /// components.
-unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, B> where B: Bundle {}
+unsafe impl<'w, B> ReadOnlyQueryData for EntityRefExcept<'w, B> where B: Bundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<B> WorldQuery for EntityMutExcept<'_, B>
+unsafe impl<'world, B> WorldQuery for EntityMutExcept<'world, B>
 where
     B: Bundle,
 {

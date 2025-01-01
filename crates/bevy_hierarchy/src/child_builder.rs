@@ -437,7 +437,7 @@ impl<'world> ChildBuild for WorldChildBuilder<'world> {
     where
         Self: 'w;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
+    fn spawn<'w>(&'w mut self, bundle: impl Bundle) -> Self::SpawnOutput<'w> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         add_child_unchecked(self.world, self.parent, entity);
         push_events(

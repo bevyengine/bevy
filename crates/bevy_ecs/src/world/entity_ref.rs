@@ -299,8 +299,8 @@ impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
     }
 }
 
-impl<'w> From<&'w EntityWorldMut<'_>> for EntityRef<'w> {
-    fn from(value: &'w EntityWorldMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 EntityWorldMut<'w>> for EntityRef<'w2> {
+    fn from(value: &'w2 EntityWorldMut<'w>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         // - `&value` ensures no mutable accesses are active.
@@ -316,8 +316,8 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     }
 }
 
-impl<'w> From<&'w EntityMut<'_>> for EntityRef<'w> {
-    fn from(value: &'w EntityMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w EntityMut<'w2>> for EntityRef<'w> {
+    fn from(value: &'w EntityMut<'w2>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
@@ -377,16 +377,16 @@ impl<'w> TryFrom<&'w FilteredEntityMut<'_>> for EntityRef<'w> {
     }
 }
 
-impl PartialEq for EntityRef<'_> {
+impl<'w> PartialEq for EntityRef<'w> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityRef<'_> {}
+impl<'w> Eq for EntityRef<'w> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
-impl PartialOrd for EntityRef<'_> {
+impl<'w> PartialOrd for EntityRef<'w> {
     /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -394,26 +394,26 @@ impl PartialOrd for EntityRef<'_> {
     }
 }
 
-impl Ord for EntityRef<'_> {
+impl<'w> Ord for EntityRef<'w> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityRef<'_> {
+impl<'w> Hash for EntityRef<'w> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl EntityBorrow for EntityRef<'_> {
+impl<'w> EntityBorrow for EntityRef<'w> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for EntityRef<'_> {}
+unsafe impl<'w> TrustedEntityBorrow for EntityRef<'w> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -449,13 +449,16 @@ impl<'w> EntityMut<'w> {
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
-    pub fn reborrow(&mut self) -> EntityMut<'_> {
+    pub fn reborrow(&mut self) -> EntityMut<'w> {
         // SAFETY: We have exclusive access to the entire entity and its components.
         unsafe { Self::new(self.0) }
     }
 
     /// Gets read-only access to all of the entity's components.
-    pub fn as_readonly(&self) -> EntityRef<'_> {
+    pub fn as_readonly<'w2>(&'w self) -> EntityRef<'w2>
+    where
+        'w: 'w2,
+    {
         EntityRef::from(self)
     }
 
@@ -865,8 +868,8 @@ impl<'w> EntityMut<'w> {
     }
 }
 
-impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
-    fn from(value: &'w mut EntityMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 mut EntityMut<'w>> for EntityMut<'w2> {
+    fn from(value: &'w2 mut EntityMut<'w>) -> Self {
         value.reborrow()
     }
 }
@@ -878,8 +881,8 @@ impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
     }
 }
 
-impl<'w> From<&'w mut EntityWorldMut<'_>> for EntityMut<'w> {
-    fn from(value: &'w mut EntityWorldMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 mut EntityWorldMut<'w>> for EntityMut<'w2> {
+    fn from(value: &'w2 mut EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
     }
@@ -915,16 +918,16 @@ impl<'w> TryFrom<&'w mut FilteredEntityMut<'_>> for EntityMut<'w> {
     }
 }
 
-impl PartialEq for EntityMut<'_> {
+impl<'w> PartialEq for EntityMut<'w> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityMut<'_> {}
+impl<'w> Eq for EntityMut<'w> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
-impl PartialOrd for EntityMut<'_> {
+impl<'w> PartialOrd for EntityMut<'w> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -932,26 +935,26 @@ impl PartialOrd for EntityMut<'_> {
     }
 }
 
-impl Ord for EntityMut<'_> {
+impl<'w> Ord for EntityMut<'w> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityMut<'_> {
+impl<'w> Hash for EntityMut<'w> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl EntityBorrow for EntityMut<'_> {
+impl<'w> EntityBorrow for EntityMut<'w> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl TrustedEntityBorrow for EntityMut<'_> {}
+unsafe impl<'w> TrustedEntityBorrow for EntityMut<'w> {}
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -3046,8 +3049,8 @@ impl<'w> From<EntityRef<'w>> for FilteredEntityRef<'w> {
     }
 }
 
-impl<'w> From<&'w EntityRef<'_>> for FilteredEntityRef<'w> {
-    fn from(entity: &'w EntityRef<'_>) -> Self {
+impl<'w, 'w2> From<&'w EntityRef<'w2>> for FilteredEntityRef<'w> {
+    fn from(entity: &'w EntityRef<'w2>) -> Self {
         // SAFETY:
         // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe {
@@ -3070,8 +3073,8 @@ impl<'w> From<EntityMut<'w>> for FilteredEntityRef<'w> {
     }
 }
 
-impl<'w> From<&'w EntityMut<'_>> for FilteredEntityRef<'w> {
-    fn from(entity: &'w EntityMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 EntityMut<'w>> for FilteredEntityRef<'w2> {
+    fn from(entity: &'w2 EntityMut<'w>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe {
@@ -3094,8 +3097,8 @@ impl<'w> From<EntityWorldMut<'w>> for FilteredEntityRef<'w> {
     }
 }
 
-impl<'w> From<&'w EntityWorldMut<'_>> for FilteredEntityRef<'w> {
-    fn from(entity: &'w EntityWorldMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 EntityWorldMut<'w>> for FilteredEntityRef<'w2> {
+    fn from(entity: &'w2 EntityWorldMut<'w>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
@@ -3394,8 +3397,8 @@ impl<'w> From<EntityMut<'w>> for FilteredEntityMut<'w> {
     }
 }
 
-impl<'w> From<&'w mut EntityMut<'_>> for FilteredEntityMut<'w> {
-    fn from(entity: &'w mut EntityMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 mut EntityMut<'w>> for FilteredEntityMut<'w2> {
+    fn from(entity: &'w2 mut EntityMut<'w>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
         unsafe {
@@ -3420,8 +3423,8 @@ impl<'w> From<EntityWorldMut<'w>> for FilteredEntityMut<'w> {
     }
 }
 
-impl<'w> From<&'w mut EntityWorldMut<'_>> for FilteredEntityMut<'w> {
-    fn from(entity: &'w mut EntityWorldMut<'_>) -> Self {
+impl<'w, 'w2> From<&'w2 mut EntityWorldMut<'w>> for FilteredEntityMut<'w2> {
+    fn from(entity: &'w2 mut EntityWorldMut<'w>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
@@ -3562,35 +3565,35 @@ where
     }
 }
 
-impl<'w, B> From<&'w EntityMutExcept<'_, B>> for EntityRefExcept<'w, B>
+impl<'w, 'w2, B> From<&'w EntityMutExcept<'w2, B>> for EntityRefExcept<'w, B>
 where
     B: Bundle,
 {
-    fn from(entity_mut: &'w EntityMutExcept<'_, B>) -> Self {
+    fn from(entity_mut: &'w EntityMutExcept<'w2, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
         // accesses that `EntityMutExcept` provides.
         unsafe { EntityRefExcept::new(entity_mut.entity) }
     }
 }
 
-impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> Clone for EntityRefExcept<'w, B> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+impl<'w, B: Bundle> Copy for EntityRefExcept<'w, B> {}
 
-impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> PartialEq for EntityRefExcept<'w, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+impl<'w, B: Bundle> Eq for EntityRefExcept<'w, B> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
-impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> PartialOrd for EntityRefExcept<'w, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -3598,26 +3601,26 @@ impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> Ord for EntityRefExcept<'w, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> Hash for EntityRefExcept<'w, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> EntityBorrow for EntityRefExcept<'_, B> {
+impl<'w, B: Bundle> EntityBorrow for EntityRefExcept<'w, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
+unsafe impl<'w, B: Bundle> TrustedEntityBorrow for EntityRefExcept<'w, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -3659,7 +3662,7 @@ where
     ///
     /// This is useful if you have `&mut EntityMutExcept`, but you need
     /// `EntityMutExcept`.
-    pub fn reborrow(&mut self) -> EntityMutExcept<'_, B> {
+    pub fn reborrow<'w2>(&'w2 mut self) -> EntityMutExcept<'w, B> {
         // SAFETY: We have exclusive access to the entire entity and the
         // applicable components.
         unsafe { Self::new(self.entity) }
@@ -3668,7 +3671,7 @@ where
     /// Gets read-only access to all of the entity's components, except for the
     /// ones in `CL`.
     #[inline]
-    pub fn as_readonly(&self) -> EntityRefExcept<'_, B> {
+    pub fn as_readonly(&'w self) -> EntityRefExcept<'w, B> {
         EntityRefExcept::from(self)
     }
 
@@ -3721,16 +3724,16 @@ where
     }
 }
 
-impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+impl<'w, B: Bundle> PartialEq for EntityMutExcept<'w, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+impl<'w, B: Bundle> Eq for EntityMutExcept<'w, B> {}
 
 #[expect(clippy::non_canonical_partial_ord_impl)]
-impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+impl<'w, B: Bundle> PartialOrd for EntityMutExcept<'w, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -3738,26 +3741,26 @@ impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+impl<'w, B: Bundle> Ord for EntityMutExcept<'w, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+impl<'w, B: Bundle> Hash for EntityMutExcept<'w, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
+impl<'w, B: Bundle> EntityBorrow for EntityMutExcept<'w, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
+unsafe impl<'w, B: Bundle> TrustedEntityBorrow for EntityMutExcept<'w, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where

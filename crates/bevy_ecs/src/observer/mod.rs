@@ -509,10 +509,10 @@ impl World {
     ///     // ...
     /// });
     /// ```
-    pub fn add_observer<E: Event, B: Bundle, M>(
-        &mut self,
+    pub fn add_observer<'w, E: Event, B: Bundle, M>(
+        &'w mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut<'_> {
+    ) -> EntityWorldMut<'w> {
         self.spawn(Observer::new(system))
     }
 
