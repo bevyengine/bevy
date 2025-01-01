@@ -1,3 +1,5 @@
+use core::fmt::Debug;
+
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
@@ -17,6 +19,9 @@ pub struct CameraProjectionPlugin;
 impl Plugin for CameraProjectionPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Projection>()
+            .register_type::<PerspectiveProjection>()
+            .register_type::<OrthographicProjection>()
+            .register_type::<CustomProjection>()
             .add_systems(
                 PostStartup,
                 crate::camera::camera_system.in_set(CameraUpdateSystem),
@@ -93,21 +98,24 @@ pub trait CameraProjection {
 }
 
 mod sealed {
+    use super::CameraProjection;
+
     /// A wrapper trait to make it possible to implement Clone for boxed [`super::CameraProjection`]
-    /// trait objects, without breaking object safety rules by making it `Sized`.
-    pub trait CameraProjectionClone:
-        super::CameraProjection + core::fmt::Debug + Send + Sync + downcast_rs::Downcast
+    /// trait objects, without breaking object safety rules by making it `Sized`. Additional bounds
+    /// are included for downcasting, and fulfilling the trait bounds on `Projection`.
+    pub trait DynCameraProjection:
+        CameraProjection + core::fmt::Debug + Send + Sync + downcast_rs::Downcast
     {
-        fn clone_box(&self) -> Box<dyn CameraProjectionClone>;
+        fn clone_box(&self) -> Box<dyn DynCameraProjection>;
     }
 
-    downcast_rs::impl_downcast!(CameraProjectionClone);
+    downcast_rs::impl_downcast!(DynCameraProjection);
 
-    impl<T> CameraProjectionClone for T
+    impl<T> DynCameraProjection for T
     where
-        T: 'static + super::CameraProjection + core::fmt::Debug + Send + Sync + Clone,
+        T: 'static + CameraProjection + core::fmt::Debug + Send + Sync + Clone,
     {
-        fn clone_box(&self) -> Box<dyn CameraProjectionClone> {
+        fn clone_box(&self) -> Box<dyn DynCameraProjection> {
             Box::new(self.clone())
         }
     }
@@ -122,7 +130,23 @@ mod sealed {
 pub struct CustomProjection {
     #[reflect(ignore)]
     #[deref]
-    inner: Box<dyn sealed::CameraProjectionClone>,
+    dyn_projection: Box<dyn sealed::DynCameraProjection>,
+}
+
+impl Default for CustomProjection {
+    fn default() -> Self {
+        Self {
+            dyn_projection: Box::new(PerspectiveProjection::default()),
+        }
+    }
+}
+
+impl Clone for CustomProjection {
+    fn clone(&self) -> Self {
+        Self {
+            dyn_projection: self.dyn_projection.clone_box(),
+        }
+    }
 }
 
 impl CustomProjection {
@@ -144,9 +168,9 @@ impl CustomProjection {
     /// ```
     pub fn get<P>(&self) -> Option<&P>
     where
-        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+        P: CameraProjection + Debug + Send + Sync + Clone + 'static,
     {
-        self.inner.downcast_ref()
+        self.dyn_projection.downcast_ref()
     }
 
     /// Returns a mutable  reference to the [`CameraProjection`] `P`.
@@ -168,25 +192,9 @@ impl CustomProjection {
     /// ```
     pub fn get_mut<P>(&mut self) -> Option<&mut P>
     where
-        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+        P: CameraProjection + Debug + Send + Sync + Clone + 'static,
     {
-        self.inner.downcast_mut()
-    }
-}
-
-impl Default for CustomProjection {
-    fn default() -> Self {
-        Self {
-            inner: Box::new(PerspectiveProjection::default()),
-        }
-    }
-}
-
-impl Clone for CustomProjection {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.as_ref().clone_box(),
-        }
+        self.dyn_projection.downcast_mut()
     }
 }
 
@@ -225,10 +233,14 @@ impl Projection {
         // errors nice for users. If a trait is missing, they will get a helpful error telling them
         // that, say, the `Debug` implementation is missing. Wrapping these traits behind a super
         // trait or some other indirection will make the errors harder to understand.
-        P: CameraProjection + core::fmt::Debug + Send + Sync + Clone + 'static,
+        //
+        // For example, we don't use the `DynCameraProjection`` trait bound, because it is not the
+        // trait the user should be implementing - they only need to worry about implementing
+        // `CameraProjection`.
+        P: CameraProjection + Debug + Send + Sync + Clone + 'static,
     {
         Projection::Custom(CustomProjection {
-            inner: Box::new(projection),
+            dyn_projection: Box::new(projection),
         })
     }
 }
