@@ -199,7 +199,7 @@ mod tests {
 
         #[reflect_trait]
         trait Enemy: Reflect + Debug {
-            #[allow(dead_code, reason = "this method is purely for testing purposes")]
+            #[expect(dead_code, reason = "this method is purely for testing purposes")]
             fn hp(&self) -> u8;
         }
 

@@ -1,5 +1,7 @@
-// Temporary workaround for impl_reflect!(Option/Result false-positive
-#![allow(unused_qualifications)]
+#![expect(
+    unused_qualifications,
+    reason = "Temporary workaround for impl_reflect!(Option/Result false-positive"
+)]
 
 use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
@@ -236,7 +238,6 @@ macro_rules! impl_reflect_for_atomic {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
-            #[allow(unused_mut)]
             impl GetTypeRegistration for $ty
             where
                 $ty: Any + Send + Sync,

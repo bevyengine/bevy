@@ -502,7 +502,10 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use super::*;
     use crate as bevy_reflect;
