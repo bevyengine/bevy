@@ -117,22 +117,27 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_reflect::Reflect;
 ///     # use std::any::TypeId;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
 ///     #[derive(Reflect)]
 ///     struct FieldOfViewProperty;
 ///
 ///     impl AnimatableProperty for FieldOfViewProperty {
 ///         type Property = f32;
 ///         fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-///            let component = entity
-///                .get_mut::<PerspectiveProjection>()
-///                .ok_or(
-///                     AnimationEvaluationError::ComponentNotPresent(
-///                         TypeId::of::<PerspectiveProjection>()
-///                    )
-///                 )?
+///             let component = entity
+///                 .get_mut::<Projection>()
+///                 .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///                     Projection,
+///                 >(
+///                 )))?
 ///                 .into_inner();
-///             Ok(&mut component.fov)
+///             match component {
+///                 Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///                 _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///                     PerspectiveProjection,
+///                 >(
+///                 ))),
+///             }
 ///         }
 ///
 ///         fn evaluator_id(&self) -> EvaluatorId {
@@ -146,7 +151,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
 ///     # use bevy_ecs::name::Name;
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
 ///     # use std::any::TypeId;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Reflect, Clone)]
@@ -154,15 +159,20 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # impl AnimatableProperty for FieldOfViewProperty {
 ///     #    type Property = f32;
 ///     #    fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-///     #       let component = entity
-///     #           .get_mut::<PerspectiveProjection>()
-///     #           .ok_or(
-///     #                AnimationEvaluationError::ComponentNotPresent(
-///     #                    TypeId::of::<PerspectiveProjection>()
-///     #               )
-///     #            )?
+///     #        let component = entity
+///     #            .get_mut::<Projection>()
+///     #            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///     #                Projection,
+///     #            >(
+///     #            )))?
 ///     #            .into_inner();
-///     #        Ok(&mut component.fov)
+///     #        match component {
+///     #            Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///     #            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///     #                PerspectiveProjection,
+///     #            >(
+///     #            ))),
+///     #        }
 ///     #    }
 ///     #    fn evaluator_id(&self) -> EvaluatorId {
 ///     #        EvaluatorId::Type(TypeId::of::<Self>())

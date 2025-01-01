@@ -3590,6 +3590,17 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "custom_projection"
+path = "examples/camera/custom_projection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_projection]
+name = "Custom Projection"
+description = "Shows how to create custom camera projections."
+category = "Camera"
+wasm = true
+
+[[example]]
 name = "first_person_view_model"
 path = "examples/camera/first_person_view_model.rs"
 doc-scrape-examples = true

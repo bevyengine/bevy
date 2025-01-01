@@ -22,7 +22,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
 use super::NoCpuCulling;
-use crate::sync_world::MainEntity;
+use crate::{camera::Projection, sync_world::MainEntity};
 use crate::{
     camera::{Camera, CameraProjection},
     mesh::{Mesh, Mesh3d, MeshAabb},
@@ -398,10 +398,10 @@ pub fn calculate_bounds(
 /// Updates [`Frustum`].
 ///
 /// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
-pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
+pub fn update_frusta(
     mut views: Query<
-        (&GlobalTransform, &T, &mut Frustum),
-        Or<(Changed<GlobalTransform>, Changed<T>)>,
+        (&GlobalTransform, &Projection, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<Projection>)>,
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {

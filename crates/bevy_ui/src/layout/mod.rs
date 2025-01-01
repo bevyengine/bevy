@@ -488,10 +488,7 @@ mod tests {
     };
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_render::{
-        camera::{ManualTextureViews, OrthographicProjection},
-        prelude::Camera,
-    };
+    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
@@ -543,7 +540,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,
@@ -1187,7 +1184,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,

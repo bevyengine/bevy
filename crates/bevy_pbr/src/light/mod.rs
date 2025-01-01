@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraProjection, Projection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     mesh::Mesh3d,
@@ -305,9 +305,9 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
     }
 }
 
-pub fn build_directional_light_cascades<P: CameraProjection + Component>(
+pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
+    views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
     mut lights: Query<(
         &GlobalTransform,
         &DirectionalLight,
