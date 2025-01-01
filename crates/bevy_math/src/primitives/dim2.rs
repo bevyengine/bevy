@@ -1,6 +1,6 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
-#[cfg_attr(feature = "check_no_panic", no_panic)]
+#[cfg(feature = "check_no_panic")]
 use no_panic::no_panic;
 use thiserror::Error;
 

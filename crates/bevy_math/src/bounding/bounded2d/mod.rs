@@ -8,7 +8,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-#[cfg_attr(feature = "check_no_panic", no_panic)]
+#[cfg(feature = "check_no_panic")]
 use no_panic::no_panic;
 
 /// Computes the geometric center of the given set of points.

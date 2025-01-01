@@ -8,7 +8,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg_attr(feature = "check_no_panic", no_panic)]
+#[cfg(feature = "check_no_panic")]
 use no_panic::no_panic;
 use thiserror::Error;
 #[cfg(feature = "alloc")]
