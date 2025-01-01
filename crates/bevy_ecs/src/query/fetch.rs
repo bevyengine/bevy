@@ -1955,6 +1955,10 @@ macro_rules! impl_data_set {
                     // This is done to avoid conflicts with other members of the set.
                     let mut current_access = FilteredAccess::default();
                     $data::update_component_access($detupled, &mut current_access);
+                    assert!(current_access.access().is_resources_compatible(&access.access()),
+                        "{} in `DataSet` conflicts with a previous resource access in the same `DataSet`. Resources are fetched all at once, so their access can't conflict even if they are different members of `DataSet`.",  
+                        core::any::type_name::<$data>()
+                    );
                     access.extend(&current_access);
                 )*
             }
