@@ -137,6 +137,14 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
+                "cargo check -p bevy_window --no-default-features --features libm,bevy_reflect,serialize --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_state no_std compatibility.",
+        ));
+
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
                 "cargo check -p bevy_transform --no-default-features --features bevy-support,serialize,libm --target {target}"
             ),
             "Please fix compiler errors in output above for bevy_transform no_std compatibility.",
