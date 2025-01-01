@@ -1110,10 +1110,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, Entity, F> {}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityRef<'w2>, F> {}
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, EntityRef<'w2>, F>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityMut<'w2>, F> {}
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, EntityMut<'w2>, F>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
