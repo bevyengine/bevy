@@ -2,6 +2,7 @@
 
 use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use core::ops::Mul;
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 
 #[cfg(feature = "approx")]

@@ -5,6 +5,7 @@ use crate::{
 
 use core::f32::consts::FRAC_1_SQRT_2;
 use derive_more::derive::Into;
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]

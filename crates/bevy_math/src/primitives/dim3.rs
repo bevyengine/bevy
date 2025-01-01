@@ -14,6 +14,7 @@ use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 
 /// A sphere primitive, representing the set of all points some distance from the origin

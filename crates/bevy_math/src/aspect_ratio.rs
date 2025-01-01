@@ -2,6 +2,7 @@
 
 use crate::Vec2;
 use derive_more::derive::Into;
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 use thiserror::Error;
 

@@ -24,7 +24,8 @@
 
 #[cfg(not(feature = "libm"))]
 mod std_ops {
-    use no_panic::no_panic;
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
+use no_panic::no_panic;
 
     /// Raises a number to a floating point power.
     ///
@@ -259,7 +260,8 @@ mod std_ops {
 
 #[cfg(feature = "libm")]
 mod libm_ops {
-    use no_panic::no_panic;
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
+use no_panic::no_panic;
 
     /// Raises a number to a floating point power.
     ///
@@ -582,7 +584,8 @@ mod std_ops_for_no_std {
     //! On `std` platforms, this forwards directly to the implementations provided
     //! by [`std`].
 
-    use no_panic::no_panic;
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
+use no_panic::no_panic;
 
     /// Calculates the least nonnegative remainder of `x (mod y)`.
     ///

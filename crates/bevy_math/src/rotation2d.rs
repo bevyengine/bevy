@@ -1,6 +1,7 @@
 use core::f32::consts::TAU;
 
 use glam::FloatExt;
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 
 use crate::{

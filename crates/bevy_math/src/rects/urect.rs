@@ -1,4 +1,5 @@
 use crate::{IRect, Rect, UVec2};
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]

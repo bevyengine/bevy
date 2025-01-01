@@ -10,6 +10,7 @@ use crate::ops;
 
 use super::interval::Interval;
 use core::fmt::Debug;
+#[cfg_attr(feature = "check_no_panic", no_panic)]
 use no_panic::no_panic;
 use thiserror::Error;
 
