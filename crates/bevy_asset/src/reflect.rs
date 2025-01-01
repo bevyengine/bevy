@@ -25,7 +25,7 @@ pub struct ReflectAsset {
         for<'w> unsafe fn(UnsafeWorldCell<'w>, UntypedHandle) -> Option<&'w mut dyn Reflect>,
     add: for<'w, 'a> fn(&'w mut World, &'a dyn PartialReflect) -> UntypedHandle,
     insert: for<'w, 'a> fn(&'w mut World, UntypedHandle, &'a dyn PartialReflect),
-    len: for<'w> fn(&World) -> usize,
+    len: for<'w> fn(&'w World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: for<'w> fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
 }
