@@ -35,13 +35,13 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// }
 ///
 /// // `GameState` does not yet exist `my_system` won't run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 0);
 ///
 /// app.init_state::<GameState>();
 ///
 /// // `GameState` now exists so `my_system` will run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 /// ```
 pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
@@ -91,13 +91,13 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// }
 ///
 /// // We default to `GameState::Playing` so `play_system` runs
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
 /// app.insert_state(GameState::Paused);
 ///
 /// // Now that we are in `GameState::Pause`, `pause_system` will run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 0);
 /// ```
 pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
@@ -149,17 +149,17 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// }
 ///
 /// // `GameState` has just been added so `my_system` will run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
 /// // `GameState` has not been updated so `my_system` will not run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 1);
 ///
 /// app.insert_state(GameState::Paused);
 ///
 /// // Now that `GameState` has been updated `my_system` will run
-/// app.run();
+/// app.update();
 /// assert_eq!(app.world().resource::<Counter>().0, 2);
 /// ```
 pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
