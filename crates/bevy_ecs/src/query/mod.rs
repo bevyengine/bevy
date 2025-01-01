@@ -1032,30 +1032,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn data_set_resource_access_conflicts() {
-        fn system(
-            _q1: Query<DataSet<(ReadsRData, WritesRData)>>,
-        ) {
-        }
+        fn system(_q1: Query<DataSet<(ReadsRData, WritesRData)>>) {}
         assert_is_system(system);
     }
 
     #[test]
     fn data_set_resource_access_without_conflicts() {
-        fn system(
-            _q1: Query<DataSet<(ReadsRData, ReadsRData)>>,
-        ) {
-        }
+        fn system(_q1: Query<DataSet<(ReadsRData, ReadsRData)>>) {}
         assert_is_system(system);
     }
 
     #[test]
     #[should_panic]
     fn data_set_other_resource_access() {
-        fn system(
-            _r: ResMut<R>,
-            _q1: Query<DataSet<(WritesRData,)>>,
-        ) {
-        }
+        fn system(_r: ResMut<R>, _q1: Query<DataSet<(WritesRData,)>>) {}
         assert_is_system(system);
     }
 }
