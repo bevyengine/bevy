@@ -1,7 +1,6 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cone, Vec3};
-use wgpu::PrimitiveTopology;
 
 /// Anchoring options for [`ConeMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default)]
@@ -86,7 +85,7 @@ impl MeshBuilder for ConeMeshBuilder {
         // The tip doesn't have a singular normal that works correctly.
         // We use an invalid normal here so that it becomes NaN in the fragment shader
         // and doesn't affect the overall shading. This might seem hacky, but it's one of
-        // the only ways to get perfectly smooth cones without creases or other shading artefacts.
+        // the only ways to get perfectly smooth cones without creases or other shading artifacts.
         //
         // Note that this requires that normals are not normalized in the vertex shader,
         // as that would make the entire triangle invalid and make the cone appear as black.

@@ -17,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
@@ -30,20 +29,19 @@ use bevy_render::{
         ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
-        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, PipelineCache,
+        RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
-
-use super::ColorMaterial;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -60,8 +58,9 @@ use super::ColorMaterial;
 /// ```
 /// # use bevy_sprite::{Material2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
@@ -151,7 +150,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 }
 
-/// A [material](Material2d) for a [`Mesh2d`].
+/// A [material](Material2d) used for rendering a [`Mesh2d`].
 ///
 /// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
 ///
@@ -179,40 +178,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ```
 ///
 /// [`MeshMaterial2d`]: crate::MeshMaterial2d
-/// [`ColorMaterial`]: crate::ColorMaterial
-///
-/// ## Default Material
-///
-/// Meshes without a [`MeshMaterial2d`] are rendered with a default [`ColorMaterial`].
-/// This material can be overridden by inserting a custom material for the default asset handle.
-///
-/// ```
-/// # use bevy_sprite::ColorMaterial;
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh2d};
-/// # use bevy_color::Color;
-/// # use bevy_asset::{Assets, Handle};
-/// # use bevy_math::primitives::Circle;
-/// #
-/// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
-/// ) {
-///     // Optional: Insert a custom default material.
-///     materials.insert(
-///         &Handle::<ColorMaterial>::default(),
-///         ColorMaterial::from(Color::srgb(1.0, 0.0, 1.0)),
-///     );
-///
-///     // Spawn a circle with no material.
-///     // The mesh will be rendered with the default material.
-///     commands.spawn(Mesh2d(meshes.add(Circle::new(50.0))));
-/// }
-/// ```
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(HasMaterial2d)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
 impl<M: Material2d> Default for MeshMaterial2d<M> {
@@ -232,14 +199,6 @@ impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
         material.id()
     }
 }
-
-/// A component that marks an entity as having a [`MeshMaterial2d`].
-/// [`Mesh2d`] entities without this component are rendered with a [default material].
-///
-/// [default material]: crate::MeshMaterial2d#default-material
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct HasMaterial2d;
 
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
@@ -284,7 +243,6 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial2d<M>>()
-            .register_type::<HasMaterial2d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -294,14 +252,7 @@ where
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        clear_material_2d_instances::<M>,
-                        extract_mesh_materials_2d::<M>,
-                    )
-                        .chain(),
-                )
+                .add_systems(ExtractSchedule, extract_mesh_materials_2d::<M>)
                 .add_systems(
                     Render,
                     queue_material2d_meshes::<M>
@@ -327,33 +278,15 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     }
 }
 
-pub(crate) fn clear_material_2d_instances<M: Material2d>(
-    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-) {
-    material_instances.clear();
-}
-
-fn extract_mesh_materials_2d<M: Material2d>(
+pub fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
 ) {
+    material_instances.clear();
+
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
             material_instances.insert(entity.into(), material.id());
-        }
-    }
-}
-
-/// Extracts default materials for 2D meshes with no [`MeshMaterial2d`].
-pub(crate) fn extract_default_materials_2d(
-    mut material_instances: ResMut<RenderMaterial2dInstances<ColorMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh2d>, Without<HasMaterial2d>)>>,
-) {
-    let default_material: AssetId<ColorMaterial> = Handle::<ColorMaterial>::default().id();
-
-    for (entity, view_visibility) in &query {
-        if view_visibility.get() {
-            material_instances.insert(entity.into(), default_material);
         }
     }
 }
@@ -592,7 +525,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -669,7 +602,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
+                        extra_index: PhaseItemExtraIndex::None,
                     });
                 }
             }
@@ -697,7 +630,7 @@ pub struct Material2dProperties {
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub key: T::Data,
     pub properties: Material2dProperties,
@@ -716,6 +649,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {

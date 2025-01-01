@@ -160,6 +160,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
@@ -243,16 +244,15 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
-            ..SpatialBundle::default()
-        })
-        .insert(IrradianceVolume {
+    commands.spawn((
+        Transform::from_matrix(VOXEL_FROM_WORLD),
+        IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
-        })
-        .insert(LightProbe);
+            ..default()
+        },
+        LightProbe,
+    ));
 }
 
 fn spawn_light(commands: &mut Commands) {
@@ -277,12 +277,7 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_voxel_cube_parent(commands: &mut Commands) {
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Hidden,
-            ..default()
-        })
-        .insert(VoxelCubeParent);
+    commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
@@ -297,7 +292,7 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn((
         app_status.create_text(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -362,7 +357,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_seconds())
+        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_secs())
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
@@ -438,6 +433,7 @@ fn toggle_irradiance_volumes(
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         });
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
@@ -476,7 +472,7 @@ fn handle_mouse_clicks(
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
 
-    // Move all the main objeccts.
+    // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,

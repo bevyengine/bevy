@@ -30,15 +30,15 @@ use {
 /// which will set [`delta()`](Time::delta) to zero.
 ///
 /// These values are also available in seconds as `f32` via
-/// [`delta_seconds()`](Time::delta_seconds) and
-/// [`elapsed_seconds()`](Time::elapsed_seconds), and also in seconds as `f64`
-/// via [`delta_seconds_f64()`](Time::delta_seconds_f64) and
-/// [`elapsed_seconds_f64()`](Time::elapsed_seconds_f64).
+/// [`delta_secs()`](Time::delta_secs) and
+/// [`elapsed_secs()`](Time::elapsed_secs), and also in seconds as `f64`
+/// via [`delta_secs_f64()`](Time::delta_secs_f64) and
+/// [`elapsed_secs_f64()`](Time::elapsed_secs_f64).
 ///
-/// Since [`elapsed_seconds()`](Time::elapsed_seconds) will grow constantly and
+/// Since [`elapsed_secs()`](Time::elapsed_secs) will grow constantly and
 /// is `f32`, it will exhibit gradual precision loss. For applications that
 /// require an `f32` value but suffer from gradual precision loss there is
-/// [`elapsed_seconds_wrapped()`](Time::elapsed_seconds_wrapped) available. The
+/// [`elapsed_secs_wrapped()`](Time::elapsed_secs_wrapped) available. The
 /// same wrapped value is also available as [`Duration`] and `f64` for
 /// consistency. The wrap period is by default 1 hour, and can be set by
 /// [`set_wrap_period()`](Time::set_wrap_period).
@@ -193,14 +193,14 @@ pub struct Time<T: Default = ()> {
     context: T,
     wrap_period: Duration,
     delta: Duration,
-    delta_seconds: f32,
-    delta_seconds_f64: f64,
+    delta_secs: f32,
+    delta_secs_f64: f64,
     elapsed: Duration,
-    elapsed_seconds: f32,
-    elapsed_seconds_f64: f64,
+    elapsed_secs: f32,
+    elapsed_secs_f64: f64,
     elapsed_wrapped: Duration,
-    elapsed_seconds_wrapped: f32,
-    elapsed_seconds_wrapped_f64: f64,
+    elapsed_secs_wrapped: f32,
+    elapsed_secs_wrapped_f64: f64,
 }
 
 impl<T: Default> Time<T> {
@@ -222,14 +222,14 @@ impl<T: Default> Time<T> {
     /// [`Duration::ZERO`] is allowed and will set [`Self::delta`] to zero.
     pub fn advance_by(&mut self, delta: Duration) {
         self.delta = delta;
-        self.delta_seconds = self.delta.as_secs_f32();
-        self.delta_seconds_f64 = self.delta.as_secs_f64();
+        self.delta_secs = self.delta.as_secs_f32();
+        self.delta_secs_f64 = self.delta.as_secs_f64();
         self.elapsed += delta;
-        self.elapsed_seconds = self.elapsed.as_secs_f32();
-        self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
+        self.elapsed_secs = self.elapsed.as_secs_f32();
+        self.elapsed_secs_f64 = self.elapsed.as_secs_f64();
         self.elapsed_wrapped = duration_rem(self.elapsed, self.wrap_period);
-        self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
-        self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
+        self.elapsed_secs_wrapped = self.elapsed_wrapped.as_secs_f32();
+        self.elapsed_secs_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
     }
 
     /// Advance this clock to a specific `elapsed` time.
@@ -280,15 +280,15 @@ impl<T: Default> Time<T> {
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f32`]
     /// seconds.
     #[inline]
-    pub fn delta_seconds(&self) -> f32 {
-        self.delta_seconds
+    pub fn delta_secs(&self) -> f32 {
+        self.delta_secs
     }
 
     /// Returns how much time has advanced since the last [`update`](#method.update), as [`f64`]
     /// seconds.
     #[inline]
-    pub fn delta_seconds_f64(&self) -> f64 {
-        self.delta_seconds_f64
+    pub fn delta_secs_f64(&self) -> f64 {
+        self.delta_secs_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`Duration`].
@@ -301,16 +301,16 @@ impl<T: Default> Time<T> {
     ///
     /// **Note:** This is a monotonically increasing value. Its precision will degrade over time.
     /// If you need an `f32` but that precision loss is unacceptable,
-    /// use [`elapsed_seconds_wrapped`](#method.elapsed_seconds_wrapped).
+    /// use [`elapsed_secs_wrapped`](#method.elapsed_secs_wrapped).
     #[inline]
-    pub fn elapsed_seconds(&self) -> f32 {
-        self.elapsed_seconds
+    pub fn elapsed_secs(&self) -> f32 {
+        self.elapsed_secs
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f64`] seconds.
     #[inline]
-    pub fn elapsed_seconds_f64(&self) -> f64 {
-        self.elapsed_seconds_f64
+    pub fn elapsed_secs_f64(&self) -> f64 {
+        self.elapsed_secs_f64
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
@@ -324,17 +324,17 @@ impl<T: Default> Time<T> {
     /// the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
     ///
     /// This method is intended for applications (e.g. shaders) that require an [`f32`] value but
-    /// suffer from the gradual precision loss of [`elapsed_seconds`](#method.elapsed_seconds).
+    /// suffer from the gradual precision loss of [`elapsed_secs`](#method.elapsed_secs).
     #[inline]
-    pub fn elapsed_seconds_wrapped(&self) -> f32 {
-        self.elapsed_seconds_wrapped
+    pub fn elapsed_secs_wrapped(&self) -> f32 {
+        self.elapsed_secs_wrapped
     }
 
     /// Returns how much time has advanced since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
     #[inline]
-    pub fn elapsed_seconds_wrapped_f64(&self) -> f64 {
-        self.elapsed_seconds_wrapped_f64
+    pub fn elapsed_secs_wrapped_f64(&self) -> f64 {
+        self.elapsed_secs_wrapped_f64
     }
 
     /// Returns a reference to the context of this specific clock.
@@ -356,14 +356,14 @@ impl<T: Default> Time<T> {
             context: (),
             wrap_period: self.wrap_period,
             delta: self.delta,
-            delta_seconds: self.delta_seconds,
-            delta_seconds_f64: self.delta_seconds_f64,
+            delta_secs: self.delta_secs,
+            delta_secs_f64: self.delta_secs_f64,
             elapsed: self.elapsed,
-            elapsed_seconds: self.elapsed_seconds,
-            elapsed_seconds_f64: self.elapsed_seconds_f64,
+            elapsed_secs: self.elapsed_secs,
+            elapsed_secs_f64: self.elapsed_secs_f64,
             elapsed_wrapped: self.elapsed_wrapped,
-            elapsed_seconds_wrapped: self.elapsed_seconds_wrapped,
-            elapsed_seconds_wrapped_f64: self.elapsed_seconds_wrapped_f64,
+            elapsed_secs_wrapped: self.elapsed_secs_wrapped,
+            elapsed_secs_wrapped_f64: self.elapsed_secs_wrapped_f64,
         }
     }
 }
@@ -374,14 +374,14 @@ impl<T: Default> Default for Time<T> {
             context: Default::default(),
             wrap_period: Self::DEFAULT_WRAP_PERIOD,
             delta: Duration::ZERO,
-            delta_seconds: 0.0,
-            delta_seconds_f64: 0.0,
+            delta_secs: 0.0,
+            delta_secs_f64: 0.0,
             elapsed: Duration::ZERO,
-            elapsed_seconds: 0.0,
-            elapsed_seconds_f64: 0.0,
+            elapsed_secs: 0.0,
+            elapsed_secs_f64: 0.0,
             elapsed_wrapped: Duration::ZERO,
-            elapsed_seconds_wrapped: 0.0,
-            elapsed_seconds_wrapped_f64: 0.0,
+            elapsed_secs_wrapped: 0.0,
+            elapsed_secs_wrapped_f64: 0.0,
         }
     }
 }
@@ -402,14 +402,14 @@ mod test {
 
         assert_eq!(time.wrap_period(), Time::<()>::DEFAULT_WRAP_PERIOD);
         assert_eq!(time.delta(), Duration::ZERO);
-        assert_eq!(time.delta_seconds(), 0.0);
-        assert_eq!(time.delta_seconds_f64(), 0.0);
+        assert_eq!(time.delta_secs(), 0.0);
+        assert_eq!(time.delta_secs_f64(), 0.0);
         assert_eq!(time.elapsed(), Duration::ZERO);
-        assert_eq!(time.elapsed_seconds(), 0.0);
-        assert_eq!(time.elapsed_seconds_f64(), 0.0);
+        assert_eq!(time.elapsed_secs(), 0.0);
+        assert_eq!(time.elapsed_secs_f64(), 0.0);
         assert_eq!(time.elapsed_wrapped(), Duration::ZERO);
-        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 0.0);
     }
 
     #[test]
@@ -419,29 +419,29 @@ mod test {
         time.advance_by(Duration::from_millis(250));
 
         assert_eq!(time.delta(), Duration::from_millis(250));
-        assert_eq!(time.delta_seconds(), 0.25);
-        assert_eq!(time.delta_seconds_f64(), 0.25);
+        assert_eq!(time.delta_secs(), 0.25);
+        assert_eq!(time.delta_secs_f64(), 0.25);
         assert_eq!(time.elapsed(), Duration::from_millis(250));
-        assert_eq!(time.elapsed_seconds(), 0.25);
-        assert_eq!(time.elapsed_seconds_f64(), 0.25);
+        assert_eq!(time.elapsed_secs(), 0.25);
+        assert_eq!(time.elapsed_secs_f64(), 0.25);
 
         time.advance_by(Duration::from_millis(500));
 
         assert_eq!(time.delta(), Duration::from_millis(500));
-        assert_eq!(time.delta_seconds(), 0.5);
-        assert_eq!(time.delta_seconds_f64(), 0.5);
+        assert_eq!(time.delta_secs(), 0.5);
+        assert_eq!(time.delta_secs_f64(), 0.5);
         assert_eq!(time.elapsed(), Duration::from_millis(750));
-        assert_eq!(time.elapsed_seconds(), 0.75);
-        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+        assert_eq!(time.elapsed_secs(), 0.75);
+        assert_eq!(time.elapsed_secs_f64(), 0.75);
 
         time.advance_by(Duration::ZERO);
 
         assert_eq!(time.delta(), Duration::ZERO);
-        assert_eq!(time.delta_seconds(), 0.0);
-        assert_eq!(time.delta_seconds_f64(), 0.0);
+        assert_eq!(time.delta_secs(), 0.0);
+        assert_eq!(time.delta_secs_f64(), 0.0);
         assert_eq!(time.elapsed(), Duration::from_millis(750));
-        assert_eq!(time.elapsed_seconds(), 0.75);
-        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+        assert_eq!(time.elapsed_secs(), 0.75);
+        assert_eq!(time.elapsed_secs_f64(), 0.75);
     }
 
     #[test]
@@ -451,29 +451,29 @@ mod test {
         time.advance_to(Duration::from_millis(250));
 
         assert_eq!(time.delta(), Duration::from_millis(250));
-        assert_eq!(time.delta_seconds(), 0.25);
-        assert_eq!(time.delta_seconds_f64(), 0.25);
+        assert_eq!(time.delta_secs(), 0.25);
+        assert_eq!(time.delta_secs_f64(), 0.25);
         assert_eq!(time.elapsed(), Duration::from_millis(250));
-        assert_eq!(time.elapsed_seconds(), 0.25);
-        assert_eq!(time.elapsed_seconds_f64(), 0.25);
+        assert_eq!(time.elapsed_secs(), 0.25);
+        assert_eq!(time.elapsed_secs_f64(), 0.25);
 
         time.advance_to(Duration::from_millis(750));
 
         assert_eq!(time.delta(), Duration::from_millis(500));
-        assert_eq!(time.delta_seconds(), 0.5);
-        assert_eq!(time.delta_seconds_f64(), 0.5);
+        assert_eq!(time.delta_secs(), 0.5);
+        assert_eq!(time.delta_secs_f64(), 0.5);
         assert_eq!(time.elapsed(), Duration::from_millis(750));
-        assert_eq!(time.elapsed_seconds(), 0.75);
-        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+        assert_eq!(time.elapsed_secs(), 0.75);
+        assert_eq!(time.elapsed_secs_f64(), 0.75);
 
         time.advance_to(Duration::from_millis(750));
 
         assert_eq!(time.delta(), Duration::ZERO);
-        assert_eq!(time.delta_seconds(), 0.0);
-        assert_eq!(time.delta_seconds_f64(), 0.0);
+        assert_eq!(time.delta_secs(), 0.0);
+        assert_eq!(time.delta_secs_f64(), 0.0);
         assert_eq!(time.elapsed(), Duration::from_millis(750));
-        assert_eq!(time.elapsed_seconds(), 0.75);
-        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+        assert_eq!(time.elapsed_secs(), 0.75);
+        assert_eq!(time.elapsed_secs_f64(), 0.75);
     }
 
     #[test]
@@ -494,26 +494,26 @@ mod test {
         time.advance_by(Duration::from_secs(2));
 
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(2));
-        assert_eq!(time.elapsed_seconds_wrapped(), 2.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 2.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 2.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 2.0);
 
         time.advance_by(Duration::from_secs(2));
 
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(1));
-        assert_eq!(time.elapsed_seconds_wrapped(), 1.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 1.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 1.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 1.0);
 
         time.advance_by(Duration::from_secs(2));
 
         assert_eq!(time.elapsed_wrapped(), Duration::ZERO);
-        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 0.0);
 
         time.advance_by(Duration::new(3, 250_000_000));
 
         assert_eq!(time.elapsed_wrapped(), Duration::from_millis(250));
-        assert_eq!(time.elapsed_seconds_wrapped(), 0.25);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.25);
+        assert_eq!(time.elapsed_secs_wrapped(), 0.25);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 0.25);
     }
 
     #[test]
@@ -524,22 +524,22 @@ mod test {
         time.advance_by(Duration::from_secs(8));
 
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(3));
-        assert_eq!(time.elapsed_seconds_wrapped(), 3.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 3.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 3.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 3.0);
 
         time.set_wrap_period(Duration::from_secs(2));
 
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(3));
-        assert_eq!(time.elapsed_seconds_wrapped(), 3.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 3.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 3.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 3.0);
 
         time.advance_by(Duration::ZERO);
 
         // Time will wrap to modulo duration from full `elapsed()`, not to what
         // is left in `elapsed_wrapped()`. This test of values is here to ensure
-        // that we notice if we change that behaviour.
+        // that we notice if we change that behavior.
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(0));
-        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
-        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped(), 0.0);
+        assert_eq!(time.elapsed_secs_wrapped_f64(), 0.0);
     }
 }

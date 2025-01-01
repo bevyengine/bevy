@@ -37,7 +37,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -55,7 +55,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             p.spawn(TextSpan::new("IME Buffer:  "));
             p.spawn((
                 TextSpan::new("\n"),
-                TextStyle {
+                TextFont {
                     font: font.clone(),
                     ..default()
                 },
@@ -64,7 +64,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Text2d::new(""),
-        TextStyle {
+        TextFont {
             font,
             font_size: 100.0,
             ..default()
@@ -74,17 +74,15 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn toggle_ime(
     input: Res<ButtonInput<MouseButton>>,
-    mut windows: Query<&mut Window>,
-    status_text: Query<Entity, (With<Node>, With<Text>)>,
-    mut ui_writer: UiTextWriter,
+    mut window: Single<&mut Window>,
+    status_text: Single<Entity, (With<Node>, With<Text>)>,
+    mut ui_writer: TextUiWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
-        let mut window = windows.single_mut();
-
         window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
-        *ui_writer.text(status_text.single(), 3) = format!("{}\n", window.ime_enabled);
+        *ui_writer.text(*status_text, 3) = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -102,32 +100,32 @@ fn bubbling_text(
         if bubble.timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
-        transform.translation.y += time.delta_seconds() * 100.0;
+        transform.translation.y += time.delta_secs() * 100.0;
     }
 }
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    status_text: Query<Entity, (With<Node>, With<Text>)>,
-    mut edit_text: Query<&mut Text2d, (Without<Node>, Without<Bubble>)>,
-    mut ui_writer: UiTextWriter,
+    status_text: Single<Entity, (With<Node>, With<Text>)>,
+    mut edit_text: Single<&mut Text2d, (Without<Node>, Without<Bubble>)>,
+    mut ui_writer: TextUiWriter,
 ) {
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                *ui_writer.text(status_text.single(), 7) = format!("{value}\n");
+                *ui_writer.text(*status_text, 7) = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                *ui_writer.text(status_text.single(), 7) = "\n".to_string();
+                *ui_writer.text(*status_text, 7) = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
-                edit_text.single_mut().push_str(value);
+                edit_text.push_str(value);
             }
             Ime::Enabled { .. } => {
-                *ui_writer.text(status_text.single(), 5) = "true\n".to_string();
+                *ui_writer.text(*status_text, 5) = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                *ui_writer.text(status_text.single(), 5) = "false\n".to_string();
+                *ui_writer.text(*status_text, 5) = "false\n".to_string();
             }
             _ => (),
         }
@@ -137,17 +135,17 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(&mut Text2d, &TextStyle), (Without<Node>, Without<Bubble>)>,
+    edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
 ) {
+    let (mut text, style) = edit_text.into_inner();
     for event in events.read() {
         // Only trigger changes when the key is first pressed.
         if !event.state.is_pressed() {
             continue;
         }
 
-        match &event.logical_key {
-            Key::Enter => {
-                let (mut text, style) = edit_text.single_mut();
+        match (&event.logical_key, &event.text) {
+            (Key::Enter, _) => {
                 if text.is_empty() {
                     continue;
                 }
@@ -161,16 +159,27 @@ fn listen_keyboard_input_events(
                     },
                 ));
             }
-            Key::Space => {
-                edit_text.single_mut().0.push(' ');
+            (Key::Backspace, _) => {
+                text.pop();
             }
-            Key::Backspace => {
-                edit_text.single_mut().0.pop();
-            }
-            Key::Character(character) => {
-                edit_text.single_mut().0.push_str(character);
+            (_, Some(inserted_text)) => {
+                // Make sure the text doesn't have any control characters,
+                // which can happen when keys like Escape are pressed
+                if inserted_text.chars().all(is_printable_char) {
+                    text.push_str(inserted_text);
+                }
             }
             _ => continue,
         }
     }
+}
+
+// this logic is taken from egui-winit:
+// https://github.com/emilk/egui/blob/adfc0bebfc6be14cee2068dee758412a5e0648dc/crates/egui-winit/src/lib.rs#L1014-L1024
+fn is_printable_char(chr: char) -> bool {
+    let is_in_private_use_area = ('\u{e000}'..='\u{f8ff}').contains(&chr)
+        || ('\u{f0000}'..='\u{ffffd}').contains(&chr)
+        || ('\u{100000}'..='\u{10fffd}').contains(&chr);
+
+    !is_in_private_use_area && !chr.is_ascii_control()
 }

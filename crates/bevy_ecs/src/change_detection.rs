@@ -5,6 +5,7 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
+use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
     mem,
@@ -266,6 +267,55 @@ pub trait DetectChangesMut: DetectChanges {
             Some(previous)
         } else {
             None
+        }
+    }
+
+    /// Overwrites this smart pointer with a clone of the given value, if and only if `*self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
+    ///
+    /// This method is useful when the caller only has a borrowed form of `Inner`,
+    /// e.g. when writing a `&str` into a `Mut<String>`.
+    ///
+    /// # Examples
+    /// ```
+    /// # extern crate alloc;
+    /// # use alloc::borrow::ToOwned;
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// #[derive(Resource)]
+    /// pub struct Message(String);
+    ///
+    /// fn update_message(mut message: ResMut<Message>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     ResMut::map_unchanged(message, |Message(msg)| msg).clone_from_if_neq("another string");
+    /// }
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Message("initial string".into()));
+    /// # let mut message_changed = IntoSystem::into_system(resource_changed::<Message>);
+    /// # message_changed.initialize(&mut world);
+    /// # message_changed.run((), &mut world);
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(update_message);
+    /// #
+    /// # // first time `reset_score` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(message_changed.run((), &mut world));
+    /// # // second time `reset_score` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!message_changed.run((), &mut world));
+    /// ```
+    fn clone_from_if_neq<T>(&mut self, value: &T) -> bool
+    where
+        T: ToOwned<Owned = Self::Inner> + ?Sized,
+        Self::Inner: PartialEq<T>,
+    {
+        let old = self.bypass_change_detection();
+        if old != value {
+            value.clone_into(old);
+            self.set_changed();
+            true
+        } else {
+            false
         }
     }
 }
@@ -544,7 +594,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
@@ -622,7 +672,7 @@ impl_debug!(Res<'w, T>, Resource);
 /// If you need a shared borrow, use [`Res`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
@@ -683,7 +733,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
@@ -1206,7 +1256,7 @@ mod tests {
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Single, System},
         world::World,
     };
 
@@ -1236,12 +1286,12 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_detected(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
-        fn change_expired(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_expired(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
         let mut world = World::new();

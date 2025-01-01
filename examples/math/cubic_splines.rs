@@ -75,18 +75,15 @@ fn setup(mut commands: Commands) {
         C: Toggle cyclic curve construction";
     let spline_mode_text = format!("Spline: {spline_mode}");
     let cycling_mode_text = format!("{cycling_mode}");
-    let style = TextStyle::default();
+    let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
             ..default()
         })
         .with_children(|parent| {
@@ -311,7 +308,7 @@ fn handle_mouse_press(
     mouse_position: Res<MousePosition>,
     mut edit_move: ResMut<MouseEditMove>,
     mut control_points: ResMut<ControlPoints>,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform)>,
 ) {
     let Some(mouse_pos) = mouse_position.0 else {
         return;
@@ -339,9 +336,7 @@ fn handle_mouse_press(
                     continue;
                 };
 
-                let Ok((camera, camera_transform)) = camera.get_single() else {
-                    continue;
-                };
+                let (camera, camera_transform) = *camera;
 
                 // Convert the starting point and end point (current mouse pos) into world coords:
                 let Ok(point) = camera.viewport_to_world_2d(camera_transform, start) else {
@@ -368,7 +363,7 @@ fn draw_edit_move(
     edit_move: Res<MouseEditMove>,
     mouse_position: Res<MousePosition>,
     mut gizmos: Gizmos,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform)>,
 ) {
     let Some(start) = edit_move.start else {
         return;
@@ -376,9 +371,8 @@ fn draw_edit_move(
     let Some(mouse_pos) = mouse_position.0 else {
         return;
     };
-    let Ok((camera, camera_transform)) = camera.get_single() else {
-        return;
-    };
+
+    let (camera, camera_transform) = *camera;
 
     // Resources store data in viewport coordinates, so we need to convert to world coordinates
     // to display them:

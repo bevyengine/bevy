@@ -37,6 +37,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
+use crate::batching::gpu_preprocessing::GpuPreprocessingMode;
 use crate::sync_world::MainEntity;
 use crate::{
     batching::{
@@ -53,14 +54,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use core::{
-    fmt::{self, Debug, Formatter},
-    hash::Hash,
-    iter,
-    marker::PhantomData,
-    ops::Range,
-    slice::SliceIndex,
-};
+use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
@@ -101,7 +95,7 @@ where
     ///
     /// Each bin corresponds to a single batch set. For unbatchable entities,
     /// prefer `unbatchable_values` instead.
-    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>,
+    pub batchable_mesh_values: HashMap<BPI::BinKey, RenderBin>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -112,7 +106,7 @@ where
     /// The unbatchable bins.
     ///
     /// Each entity here is rendered in a separate drawcall.
-    pub(crate) unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
+    pub unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
     /// Items in the bin that aren't meshes at all.
     ///
@@ -133,7 +127,45 @@ where
     ///
     /// The unbatchable entities immediately follow the batches in the storage
     /// buffers.
-    pub(crate) batch_sets: Vec<SmallVec<[BinnedRenderPhaseBatch; 1]>>,
+    pub(crate) batch_sets: BinnedRenderPhaseBatchSets,
+}
+
+/// All entities that share a mesh and a material and can be batched as part of
+/// a [`BinnedRenderPhase`].
+pub struct RenderBin {
+    /// A list of the entities in each bin.
+    pub entities: Vec<(Entity, MainEntity)>,
+}
+
+/// How we store and render the batch sets.
+///
+/// Each one of these corresponds to a [`GpuPreprocessingMode`].
+pub enum BinnedRenderPhaseBatchSets {
+    /// Batches are grouped into batch sets based on dynamic uniforms.
+    ///
+    /// This corresponds to [`GpuPreprocessingMode::None`].
+    DynamicUniforms(Vec<SmallVec<[BinnedRenderPhaseBatch; 1]>>),
+
+    /// Batches are never grouped into batch sets.
+    ///
+    /// This corresponds to [`GpuPreprocessingMode::PreprocessingOnly`].
+    Direct(Vec<BinnedRenderPhaseBatch>),
+
+    /// Batches are grouped together into batch sets based on their ability to
+    /// be multi-drawn together.
+    ///
+    /// This corresponds to [`GpuPreprocessingMode::Culling`].
+    MultidrawIndirect(Vec<Vec<BinnedRenderPhaseBatch>>),
+}
+
+impl BinnedRenderPhaseBatchSets {
+    fn clear(&mut self) {
+        match *self {
+            BinnedRenderPhaseBatchSets::DynamicUniforms(ref mut vec) => vec.clear(),
+            BinnedRenderPhaseBatchSets::Direct(ref mut vec) => vec.clear(),
+            BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut vec) => vec.clear(),
+        }
+    }
 }
 
 /// Information about a single batch of entities rendered using binned phase
@@ -155,9 +187,9 @@ pub struct BinnedRenderPhaseBatch {
 }
 
 /// Information about the unbatchable entities in a bin.
-pub(crate) struct UnbatchableBinnedEntities {
+pub struct UnbatchableBinnedEntities {
     /// The entities.
-    pub(crate) entities: Vec<(Entity, MainEntity)>,
+    pub entities: Vec<(Entity, MainEntity)>,
 
     /// The GPU array buffer indices of each unbatchable binned entity.
     pub(crate) buffer_indices: UnbatchableBinnedEntityIndexSet,
@@ -200,7 +232,7 @@ pub(crate) enum UnbatchableBinnedEntityIndexSet {
 /// The instance index and dynamic offset (if present) for an unbatchable entity.
 ///
 /// This is only useful on platforms that don't support storage buffers.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct UnbatchableBinnedEntityIndices {
     /// The instance index.
     pub(crate) instance_index: u32,
@@ -257,11 +289,11 @@ impl<BPI> ViewBinnedRenderPhases<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, entity: Entity) {
+    pub fn insert_or_clear(&mut self, entity: Entity, gpu_preprocessing: GpuPreprocessingMode) {
         match self.entry(entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
-                entry.insert(default());
+                entry.insert(BinnedRenderPhase::<BPI>::new(gpu_preprocessing));
             }
         }
     }
@@ -279,27 +311,33 @@ where
     pub fn add(
         &mut self,
         key: BPI::BinKey,
-        entity: (Entity, MainEntity),
+        (entity, main_entity): (Entity, MainEntity),
         phase_type: BinnedRenderPhaseType,
     ) {
         match phase_type {
             BinnedRenderPhaseType::BatchableMesh => {
                 match self.batchable_mesh_values.entry(key.clone()) {
-                    Entry::Occupied(mut entry) => entry.get_mut().push(entity),
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().entities.push((entity, main_entity));
+                    }
                     Entry::Vacant(entry) => {
                         self.batchable_mesh_keys.push(key);
-                        entry.insert(vec![entity]);
+                        entry.insert(RenderBin {
+                            entities: vec![(entity, main_entity)],
+                        });
                     }
                 }
             }
 
             BinnedRenderPhaseType::UnbatchableMesh => {
                 match self.unbatchable_mesh_values.entry(key.clone()) {
-                    Entry::Occupied(mut entry) => entry.get_mut().entities.push(entity),
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().entities.push((entity, main_entity));
+                    }
                     Entry::Vacant(entry) => {
                         self.unbatchable_mesh_keys.push(key);
                         entry.insert(UnbatchableBinnedEntities {
-                            entities: vec![entity],
+                            entities: vec![(entity, main_entity)],
                             buffer_indices: default(),
                         });
                     }
@@ -308,7 +346,7 @@ where
 
             BinnedRenderPhaseType::NonMesh => {
                 // We don't process these items further.
-                self.non_mesh_items.push((key, entity));
+                self.non_mesh_items.push((key, (entity, main_entity)));
             }
         }
     }
@@ -345,24 +383,87 @@ where
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
-        debug_assert_eq!(self.batchable_mesh_keys.len(), self.batch_sets.len());
+        match self.batch_sets {
+            BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
+                debug_assert_eq!(self.batchable_mesh_keys.len(), batch_sets.len());
 
-        for (key, batch_set) in self.batchable_mesh_keys.iter().zip(self.batch_sets.iter()) {
-            for batch in batch_set {
-                let binned_phase_item = BPI::new(
-                    key.clone(),
-                    batch.representative_entity,
-                    batch.instance_range.clone(),
-                    batch.extra_index,
-                );
+                for (key, batch_set) in self.batchable_mesh_keys.iter().zip(batch_sets.iter()) {
+                    for batch in batch_set {
+                        let binned_phase_item = BPI::new(
+                            key.clone(),
+                            batch.representative_entity,
+                            batch.instance_range.clone(),
+                            batch.extra_index.clone(),
+                        );
 
-                // Fetch the draw function.
-                let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
-                else {
-                    continue;
-                };
+                        // Fetch the draw function.
+                        let Some(draw_function) =
+                            draw_functions.get_mut(binned_phase_item.draw_function())
+                        else {
+                            continue;
+                        };
 
-                draw_function.draw(world, render_pass, view, &binned_phase_item)?;
+                        draw_function.draw(world, render_pass, view, &binned_phase_item)?;
+                    }
+                }
+            }
+
+            BinnedRenderPhaseBatchSets::Direct(ref batch_set) => {
+                for (batch, key) in batch_set.iter().zip(self.batchable_mesh_keys.iter()) {
+                    let binned_phase_item = BPI::new(
+                        key.clone(),
+                        batch.representative_entity,
+                        batch.instance_range.clone(),
+                        batch.extra_index.clone(),
+                    );
+
+                    // Fetch the draw function.
+                    let Some(draw_function) =
+                        draw_functions.get_mut(binned_phase_item.draw_function())
+                    else {
+                        continue;
+                    };
+
+                    draw_function.draw(world, render_pass, view, &binned_phase_item)?;
+                }
+            }
+
+            BinnedRenderPhaseBatchSets::MultidrawIndirect(ref batch_sets) => {
+                let mut batchable_mesh_key_index = 0;
+                for batch_set in batch_sets.iter() {
+                    let Some(batch) = batch_set.first() else {
+                        continue;
+                    };
+
+                    let key = &self.batchable_mesh_keys[batchable_mesh_key_index];
+                    batchable_mesh_key_index += batch_set.len();
+
+                    let binned_phase_item = BPI::new(
+                        key.clone(),
+                        batch.representative_entity,
+                        batch.instance_range.clone(),
+                        match batch.extra_index {
+                            PhaseItemExtraIndex::None => PhaseItemExtraIndex::None,
+                            PhaseItemExtraIndex::DynamicOffset(ref dynamic_offset) => {
+                                PhaseItemExtraIndex::DynamicOffset(*dynamic_offset)
+                            }
+                            PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                                PhaseItemExtraIndex::IndirectParametersIndex(
+                                    range.start..(range.start + batch_set.len() as u32),
+                                )
+                            }
+                        },
+                    );
+
+                    // Fetch the draw function.
+                    let Some(draw_function) =
+                        draw_functions.get_mut(binned_phase_item.draw_function())
+                    else {
+                        continue;
+                    };
+
+                    draw_function.draw(world, render_pass, view, &binned_phase_item)?;
+                }
             }
         }
 
@@ -393,17 +494,20 @@ where
                     } => UnbatchableBinnedEntityIndices {
                         instance_index: instance_range.start + entity_index as u32,
                         extra_index: match first_indirect_parameters_index {
-                            None => PhaseItemExtraIndex::NONE,
+                            None => PhaseItemExtraIndex::None,
                             Some(first_indirect_parameters_index) => {
-                                PhaseItemExtraIndex::indirect_parameters_index(
+                                let first_indirect_parameters_index_for_entity =
                                     u32::from(*first_indirect_parameters_index)
-                                        + entity_index as u32,
+                                        + entity_index as u32;
+                                PhaseItemExtraIndex::IndirectParametersIndex(
+                                    first_indirect_parameters_index_for_entity
+                                        ..(first_indirect_parameters_index_for_entity + 1),
                                 )
                             }
                         },
                     },
                     UnbatchableBinnedEntityIndexSet::Dense(ref dynamic_offsets) => {
-                        dynamic_offsets[entity_index]
+                        dynamic_offsets[entity_index].clone()
                     }
                 };
 
@@ -442,7 +546,7 @@ where
         for &(ref key, entity) in &self.non_mesh_items {
             // Come up with a fake batch range and extra index. The draw
             // function is expected to manage any sort of batching logic itself.
-            let binned_phase_item = BPI::new(key.clone(), entity, 0..1, PhaseItemExtraIndex(0));
+            let binned_phase_item = BPI::new(key.clone(), entity, 0..1, PhaseItemExtraIndex::None);
 
             let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
             else {
@@ -471,18 +575,26 @@ where
     }
 }
 
-impl<BPI> Default for BinnedRenderPhase<BPI>
+impl<BPI> BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-    fn default() -> Self {
+    fn new(gpu_preprocessing: GpuPreprocessingMode) -> Self {
         Self {
             batchable_mesh_keys: vec![],
             batchable_mesh_values: HashMap::default(),
             unbatchable_mesh_keys: vec![],
             unbatchable_mesh_values: HashMap::default(),
             non_mesh_items: vec![],
-            batch_sets: vec![],
+            batch_sets: match gpu_preprocessing {
+                GpuPreprocessingMode::Culling => {
+                    BinnedRenderPhaseBatchSets::MultidrawIndirect(vec![])
+                }
+                GpuPreprocessingMode::PreprocessingOnly => {
+                    BinnedRenderPhaseBatchSets::Direct(vec![])
+                }
+                GpuPreprocessingMode::None => BinnedRenderPhaseBatchSets::DynamicUniforms(vec![]),
+            },
         }
     }
 }
@@ -505,19 +617,24 @@ impl UnbatchableBinnedEntityIndexSet {
                 first_indirect_parameters_index: None,
             } => Some(UnbatchableBinnedEntityIndices {
                 instance_index: instance_range.start + entity_index,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
             }),
             UnbatchableBinnedEntityIndexSet::Sparse {
                 instance_range,
                 first_indirect_parameters_index: Some(first_indirect_parameters_index),
-            } => Some(UnbatchableBinnedEntityIndices {
-                instance_index: instance_range.start + entity_index,
-                extra_index: PhaseItemExtraIndex::indirect_parameters_index(
-                    u32::from(*first_indirect_parameters_index) + entity_index,
-                ),
-            }),
+            } => {
+                let first_indirect_parameters_index_for_this_batch =
+                    u32::from(*first_indirect_parameters_index) + entity_index;
+                Some(UnbatchableBinnedEntityIndices {
+                    instance_index: instance_range.start + entity_index,
+                    extra_index: PhaseItemExtraIndex::IndirectParametersIndex(
+                        first_indirect_parameters_index_for_this_batch
+                            ..(first_indirect_parameters_index_for_this_batch + 1),
+                    ),
+                })
+            }
             UnbatchableBinnedEntityIndexSet::Dense(ref indices) => {
-                indices.get(entity_index as usize).copied()
+                indices.get(entity_index as usize).cloned()
             }
         }
     }
@@ -661,19 +778,27 @@ impl UnbatchableBinnedEntityIndexSet {
     pub fn add(&mut self, indices: UnbatchableBinnedEntityIndices) {
         match self {
             UnbatchableBinnedEntityIndexSet::NoEntities => {
-                if indices.extra_index.is_dynamic_offset() {
-                    // This is the first entity we've seen, and we don't have
-                    // compute shaders. Initialize an array.
-                    *self = UnbatchableBinnedEntityIndexSet::Dense(vec![indices]);
-                } else {
-                    // This is the first entity we've seen, and we have compute
-                    // shaders. Initialize the fast path.
-                    *self = UnbatchableBinnedEntityIndexSet::Sparse {
-                        instance_range: indices.instance_index..indices.instance_index + 1,
-                        first_indirect_parameters_index: indices
-                            .extra_index
-                            .as_indirect_parameters_index()
-                            .and_then(|index| NonMaxU32::try_from(index).ok()),
+                match indices.extra_index {
+                    PhaseItemExtraIndex::DynamicOffset(_) => {
+                        // This is the first entity we've seen, and we don't have
+                        // compute shaders. Initialize an array.
+                        *self = UnbatchableBinnedEntityIndexSet::Dense(vec![indices]);
+                    }
+                    PhaseItemExtraIndex::None => {
+                        // This is the first entity we've seen, and we have compute
+                        // shaders. Initialize the fast path.
+                        *self = UnbatchableBinnedEntityIndexSet::Sparse {
+                            instance_range: indices.instance_index..indices.instance_index + 1,
+                            first_indirect_parameters_index: None,
+                        }
+                    }
+                    PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                        // This is the first entity we've seen, and we have compute
+                        // shaders. Initialize the fast path.
+                        *self = UnbatchableBinnedEntityIndexSet::Sparse {
+                            instance_range: indices.instance_index..indices.instance_index + 1,
+                            first_indirect_parameters_index: NonMaxU32::new(range.start),
+                        }
                     }
                 }
             }
@@ -683,13 +808,17 @@ impl UnbatchableBinnedEntityIndexSet {
                 first_indirect_parameters_index,
             } if instance_range.end == indices.instance_index
                 && ((first_indirect_parameters_index.is_none()
-                    && indices.extra_index == PhaseItemExtraIndex::NONE)
+                    && indices.extra_index == PhaseItemExtraIndex::None)
                     || first_indirect_parameters_index.is_some_and(
-                        |first_indirect_parameters_index| {
-                            Some(
+                        |first_indirect_parameters_index| match indices.extra_index {
+                            PhaseItemExtraIndex::IndirectParametersIndex(ref this_range) => {
                                 u32::from(first_indirect_parameters_index) + instance_range.end
-                                    - instance_range.start,
-                            ) == indices.extra_index.as_indirect_parameters_index()
+                                    - instance_range.start
+                                    == this_range.start
+                            }
+                            PhaseItemExtraIndex::DynamicOffset(_) | PhaseItemExtraIndex::None => {
+                                false
+                            }
                         },
                     )) =>
             {
@@ -891,114 +1020,40 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// Note that our indirect draw functionality requires storage buffers, so it's
 /// impossible to have both a dynamic offset and an indirect parameters index.
 /// This convenient fact allows us to pack both indices into a single `u32`.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PhaseItemExtraIndex(pub u32);
-
-impl Debug for PhaseItemExtraIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.is_dynamic_offset() {
-            write!(f, "DynamicOffset({})", self.offset())
-        } else if self.is_indirect_parameters_index() {
-            write!(f, "IndirectParametersIndex({})", self.offset())
-        } else {
-            write!(f, "None")
-        }
-    }
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum PhaseItemExtraIndex {
+    /// No extra index is present.
+    None,
+    /// A `wgpu` dynamic offset into the uniform buffer of instance data. This
+    /// is used on platforms that don't support storage buffers, to work around
+    /// uniform buffer size limitations.
+    DynamicOffset(u32),
+    /// An index into the buffer that specifies the indirect parameters for this
+    /// [`PhaseItem`]'s drawcall. This is used when indirect mode is on (as used
+    /// for GPU culling).
+    IndirectParametersIndex(Range<u32>),
 }
 
 impl PhaseItemExtraIndex {
-    /// The flag that indicates that this index is an indirect parameter. If not
-    /// set, this is a dynamic offset.
-    pub const INDIRECT_PARAMETER_INDEX: u32 = 1 << 31;
-    /// To extract the index from a packed [`PhaseItemExtraIndex`], bitwise-and
-    /// the contents with this value.
-    pub const OFFSET_MASK: u32 = Self::INDIRECT_PARAMETER_INDEX - 1;
-    /// To extract the flag from a packed [`PhaseItemExtraIndex`], bitwise-and
-    /// the contents with this value.
-    pub const FLAGS_MASK: u32 = !Self::OFFSET_MASK;
-
-    /// The special value that indicates that no extra index is present.
-    pub const NONE: PhaseItemExtraIndex = PhaseItemExtraIndex(u32::MAX);
-
-    /// Returns either the indirect parameters index or the dynamic offset,
-    /// depending on which is in use.
-    #[inline]
-    fn offset(&self) -> u32 {
-        self.0 & Self::OFFSET_MASK
-    }
-
-    /// Determines whether this extra index is a dynamic offset.
-    #[inline]
-    fn is_dynamic_offset(&self) -> bool {
-        *self != Self::NONE && (self.0 & Self::INDIRECT_PARAMETER_INDEX) == 0
-    }
-
-    /// Determines whether this extra index is an indirect parameters index.
-    #[inline]
-    fn is_indirect_parameters_index(&self) -> bool {
-        *self != Self::NONE && (self.0 & Self::INDIRECT_PARAMETER_INDEX) != 0
-    }
-
-    /// Packs a indirect parameters index into this extra index.
-    #[inline]
-    pub fn indirect_parameters_index(indirect_parameter_index: u32) -> PhaseItemExtraIndex {
-        // Make sure we didn't overflow.
-        debug_assert_eq!(indirect_parameter_index & Self::FLAGS_MASK, 0);
-        PhaseItemExtraIndex(indirect_parameter_index | Self::INDIRECT_PARAMETER_INDEX)
-    }
-
     /// Returns either an indirect parameters index or
-    /// [`PhaseItemExtraIndex::NONE`], as appropriate.
-    #[inline]
+    /// [`PhaseItemExtraIndex::None`], as appropriate.
     pub fn maybe_indirect_parameters_index(
-        maybe_indirect_parameters_index: Option<NonMaxU32>,
+        indirect_parameters_index: Option<NonMaxU32>,
     ) -> PhaseItemExtraIndex {
-        match maybe_indirect_parameters_index {
-            Some(indirect_parameters_index) => {
-                Self::indirect_parameters_index(indirect_parameters_index.into())
-            }
-            None => PhaseItemExtraIndex::NONE,
+        match indirect_parameters_index {
+            Some(indirect_parameters_index) => PhaseItemExtraIndex::IndirectParametersIndex(
+                u32::from(indirect_parameters_index)..(u32::from(indirect_parameters_index) + 1),
+            ),
+            None => PhaseItemExtraIndex::None,
         }
     }
 
-    /// Packs a dynamic offset into this extra index.
-    #[inline]
-    pub fn dynamic_offset(dynamic_offset: u32) -> PhaseItemExtraIndex {
-        // Make sure we didn't overflow.
-        debug_assert_eq!(dynamic_offset & Self::FLAGS_MASK, 0);
-
-        PhaseItemExtraIndex(dynamic_offset)
-    }
-
-    /// Returns either a dynamic offset or [`PhaseItemExtraIndex::NONE`], as
-    /// appropriate.
-    #[inline]
-    pub fn maybe_dynamic_offset(maybe_dynamic_offset: Option<NonMaxU32>) -> PhaseItemExtraIndex {
-        match maybe_dynamic_offset {
-            Some(dynamic_offset) => Self::dynamic_offset(dynamic_offset.into()),
-            None => PhaseItemExtraIndex::NONE,
-        }
-    }
-
-    /// If this extra index describes a dynamic offset, returns it; otherwise,
-    /// returns `None`.
-    #[inline]
-    pub fn as_dynamic_offset(&self) -> Option<NonMaxU32> {
-        if self.is_dynamic_offset() {
-            NonMaxU32::try_from(self.0 & Self::OFFSET_MASK).ok()
-        } else {
-            None
-        }
-    }
-
-    /// If this extra index describes an indirect parameters index, returns it;
-    /// otherwise, returns `None`.
-    #[inline]
-    pub fn as_indirect_parameters_index(&self) -> Option<u32> {
-        if self.is_indirect_parameters_index() {
-            Some(self.0 & Self::OFFSET_MASK)
-        } else {
-            None
+    /// Returns either a dynamic offset index or [`PhaseItemExtraIndex::None`],
+    /// as appropriate.
+    pub fn maybe_dynamic_offset(dynamic_offset: Option<NonMaxU32>) -> PhaseItemExtraIndex {
+        match dynamic_offset {
+            Some(dynamic_offset) => PhaseItemExtraIndex::DynamicOffset(dynamic_offset.into()),
+            None => PhaseItemExtraIndex::None,
         }
     }
 }
@@ -1017,7 +1072,7 @@ pub trait BinnedPhaseItem: PhaseItem {
     /// lowest variable bind group id such as the material bind group id, and
     /// its dynamic offsets if any, next bind group and offsets, etc. This
     /// reduces the need for rebinding between bins and improves performance.
-    type BinKey: Clone + Send + Sync + Eq + Ord + Hash;
+    type BinKey: PhaseItemBinKey;
 
     /// Creates a new binned phase item from the key and per-entity data.
     ///
@@ -1030,6 +1085,26 @@ pub trait BinnedPhaseItem: PhaseItem {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self;
+}
+
+/// A trait that allows fetching the *batch set key* from a bin key.
+///
+/// A *batch set* is a set of mesh batches that will be rendered with multi-draw
+/// if multi-draw is in use. The *batch set key* is the data that has to be
+/// identical between meshes in order to place them in the same batch set. A
+/// batch set can therefore span multiple bins.
+///
+/// The batch set key should be at the beginning of the bin key structure so
+/// that batches in the same batch set will be adjacent to one another in the
+/// sorted list of bins.
+pub trait PhaseItemBinKey: Clone + Send + Sync + PartialEq + Eq + Ord + Hash {
+    type BatchSetKey: Clone + PartialEq;
+
+    /// Returns the batch set key, if applicable.
+    ///
+    /// If this returns `None`, no batches in this phase item can be grouped
+    /// together into batch sets.
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey>;
 }
 
 /// Represents phase items that must be sorted. The `SortKey` specifies the

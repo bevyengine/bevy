@@ -1,9 +1,8 @@
 //! Shows how to modify texture assets after spawning.
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    render::{render_asset::RenderAssetUsages, texture::ImageLoaderSettings},
+    image::ImageLoaderSettings, input::common_conditions::input_just_pressed, prelude::*,
+    render::render_asset::RenderAssetUsages,
 };
 
 fn main() {
@@ -90,37 +89,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Space: swap the right sprite's image handle"));
-            parent.spawn(Text::new(
-                "Return: modify the image Asset of the left sprite, affecting all uses of it",
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap the right sprite's image handle\n\
+            Return: modify the image Asset of the left sprite, affecting all uses of it",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_bird: Query<(&mut Bird, &mut Sprite), Without<Left>>,
+    right_bird: Single<(&mut Bird, &mut Sprite), Without<Left>>,
 ) {
     // Image handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one bird without the `Left` marker component.
-    let Ok((mut bird, mut sprite)) = right_bird.get_single_mut() else {
-        return;
-    };
+    let (mut bird, mut sprite) = right_bird.into_inner();
 
     // Switch to a new Bird variant
     bird.set_next_variant();
@@ -131,15 +121,9 @@ fn alter_handle(
     sprite.image = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Sprite, With<Left>>) {
-    // It's convenient to retrieve the asset handle stored with the bird on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let Ok(sprite) = left_bird.get_single() else {
-        return;
-    };
-
+fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(&sprite.image) else {
+    let Some(image) = images.get_mut(&left_bird.image) else {
         return;
     };
 

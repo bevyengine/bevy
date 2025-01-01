@@ -86,7 +86,7 @@ fn setup_terrain_scene(
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -95,9 +95,7 @@ fn setup_instructions(mut commands: Commands) {
     );
 }
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
-    let mut fog = fog.single_mut();
-
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {
     if keycode.just_pressed(KeyCode::Space) {
         let a = fog.color.alpha();
         fog.color.set_alpha(1.0 - a);

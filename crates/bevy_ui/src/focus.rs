@@ -1,9 +1,9 @@
 use crate::{
-    CalculatedClip, DefaultUiCamera, Node, ResolvedBorderRadius, TargetCamera, UiScale, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::Entity,
+    entity::{Entity, EntityBorrow},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
@@ -39,7 +39,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// # See also
 ///
-/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`Button`](crate::widget::Button) which requires this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -74,7 +74,7 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`Node`](crate::Node).
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -94,8 +94,7 @@ impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
     pub fn mouse_over(&self) -> bool {
         self.normalized
-            .map(|position| self.normalized_visible_node_rect.contains(position))
-            .unwrap_or(false)
+            .is_some_and(|position| self.normalized_visible_node_rect.contains(position))
     }
 }
 
@@ -135,7 +134,7 @@ pub struct State {
 #[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static Node,
+    node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
@@ -157,7 +156,6 @@ pub fn ui_focus_system(
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
-    ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
 ) {
@@ -198,21 +196,21 @@ pub fn ui_focus_system(
             else {
                 return None;
             };
+            let window = windows.get(window_ref.entity()).ok()?;
 
             let viewport_position = camera
-                .logical_viewport_rect()
-                .map(|rect| rect.min)
+                .physical_viewport_rect()
+                .map(|rect| rect.min.as_vec2())
                 .unwrap_or_default();
-            windows
-                .get(window_ref.entity())
-                .ok()
-                .and_then(Window::cursor_position)
-                .or_else(|| touches_input.first_pressed_position())
+            window
+                .physical_cursor_position()
+                .or_else(|| {
+                    touches_input
+                        .first_pressed_position()
+                        .map(|pos| pos * window.scale_factor())
+                })
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
-        // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
-        // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0))
         .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
@@ -275,15 +273,13 @@ pub fn ui_focus_system(
             };
 
             let contains_cursor = relative_cursor_position_component.mouse_over()
-                && cursor_position
-                    .map(|point| {
-                        pick_rounded_rect(
-                            *point - node_rect.center(),
-                            node_rect.size(),
-                            node.node.border_radius,
-                        )
-                    })
-                    .unwrap_or(false);
+                && cursor_position.is_some_and(|point| {
+                    pick_rounded_rect(
+                        *point - node_rect.center(),
+                        node_rect.size(),
+                        node.node.border_radius,
+                    )
+                });
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position

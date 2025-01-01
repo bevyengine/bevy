@@ -25,7 +25,7 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -48,7 +48,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -67,8 +67,8 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    fn yes_with_query(query: Query<&TestBool>) -> bool {
-        query.single().0
+    fn yes_with_query(query: Single<&TestBool>) -> bool {
+        query.0
     }
     for amount in 0..21 {
         let mut schedule = Schedule::default();
@@ -80,7 +80,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -109,7 +109,7 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount + 1), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount + 1), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });

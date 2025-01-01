@@ -6,7 +6,7 @@ use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
 };
-use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferSize, BufferUsages};
 
 use super::IntoBinding;
 
@@ -39,6 +39,7 @@ pub struct StorageBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    last_written_size: Option<BufferSize>,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -50,6 +51,7 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
         }
     }
 }
@@ -63,6 +65,7 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
         }
     }
 }
@@ -75,9 +78,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
     #[inline]
     pub fn binding(&self) -> Option<BindingResource> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: self.last_written_size,
+        }))
     }
 
     pub fn set(&mut self, value: T) {
@@ -137,16 +142,15 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+
+        self.last_written_size = BufferSize::new(size);
     }
 }
 
 impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
-        self.buffer()
-            .expect("Failed to get buffer")
-            .as_entire_buffer_binding()
-            .into_binding()
+        self.binding().expect("Failed to get buffer")
     }
 }
 
@@ -159,7 +163,7 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
-/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serializing the inner type to conform to
 /// these requirements. Each item [`push`](DynamicStorageBuffer::push)ed into this structure
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
@@ -180,6 +184,7 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     label: Option<String>,
     changed: bool,
     buffer_usage: BufferUsages,
+    last_written_size: Option<BufferSize>,
     _marker: PhantomData<fn() -> T>,
 }
 
@@ -191,6 +196,7 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             label: None,
             changed: false,
             buffer_usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            last_written_size: None,
             _marker: PhantomData,
         }
     }
@@ -207,7 +213,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
-            size: Some(T::min_size()),
+            size: self.last_written_size,
         }))
     }
 
@@ -260,6 +266,8 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
+
+        self.last_written_size = BufferSize::new(size);
     }
 
     #[inline]
@@ -272,6 +280,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
 impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicStorageBuffer<T> {
     #[inline]
     fn into_binding(self) -> BindingResource<'a> {
-        self.binding().unwrap()
+        self.binding().expect("Failed to get buffer")
     }
 }

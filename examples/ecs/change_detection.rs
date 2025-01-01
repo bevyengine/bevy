@@ -35,8 +35,8 @@ fn setup(mut commands: Commands) {
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
-            let new_component = MyComponent(time.elapsed_seconds().round());
-            info!("New value: {new_component:?} {entity:?}");
+            let new_component = MyComponent(time.elapsed_secs().round());
+            info!("New value: {new_component:?} {entity}");
             // Change detection occurs on mutable dereference, and does not consider whether or not
             // a value is actually equal. To avoid triggering change detection when nothing has
             // actually changed, you can use the `set_if_neq` method on any component or resource
@@ -52,8 +52,8 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
 fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
-            let new_component = MyComponent(time.elapsed_seconds().round());
-            info!("New value: {new_component:?} {entity:?}");
+            let new_component = MyComponent(time.elapsed_secs().round());
+            info!("New value: {new_component:?} {entity}");
             component.set_if_neq(new_component);
         }
     }
@@ -62,7 +62,7 @@ fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponen
 /// Change detection concepts for components apply similarly to resources.
 fn change_resource(time: Res<Time>, mut my_resource: ResMut<MyResource>) {
     if rand::thread_rng().gen_bool(0.1) {
-        let new_resource = MyResource(time.elapsed_seconds().round());
+        let new_resource = MyResource(time.elapsed_secs().round());
         info!("New value: {new_resource:?}");
         my_resource.set_if_neq(new_resource);
     }

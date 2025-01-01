@@ -9,7 +9,7 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{require, Bundle, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
@@ -30,6 +30,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -72,6 +73,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
+
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -268,8 +271,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 16),
-                div_ceil(camera_size.y, 16),
+                camera_size.x.div_ceil(16),
+                camera_size.y.div_ceil(16),
                 1,
             );
         }
@@ -289,11 +292,7 @@ impl ViewNode for SsaoNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            ssao_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
-                1,
-            );
+            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
         }
 
         {
@@ -312,8 +311,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
+                camera_size.x.div_ceil(8),
+                camera_size.y.div_ceil(8),
                 1,
             );
         }
@@ -449,6 +448,7 @@ impl FromWorld for SsaoPipelines {
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         let spatial_denoise_pipeline =
@@ -462,6 +462,7 @@ impl FromWorld for SsaoPipelines {
                 shader: SPATIAL_DENOISE_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         Self {
@@ -514,6 +515,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
             shader: SSAO_SHADER_HANDLE,
             shader_defs,
             entry_point: "ssao".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -522,7 +524,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -535,11 +537,13 @@ fn extract_ssao_settings(
             );
             return;
         }
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            commands
-                .get_entity(entity.id())
-                .expect("SSAO entity wasn't synced.")
-                .insert(ssao_settings.clone());
+            entity_commands.insert(ssao_settings.clone());
+        } else {
+            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }
@@ -804,9 +808,4 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     }
 
     index
-}
-
-/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
-fn div_ceil(numerator: u32, denominator: u32) -> u32 {
-    (numerator + denominator - 1) / denominator
 }

@@ -7,7 +7,7 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
-use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
+use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
 
 fn main() {
     App::new()
@@ -121,7 +121,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // padding label text style
-    let text_style: TextStyle = TextStyle {
+    let text_style: TextFont = TextFont {
         font: font.clone(),
         font_size: 42.0,
         ..default()
@@ -184,7 +184,7 @@ fn setup(
     ];
 
     // label text style
-    let sampling_label_style = TextStyle {
+    let sampling_label_style = TextFont {
         font,
         font_size: 25.0,
         ..default()
@@ -228,7 +228,7 @@ fn create_texture_atlas(
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
             warn!(
-                "{:?} did not resolve to an `Image` asset.",
+                "{} did not resolve to an `Image` asset.",
                 handle.path().unwrap()
             );
             continue;
@@ -275,7 +275,7 @@ fn create_label(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     text: &str,
-    text_style: TextStyle,
+    text_style: TextFont,
 ) {
     commands.spawn((
         Text2d::new(text),

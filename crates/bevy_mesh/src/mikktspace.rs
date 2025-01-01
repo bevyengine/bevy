@@ -1,7 +1,7 @@
 use super::{Indices, Mesh, VertexAttributeValues};
 use bevy_math::Vec3;
-use derive_more::derive::{Display, Error};
-use wgpu::{PrimitiveTopology, VertexFormat};
+use thiserror::Error;
+use wgpu_types::{PrimitiveTopology, VertexFormat};
 
 struct MikktspaceGeometryHelper<'a> {
     indices: Option<&'a Indices>,
@@ -53,21 +53,18 @@ impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     }
 }
 
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 /// Failed to generate tangents for the mesh.
 pub enum GenerateTangentsError {
-    #[display("cannot generate tangents for {_0:?}")]
-    #[error(ignore)]
+    #[error("cannot generate tangents for {0:?}")]
     UnsupportedTopology(PrimitiveTopology),
-    #[display("missing indices")]
+    #[error("missing indices")]
     MissingIndices,
-    #[display("missing vertex attributes '{_0}'")]
-    #[error(ignore)]
+    #[error("missing vertex attributes '{0}'")]
     MissingVertexAttribute(&'static str),
-    #[display("the '{_0}' vertex attribute should have {_1:?} format")]
-    #[error(ignore)]
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
     InvalidVertexAttributeFormat(&'static str, VertexFormat),
-    #[display("mesh not suitable for tangent generation")]
+    #[error("mesh not suitable for tangent generation")]
     MikktspaceError,
 }
 

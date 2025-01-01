@@ -1,7 +1,11 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -51,7 +55,7 @@
 //! `dyn Reflect` trait objects can be used similarly to `dyn PartialReflect`,
 //! but `Reflect` is also often used in trait bounds (like `T: Reflect`).
 //!
-//! The distinction between `PartialReflect` and `Reflect` is summarised in the following:
+//! The distinction between `PartialReflect` and `Reflect` is summarized in the following:
 //! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
@@ -374,7 +378,7 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [trait reflection example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/trait_reflection.rs)
+//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
 //! # Serialization
@@ -553,6 +557,8 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 mod array;
@@ -576,6 +582,7 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod foldhash;
     mod std;
 
     #[cfg(feature = "glam")]
@@ -650,6 +657,18 @@ pub mod __macro_exports {
         DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
+
+    /// Re-exports of items from the [`alloc`] crate.
+    ///
+    /// This is required because in `std` environments (e.g., the `std` feature is enabled)
+    /// the `alloc` crate may not have been included, making its namespace unreliable.
+    pub mod alloc_utils {
+        pub use ::alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            string::ToString,
+        };
+    }
 
     /// A wrapper trait around [`GetTypeRegistration`].
     ///
@@ -1144,11 +1163,11 @@ mod tests {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct Baz(String);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 0 });
 
         let mut foo = Foo {
@@ -1213,12 +1232,12 @@ mod tests {
 
         foo.apply(&foo_patch);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 7 });
 
         let expected_foo = Foo {
@@ -1237,7 +1256,7 @@ mod tests {
         let new_foo = Foo::from_reflect(&foo_patch)
             .expect("error while creating a concrete type from a dynamic type");
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -1394,7 +1413,7 @@ mod tests {
             x: u32,
         }
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
         let foo = Foo {
@@ -1483,7 +1502,8 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let mut map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let mut map_value: Box<dyn Map> =
+            Box::new([(123_i32, 321_i32)].into_iter().collect::<HashMap<_, _>>());
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1847,7 +1867,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.key_ty().path());
         assert_eq!(f32::type_path(), info.value_ty().path());
 
-        let value: &dyn Reflect = &MyMap::new();
+        let value: &dyn Reflect = &MyMap::default();
         let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
@@ -1862,6 +1882,41 @@ mod tests {
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.reflect_type_info();
         assert!(info.is::<MyValue>());
+    }
+
+    #[test]
+    fn get_represented_kind_info() {
+        #[derive(Reflect)]
+        struct SomeStruct;
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(f32);
+
+        #[derive(Reflect)]
+        enum SomeEnum {
+            Foo,
+            Bar,
+        }
+
+        let dyn_struct: &dyn Struct = &SomeStruct;
+        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
+
+        let dyn_map: &dyn Map = &HashMap::<(), ()>::default();
+        let _: &MapInfo = dyn_map.get_represented_map_info().unwrap();
+
+        let dyn_array: &dyn Array = &[1, 2, 3];
+        let _: &ArrayInfo = dyn_array.get_represented_array_info().unwrap();
+
+        let dyn_list: &dyn List = &vec![1, 2, 3];
+        let _: &ListInfo = dyn_list.get_represented_list_info().unwrap();
+
+        let dyn_tuple_struct: &dyn TupleStruct = &SomeTupleStruct(5.0);
+        let _: &TupleStructInfo = dyn_tuple_struct
+            .get_represented_tuple_struct_info()
+            .unwrap();
+
+        let dyn_enum: &dyn Enum = &SomeEnum::Foo;
+        let _: &EnumInfo = dyn_enum.get_represented_enum_info().unwrap();
     }
 
     #[test]
@@ -2111,7 +2166,7 @@ mod tests {
             }
         }
 
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(123, 1.23);
 
         let test = Test {
@@ -2425,7 +2480,7 @@ bevy_reflect::tests::Test {
             // test reflected value
             value: u32,
         }
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(9, 10);
         let mut test_struct: DynamicStruct = TestStruct {
             tuple: (0, 1),

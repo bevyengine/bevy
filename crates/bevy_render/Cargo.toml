@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 # Texture formats (require more than just image support)
-basis-universal = ["dep:basis-universal", "bevy_image/basis-universal"]
+basis-universal = ["bevy_image/basis-universal"]
 dds = ["bevy_image/dds"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]
@@ -22,7 +22,7 @@ shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # Enable SPIR-V shader passthrough
-spirv_shader_passthrough = []
+spirv_shader_passthrough = ["wgpu/spirv"]
 
 trace = ["profiling"]
 tracing-tracy = []
@@ -30,6 +30,7 @@ ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
 ios_simulator = []
+detailed_trace = []
 
 [dependencies]
 # bevy
@@ -39,7 +40,6 @@ bevy_color = { path = "../bevy_color", version = "0.15.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
@@ -67,26 +67,21 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "22", default-features = false, features = [
+wgpu = { version = "23.0.1", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "22", features = ["wgsl-in"] }
+naga = { version = "23", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
 ktx2 = { version = "0.3.0", optional = true }
-# For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.3.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
@@ -96,15 +91,16 @@ async-channel = "2.3.0"
 nonmax = "0.5"
 smallvec = { version = "1.11", features = ["const_new"] }
 offset-allocator = "0.2"
+variadics_please = "1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.15", default-features = false, features = [
+naga_oil = { version = "0.16", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.15"
+naga_oil = "0.16"
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',

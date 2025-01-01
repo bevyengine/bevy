@@ -4,7 +4,7 @@ use bevy_math::{
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::{Indices, Mesh, VertexAttributeValues};
+use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -12,11 +12,11 @@ pub enum PerimeterSegment {
     ///
     /// This has the effect of rendering the segment's faces with softened edges, so it is appropriate for curved shapes.
     ///
-    /// The normals for the vertices that are part of this segment will be calculated based on the positions of their neighbours.
-    /// Each normal is interpolated between the normals of the two line segments connecting it with its neighbours.
+    /// The normals for the vertices that are part of this segment will be calculated based on the positions of their neighbors.
+    /// Each normal is interpolated between the normals of the two line segments connecting it with its neighbors.
     /// Closer vertices have a stronger effect on the normal than more distant ones.
     ///
-    /// Since the vertices corresponding to the first and last indices do not have two neighbouring vertices, their normals must be provided manually.
+    /// Since the vertices corresponding to the first and last indices do not have two neighboring vertices, their normals must be provided manually.
     Smooth {
         /// The normal of the first vertex.
         first_normal: Vec2,
@@ -72,7 +72,7 @@ impl PerimeterSegment {
 /// ## Warning
 ///
 /// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by
-/// this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
+/// this builder is [`PrimitiveTopology::TriangleList`]
 /// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute.
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
@@ -198,7 +198,7 @@ where
             // By swapping the first and second indices of each triangle we invert the winding order thus making the mesh visible from the other side
             if let Some(indices) = back_face.indices_mut() {
                 match topology {
-                    wgpu::PrimitiveTopology::TriangleList => match indices {
+                    PrimitiveTopology::TriangleList => match indices {
                         Indices::U16(indices) => {
                             indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
                         }
@@ -348,8 +348,8 @@ where
                                 uvs.push([uv_x, uv_y]);
                             }
 
-                            // The normal for the current vertices can be calculated based on the two neighbouring vertices.
-                            // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbours.
+                            // The normal for the current vertices can be calculated based on the two neighboring vertices.
+                            // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbors.
                             // Closer vertices have a stronger effect on the normal than more distant ones.
                             let n = {
                                 let ab = Vec2::from_slice(&b) - Vec2::from_slice(&a);
@@ -401,14 +401,11 @@ where
                 }
             }
 
-            Mesh::new(
-                wgpu::PrimitiveTopology::TriangleList,
-                front_face.asset_usage,
-            )
-            .with_inserted_indices(Indices::U32(indices))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
+                .with_inserted_indices(Indices::U32(indices))
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         };
 
         front_face.merge(&back_face);

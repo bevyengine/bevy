@@ -1,28 +1,29 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, Measure, MeasureArgs, Node,
-    NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
+    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure, TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::{Entity, EntityHashMap},
-    prelude::Component,
+    prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
+use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image, view::Visibility};
+use bevy_render::camera::Camera;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
-    TextRoot, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
@@ -47,6 +48,18 @@ impl Default for TextNodeFlags {
     }
 }
 
+/// [`TextBundle`] was removed in favor of required components.
+/// The core component is now [`Text`] which can contain a single text segment.
+/// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
+/// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).
+/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
+/// while node-related configuration uses [`TextNodeFlags`] component.
+#[deprecated(
+    since = "0.15.0",
+    note = "TextBundle has been migrated to required components. Follow the documentation for more information."
+)]
+pub struct TextBundle {}
+
 /// The top-level UI text component.
 ///
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
@@ -54,54 +67,43 @@ impl Default for TextNodeFlags {
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
-/// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
+/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::BLUE;
-# use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, TextLayout, TextStyle};
-# use bevy_ui::Text;
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-// Basic usage.
-world.spawn(Text::new("hello world!"));
-
-// With non-default style.
-world.spawn((
-    Text::new("hello world!"),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-));
-
-// With text justification.
-world.spawn((
-    Text::new("hello world\nand bevy!"),
-    TextLayout::new_with_justify(JustifyText::Center)
-));
-```
-*/
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_ui::prelude::Text;
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(JustifyText::Center)
+/// ));
+/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    TextLayout,
-    TextStyle,
-    TextNodeFlags,
-    Node,
-    Style, // TODO: Remove when Node uses required components.
-    ContentSize, // TODO: Remove when Node uses required components.
-    FocusPolicy, // TODO: Remove when Node uses required components.
-    ZIndex, // TODO: Remove when Node uses required components.
-    Visibility, // TODO: Remove when Node uses required components.
-    Transform // TODO: Remove when Node uses required components.
-)]
+#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {
@@ -135,10 +137,10 @@ impl From<String> for Text {
 }
 
 /// UI alias for [`TextReader`].
-pub type UiTextReader<'w, 's> = TextReader<'w, 's, Text>;
+pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// UI alias for [`TextWriter`].
-pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, Text>;
+pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -204,7 +206,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -271,7 +273,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -330,11 +332,11 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     block: &TextLayout,
-    node: Ref<Node>,
+    node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut UiTextReader,
+    text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -348,10 +350,7 @@ fn queue_text(
         TextBounds::UNBOUNDED
     } else {
         // `scale_factor` is already multiplied by `UiScale`
-        TextBounds::new(
-            node.unrounded_size.x * scale_factor,
-            node.unrounded_size.y * scale_factor,
-        )
+        TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
     };
 
     let text_layout_info = text_layout_info.into_inner();
@@ -396,56 +395,24 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<Node>,
+        Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        Option<&TargetCamera>,
     )>,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    scale_factors_buffer.clear();
-
-    for (entity, node, block, text_layout_info, text_flags, mut computed, maybe_camera) in
-        &mut text_query
-    {
-        let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
-        let inverse_scale_factor = scale_factor.recip();
-
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || node.is_changed()
-            || text_flags.needs_recompute
-        {
+    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+        if node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
                 &fonts,
@@ -453,8 +420,8 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                scale_factor,
-                inverse_scale_factor,
+                node.inverse_scale_factor.recip(),
+                node.inverse_scale_factor,
                 block,
                 node,
                 text_flags,
@@ -466,5 +433,4 @@ pub fn text_system(
             );
         }
     }
-    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }

@@ -4,6 +4,7 @@
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
 //! Same as [`super::component`], but for bundles.
+use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use crate::{
@@ -28,14 +29,16 @@ pub struct ReflectBundle(ReflectBundleFns);
 /// The also [`super::component::ReflectComponentFns`].
 #[derive(Clone)]
 pub struct ReflectBundleFns {
-    /// Function pointer implementing [`ReflectBundle::insert()`].
+    /// Function pointer implementing [`ReflectBundle::insert`].
     pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectBundle::apply()`].
+    /// Function pointer implementing [`ReflectBundle::apply`].
     pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
+    /// Function pointer implementing [`ReflectBundle::apply_or_insert`].
     pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectBundle::remove()`].
+    /// Function pointer implementing [`ReflectBundle::remove`].
     pub remove: fn(&mut EntityWorldMut),
+    /// Function pointer implementing [`ReflectBundle::take`].
+    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectBundleFns {
@@ -85,8 +88,17 @@ impl ReflectBundle {
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityWorldMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut) -> &ReflectBundle {
         (self.0.remove)(entity);
+        self
+    }
+
+    /// Removes all components in the [`Bundle`] from the entity and returns their previous values.
+    ///
+    /// **Note:** If the entity does not have every component in the bundle, this method will not remove any of them.
+    #[must_use]
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
+        (self.0.take)(entity)
     }
 
     /// Create a custom implementation of [`ReflectBundle`].
@@ -168,7 +180,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
                             .iter_fields()
                             .for_each(|field| apply_or_insert_field(entity, field, registry)),
                         _ => panic!(
-                            "expected bundle `{}` to be named struct or tuple",
+                            "expected bundle `{}` to be a named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
                             core::any::type_name::<B>(),
                         ),
@@ -177,6 +189,11 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
             },
             remove: |entity| {
                 entity.remove::<B>();
+            },
+            take: |entity| {
+                entity
+                    .take::<B>()
+                    .map(|bundle| Box::new(bundle).into_reflect())
             },
         })
     }

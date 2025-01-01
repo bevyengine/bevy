@@ -51,6 +51,7 @@ use bevy_ecs::{
     bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
     system::lifetimeless::Read,
 };
+use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -62,8 +63,8 @@ use bevy_render::{
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage, Image},
+    renderer::{RenderAdapter, RenderDevice},
+    texture::{FallbackImage, GpuImage},
 };
 
 use core::{num::NonZero, ops::Deref};
@@ -105,6 +106,16 @@ pub struct EnvironmentMapLight {
     /// This is useful for users who require a different axis, such as the Z-axis, to serve
     /// as the vertical axis.
     pub rotation: Quat,
+
+    /// Whether the light from this environment map contributes diffuse lighting
+    /// to meshes with lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the diffuse light
+    /// from this environment light into the lightmaps in order to avoid
+    /// counting the radiance from this environment map twice.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl Default for EnvironmentMapLight {
@@ -114,6 +125,7 @@ impl Default for EnvironmentMapLight {
             specular_map: Handle::default(),
             intensity: 0.0,
             rotation: Quat::IDENTITY,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }
@@ -198,6 +210,9 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// The scale factor applied to the diffuse and specular light in the
     /// cubemap. This is in units of cd/m² (candela per square meter).
     pub(crate) intensity: f32,
+    /// Whether this lightmap affects the diffuse lighting of lightmapped
+    /// meshes.
+    pub(crate) affects_lightmapped_mesh_diffuse: bool,
 }
 
 impl ExtractInstance for EnvironmentMapIds {
@@ -217,10 +232,11 @@ impl ExtractInstance for EnvironmentMapIds {
 /// specular binding arrays respectively, in addition to the sampler.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 4] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_cube_binding =
             texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
@@ -241,8 +257,9 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
@@ -325,6 +342,10 @@ impl LightProbeComponent for EnvironmentMapLight {
         self.intensity
     }
 
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
+        self.affects_lightmapped_mesh_diffuse
+    }
+
     fn create_render_view_light_probes(
         view_component: Option<&EnvironmentMapLight>,
         image_assets: &RenderAssets<GpuImage>,
@@ -337,6 +358,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,
+            affects_lightmapped_mesh_diffuse,
             ..
         }) = view_component
         {
@@ -353,6 +375,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                     ) as i32,
                     smallest_specular_mip_level: specular_map.mip_level_count - 1,
                     intensity: *intensity,
+                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
                 };
             }
         };
@@ -367,6 +390,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             cubemap_index: -1,
             smallest_specular_mip_level: 0,
             intensity: 1.0,
+            affects_lightmapped_mesh_diffuse: true,
         }
     }
 }

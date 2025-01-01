@@ -138,7 +138,7 @@ pub struct WindowDestroyed {
 /// Not to be confused with the `MouseMotion` event from `bevy_input`.
 ///
 /// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
-/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see `MouseMotion` instead.
+/// you should not use it for non-cursor-like behavior such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
@@ -250,7 +250,7 @@ pub struct WindowFocused {
 /// The window has been occluded (completely hidden from view).
 ///
 /// This is different to window visibility as it depends on
-/// whether the window is closed, minimised, set invisible,
+/// whether the window is closed, minimized, set invisible,
 /// or fully occluded by another window.
 ///
 /// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
@@ -412,8 +412,7 @@ impl AppLifecycle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-// FIXME(15321): solve CI failures, then replace with `#[expect()]`.
-#[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 pub enum WindowEvent {
     AppLifecycle(AppLifecycle),
     CursorEntered(CursorEntered),

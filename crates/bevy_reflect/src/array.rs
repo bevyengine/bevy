@@ -4,6 +4,7 @@ use crate::{
     Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Type, TypeInfo, TypePath,
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
 use core::{
     any::Any,
@@ -73,6 +74,11 @@ pub trait Array: PartialReflect {
             represented_type: self.get_represented_type_info(),
             values: self.iter().map(PartialReflect::clone_value).collect(),
         }
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+        self.get_represented_type_info()?.as_array().ok()
     }
 }
 

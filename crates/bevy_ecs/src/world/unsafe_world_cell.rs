@@ -7,8 +7,8 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityLocation},
+    component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
+    entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -20,7 +20,16 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use thiserror::Error;
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::Ordering;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::Ordering;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -303,7 +312,7 @@ impl<'w> UnsafeWorldCell<'w> {
         let change_tick = unsafe { &self.world_metadata().change_tick };
         // NOTE: We can used a relaxed memory ordering here, since nothing
         // other than the atomic value itself is relying on atomic synchronization
-        Tick::new(change_tick.fetch_add(1, core::sync::atomic::Ordering::Relaxed))
+        Tick::new(change_tick.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].
@@ -843,17 +852,36 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: same safety requirements
-        unsafe { self.get_mut_using_ticks(self.world.last_change_tick(), self.world.change_tick()) }
+    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
+        // - same safety requirements
+        unsafe { self.get_mut_assume_mutable() }
     }
 
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
+    /// - the component `T` is mutable
     #[inline]
-    pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
+    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: same safety requirements
+        unsafe {
+            self.get_mut_using_ticks_assume_mutable(
+                self.world.last_change_tick(),
+                self.world.change_tick(),
+            )
+        }
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - The component `T` is mutable
+    #[inline]
+    pub(crate) unsafe fn get_mut_using_ticks_assume_mutable<T: Component>(
         &self,
         last_change_tick: Tick,
         change_tick: Tick,
@@ -930,9 +958,7 @@ impl<'w> UnsafeEntityCell<'w> {
             None
         }
     }
-}
 
-impl<'w> UnsafeEntityCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -972,8 +998,21 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
-        let info = self.world.components().get_info(component_id)?;
+    pub unsafe fn get_mut_by_id(
+        self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
+        let info = self
+            .world
+            .components()
+            .get_info(component_id)
+            .ok_or(GetEntityMutByIdError::InfoNotFound)?;
+
+        // If a component is immutable then a mutable reference to it doesn't exist
+        if !info.mutable() {
+            return Err(GetEntityMutByIdError::ComponentIsImmutable);
+        }
+
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_component_and_ticks(
@@ -994,8 +1033,33 @@ impl<'w> UnsafeEntityCell<'w> {
                 #[cfg(feature = "track_change_detection")]
                 changed_by: _caller.deref_mut(),
             })
+            .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn spawned_by(self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
+    }
+}
+
+/// Error that may be returned when calling [`UnsafeEntityCell::get_mut_by_id`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum GetEntityMutByIdError {
+    /// The [`ComponentInfo`](crate::component::ComponentInfo) could not be found.
+    #[error("the `ComponentInfo` could not be found")]
+    InfoNotFound,
+    /// The [`Component`] is immutable. Creating a mutable reference violates its
+    /// invariants.
+    #[error("the `Component` is immutable")]
+    ComponentIsImmutable,
+    /// This [`Entity`] does not have the desired [`Component`].
+    #[error("the `Component` could not be found")]
+    ComponentNotFound,
 }
 
 impl<'w> UnsafeWorldCell<'w> {
@@ -1117,5 +1181,11 @@ unsafe fn get_ticks(
             table.get_ticks_unchecked(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+    }
+}
+
+impl EntityBorrow for UnsafeEntityCell<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
     }
 }

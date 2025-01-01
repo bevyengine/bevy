@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -108,6 +109,11 @@ pub trait List: PartialReflect {
             represented_type: self.get_represented_type_info(),
             values: self.iter().map(PartialReflect::clone_value).collect(),
         }
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
+        self.get_represented_type_info()?.as_list().ok()
     }
 }
 

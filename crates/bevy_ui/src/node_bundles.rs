@@ -1,9 +1,10 @@
 //! This module contains basic node bundles used to build UIs
+#![expect(deprecated)]
 
 use crate::{
-    widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
-    ScrollPosition, Style, UiImage, UiMaterial, UiMaterialHandle, ZIndex,
+    widget::{Button, ImageNodeSize},
+    BackgroundColor, BorderColor, BorderRadius, ComputedNode, ContentSize, FocusPolicy, ImageNode,
+    Interaction, MaterialNode, Node, ScrollPosition, UiMaterial, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
@@ -15,12 +16,16 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`ImageBundle`].
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required automatically."
+)]
 pub struct NodeBundle {
-    /// Describes the logical size of the node
+    /// Controls the layout (size and position) of the node and its children
+    /// This also affect how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
+    /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
     /// The color of the Node's border
@@ -34,12 +39,12 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -52,25 +57,23 @@ pub struct NodeBundle {
 }
 
 /// A UI node that is an image
-///
-/// # Extra behaviours
-///
-/// You may add one or both of the following components to enable additional behaviours:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `ImageNode` component instead. Inserting `ImageNode` will also insert the other components required automatically."
+)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
+    /// Controls the layout (size and position) of the node and its children
+    /// This also affects how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// The image of the node.
     ///
     /// To tint the image, change the `color` field of this component.
-    pub image: UiImage,
+    pub image: ImageNode,
     /// The color of the background that will fill the containing node.
     pub background_color: BackgroundColor,
     /// The border radius of the node
@@ -78,13 +81,13 @@ pub struct ImageBundle {
     /// The size of the image in pixels
     ///
     /// This component is set automatically
-    pub image_size: UiImageSize,
+    pub image_size: ImageNodeSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ImageBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -101,21 +104,19 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a button
-///
-/// # Extra behaviours
-///
-/// You may add one or both of the following components to enable additional behaviours:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Button` component instead. Inserting `Button` will also insert the other components required automatically."
+)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
-    pub node: Node,
+    pub computed_node: ComputedNode,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
+    /// Controls the layout (size and position) of the node and its children
+    /// Also affect how the node is drawn/painted.
+    pub node: Node,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
@@ -125,13 +126,13 @@ pub struct ButtonBundle {
     /// The border radius of the node
     pub border_radius: BorderRadius,
     /// The image of the node
-    pub image: UiImage,
+    pub image: ImageNode,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ButtonBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -151,8 +152,8 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
             node: Default::default(),
+            computed_node: Default::default(),
             button: Default::default(),
-            style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
             border_color: Default::default(),
@@ -174,25 +175,29 @@ impl Default for ButtonBundle {
 /// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
 /// material and use the background color instead.
 #[derive(Bundle, Clone, Debug)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `MaterialNode` component instead. Inserting `MaterialNode` will also insert the other components required automatically."
+)]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
+    /// Controls the layout (size and position) of the node and its children
+    /// Also affects how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
     /// The [`UiMaterial`] used to render the node.
-    pub material: UiMaterialHandle<M>,
+    pub material: MaterialNode<M>,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -208,7 +213,7 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
     fn default() -> Self {
         Self {
             node: Default::default(),
-            style: Default::default(),
+            computed_node: Default::default(),
             material: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),

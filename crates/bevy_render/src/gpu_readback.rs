@@ -1,12 +1,11 @@
 use crate::{
     extract_component::ExtractComponentPlugin,
-    prelude::Image,
     render_asset::RenderAssets,
     render_resource::{Buffer, BufferUsages, Extent3d, ImageDataLayout, Texture, TextureFormat},
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
-    texture::{GpuImage, TextureFormatPixelInfo},
+    texture::GpuImage,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};
@@ -21,13 +20,14 @@ use bevy_ecs::{
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::{default, tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
-use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
+use wgpu::CommandEncoder;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
 pub struct GpuReadbackPlugin {
@@ -239,17 +239,16 @@ fn prepare_buffers(
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image) {
-                    let size = Extent3d {
-                        width: gpu_image.size.x,
-                        height: gpu_image.size.y,
-                        ..default()
-                    };
-                    let layout = layout_data(size.width, size.height, gpu_image.texture_format);
+                    let layout = layout_data(
+                        gpu_image.size.width,
+                        gpu_image.size.height,
+                        gpu_image.texture_format,
+                    );
                     let buffer = buffer_pool.get(
                         &render_device,
                         get_aligned_size(
-                            size.width,
-                            size.height,
+                            gpu_image.size.width,
+                            gpu_image.size.height,
                             gpu_image.texture_format.pixel_size() as u32,
                         ) as u64,
                     );
@@ -259,7 +258,7 @@ fn prepare_buffers(
                         src: ReadbackSource::Texture {
                             texture: gpu_image.texture.clone(),
                             layout,
-                            size,
+                            size: gpu_image.size,
                         },
                         buffer,
                         rx,
@@ -340,7 +339,7 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
             drop(data);
             buffer.unmap();
             if let Err(e) = tx.try_send((entity, buffer, result)) {
-                warn!("Failed to send readback result: {:?}", e);
+                warn!("Failed to send readback result: {}", e);
             }
         });
         readbacks.mapped.push(readback);
@@ -349,14 +348,17 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
 
 // Utils
 
-pub(crate) fn align_byte_size(value: u32) -> u32 {
-    value + (COPY_BYTES_PER_ROW_ALIGNMENT - (value % COPY_BYTES_PER_ROW_ALIGNMENT))
+/// Round up a given value to be a multiple of [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+pub(crate) const fn align_byte_size(value: u32) -> u32 {
+    RenderDevice::align_copy_bytes_per_row(value as usize) as u32
 }
 
-pub(crate) fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
+/// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+pub(crate) const fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
     height * align_byte_size(width * pixel_size)
 }
 
+/// Get a [`ImageDataLayout`] aligned such that the image can be copied into a buffer.
 pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
     ImageDataLayout {
         bytes_per_row: if height > 1 {

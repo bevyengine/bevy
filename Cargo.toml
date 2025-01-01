@@ -10,23 +10,23 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.81.0"
+rust-version = "1.83.0"
 
 [workspace]
-exclude = [
-  "benches",
-  "crates/bevy_derive/compile_fail",
-  "crates/bevy_ecs/compile_fail",
-  "crates/bevy_reflect/compile_fail",
-  "tools/compile_fail_utils",
-]
+resolver = "2"
 members = [
+  # All of Bevy's official crates are within the `crates` folder!
   "crates/*",
+  # Several crates with macros have "compile fail" tests nested inside them, also known as UI
+  # tests, that verify diagnostic output does not accidentally change.
+  "crates/*/compile_fail",
+  # Examples of compiling Bevy for mobile platforms.
   "examples/mobile",
-  "tools/ci",
-  "tools/build-templated-pages",
-  "tools/build-wasm-example",
-  "tools/example-showcase",
+  # Benchmarks
+  "benches",
+  # Internal tools that are not published.
+  "tools/*",
+  # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
   "errors",
 ]
 
@@ -40,6 +40,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -80,6 +81,7 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
+needless_lifetimes = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -101,7 +103,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "android-game-activity",
-  "android-game-activity",
   "android_shared_stdcxx",
   "animation",
   "bevy_asset",
@@ -111,9 +112,9 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_remote",
   "bevy_render",
   "bevy_scene",
   "bevy_sprite",
@@ -122,6 +123,7 @@ default = [
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
+  "bevy_window",
   "bevy_winit",
   "custom_cursor",
   "default_font",
@@ -136,11 +138,26 @@ default = [
   "x11",
 ]
 
-# Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking meshes
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_mesh_picking_backend",
+]
 
-# Provides an implementation for picking ui
-bevy_ui_picking_backend = ["bevy_picking"]
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_sprite_picking_backend",
+]
+
+# Provides an implementation for picking UI
+bevy_ui_picking_backend = [
+  "bevy_picking",
+  "bevy_internal/bevy_ui_picking_backend",
+]
+
+# Provides a debug overlay for bevy UI
+bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -212,8 +229,14 @@ bevy_ui = [
   "bevy_ui_picking_backend",
 ]
 
+# Windowing layer
+bevy_window = ["bevy_internal/bevy_window"]
+
 # winit window and input backend
-bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_winit = ["bevy_internal/bevy_winit", "bevy_window"]
+
+# Load and access image data. Usually added by an image format
+bevy_image = ["bevy_internal/bevy_image"]
 
 # Adds support for rendering gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
@@ -242,9 +265,6 @@ trace_tracy_memory = [
 
 # Tracing support
 trace = ["bevy_internal/trace"]
-
-# AVIF image format support
-avif = ["bevy_internal/avif"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -401,6 +421,9 @@ pbr_multi_layer_material_textures = [
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
+# Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
+experimental_pbr_pcss = ["bevy_internal/experimental_pbr_pcss"]
+
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -431,7 +454,7 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
-# Enables source location tracking for change detection, which can assist with debugging
+# Enables source location tracking for change detection and spawning/despawning, which can assist with debugging
 track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
@@ -439,6 +462,9 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
+
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -461,12 +487,13 @@ futures-lite = "2.0.1"
 async-std = "1.13"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
-thiserror = "1.0"
+thiserror = "2.0"
 event-listener = "5.3.0"
 hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
+accesskit = "0.17"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -971,7 +998,7 @@ doc-scrape-examples = true
 name = "Motion Blur"
 description = "Demonstrates per-pixel motion blur"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "order_independent_transparency"
@@ -1209,9 +1236,20 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
   ],
 ]
+
+[[example]]
+name = "mesh_ray_cast"
+path = "examples/3d/mesh_ray_cast.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_ray_cast]
+name = "Mesh Ray Cast"
+description = "Demonstrates ray casting with the `MeshRayCast` system parameter"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "lightmaps"
@@ -1807,7 +1845,7 @@ wasm = false
 
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
-description = "Show how to use `apply_deferred` system"
+description = "Show how to use `ApplyDeferred` system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1923,6 +1961,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "immutable_components"
+path = "examples/ecs/immutable_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.immutable_components]
+name = "Immutable Components"
+description = "Demonstrates the creation and utility of immutable components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true
@@ -1985,6 +2034,17 @@ doc-scrape-examples = true
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
 description = "Systems are skipped if their parameters cannot be acquired"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_systems"
+path = "examples/ecs/fallible_systems.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_systems]
+name = "Fallible Systems"
+description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2686,6 +2746,28 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_components"
+path = "examples/stress_tests/many_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_components]
+name = "Many Components (and Entities and Systems)"
+description = "Test large ECS systems"
+category = "Stress Tests"
+wasm = false
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
@@ -2748,6 +2830,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_text2d"
+path = "examples/stress_tests/many_text2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_text2d]
+name = "Many Text2d"
+description = "Displays many Text2d! Used for performance testing."
 category = "Stress Tests"
 wasm = true
 
@@ -2963,6 +3056,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_clip_margin"
+path = "examples/ui/overflow_clip_margin.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_clip_margin]
+name = "Overflow Clip Margin"
+description = "Simple example demonstrating the OverflowClipMargin style property"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
 doc-scrape-examples = true
@@ -3054,6 +3159,7 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/ghost_nodes.rs"
 doc-scrape-examples = true
+required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -3102,17 +3208,6 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "ui"
-path = "examples/ui/ui.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ui]
-name = "UI"
-description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3272,6 +3367,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "window_drag_move"
+path = "examples/window/window_drag_move.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.window_drag_move]
+name = "Window Drag Move"
+description = "Demonstrates drag move and drag resize without window decoration"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
 doc-scrape-examples = true
@@ -3288,11 +3394,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "minimising"
-path = "tests/window/minimising.rs"
+name = "minimizing"
+path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.minimising]
+[package.metadata.example.minimizing]
 hidden = true
 
 [[example]]
@@ -3598,6 +3704,7 @@ wasm = true
 name = "client"
 path = "examples/remote/client.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
 name = "client"
@@ -3609,6 +3716,7 @@ wasm = false
 name = "server"
 path = "examples/remote/server.rs"
 doc-scrape-examples = true
+required-features = ["bevy_remote"]
 
 [package.metadata.example.server]
 name = "server"
@@ -3696,6 +3804,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "mesh_picking"
+path = "examples/picking/mesh_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
+
+[package.metadata.example.mesh_picking]
+name = "Mesh Picking"
+description = "Demonstrates picking meshes"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
@@ -3735,12 +3855,25 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
+required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
 description = "Demonstrates percentage-closer soft shadows (PCSS)"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "mixed_lighting"
+path = "examples/3d/mixed_lighting.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.mixed_lighting]
+name = "Mixed lighting"
+description = "Demonstrates how to combine baked and dynamic lighting"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "animated_ui"
@@ -3751,6 +3884,17 @@ doc-scrape-examples = true
 name = "Animated UI"
 description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
+wasm = true
+
+[[example]]
+name = "shader_material_bindless"
+path = "examples/shader/shader_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_bindless]
+name = "Material - Bindless"
+description = "Demonstrates how to make materials that use bindless textures"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]
@@ -3784,3 +3928,47 @@ name = "Monitor info"
 description = "Displays information about available monitors (displays)."
 category = "Window"
 wasm = false
+
+# Testbed
+[[example]]
+name = "testbed_2d"
+path = "examples/testbed/2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_2d]
+hidden = true
+
+[[example]]
+name = "testbed_3d"
+path = "examples/testbed/3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_3d]
+hidden = true
+
+[[example]]
+name = "testbed_ui"
+path = "examples/testbed/ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui]
+hidden = true
+
+[[example]]
+name = "testbed_ui_layout_rounding"
+path = "examples/testbed/ui_layout_rounding.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui_layout_rounding]
+hidden = true
+
+[[example]]
+name = "tab_navigation"
+path = "examples/ui/tab_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tab_navigation]
+name = "Tab Navigation"
+description = "Demonstration of Tab Navigation"
+category = "UI (User Interface)"
+wasm = true

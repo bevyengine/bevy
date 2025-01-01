@@ -14,11 +14,10 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, TextSpan, TextStyle};
+use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{
-    node_bundles::NodeBundle,
-    widget::{Text, UiTextWriter},
-    GlobalZIndex, PositionType, Style,
+    widget::{Text, TextUiWriter},
+    GlobalZIndex, Node, PositionType,
 };
 use bevy_utils::default;
 
@@ -62,7 +61,9 @@ impl Plugin for FpsOverlayPlugin {
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
-    pub text_config: TextStyle,
+    pub text_config: TextFont,
+    /// Color of text in the overlay.
+    pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
 }
@@ -70,12 +71,12 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextStyle {
+            text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                color: Color::WHITE,
                 ..default()
             },
+            text_color: Color::WHITE,
             enabled: true,
         }
     }
@@ -87,21 +88,19 @@ struct FpsText;
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // We need to make sure the overlay doesn't affect the position of other UI nodes
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                // Render overlay on top of everything
+            Node {
+                // We need to make sure the overlay doesn't affect the position of other UI nodes
+                position_type: PositionType::Absolute,
                 ..default()
             },
+            // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
         .with_children(|p| {
             p.spawn((
                 Text::new("FPS: "),
                 overlay_config.text_config.clone(),
+                TextColor(overlay_config.text_color),
                 FpsText,
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
@@ -111,7 +110,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
 fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for entity in &query {
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -125,12 +124,13 @@ fn update_text(
 fn customize_text(
     overlay_config: Res<FpsOverlayConfig>,
     query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for entity in &query {
-        writer.for_each_style(entity, |mut style| {
-            *style = overlay_config.text_config.clone();
+        writer.for_each_font(entity, |mut font| {
+            *font = overlay_config.text_config.clone();
         });
+        writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
     }
 }
 

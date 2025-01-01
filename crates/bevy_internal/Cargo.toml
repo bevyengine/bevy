@@ -24,7 +24,7 @@ trace = [
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-detailed_trace = ["bevy_utils/detailed_trace"]
+detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
@@ -45,7 +45,6 @@ zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
 
 # Image format support (PNG enabled by default)
-avif = ["bevy_image/avif"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]
@@ -89,7 +88,6 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
   "bevy_color?/serialize",
-  "bevy_core/serialize",
   "bevy_ecs/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
@@ -98,7 +96,7 @@ serialize = [
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
-  "bevy_window/serialize",
+  "bevy_window?/serialize",
   "bevy_winit?/serialize",
 ]
 multi_threaded = [
@@ -135,6 +133,9 @@ pbr_anisotropy_texture = [
   "bevy_gltf?/pbr_anisotropy_texture",
 ]
 
+# Percentage-closer soft shadows
+experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
@@ -158,8 +159,14 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
-bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
+bevy_ui = ["dep:bevy_ui", "bevy_image"]
+bevy_image = ["dep:bevy_image"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -171,12 +178,13 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
-bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_image"]
 
 bevy_render = [
   "dep:bevy_render",
   "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
+  "bevy_image",
 ]
 
 # Enable assertions to check the validity of parameters passed to glam
@@ -214,12 +222,26 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote"]
 
-# Provides a picking functionality
-bevy_picking = [
-  "dep:bevy_picking",
-  "bevy_ui?/bevy_picking",
-  "bevy_sprite?/bevy_picking",
+# Provides picking functionality
+bevy_picking = ["dep:bevy_picking"]
+
+# Provides a mesh picking backend
+bevy_mesh_picking_backend = [
+  "bevy_picking",
+  "bevy_picking/bevy_mesh_picking_backend",
 ]
+
+# Provides a sprite picking backend
+bevy_sprite_picking_backend = [
+  "bevy_picking",
+  "bevy_sprite/bevy_sprite_picking_backend",
+]
+
+# Provides a UI picking backend
+bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
+
+# Provides a UI debug overlay
+bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
@@ -240,19 +262,24 @@ reflect_functions = [
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
 
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_ui/ghost_nodes"]
+
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
+bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.15.0-dev" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.15.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.15.0-dev", features = [
+  "bevy_reflect",
+] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
@@ -260,7 +287,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
 bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.15.0-dev", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 # bevy (optional)
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.15.0-dev" }

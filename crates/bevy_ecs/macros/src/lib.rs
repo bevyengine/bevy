@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -13,12 +12,11 @@ mod world_query;
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
+    ConstParam, DeriveInput, GenericParam, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -283,289 +281,6 @@ pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
             }
         }
     })
-}
-
-fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
-    (0..count)
-        .map(|i| Ident::new(&fmt_string(i), Span::call_site()))
-        .collect::<Vec<Ident>>()
-}
-
-#[proc_macro]
-pub fn impl_param_set(_input: TokenStream) -> TokenStream {
-    let mut tokens = TokenStream::new();
-    let max_params = 8;
-    let params = get_idents(|i| format!("P{i}"), max_params);
-    let metas = get_idents(|i| format!("m{i}"), max_params);
-    let mut param_fn_muts = Vec::new();
-    for (i, param) in params.iter().enumerate() {
-        let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
-        let index = Index::from(i);
-        let ordinal = match i {
-            1 => "1st".to_owned(),
-            2 => "2nd".to_owned(),
-            3 => "3rd".to_owned(),
-            x => format!("{x}th"),
-        };
-        let comment =
-            format!("Gets exclusive access to the {ordinal} parameter in this [`ParamSet`].");
-        param_fn_muts.push(quote! {
-            #[doc = #comment]
-            /// No other parameters may be accessed while this one is active.
-            pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
-                // SAFETY: systems run without conflicts with other systems.
-                // Conflicting params in ParamSet are not accessible at the same time
-                // ParamSets are guaranteed to not conflict with other SystemParams
-                unsafe {
-                    #param::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
-                }
-            }
-        });
-    }
-
-    for param_count in 1..=max_params {
-        let param = &params[0..param_count];
-        let meta = &metas[0..param_count];
-        let param_fn_mut = &param_fn_muts[0..param_count];
-        tokens.extend(TokenStream::from(quote! {
-            // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
-            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            where #(#param: ReadOnlySystemParam,)*
-            { }
-
-            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-            // with any prior access, a panic will occur.
-            unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
-            {
-                type State = (#(#param::State,)*);
-                type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
-
-                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
-                #[allow(non_snake_case)]
-                fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-                    #(
-                        // Pretend to add each param to the system alone, see if it conflicts
-                        let mut #meta = system_meta.clone();
-                        #meta.component_access_set.clear();
-                        #meta.archetype_component_access.clear();
-                        #param::init_state(world, &mut #meta);
-                        // The variable is being defined with non_snake_case here
-                        let #param = #param::init_state(world, &mut system_meta.clone());
-                    )*
-                    // Make the ParamSet non-send if any of its parameters are non-send.
-                    if false #(|| !#meta.is_send())* {
-                        system_meta.set_non_send();
-                    }
-                    #(
-                        system_meta
-                            .component_access_set
-                            .extend(#meta.component_access_set);
-                        system_meta
-                            .archetype_component_access
-                            .extend(&#meta.archetype_component_access);
-                    )*
-                    (#(#param,)*)
-                }
-
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
-                }
-
-                fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-                    <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
-                }
-
-                fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
-                    <(#(#param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
-                }
-
-                #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
-                    system_meta: &SystemMeta,
-                    world: UnsafeWorldCell<'w>,
-                ) -> bool {
-                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
-                }
-
-                #[inline]
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self::State,
-                    system_meta: &SystemMeta,
-                    world: UnsafeWorldCell<'w>,
-                    change_tick: Tick,
-                ) -> Self::Item<'w, 's> {
-                    ParamSet {
-                        param_states: state,
-                        system_meta: system_meta.clone(),
-                        world,
-                        change_tick,
-                    }
-                }
-            }
-
-            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
-            {
-                #(#param_fn_mut)*
-            }
-        }));
-    }
-
-    tokens
-}
-
-#[proc_macro]
-pub fn impl_data_set(_input: TokenStream) -> TokenStream {
-    let mut tokens = TokenStream::new();
-    let max_members = 8;
-    let data_types = get_idents(|i| format!("D{i}"), max_members);
-    let mut member_fn_muts = Vec::new();
-    for (i, data) in data_types.iter().enumerate() {
-        let fn_name = Ident::new(&format!("d{i}"), Span::call_site());
-        let index = Index::from(i);
-        let ordinal = match i {
-            1 => "1st".to_owned(),
-            2 => "2nd".to_owned(),
-            3 => "3rd".to_owned(),
-            x => format!("{x}th"),
-        };
-        let comment = format!("Gets exclusive access to the {ordinal} member of this [`DataSet`].");
-        member_fn_muts.push(quote! {
-            #[doc = #comment]
-            /// No other members may be accessed while this one is active.
-            pub fn #fn_name(&mut self) -> QueryItem<'_, #data> {
-                // SAFETY: since it's only possible to create instance of `DataSet` using
-                // `<DataSet as WorldQuery>::fetch`, following safety rules were upheld by the caller.
-                // - [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`] have been called for `DataSet`,
-                //   so it was called for each `data` (as implementation of those functions for `DataSet` suggests).
-                // - `entity` and `table_row` are in the range of the current table and archetype.
-                #data::shrink(unsafe {
-                    #data::fetch(&mut self.fetch.#index, self.entity, self.table_row)
-                })
-            }
-        });
-    }
-
-    for member_count in 1..=max_members {
-        let data = &data_types[0..member_count];
-        let member_fn_mut = &member_fn_muts[0..member_count];
-        tokens.extend(TokenStream::from(quote! {
-            // SAFETY: each item in set is read only
-            unsafe impl<'__w, #(#data: ReadOnlyQueryData,)*> ReadOnlyQueryData for DataSet<'__w, (#(#data,)*)> {}
-
-            // SAFETY: defers to soundness of `#data: WorldQuery` impl
-            unsafe impl<'__w, #(#data: QueryData,)*> QueryData for DataSet<'__w, (#(#data,)*)> {
-                type ReadOnly = DataSet<'__w, (#(#data::ReadOnly,)*)>;
-            }
-
-            // SAFETY: 
-            // for each member of the set accessed by `fetch`, [`update_component_access`]
-            // - adds corresponding access to `access`
-            // - panics if it's access conflicts with access that has already been added before calling `update_component_access`
-            //
-            // If `fetch` mutably accesses a member of the set, it is impossible to access any other members. 
-            unsafe impl<'__w, #(#data: QueryData,)*> WorldQuery for DataSet<'__w, (#(#data,)*)> {
-                type Item<'w> = DataSet<'w, (#(#data,)*)>;
-                type Fetch<'w> = (#(#data::Fetch<'w>,)*);
-                type State = (#(#data::State,)*);
-
-                fn shrink<'wlong: 'wshort, 'wshort>(
-                    item: Self::Item<'wlong>,
-                ) -> Self::Item<'wshort> {
-                    DataSet {
-                        fetch: Self::shrink_fetch(item.fetch),
-                        entity: item.entity,
-                        table_row: item.table_row,
-                    }
-                }
-
-                fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-                    fetch: Self::Fetch<'wlong>,
-                ) -> Self::Fetch<'wshort> {
-                    <(#(#data,)*) as WorldQuery>::shrink_fetch(fetch)
-                }
-
-                unsafe fn init_fetch<'w>(
-                    world: UnsafeWorldCell<'w>,
-                    state: &Self::State,
-                    last_run: Tick,
-                    this_run: Tick,
-                ) -> Self::Fetch<'w> {
-                    // SAFETY: The invariants are uphold by the caller.
-                    unsafe { <(#(#data,)*) as WorldQuery>::init_fetch(world, state, last_run, this_run) }
-                }
-
-                const IS_DENSE: bool = <(#(#data,)*) as WorldQuery>::IS_DENSE;
-
-                unsafe fn set_archetype<'w>(
-                    fetch: &mut Self::Fetch<'w>,
-                    state: &Self::State,
-                    archetype: &'w Archetype,
-                    table: &'w Table,
-                ) {
-                    // SAFETY: The invariants are uphold by the caller.
-                    unsafe { <(#(#data,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table); }
-                }
-
-                unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-                    // SAFETY: The invariants are uphold by the caller.
-                    unsafe { <(#(#data,)*) as WorldQuery>::set_table(fetch, state, table); }
-                }
-
-                unsafe fn fetch<'w>(
-                    fetch: &mut Self::Fetch<'w>,
-                    entity: Entity,
-                    table_row: TableRow,
-                ) -> Self::Item<'w> {
-                    DataSet {
-                        fetch: fetch.clone(),
-                        entity,
-                        table_row,
-                    }
-                }
-
-                fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-                    let (#(#data,)*) = state;
-
-                    #(
-                        // Making sure each individual member of the set doesn't conflict with other query access.
-                        // Panics if one of the members conflicts with previous access.
-                        #data::update_component_access(#data, &mut access.clone());
-                    )*
-                    #(
-                        // Updating empty [`FilteredAccess`] and then extending passed access.
-                        // This is done to avoid conflicts with other members of the set.
-                        let mut current_access = FilteredAccess::default();
-                        #data::update_component_access(#data, &mut current_access);
-                        access.extend(&current_access);
-                    )*
-                }
-
-                fn init_state(world: &mut World) -> Self::State {
-                    <(#(#data,)*) as WorldQuery>::init_state(world)
-                }
-
-                fn get_state(components: &Components) -> Option<Self::State> {
-                    <(#(#data,)*) as WorldQuery>::get_state(components)
-                }
-
-                fn matches_component_set(
-                    state: &Self::State,
-                    set_contains_id: &impl Fn(ComponentId) -> bool,
-                ) -> bool {
-                    <(#(#data,)*) as WorldQuery>::matches_component_set(state, set_contains_id)
-                }
-            }
-
-            impl<'w, #(#data: QueryData,)*> DataSet<'w, (#(#data,)*)>
-            {
-                #(#member_fn_mut)*
-            }
-        }));
-    }
-
-    tokens
 }
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
@@ -861,7 +576,7 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_ecs")
+    BevyManifest::shared().get_path("bevy_ecs")
 }
 
 #[proc_macro_derive(Event)]
@@ -874,9 +589,17 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component, require))]
+#[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+/// Allows specifying a component's required components.
+///
+/// See `Component` docs for usage.
+#[proc_macro_attribute]
+pub fn require(attr: TokenStream, item: TokenStream) -> TokenStream {
+    component::document_required_components(attr, item)
 }
 
 #[proc_macro_derive(States)]

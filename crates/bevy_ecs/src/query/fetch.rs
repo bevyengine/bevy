@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -13,9 +13,9 @@ use crate::{
 };
 use bevy_ecs_macros::impl_data_set;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
+use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -273,7 +273,8 @@ use smallvec::SmallVec;
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid to request as data in a `Query`",
-    label = "invalid `Query` data"
+    label = "invalid `Query` data",
+    note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
@@ -1058,7 +1059,7 @@ unsafe impl QueryData for &Archetype {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `& T`.
 pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
@@ -1416,7 +1417,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
@@ -1608,7 +1609,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
@@ -2179,8 +2180,8 @@ macro_rules! impl_tuple_query_data {
 }
 
 macro_rules! impl_anytuple_fetch {
-    ($(($name: ident, $state: ident)),*) => {
-
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+        $(#[$meta])*
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         /// SAFETY:
@@ -2302,6 +2303,7 @@ macro_rules! impl_anytuple_fetch {
             }
         }
 
+        $(#[$meta])*
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
@@ -2309,6 +2311,7 @@ macro_rules! impl_anytuple_fetch {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
         }
 
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
     };
@@ -2322,7 +2325,14 @@ all_tuples!(
     F,
     S
 );
-all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_anytuple_fetch,
+    0,
+    15,
+    F,
+    S
+);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
@@ -2505,7 +2515,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
                 #[cfg(debug_assertions)]
                 unreachable!();
                 #[cfg(not(debug_assertions))]
-                std::hint::unreachable_unchecked()
+                core::hint::unreachable_unchecked()
             }
         }
     }

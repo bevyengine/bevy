@@ -103,12 +103,12 @@ pub use loader::*;
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_image::CompressedImageFormats;
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
-    texture::CompressedImageFormats,
 };
 use bevy_scene::Scene;
 
@@ -284,7 +284,7 @@ pub struct GltfSkin {
     pub name: String,
     /// All the nodes that form this skin.
     pub joints: Vec<Handle<GltfNode>>,
-    /// Inverse-bind matricy of this skin.
+    /// Inverse-bind matrices of this skin.
     pub inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
