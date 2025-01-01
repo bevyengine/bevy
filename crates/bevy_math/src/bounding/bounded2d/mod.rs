@@ -45,7 +45,7 @@ pub struct Aabb2d {
 impl Aabb2d {
     /// Constructs an AABB from its center and half-size.
     #[inline(always)]
-    pub const fn new(center: Vec2, half_size: Vec2) -> Self {
+    pub fn new(center: Vec2, half_size: Vec2) -> Self {
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
         Self {
             min: center - half_size,
@@ -271,10 +271,13 @@ mod aabb2d_tests {
         ops, Vec2,
     };
 
-    #[cfg_attr(feature = "check_no_panic", no_panic)]
-    fn test() {
-        panic!();
-    }
+    #[cfg(feature = "check_no_panic")]
+    const _: () = {
+        #[no_panic::no_panic]
+        fn test() {
+            panic!();
+        }
+    };
 
     #[test]
     fn center() {
