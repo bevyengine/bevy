@@ -50,7 +50,9 @@ pub struct LocalExecutor<'a>(LocalExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
-    #[allow(dead_code, reason = "not all feature flags require this function")]
+    // NOTE: This struct is used under `crate::TaskPool`, and so this is not
+    // technically dead code. However, if that code is changed, then this may
+    // become dead code *depending on what feature flags are enabled.*
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
     }
@@ -58,7 +60,9 @@ impl Executor<'_> {
 
 impl LocalExecutor<'_> {
     /// Construct a new [`LocalExecutor`]
-    #[allow(dead_code, reason = "not all feature flags require this function")]
+    // NOTE: This struct is used under `crate::TaskPool` inside a static, and so
+    // this is not technically dead code. However, if that code is changed, then
+    // this may become dead code *depending on what feature flags are enabled.*
     pub const fn new() -> Self {
         Self(LocalExecutorInner::new())
     }
