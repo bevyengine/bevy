@@ -366,10 +366,12 @@ impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicUsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI64,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU64,
     ::core::sync::atomic::Ordering::SeqCst
