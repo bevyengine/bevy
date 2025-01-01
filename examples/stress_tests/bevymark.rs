@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::AlphaMode2d,
+    sprite::{AlphaMode2d, SpritePlugin},
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -132,16 +132,21 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "BevyMark".into(),
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "BevyMark".into(),
+                        resolution: WindowResolution::new(1920.0, 1080.0)
+                            .with_scale_factor_override(1.0),
+                        present_mode: PresentMode::AutoNoVsync,
+                        ..default()
+                    }),
                     ..default()
+                })
+                .set(SpritePlugin {
+                    #[cfg(feature = "bevy_sprite_picking_backend")]
+                    add_picking: false,
                 }),
-                ..default()
-            }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))
