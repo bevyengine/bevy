@@ -143,7 +143,8 @@ impl Interval {
 
     /// Clamp the given `value` to lie within this interval.
     #[inline]
-    pub const fn clamp(self, value: f32) -> f32 {
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
+    pub fn clamp(self, value: f32) -> f32 {
         value.clamp(self.start, self.end)
     }
 
