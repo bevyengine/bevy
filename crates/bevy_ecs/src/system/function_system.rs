@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet},
+    query::{Access, FilteredAccessSet, UniversalAccess, UniversalFilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -27,7 +27,7 @@ pub struct SystemMeta {
     /// The set of component accesses for this system. This is used to determine
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
+    pub(crate) component_access_set: UniversalFilteredAccessSet<ComponentId>,
     /// This [`Access`] is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
@@ -37,7 +37,7 @@ pub struct SystemMeta {
     /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using [`ArchetypeComponentId`]
     /// we can be more precise because we can check if the existing archetypes of the [`World`]
     /// cause a conflict
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
+    pub(crate) archetype_component_access: UniversalAccess<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
@@ -55,8 +55,8 @@ impl SystemMeta {
         let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
-            archetype_component_access: Access::default(),
-            component_access_set: FilteredAccessSet::default(),
+            archetype_component_access: UniversalAccess::default(),
+            component_access_set: UniversalFilteredAccessSet::default(),
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
@@ -146,7 +146,7 @@ impl SystemMeta {
     /// but no archetype that matches the first query will match the second and vice versa,
     /// which means there's no risk of conflict.
     #[inline]
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    pub fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
@@ -164,14 +164,16 @@ impl SystemMeta {
     ///
     /// No access can be removed from the returned [`Access`].
     #[inline]
-    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+    pub unsafe fn archetype_component_access_mut(
+        &mut self,
+    ) -> &mut UniversalAccess<ArchetypeComponentId> {
         &mut self.archetype_component_access
     }
 
     /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
     /// Used to check if systems and/or system params have conflicting access.
     #[inline]
-    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+    pub fn component_access_set(&self) -> &UniversalFilteredAccessSet<ComponentId> {
         &self.component_access_set
     }
 
@@ -182,7 +184,9 @@ impl SystemMeta {
     ///
     /// No access can be removed from the returned [`FilteredAccessSet`].
     #[inline]
-    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+    pub unsafe fn component_access_set_mut(
+        &mut self,
+    ) -> &mut UniversalFilteredAccessSet<ComponentId> {
         &mut self.component_access_set
     }
 }
@@ -791,7 +795,7 @@ where
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }
 

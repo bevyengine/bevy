@@ -1,11 +1,12 @@
-use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use crate::{component::ComponentId, world::WorldId};
 use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
+use smallvec::SmallVec;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
 /// to read, when used to store [`SparseSetIndex`].
@@ -79,6 +80,13 @@ pub struct Access<T: SparseSetIndex> {
     marker: PhantomData<T>,
 }
 
+/// Performs the same purpose as [`Access`], but tracks multiple worlds.
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub struct UniversalAccess<T: SparseSetIndex> {
+    /// stores the access per-world. [`SmallVec`] is used instead of a hashmap here because there should be very few worlds referenced, and this saves an allocation.
+    per_world: SmallVec<[(WorldId, Access<T>); 2]>,
+}
+
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
 impl<T: SparseSetIndex> Clone for Access<T> {
     fn clone(&self) -> Self {
@@ -145,6 +153,14 @@ impl<T: SparseSetIndex + Debug> Debug for Access<T> {
 impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: SparseSetIndex> Default for UniversalAccess<T> {
+    fn default() -> Self {
+        Self {
+            per_world: SmallVec::new(),
+        }
     }
 }
 
@@ -798,6 +814,157 @@ impl<T: SparseSetIndex> Access<T> {
     }
 }
 
+impl<T: SparseSetIndex> UniversalAccess<T> {
+    /// Creates an empty [`Access`] collection.
+    pub const fn new() -> Self {
+        Self {
+            per_world: SmallVec::new_const(),
+        }
+    }
+
+    /// gets the access for this world, if it exists
+    pub fn get_access(&self, world: WorldId) -> Option<&Access<T>> {
+        self.per_world
+            .iter()
+            .filter(|found| found.0 == world)
+            .next()
+            .map(|found| &found.1)
+    }
+
+    /// mutably gets the access for this world, if it exists
+    pub fn get_access_mut(&mut self, world: WorldId) -> Option<&mut Access<T>> {
+        self.per_world
+            .iter_mut()
+            .filter(|found| found.0 == world)
+            .next()
+            .map(|found| &mut found.1)
+    }
+
+    /// gets the access for this world, creating it if it doesn't exists
+    pub fn access(&mut self, world: WorldId) -> &Access<T> {
+        self.access_mut(world)
+    }
+
+    /// mutably gets the access for this world, creating it if it doesn't exists
+    pub fn access_mut(&mut self, world: WorldId) -> &mut Access<T> {
+        let mut index = None;
+        for (idx, found) in self.per_world.iter().enumerate() {
+            if found.0 == world {
+                index = Some(idx);
+                break;
+            }
+        }
+        let idx = index.unwrap_or_else(|| {
+            let len = self.per_world.len();
+            self.per_world.push((world, Access::new()));
+            len
+        });
+        &mut self.per_world[idx].1
+    }
+
+    /// iterates the accesses per world
+    pub fn iter(&self) -> impl Iterator<Item = &(WorldId, Access<T>)> + '_ {
+        self.per_world.iter()
+    }
+
+    /// mutably iterates the accesses per world
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut (WorldId, Access<T>)> + '_ {
+        self.per_world.iter_mut()
+    }
+
+    /// Removes all writes.
+    pub fn clear_writes(&mut self) {
+        for (_, access) in self.per_world.iter_mut() {
+            access.clear();
+        }
+    }
+
+    /// Removes all accesses.
+    pub fn clear(&mut self) {
+        self.per_world.clear();
+    }
+
+    /// Adds all access from `other`.
+    pub fn extend(&mut self, other: &UniversalAccess<T>) {
+        for (world, access) in other.per_world.iter() {
+            self.access_mut(*world).extend(access);
+        }
+    }
+
+    /// returns true if there are no overlapping world access, or all overlapping world's accesses abide by the supplied relationship.
+    ///
+    /// `f` is dirrectional. (the first param is always from self, and the seccond is always from other).
+    pub fn is_true_of_overlapping_world_access(
+        &self,
+        other: &Self,
+        mut f: impl FnMut(&Access<T>, &Access<T>) -> bool,
+    ) -> bool {
+        self.per_world.iter().all(|(world, access)| {
+            other
+                .get_access(*world)
+                .map(|other| f(access, other))
+                .unwrap_or(true)
+        })
+    }
+
+    /// Returns `true` if the access and `other` can be active at the same time,
+    /// only looking at their component access.
+    ///
+    /// [`Access`] instances are incompatible if one can write
+    /// an element that the other can read or write on the same world.
+    pub fn is_components_compatible(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_true_of_overlapping_world_access(other, Access::<T>::is_components_compatible)
+    }
+
+    /// Returns `true` if the access and `other` can be active at the same time,
+    /// only looking at their resource access.
+    ///
+    /// [`Access`] instances are incompatible if one can write
+    /// an element that the other can read or write.
+    pub fn is_resources_compatible(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_true_of_overlapping_world_access(other, Access::<T>::is_resources_compatible)
+    }
+
+    /// Returns `true` if the access and `other` can be active at the same time.
+    ///
+    /// [`Access`] instances are incompatible if one can write
+    /// an element that the other can read or write.
+    pub fn is_compatible(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_components_compatible(other) && self.is_resources_compatible(other)
+    }
+
+    /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
+    /// contains at least all the values in `self`.
+    pub fn is_subset_components(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_true_of_overlapping_world_access(other, Access::<T>::is_subset_components)
+    }
+
+    /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
+    /// contains at least all the values in `self`.
+    pub fn is_subset_resources(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_true_of_overlapping_world_access(other, Access::<T>::is_subset_resources)
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    pub fn is_subset(&self, other: &UniversalAccess<T>) -> bool {
+        self.is_subset_components(other) && self.is_subset_resources(other)
+    }
+
+    /// Returns a vector of elements that the access and `other` cannot access at the same time.
+    pub fn get_conflicts(&self, other: &UniversalAccess<T>) -> SmallVec<[AccessConflicts; 2]> {
+        let mut result = SmallVec::new();
+
+        for (world, access) in self.per_world.iter() {
+            if let Some(other) = other.get_access(*world) {
+                result.push(access.get_conflicts(other));
+            }
+        }
+
+        result
+    }
+}
+
 /// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
 ///
 /// Used internally to statically check if queries are disjoint.
@@ -847,14 +1014,6 @@ impl<T: SparseSetIndex> Clone for FilteredAccess<T> {
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
         Self::matches_everything()
-    }
-}
-
-impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
-    fn from(filtered_access: FilteredAccess<T>) -> Self {
-        let mut base = FilteredAccessSet::<T>::default();
-        base.add(filtered_access);
-        base
     }
 }
 
@@ -1187,8 +1346,8 @@ impl<T: SparseSetIndex> AccessFilters<T> {
 /// - The set of access of each individual filters in this set.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
-    combined_access: Access<T>,
-    filtered_accesses: Vec<FilteredAccess<T>>,
+    combined_access: UniversalAccess<T>,
+    filtered_accesses: Vec<(WorldId, FilteredAccess<T>)>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -1209,7 +1368,7 @@ impl<T: SparseSetIndex> Clone for FilteredAccessSet<T> {
 impl<T: SparseSetIndex> FilteredAccessSet<T> {
     /// Returns a reference to the unfiltered access of the entire set.
     #[inline]
-    pub fn combined_access(&self) -> &Access<T> {
+    pub fn combined_access(&self) -> &UniversalAccess<T> {
         &self.combined_access
     }
 
@@ -1231,7 +1390,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         }
         for filtered in &self.filtered_accesses {
             for other_filtered in &other.filtered_accesses {
-                if !filtered.is_compatible(other_filtered) {
+                if filtered.0 == other_filtered.0 && !filtered.1.is_compatible(&other_filtered.1) {
                     return false;
                 }
             }
@@ -1239,64 +1398,80 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         true
     }
 
-    /// Returns a vector of elements that this set and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> AccessConflicts {
+    /// Returns a vector of elements per world that this set and `other` cannot access at the same time.
+    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> Vec<(WorldId, AccessConflicts)> {
         // if the unfiltered access is incompatible, must check each pair
-        let mut conflicts = AccessConflicts::empty();
+        let mut conflicts = Vec::new();
         if !self.combined_access.is_compatible(other.combined_access()) {
             for filtered in &self.filtered_accesses {
                 for other_filtered in &other.filtered_accesses {
-                    conflicts.add(&filtered.get_conflicts(other_filtered));
+                    if filtered.0 == other_filtered.0 {
+                        conflicts.push((filtered.0, filtered.1.get_conflicts(&other_filtered.1)));
+                    }
                 }
             }
         }
         conflicts
     }
 
-    /// Returns a vector of elements that this set and `other` cannot access at the same time.
-    pub fn get_conflicts_single(&self, filtered_access: &FilteredAccess<T>) -> AccessConflicts {
+    /// Returns a vector of elements that this set and `other` cannot access at the same time for this world.
+    pub fn get_conflicts_single(
+        &self,
+        filtered_access: &FilteredAccess<T>,
+        world: WorldId,
+    ) -> AccessConflicts {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = AccessConflicts::empty();
-        if !self.combined_access.is_compatible(filtered_access.access()) {
-            for filtered in &self.filtered_accesses {
-                conflicts.add(&filtered.get_conflicts(filtered_access));
+        if self
+            .combined_access
+            .get_access(world)
+            .is_some_and(|access| !access.is_compatible(filtered_access.access()))
+        {
+            for filtered in self
+                .filtered_accesses
+                .iter()
+                .filter(|(found, _)| *found == world)
+            {
+                conflicts.add(&filtered.1.get_conflicts(filtered_access));
             }
         }
         conflicts
     }
 
-    /// Adds the filtered access to the set.
-    pub fn add(&mut self, filtered_access: FilteredAccess<T>) {
-        self.combined_access.extend(&filtered_access.access);
-        self.filtered_accesses.push(filtered_access);
+    /// Adds the filtered access to the set for the corresponding world.
+    pub fn add(&mut self, filtered_access: FilteredAccess<T>, world: WorldId) {
+        self.combined_access
+            .access_mut(world)
+            .extend(&filtered_access.access);
+        self.filtered_accesses.push((world, filtered_access));
     }
 
-    /// Adds a read access to a resource to the set.
-    pub fn add_unfiltered_resource_read(&mut self, index: T) {
+    /// Adds a read access to a resource to the set for the corresponding world.
+    pub fn add_unfiltered_resource_read(&mut self, index: T, world: WorldId) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_read(index);
-        self.add(filter);
+        self.add(filter, world);
     }
 
-    /// Adds a write access to a resource to the set.
-    pub fn add_unfiltered_resource_write(&mut self, index: T) {
+    /// Adds a write access to a resource to the set for the corresponding world.
+    pub fn add_unfiltered_resource_write(&mut self, index: T, world: WorldId) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
-        self.add(filter);
+        self.add(filter, world);
     }
 
-    /// Adds read access to all resources to the set.
-    pub fn add_unfiltered_read_all_resources(&mut self) {
+    /// Adds read access to all resources to the set for the corresponding world.
+    pub fn add_unfiltered_read_all_resources(&mut self, world: WorldId) {
         let mut filter = FilteredAccess::default();
         filter.access.read_all_resources();
-        self.add(filter);
+        self.add(filter, world);
     }
 
-    /// Adds write access to all resources to the set.
-    pub fn add_unfiltered_write_all_resources(&mut self) {
+    /// Adds write access to all resources to the set for the corresponding world.
+    pub fn add_unfiltered_write_all_resources(&mut self, world: WorldId) {
         let mut filter = FilteredAccess::default();
         filter.access.write_all_resources();
-        self.add(filter);
+        self.add(filter, world);
     }
 
     /// Adds all of the accesses from the passed set to `self`.
@@ -1307,14 +1482,14 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(filtered_access_set.filtered_accesses);
     }
 
-    /// Marks the set as reading all possible indices of type T.
-    pub fn read_all(&mut self) {
-        self.combined_access.read_all();
+    /// Marks the set as reading all possible indices of type T. Ie: &World
+    pub fn read_all(&mut self, world: WorldId) {
+        self.combined_access.access_mut(world).read_all();
     }
 
-    /// Marks the set as writing all T.
-    pub fn write_all(&mut self) {
-        self.combined_access.write_all();
+    /// Marks the set as writing all T. Ie: &mut World
+    pub fn write_all(&mut self, world: WorldId) {
+        self.combined_access.access_mut(world).write_all();
     }
 
     /// Removes all accesses stored in this set.
@@ -1335,8 +1510,11 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{
-        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+    use crate::{
+        query::{
+            access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+        },
+        world::{World, WorldId},
     };
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
@@ -1373,14 +1551,15 @@ mod tests {
         access_filters
     }
 
-    fn create_sample_filtered_access_set() -> FilteredAccessSet<usize> {
+    fn create_sample_filtered_access_set() -> (FilteredAccessSet<usize>, World) {
         let mut filtered_access_set = FilteredAccessSet::<usize>::default();
+        let for_world = World::new();
 
-        filtered_access_set.add_unfiltered_resource_read(2);
-        filtered_access_set.add_unfiltered_resource_write(4);
-        filtered_access_set.read_all();
+        filtered_access_set.add_unfiltered_resource_read(2, for_world.id());
+        filtered_access_set.add_unfiltered_resource_write(4, for_world.id());
+        filtered_access_set.read_all(for_world.id());
 
-        filtered_access_set
+        (filtered_access_set, for_world)
     }
 
     #[test]
@@ -1451,7 +1630,7 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_clone() {
-        let original: FilteredAccessSet<usize> = create_sample_filtered_access_set();
+        let (original, _) = create_sample_filtered_access_set();
         let cloned = original.clone();
 
         assert_eq!(original, cloned);
@@ -1459,12 +1638,12 @@ mod tests {
 
     #[test]
     fn test_filtered_access_set_from() {
-        let original: FilteredAccessSet<usize> = create_sample_filtered_access_set();
+        let (original, for_world) = create_sample_filtered_access_set();
         let mut cloned = FilteredAccessSet::<usize>::default();
 
-        cloned.add_unfiltered_resource_read(7);
-        cloned.add_unfiltered_resource_write(9);
-        cloned.write_all();
+        cloned.add_unfiltered_resource_read(7, for_world.id());
+        cloned.add_unfiltered_resource_write(9, for_world.id());
+        cloned.write_all(for_world.id());
 
         cloned.clone_from(&original);
 
@@ -1527,13 +1706,14 @@ mod tests {
 
     #[test]
     fn filtered_combined_access() {
+        let common_world = World::new();
         let mut access_a = FilteredAccessSet::<usize>::default();
-        access_a.add_unfiltered_resource_read(1);
+        access_a.add_unfiltered_resource_read(1, common_world.id());
 
         let mut filter_b = FilteredAccess::<usize>::default();
         filter_b.add_resource_write(1);
 
-        let conflicts = access_a.get_conflicts_single(&filter_b);
+        let conflicts = access_a.get_conflicts_single(&filter_b, common_world.id());
         assert_eq!(
             &conflicts,
             &AccessConflicts::from(vec![1_usize]),
