@@ -1,4 +1,5 @@
 use crate::{IRect, Rect, UVec2};
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -55,6 +56,7 @@ impl URect {
     /// let r = URect::new(2, 4, 5, 0); // w=3 h=4
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(x0: u32, y0: u32, x1: u32, y1: u32) -> Self {
         Self::from_corners(UVec2::new(x0, y0), UVec2::new(x1, y1))
     }
@@ -74,6 +76,7 @@ impl URect {
     /// let r = URect::from_corners(UVec2::ONE, UVec2::ZERO); // w=1 h=1
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_corners(p0: UVec2, p1: UVec2) -> Self {
         Self {
             min: p0.min(p1),
@@ -100,6 +103,7 @@ impl URect {
     /// assert_eq!(r.max, UVec2::splat(2));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_center_size(origin: UVec2, size: UVec2) -> Self {
         assert!(origin.cmpge(size / 2).all(), "Origin must always be greater than or equal to (size / 2) otherwise the rectangle is undefined! Origin was {origin} and size was {size}");
         let half_size = size / 2;
@@ -121,6 +125,7 @@ impl URect {
     /// assert_eq!(r.max, UVec2::splat(2));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_center_half_size(origin: UVec2, half_size: UVec2) -> Self {
         assert!(origin.cmpge(half_size).all(), "Origin must always be greater than or equal to half_size otherwise the rectangle is undefined! Origin was {origin} and half_size was {half_size}");
         Self {
@@ -139,6 +144,7 @@ impl URect {
     /// assert!(r.is_empty());
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_empty(&self) -> bool {
         self.min.cmpge(self.max).any()
     }
@@ -181,6 +187,7 @@ impl URect {
     /// assert_eq!(r.size(), UVec2::new(5, 1));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn size(&self) -> UVec2 {
         self.max - self.min
     }
@@ -199,6 +206,7 @@ impl URect {
     /// assert_eq!(r.half_size(), UVec2::new(2, 1));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_size(&self) -> UVec2 {
         self.size() / 2
     }
@@ -217,6 +225,7 @@ impl URect {
     /// assert_eq!(r.center(), UVec2::new(2, 1));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn center(&self) -> UVec2 {
         (self.min + self.max) / 2
     }
@@ -233,6 +242,7 @@ impl URect {
     /// assert!(r.contains(r.max));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn contains(&self, point: UVec2) -> bool {
         (point.cmpge(self.min) & point.cmple(self.max)).all()
     }
@@ -252,6 +262,7 @@ impl URect {
     /// assert_eq!(r.max, UVec2::new(5, 8));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn union(&self, other: Self) -> Self {
         Self {
             min: self.min.min(other.min),
@@ -274,6 +285,7 @@ impl URect {
     /// assert_eq!(u.max, UVec2::new(5, 6));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn union_point(&self, other: UVec2) -> Self {
         Self {
             min: self.min.min(other),
@@ -298,6 +310,7 @@ impl URect {
     /// assert_eq!(r.max, UVec2::new(2, 2));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn intersect(&self, other: Self) -> Self {
         let mut r = Self {
             min: self.min.max(other.min),
@@ -330,6 +343,7 @@ impl URect {
     /// assert_eq!(r2.max, UVec2::splat(7));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inflate(&self, expansion: i32) -> Self {
         let mut r = Self {
             min: UVec2::new(
@@ -349,12 +363,14 @@ impl URect {
 
     /// Returns self as [`Rect`] (f32)
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_rect(&self) -> Rect {
         Rect::from_corners(self.min.as_vec2(), self.max.as_vec2())
     }
 
     /// Returns self as [`IRect`] (i32)
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_irect(&self) -> IRect {
         IRect::from_corners(self.min.as_ivec2(), self.max.as_ivec2())
     }

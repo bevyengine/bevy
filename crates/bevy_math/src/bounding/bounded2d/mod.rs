@@ -6,9 +6,9 @@ use crate::{
     prelude::{Mat2, Rot2, Vec2},
     FloatPow, Isometry2d,
 };
-
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+use no_panic::no_panic;
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -44,6 +44,7 @@ pub struct Aabb2d {
 impl Aabb2d {
     /// Constructs an AABB from its center and half-size.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(center: Vec2, half_size: Vec2) -> Self {
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0);
         Self {
@@ -59,6 +60,7 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> Aabb2d {
         let isometry = isometry.into();
 
@@ -81,6 +83,7 @@ impl Aabb2d {
 
     /// Computes the smallest [`BoundingCircle`] containing this [`Aabb2d`].
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn bounding_circle(&self) -> BoundingCircle {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingCircle::new(self.center(), radius)
@@ -91,6 +94,7 @@ impl Aabb2d {
     /// If the point is outside the AABB, the returned point will be on the perimeter of the AABB.
     /// Otherwise, it will be inside the AABB and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the AABB
         point.clamp(self.min, self.max)
@@ -462,6 +466,7 @@ pub struct BoundingCircle {
 impl BoundingCircle {
     /// Constructs a bounding circle from its center and radius.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
@@ -475,6 +480,7 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> BoundingCircle {
         let isometry = isometry.into();
 
@@ -494,12 +500,14 @@ impl BoundingCircle {
 
     /// Get the radius of the bounding circle
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn radius(&self) -> f32 {
         self.circle.radius
     }
 
     /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn aabb_2d(&self) -> Aabb2d {
         Aabb2d {
             min: self.center - Vec2::splat(self.radius()),
@@ -512,6 +520,7 @@ impl BoundingCircle {
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
     /// Otherwise, it will be inside the circle and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         self.circle.closest_point(point - self.center) + self.center
     }

@@ -1,4 +1,5 @@
 use crate::{IRect, URect, Vec2};
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -55,6 +56,7 @@ impl Rect {
     /// let r = Rect::new(2., 3., 5., -1.); // w=3 h=4
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
         Self::from_corners(Vec2::new(x0, y0), Vec2::new(x1, y1))
     }
@@ -74,6 +76,7 @@ impl Rect {
     /// let r = Rect::from_corners(Vec2::ONE, Vec2::ZERO); // w=1 h=1
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_corners(p0: Vec2, p1: Vec2) -> Self {
         Self {
             min: p0.min(p1),
@@ -96,6 +99,7 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::splat(0.5), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_center_size(origin: Vec2, size: Vec2) -> Self {
         assert!(size.cmpge(Vec2::ZERO).all(), "Rect size must be positive");
         let half_size = size / 2.;
@@ -117,6 +121,7 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::splat(1.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_center_half_size(origin: Vec2, half_size: Vec2) -> Self {
         assert!(
             half_size.cmpge(Vec2::ZERO).all(),
@@ -138,6 +143,7 @@ impl Rect {
     /// assert!(r.is_empty());
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_empty(&self) -> bool {
         self.min.cmpge(self.max).any()
     }
@@ -152,6 +158,7 @@ impl Rect {
     /// assert!((r.width() - 5.).abs() <= 1e-5);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn width(&self) -> f32 {
         self.max.x - self.min.x
     }
@@ -166,6 +173,7 @@ impl Rect {
     /// assert!((r.height() - 1.).abs() <= 1e-5);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn height(&self) -> f32 {
         self.max.y - self.min.y
     }
@@ -180,6 +188,7 @@ impl Rect {
     /// assert!(r.size().abs_diff_eq(Vec2::new(5., 1.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn size(&self) -> Vec2 {
         self.max - self.min
     }
@@ -194,6 +203,7 @@ impl Rect {
     /// assert!(r.half_size().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_size(&self) -> Vec2 {
         self.size() * 0.5
     }
@@ -208,6 +218,7 @@ impl Rect {
     /// assert!(r.center().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn center(&self) -> Vec2 {
         (self.min + self.max) * 0.5
     }
@@ -224,6 +235,7 @@ impl Rect {
     /// assert!(r.contains(r.max));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn contains(&self, point: Vec2) -> bool {
         (point.cmpge(self.min) & point.cmple(self.max)).all()
     }
@@ -243,6 +255,7 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::new(5., 3.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn union(&self, other: Self) -> Self {
         Self {
             min: self.min.min(other.min),
@@ -265,6 +278,7 @@ impl Rect {
     /// assert!(u.max.abs_diff_eq(Vec2::new(5., 6.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn union_point(&self, other: Vec2) -> Self {
         Self {
             min: self.min.min(other),
@@ -289,6 +303,7 @@ impl Rect {
     /// assert!(r.max.abs_diff_eq(Vec2::new(3., 1.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn intersect(&self, other: Self) -> Self {
         let mut r = Self {
             min: self.min.max(other.min),
@@ -321,6 +336,7 @@ impl Rect {
     /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inflate(&self, expansion: f32) -> Self {
         let mut r = Self {
             min: self.min - expansion,
@@ -358,12 +374,14 @@ impl Rect {
 
     /// Returns self as [`IRect`] (i32)
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_irect(&self) -> IRect {
         IRect::from_corners(self.min.as_ivec2(), self.max.as_ivec2())
     }
 
     /// Returns self as [`URect`] (u32)
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_urect(&self) -> URect {
         URect::from_corners(self.min.as_uvec2(), self.max.as_uvec2())
     }

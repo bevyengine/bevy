@@ -5,6 +5,7 @@ use core::{
     ops::RangeInclusive,
 };
 use itertools::Either;
+use no_panic::no_panic;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -57,6 +58,7 @@ impl Interval {
     /// but cannot be empty (so `start` must be less than `end`) and neither endpoint can be NaN; invalid
     /// parameters will result in an error.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
         if start >= end || start.is_nan() || end.is_nan() {
             Err(InvalidIntervalError)
@@ -91,6 +93,7 @@ impl Interval {
 
     /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
     /// intersection would be empty (hence an invalid interval).
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
         let lower = max_by(self.start, other.start, f32::total_cmp);
         let upper = min_by(self.end, other.end, f32::total_cmp);
@@ -99,7 +102,7 @@ impl Interval {
 
     /// Get the length of this interval. Note that the result may be infinite (`f32::INFINITY`).
     #[inline]
-    pub fn length(self) -> f32 {
+    pub const fn length(self) -> f32 {
         self.end - self.start
     }
 
@@ -107,24 +110,25 @@ impl Interval {
     ///
     /// Equivalently, an interval is bounded if its length is finite.
     #[inline]
-    pub fn is_bounded(self) -> bool {
+    pub const fn is_bounded(self) -> bool {
         self.length().is_finite()
     }
 
     /// Returns `true` if this interval has a finite start.
     #[inline]
-    pub fn has_finite_start(self) -> bool {
+    pub const fn has_finite_start(self) -> bool {
         self.start.is_finite()
     }
 
     /// Returns `true` if this interval has a finite end.
     #[inline]
-    pub fn has_finite_end(self) -> bool {
+    pub const fn has_finite_end(self) -> bool {
         self.end.is_finite()
     }
 
     /// Returns `true` if `item` is contained in this interval.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn contains(self, item: f32) -> bool {
         (self.start..=self.end).contains(&item)
     }
@@ -133,13 +137,13 @@ impl Interval {
     ///
     /// This is non-strict: each interval will contain itself.
     #[inline]
-    pub fn contains_interval(self, other: Self) -> bool {
+    pub const fn contains_interval(self, other: Self) -> bool {
         self.start <= other.start && self.end >= other.end
     }
 
     /// Clamp the given `value` to lie within this interval.
     #[inline]
-    pub fn clamp(self, value: f32) -> f32 {
+    pub const fn clamp(self, value: f32) -> f32 {
         value.clamp(self.start, self.end)
     }
 
@@ -147,6 +151,7 @@ impl Interval {
     /// If `points` is 1, the start of this interval is returned. If `points` is 0, an empty
     /// iterator is returned. An error is returned if the interval is unbounded.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn spaced_points(
         self,
         points: usize,

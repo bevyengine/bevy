@@ -5,6 +5,7 @@ use crate::{
 
 use core::f32::consts::FRAC_1_SQRT_2;
 use derive_more::derive::Into;
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -214,6 +215,7 @@ impl Dir2 {
     /// assert_relative_eq!(result2, Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap());
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let angle = self.angle_to(rhs.0);
         Rot2::radians(angle * s) * self
@@ -221,6 +223,7 @@ impl Dir2 {
 
     /// Get the rotation that rotates this direction to `other`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_to(self, other: Self) -> Rot2 {
         // Rotate `self` to X-axis, then X-axis to `other`:
         other.rotation_from_x() * self.rotation_to_x()
@@ -228,18 +231,21 @@ impl Dir2 {
 
     /// Get the rotation that rotates `other` to this direction.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_from(self, other: Self) -> Rot2 {
         other.rotation_to(self)
     }
 
     /// Get the rotation that rotates the X-axis to this direction.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_from_x(self) -> Rot2 {
         Rot2::from_sin_cos(self.0.y, self.0.x)
     }
 
     /// Get the rotation that rotates this direction to the X-axis.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_to_x(self) -> Rot2 {
         // (This is cheap, it just negates one component.)
         self.rotation_from_x().inverse()
@@ -247,6 +253,7 @@ impl Dir2 {
 
     /// Get the rotation that rotates the Y-axis to this direction.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_from_y(self) -> Rot2 {
         // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
         // this transforms the Y-axis into the X-axis, maintaining the relative position
@@ -256,6 +263,7 @@ impl Dir2 {
 
     /// Get the rotation that rotates this direction to the Y-axis.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rotation_to_y(self) -> Rot2 {
         self.rotation_from_y().inverse()
     }
@@ -264,6 +272,7 @@ impl Dir2 {
     /// Useful for preventing numerical error accumulation.
     /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
@@ -477,6 +486,7 @@ impl Dir3 {
     /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let quat = Quat::IDENTITY.slerp(Quat::from_rotation_arc(self.0, rhs.0), s);
         Dir3(quat.mul_vec3(self.0))
@@ -509,6 +519,7 @@ impl Dir3 {
     /// }
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fast_renormalize(self) -> Self {
         // We numerically approximate the inverse square root by a Taylor series around 1
         // As we expect the error (x := length_squared - 1) to be small
@@ -736,6 +747,7 @@ impl Dir3A {
     /// assert_relative_eq!(result2, Dir3A::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let quat = Quat::IDENTITY.slerp(
             Quat::from_rotation_arc(Vec3::from(self.0), Vec3::from(rhs.0)),
@@ -749,6 +761,7 @@ impl Dir3A {
     ///
     /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.

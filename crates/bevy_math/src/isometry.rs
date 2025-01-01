@@ -2,6 +2,7 @@
 
 use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use core::ops::Mul;
+use no_panic::no_panic;
 
 #[cfg(feature = "approx")]
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
@@ -110,6 +111,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a rotation and a translation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(translation: Vec2, rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
@@ -119,6 +121,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a rotation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_rotation(rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
@@ -128,6 +131,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a translation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_translation(translation: Vec2) -> Self {
         Isometry2d {
             rotation: Rot2::IDENTITY,
@@ -137,6 +141,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a translation with the given `x` and `y` components.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_xy(x: f32, y: f32) -> Self {
         Isometry2d {
             rotation: Rot2::IDENTITY,
@@ -146,6 +151,7 @@ impl Isometry2d {
 
     /// The inverse isometry that undoes this one.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
         Isometry2d {
@@ -159,6 +165,7 @@ impl Isometry2d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse_mul(&self, rhs: Self) -> Self {
         let inv_rot = self.rotation.inverse();
         let delta_translation = rhs.translation - self.translation;
@@ -167,6 +174,7 @@ impl Isometry2d {
 
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn transform_point(&self, point: Vec2) -> Vec2 {
         self.rotation * point + self.translation
     }
@@ -177,6 +185,7 @@ impl Isometry2d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse_transform_point(&self, point: Vec2) -> Vec2 {
         self.rotation.inverse() * (point - self.translation)
     }
@@ -388,6 +397,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a rotation and a translation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(translation: impl Into<Vec3A>, rotation: Quat) -> Self {
         Isometry3d {
             rotation,
@@ -397,6 +407,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a rotation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_rotation(rotation: Quat) -> Self {
         Isometry3d {
             rotation,
@@ -406,6 +417,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a translation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_translation(translation: impl Into<Vec3A>) -> Self {
         Isometry3d {
             rotation: Quat::IDENTITY,
@@ -415,6 +427,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Isometry3d {
             rotation: Quat::IDENTITY,
@@ -424,6 +437,7 @@ impl Isometry3d {
 
     /// The inverse isometry that undoes this one.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
         Isometry3d {
@@ -437,6 +451,7 @@ impl Isometry3d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse_mul(&self, rhs: Self) -> Self {
         let inv_rot = self.rotation.inverse();
         let delta_translation = rhs.translation - self.translation;
@@ -445,6 +460,7 @@ impl Isometry3d {
 
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         self.rotation * point.into() + self.translation
     }
@@ -455,6 +471,7 @@ impl Isometry3d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse_transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         self.rotation.inverse() * (point.into() - self.translation)
     }

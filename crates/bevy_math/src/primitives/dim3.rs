@@ -14,6 +14,7 @@ use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
+use no_panic::no_panic;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -49,6 +50,7 @@ impl Sphere {
 
     /// Get the diameter of the sphere
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
@@ -58,6 +60,7 @@ impl Sphere {
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
     /// Otherwise, it will be inside the sphere and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let distance_squared = point.length_squared();
 
@@ -124,6 +127,7 @@ impl Plane3d {
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
             normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
@@ -142,6 +146,7 @@ impl Plane3d {
     /// Panics if a valid normal can not be computed, for example when the points
     /// are *collinear* and lie on the same line.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
         let normal = Dir3::new((b - a).cross(c - a)).expect(
             "finite plane must be defined by three finite points that don't lie on the same line",
@@ -191,6 +196,7 @@ impl InfinitePlane3d {
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
         <T as TryInto<Dir3>>::Error: core::fmt::Debug,
@@ -213,6 +219,7 @@ impl InfinitePlane3d {
     /// Panics if a valid normal can not be computed, for example when the points
     /// are *collinear* and lie on the same line.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
         let normal = Dir3::new((b - a).cross(c - a)).expect(
             "infinite plane must be defined by three finite points that don't lie on the same line",
@@ -226,6 +233,7 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
         let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
@@ -235,6 +243,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
@@ -264,6 +273,7 @@ impl InfinitePlane3d {
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
         let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
         let transformed_origin = rotation * origin;
@@ -295,6 +305,7 @@ impl InfinitePlane3d {
     /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
     /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
         self.isometry_into_xy(origin).inverse()
     }
@@ -327,6 +338,7 @@ impl InfinitePlane3d {
     /// let triangle_3d = triangle_2d.map(|vec2| vec2.extend(0.0)).map(|vec3| from_xy * vec3);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
         let projection = self.isometry_into_xy(origin);
         (projection, projection.inverse())
@@ -370,6 +382,7 @@ impl Primitive3d for Segment3d {}
 impl Segment3d {
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(direction: Dir3, length: f32) -> Self {
         Self {
             direction,
@@ -383,6 +396,7 @@ impl Segment3d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
         let diff = point2 - point1;
         let length = diff.length();
@@ -396,12 +410,14 @@ impl Segment3d {
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn point1(&self) -> Vec3 {
         *self.direction * -self.half_length
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn point2(&self) -> Vec3 {
         *self.direction * self.half_length
     }
@@ -506,12 +522,14 @@ impl Default for Cuboid {
 impl Cuboid {
     /// Create a new `Cuboid` from a full x, y, and z length
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
 
     /// Create a new `Cuboid` from a given full size
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_size(size: Vec3) -> Self {
         Self {
             half_size: size / 2.0,
@@ -520,6 +538,7 @@ impl Cuboid {
 
     /// Create a new `Cuboid` from two corner points
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_corners(point1: Vec3, point2: Vec3) -> Self {
         Self {
             half_size: (point2 - point1).abs() / 2.0,
@@ -529,6 +548,7 @@ impl Cuboid {
     /// Create a `Cuboid` from a single length.
     /// The resulting `Cuboid` will be the same size in every direction.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec3::splat(length / 2.0),
@@ -537,6 +557,7 @@ impl Cuboid {
 
     /// Get the size of the cuboid
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn size(&self) -> Vec3 {
         2.0 * self.half_size
     }
@@ -546,6 +567,7 @@ impl Cuboid {
     /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
     /// Otherwise, it will be inside the cuboid and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         // Clamp point coordinates to the cuboid
         point.clamp(-self.half_size, self.half_size)
@@ -601,6 +623,7 @@ impl Default for Cylinder {
 impl Cylinder {
     /// Create a new `Cylinder` from a radius and full height
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
@@ -610,6 +633,7 @@ impl Cylinder {
 
     /// Get the base of the cylinder as a [`Circle`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -626,6 +650,7 @@ impl Cylinder {
 
     /// Get the surface area of one base of the cylinder
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.squared()
     }
@@ -689,6 +714,7 @@ impl Capsule3d {
     /// Get the part connecting the hemispherical ends
     /// of the capsule as a [`Cylinder`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn to_cylinder(&self) -> Cylinder {
         Cylinder {
             radius: self.radius,
@@ -753,6 +779,7 @@ impl Cone {
     }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -777,6 +804,7 @@ impl Cone {
 
     /// Get the surface area of the base of the cone
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.squared()
     }
@@ -892,6 +920,7 @@ impl Torus {
     /// The inner radius is the radius of the hole, and the outer radius
     /// is the radius of the entire object
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
         let minor_radius = (outer_radius - inner_radius) / 2.0;
         let major_radius = outer_radius - minor_radius;
@@ -906,6 +935,7 @@ impl Torus {
     /// For a ring torus, this corresponds to the radius of the hole,
     /// or `major_radius - minor_radius`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
@@ -914,6 +944,7 @@ impl Torus {
     /// This corresponds to the overall radius of the entire object,
     /// or `major_radius + minor_radius`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
@@ -927,6 +958,7 @@ impl Torus {
     /// If the minor or major radius is non-positive, infinite, or `NaN`,
     /// [`TorusKind::Invalid`] is returned
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn kind(&self) -> TorusKind {
         // Invalid if minor or major radius is non-positive, infinite, or NaN
         if self.minor_radius <= 0.0
@@ -996,6 +1028,7 @@ impl Default for Triangle3d {
 impl Triangle3d {
     /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
         Self {
             vertices: [a, b, c],
@@ -1012,6 +1045,7 @@ impl Triangle3d {
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1024,6 +1058,7 @@ impl Triangle3d {
     /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_degenerate(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1033,6 +1068,7 @@ impl Triangle3d {
 
     /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_acute(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1051,6 +1087,7 @@ impl Triangle3d {
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_obtuse(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1069,6 +1106,7 @@ impl Triangle3d {
 
     /// Reverse the triangle by swapping the first and last vertices.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
     }
@@ -1087,6 +1125,7 @@ impl Triangle3d {
     /// `centroid = (a + b + c) / 3`.
     #[doc(alias("center", "barycenter", "baricenter"))]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
     }
@@ -1095,6 +1134,7 @@ impl Triangle3d {
     ///
     /// Returns the two points that form the largest side of the triangle.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn largest_side(&self) -> (Vec3, Vec3) {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1118,6 +1158,7 @@ impl Triangle3d {
 
     /// Get the circumcenter of the triangle.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn circumcenter(&self) -> Vec3 {
         if self.is_degenerate() {
             // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
@@ -1190,6 +1231,7 @@ impl Default for Tetrahedron {
 impl Tetrahedron {
     /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
         Self {
             vertices: [a, b, c, d],
@@ -1202,6 +1244,7 @@ impl Tetrahedron {
     /// the first three points using the right-hand rule points
     /// away from the fourth vertex.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn signed_volume(&self) -> f32 {
         let [a, b, c, d] = self.vertices;
         let ab = b - a;
@@ -1216,6 +1259,7 @@ impl Tetrahedron {
     /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
     #[doc(alias("center", "barycenter", "baricenter"))]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
     }
@@ -1226,6 +1270,7 @@ impl Tetrahedron {
     /// signed volume of this tetrahedron is positive, then the triangles' normals will point
     /// outward, and if the signed volume is negative they will point inward.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn faces(&self) -> [Triangle3d; 4] {
         let [a, b, c, d] = self.vertices;
         [

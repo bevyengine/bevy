@@ -1,4 +1,5 @@
 use glam::{Affine3A, Mat3, Vec3, Vec3Swizzles, Vec4};
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -17,6 +18,7 @@ pub struct Affine3 {
 impl Affine3 {
     /// Calculates the transpose of the affine 4x3 matrix to a 3x4 and formats it for packing into GPU buffers
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn to_transpose(&self) -> [Vec4; 3] {
         let transpose_3x3 = self.matrix3.transpose();
         [
@@ -28,6 +30,7 @@ impl Affine3 {
 
     /// Calculates the inverse transpose of the 3x3 matrix and formats it for packing into GPU buffers
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn inverse_transpose_3x3(&self) -> ([Vec4; 2], f32) {
         let inverse_transpose_3x3 = Affine3A::from(self).inverse().matrix3.transpose();
         (

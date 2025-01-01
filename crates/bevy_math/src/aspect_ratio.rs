@@ -2,6 +2,7 @@
 
 use crate::Vec2;
 use derive_more::derive::Into;
+use no_panic::no_panic;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -29,6 +30,7 @@ impl AspectRatio {
     /// - Either width or height is infinite (`AspectRatioError::Infinite`)
     /// - Either width or height is NaN (`AspectRatioError::NaN`)
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn try_new(width: f32, height: f32) -> Result<Self, AspectRatioError> {
         match (width, height) {
             (w, h) if w == 0.0 || h == 0.0 => Err(AspectRatioError::Zero),
@@ -40,6 +42,7 @@ impl AspectRatio {
 
     /// Attempts to create a new [`AspectRatio`] from a given amount of x pixels and y pixels.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn try_from_pixels(x: u32, y: u32) -> Result<Self, AspectRatioError> {
         Self::try_new(x as f32, y as f32)
     }

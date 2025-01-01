@@ -24,11 +24,13 @@
 
 #[cfg(not(feature = "libm"))]
 mod std_ops {
+    use no_panic::no_panic;
 
     /// Raises a number to a floating point power.
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn powf(x: f32, y: f32) -> f32 {
         f32::powf(x, y)
     }
@@ -37,6 +39,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp(x: f32) -> f32 {
         f32::exp(x)
     }
@@ -45,6 +48,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp2(x: f32) -> f32 {
         f32::exp2(x)
     }
@@ -53,6 +57,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn ln(x: f32) -> f32 {
         f32::ln(x)
     }
@@ -61,6 +66,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn log2(x: f32) -> f32 {
         f32::log2(x)
     }
@@ -69,6 +75,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn log10(x: f32) -> f32 {
         f32::log10(x)
     }
@@ -77,6 +84,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cbrt(x: f32) -> f32 {
         f32::cbrt(x)
     }
@@ -86,6 +94,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn hypot(x: f32, y: f32) -> f32 {
         f32::hypot(x, y)
     }
@@ -94,6 +103,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sin(x: f32) -> f32 {
         f32::sin(x)
     }
@@ -102,6 +112,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cos(x: f32) -> f32 {
         f32::cos(x)
     }
@@ -110,6 +121,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn tan(x: f32) -> f32 {
         f32::tan(x)
     }
@@ -120,6 +132,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn asin(x: f32) -> f32 {
         f32::asin(x)
     }
@@ -130,6 +143,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acos(x: f32) -> f32 {
         f32::acos(x)
     }
@@ -139,6 +153,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atan(x: f32) -> f32 {
         f32::atan(x)
     }
@@ -152,6 +167,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atan2(y: f32, x: f32) -> f32 {
         f32::atan2(y, x)
     }
@@ -161,6 +177,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sin_cos(x: f32) -> (f32, f32) {
         f32::sin_cos(x)
     }
@@ -170,6 +187,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp_m1(x: f32) -> f32 {
         f32::exp_m1(x)
     }
@@ -179,6 +197,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn ln_1p(x: f32) -> f32 {
         f32::ln_1p(x)
     }
@@ -187,6 +206,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sinh(x: f32) -> f32 {
         f32::sinh(x)
     }
@@ -195,6 +215,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cosh(x: f32) -> f32 {
         f32::cosh(x)
     }
@@ -203,6 +224,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn tanh(x: f32) -> f32 {
         f32::tanh(x)
     }
@@ -211,6 +233,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn asinh(x: f32) -> f32 {
         f32::asinh(x)
     }
@@ -219,6 +242,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acosh(x: f32) -> f32 {
         f32::acosh(x)
     }
@@ -227,6 +251,7 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atanh(x: f32) -> f32 {
         f32::atanh(x)
     }
@@ -234,11 +259,13 @@ mod std_ops {
 
 #[cfg(feature = "libm")]
 mod libm_ops {
+    use no_panic::no_panic;
 
     /// Raises a number to a floating point power.
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn powf(x: f32, y: f32) -> f32 {
         libm::powf(x, y)
     }
@@ -247,6 +274,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp(x: f32) -> f32 {
         libm::expf(x)
     }
@@ -255,6 +283,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp2(x: f32) -> f32 {
         libm::exp2f(x)
     }
@@ -263,6 +292,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn ln(x: f32) -> f32 {
         // This isn't documented in `libm` but this is actually the base e logarithm.
         libm::logf(x)
@@ -272,6 +302,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn log2(x: f32) -> f32 {
         libm::log2f(x)
     }
@@ -280,6 +311,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn log10(x: f32) -> f32 {
         libm::log10f(x)
     }
@@ -288,6 +320,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cbrt(x: f32) -> f32 {
         libm::cbrtf(x)
     }
@@ -298,6 +331,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn hypot(x: f32, y: f32) -> f32 {
         libm::hypotf(x, y)
     }
@@ -306,6 +340,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sin(x: f32) -> f32 {
         libm::sinf(x)
     }
@@ -314,6 +349,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cos(x: f32) -> f32 {
         libm::cosf(x)
     }
@@ -322,6 +358,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn tan(x: f32) -> f32 {
         libm::tanf(x)
     }
@@ -332,6 +369,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn asin(x: f32) -> f32 {
         libm::asinf(x)
     }
@@ -345,6 +383,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acos(x: f32) -> f32 {
         libm::acosf(x)
     }
@@ -354,6 +393,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atan(x: f32) -> f32 {
         libm::atanf(x)
     }
@@ -367,6 +407,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atan2(y: f32, x: f32) -> f32 {
         libm::atan2f(y, x)
     }
@@ -376,6 +417,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sin_cos(x: f32) -> (f32, f32) {
         libm::sincosf(x)
     }
@@ -385,6 +427,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn exp_m1(x: f32) -> f32 {
         libm::expm1f(x)
     }
@@ -394,6 +437,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn ln_1p(x: f32) -> f32 {
         libm::log1pf(x)
     }
@@ -402,6 +446,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sinh(x: f32) -> f32 {
         libm::sinhf(x)
     }
@@ -410,6 +455,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn cosh(x: f32) -> f32 {
         libm::coshf(x)
     }
@@ -418,6 +464,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn tanh(x: f32) -> f32 {
         libm::tanhf(x)
     }
@@ -426,6 +473,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn asinh(x: f32) -> f32 {
         libm::asinhf(x)
     }
@@ -434,6 +482,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acosh(x: f32) -> f32 {
         libm::acoshf(x)
     }
@@ -442,6 +491,7 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn atanh(x: f32) -> f32 {
         libm::atanhf(x)
     }
@@ -458,6 +508,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         let result = libm::remainderf(x, y);
 
@@ -473,6 +524,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn abs(x: f32) -> f32 {
         libm::fabsf(x)
     }
@@ -481,6 +533,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sqrt(x: f32) -> f32 {
         libm::sqrtf(x)
     }
@@ -489,6 +542,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn copysign(x: f32, y: f32) -> f32 {
         libm::copysignf(x, y)
     }
@@ -497,6 +551,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn round(x: f32) -> f32 {
         libm::roundf(x)
     }
@@ -505,6 +560,7 @@ mod libm_ops_for_no_std {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn floor(x: f32) -> f32 {
         libm::floorf(x)
     }
@@ -513,6 +569,7 @@ mod libm_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fract(x: f32) -> f32 {
         libm::modff(x).0
     }
@@ -525,10 +582,13 @@ mod std_ops_for_no_std {
     //! On `std` platforms, this forwards directly to the implementations provided
     //! by [`std`].
 
+    use no_panic::no_panic;
+
     /// Calculates the least nonnegative remainder of `x (mod y)`.
     ///
     /// The result of this operation is guaranteed to be the rounded infinite-precision result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         f32::rem_euclid(x, y)
     }
@@ -537,6 +597,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn abs(x: f32) -> f32 {
         f32::abs(x)
     }
@@ -546,6 +607,7 @@ mod std_ops_for_no_std {
     /// The result of this operation is guaranteed to be the rounded infinite-precision result.
     /// It is specified by IEEE 754 as `squareRoot` and guaranteed not to change.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sqrt(x: f32) -> f32 {
         f32::sqrt(x)
     }
@@ -556,6 +618,7 @@ mod std_ops_for_no_std {
     /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
     /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn copysign(x: f32, y: f32) -> f32 {
         f32::copysign(x, y)
     }
@@ -564,6 +627,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn round(x: f32) -> f32 {
         f32::round(x)
     }
@@ -572,6 +636,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn floor(x: f32) -> f32 {
         f32::floor(x)
     }
@@ -580,6 +645,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fract(x: f32) -> f32 {
         f32::fract(x)
     }

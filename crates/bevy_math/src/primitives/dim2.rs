@@ -1,5 +1,6 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
+use no_panic::no_panic;
 use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
@@ -53,6 +54,7 @@ impl Circle {
 
     /// Get the diameter of the circle
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
@@ -62,6 +64,7 @@ impl Circle {
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
     /// Otherwise, it will be inside the circle and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
@@ -139,12 +142,14 @@ impl Default for Arc2d {
 impl Arc2d {
     /// Create a new [`Arc2d`] from a `radius` and a `half_angle`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(radius: f32, half_angle: f32) -> Self {
         Self { radius, half_angle }
     }
 
     /// Create a new [`Arc2d`] from a `radius` and an `angle` in radians
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_radians(radius: f32, angle: f32) -> Self {
         Self {
             radius,
@@ -154,6 +159,7 @@ impl Arc2d {
 
     /// Create a new [`Arc2d`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_degrees(radius: f32, angle: f32) -> Self {
         Self {
             radius,
@@ -165,6 +171,7 @@ impl Arc2d {
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_turns(radius: f32, fraction: f32) -> Self {
         Self {
             radius,
@@ -174,54 +181,63 @@ impl Arc2d {
 
     /// Get the angle of the arc
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn angle(&self) -> f32 {
         self.half_angle * 2.0
     }
 
     /// Get the length of the arc
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn length(&self) -> f32 {
         self.angle() * self.radius
     }
 
     /// Get the right-hand end point of the arc
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn right_endpoint(&self) -> Vec2 {
         self.radius * Vec2::from_angle(FRAC_PI_2 - self.half_angle)
     }
 
     /// Get the left-hand end point of the arc
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn left_endpoint(&self) -> Vec2 {
         self.radius * Vec2::from_angle(FRAC_PI_2 + self.half_angle)
     }
 
     /// Get the endpoints of the arc
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn endpoints(&self) -> [Vec2; 2] {
         [self.left_endpoint(), self.right_endpoint()]
     }
 
     /// Get the midpoint of the arc
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn midpoint(&self) -> Vec2 {
         self.radius * Vec2::Y
     }
 
     /// Get half the distance between the endpoints (half the length of the chord)
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_chord_length(&self) -> f32 {
         self.radius * ops::sin(self.half_angle)
     }
 
     /// Get the distance between the endpoints (the length of the chord)
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn chord_length(&self) -> f32 {
         2.0 * self.half_chord_length()
     }
 
     /// Get the midpoint of the two endpoints (the midpoint of the chord)
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn chord_midpoint(&self) -> Vec2 {
         self.apothem() * Vec2::Y
     }
@@ -253,6 +269,7 @@ impl Arc2d {
     ///
     /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is both major and minor.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_minor(&self) -> bool {
         self.half_angle <= FRAC_PI_2
     }
@@ -261,6 +278,7 @@ impl Arc2d {
     ///
     /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is both major and minor.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_major(&self) -> bool {
         self.half_angle >= FRAC_PI_2
     }
@@ -318,18 +336,21 @@ impl Measured2d for CircularSector {
 impl CircularSector {
     /// Create a new [`CircularSector`] from a `radius` and an `angle`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::new(radius, angle))
     }
 
     /// Create a new [`CircularSector`] from a `radius` and an `angle` in radians.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_radians(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::from_radians(radius, angle))
     }
 
     /// Create a new [`CircularSector`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_degrees(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::from_degrees(radius, angle))
     }
@@ -338,30 +359,35 @@ impl CircularSector {
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_turns(radius: f32, fraction: f32) -> Self {
         Self::from(Arc2d::from_turns(radius, fraction))
     }
 
     /// Get half the angle of the sector
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_angle(&self) -> f32 {
         self.arc.half_angle
     }
 
     /// Get the angle of the sector
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn angle(&self) -> f32 {
         self.arc.angle()
     }
 
     /// Get the radius of the sector
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn radius(&self) -> f32 {
         self.arc.radius
     }
 
     /// Get the length of the arc defining the sector
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn arc_length(&self) -> f32 {
         self.arc.length()
     }
@@ -370,6 +396,7 @@ impl CircularSector {
     ///
     /// See [`Arc2d::half_chord_length`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_chord_length(&self) -> f32 {
         self.arc.half_chord_length()
     }
@@ -378,6 +405,7 @@ impl CircularSector {
     ///
     /// See [`Arc2d::chord_length`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn chord_length(&self) -> f32 {
         self.arc.chord_length()
     }
@@ -386,6 +414,7 @@ impl CircularSector {
     ///
     /// See [`Arc2d::chord_midpoint`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn chord_midpoint(&self) -> Vec2 {
         self.arc.chord_midpoint()
     }
@@ -394,6 +423,7 @@ impl CircularSector {
     ///
     /// See [`Arc2d::apothem`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn apothem(&self) -> f32 {
         self.arc.apothem()
     }
@@ -402,6 +432,7 @@ impl CircularSector {
     ///
     /// See [`Arc2d::sagitta`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
     }
@@ -456,18 +487,21 @@ impl Measured2d for CircularSegment {
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::new(radius, angle))
     }
 
     /// Create a new [`CircularSegment`] from a `radius` and an `angle` in radians.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_radians(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::from_radians(radius, angle))
     }
 
     /// Create a new [`CircularSegment`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_degrees(radius: f32, angle: f32) -> Self {
         Self::from(Arc2d::from_degrees(radius, angle))
     }
@@ -476,30 +510,35 @@ impl CircularSegment {
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_turns(radius: f32, fraction: f32) -> Self {
         Self::from(Arc2d::from_turns(radius, fraction))
     }
 
     /// Get the half-angle of the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn half_angle(&self) -> f32 {
         self.arc.half_angle
     }
 
     /// Get the angle of the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn angle(&self) -> f32 {
         self.arc.angle()
     }
 
     /// Get the radius of the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn radius(&self) -> f32 {
         self.arc.radius
     }
 
     /// Get the length of the arc defining the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn arc_length(&self) -> f32 {
         self.arc.length()
     }
@@ -531,6 +570,7 @@ impl CircularSegment {
     ///
     /// See [`Arc2d::apothem`]
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn apothem(&self) -> f32 {
         self.arc.apothem()
     }
@@ -814,6 +854,7 @@ impl Ellipse {
     ///
     /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_size(size: Vec2) -> Self {
         Self {
             half_size: size / 2.0,
@@ -845,12 +886,14 @@ impl Ellipse {
 
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
@@ -963,12 +1006,14 @@ impl Annulus {
 
     /// Get the diameter of the annulus
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn diameter(&self) -> f32 {
         self.outer_circle.diameter()
     }
 
     /// Get the thickness of the annulus
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn thickness(&self) -> f32 {
         self.outer_circle.radius - self.inner_circle.radius
     }
@@ -979,6 +1024,7 @@ impl Annulus {
     /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
     /// - Otherwise, the returned point is overlapping the annulus and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
@@ -1050,6 +1096,7 @@ impl Default for Rhombus {
 impl Rhombus {
     /// Create a new `Rhombus` from a vertical and horizontal diagonal sizes.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
         Self {
             half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
@@ -1058,6 +1105,7 @@ impl Rhombus {
 
     /// Create a new `Rhombus` from a side length with all inner angles equal.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_side(side: f32) -> Self {
         Self {
             half_diagonals: Vec2::splat(side * FRAC_1_SQRT_2),
@@ -1066,6 +1114,7 @@ impl Rhombus {
 
     /// Create a new `Rhombus` from a given inradius with all inner angles equal.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_inradius(inradius: f32) -> Self {
         let half_diagonal = inradius * 2.0 / core::f32::consts::SQRT_2;
         Self {
@@ -1075,6 +1124,7 @@ impl Rhombus {
 
     /// Get the length of each side of the rhombus
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn side(&self) -> f32 {
         self.half_diagonals.length()
     }
@@ -1082,6 +1132,7 @@ impl Rhombus {
     /// Get the radius of the circumcircle on which all vertices
     /// of the rhombus lie
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn circumradius(&self) -> f32 {
         self.half_diagonals.x.max(self.half_diagonals.y)
     }
@@ -1104,6 +1155,7 @@ impl Rhombus {
     /// If the point is outside the rhombus, the returned point will be on the perimeter of the rhombus.
     /// Otherwise, it will be inside the rhombus and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Fold the problem into the positive quadrant
         let point_abs = point.abs();
@@ -1187,6 +1239,7 @@ impl Plane2d {
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(normal: Vec2) -> Self {
         Self {
             normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
@@ -1232,6 +1285,7 @@ impl Primitive2d for Segment2d {}
 impl Segment2d {
     /// Create a new `Segment2d` from a direction and full length of the segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(direction: Dir2, length: f32) -> Self {
         Self {
             direction,
@@ -1245,6 +1299,7 @@ impl Segment2d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         let diff = point2 - point1;
         let length = diff.length();
@@ -1258,12 +1313,14 @@ impl Segment2d {
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn point1(&self) -> Vec2 {
         *self.direction * -self.half_length
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn point2(&self) -> Vec2 {
         *self.direction * self.half_length
     }
@@ -1428,6 +1485,7 @@ impl Triangle2d {
     /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_degenerate(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = (b - a).extend(0.);
@@ -1437,6 +1495,7 @@ impl Triangle2d {
 
     /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_acute(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1455,6 +1514,7 @@ impl Triangle2d {
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_obtuse(&self) -> bool {
         let [a, b, c] = self.vertices;
         let ab = b - a;
@@ -1474,6 +1534,7 @@ impl Triangle2d {
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the first and last vertices.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
     }
@@ -1539,12 +1600,14 @@ impl Default for Rectangle {
 impl Rectangle {
     /// Create a new `Rectangle` from a full width and height
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(width: f32, height: f32) -> Self {
         Self::from_size(Vec2::new(width, height))
     }
 
     /// Create a new `Rectangle` from a given full size
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_size(size: Vec2) -> Self {
         Self {
             half_size: size / 2.0,
@@ -1553,6 +1616,7 @@ impl Rectangle {
 
     /// Create a new `Rectangle` from two corner points
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_corners(point1: Vec2, point2: Vec2) -> Self {
         Self {
             half_size: (point2 - point1).abs() / 2.0,
@@ -1562,6 +1626,7 @@ impl Rectangle {
     /// Create a `Rectangle` from a single length.
     /// The resulting `Rectangle` will be the same size in every direction.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec2::splat(length / 2.0),
@@ -1570,6 +1635,7 @@ impl Rectangle {
 
     /// Get the size of the rectangle
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn size(&self) -> Vec2 {
         2.0 * self.half_size
     }
@@ -1579,6 +1645,7 @@ impl Rectangle {
     /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
     /// Otherwise, it will be inside the rectangle and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
         point.clamp(-self.half_size, self.half_size)
@@ -1707,12 +1774,14 @@ impl<const N: usize> ConvexPolygon<N> {
     /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
     /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
         Self { vertices }
     }
 
     /// Get the vertices of this polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn vertices(&self) -> &[Vec2; N] {
         &self.vertices
     }
@@ -1805,6 +1874,7 @@ impl RegularPolygon {
     ///
     /// Panics if `circumradius` is negative
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(circumradius: f32, sides: u32) -> Self {
         assert!(
             circumradius.is_sign_positive(),
@@ -1823,6 +1893,7 @@ impl RegularPolygon {
     /// Get the radius of the circumcircle on which all vertices
     /// of the regular polygon lie
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn circumradius(&self) -> f32 {
         self.circumcircle.radius
     }
@@ -1838,6 +1909,7 @@ impl RegularPolygon {
 
     /// Get the length of one side of the regular polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn side_length(&self) -> f32 {
         2.0 * self.circumradius() * ops::sin(PI / self.sides as f32)
     }
@@ -1847,6 +1919,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the interior of the polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn internal_angle_degrees(&self) -> f32 {
         (self.sides - 2) as f32 / self.sides as f32 * 180.0
     }
@@ -1856,6 +1929,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the interior of the polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn internal_angle_radians(&self) -> f32 {
         (self.sides - 2) as f32 * PI / self.sides as f32
     }
@@ -1865,6 +1939,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the exterior of the polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn external_angle_degrees(&self) -> f32 {
         360.0 / self.sides as f32
     }
@@ -1874,6 +1949,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the exterior of the polygon
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn external_angle_radians(&self) -> f32 {
         2.0 * PI / self.sides as f32
     }
@@ -1956,6 +2032,7 @@ impl Capsule2d {
 
     /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn to_inner_rectangle(&self) -> Rectangle {
         Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
     }

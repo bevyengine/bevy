@@ -29,6 +29,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-featu
   "glam",
 ], optional = true }
 variadics_please = "1.1"
+no-panic = "0.1"
 
 [dev-dependencies]
 approx = "0.5"
@@ -79,6 +80,8 @@ rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
 curve = []
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["dep:bevy_reflect", "alloc"]
+# Enable to turn on checking no_panic functionality
+check_no_panic = []
 
 [lints]
 workspace = true

@@ -8,6 +8,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use no_panic::no_panic;
 use thiserror::Error;
 #[cfg(feature = "alloc")]
 use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
@@ -972,6 +973,7 @@ pub struct CubicSegment<P: VectorSpace> {
 impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
         // Evaluate `a + bt + ct^2 + dt^3`, avoiding exponentiation
@@ -980,6 +982,7 @@ impl<P: VectorSpace> CubicSegment<P> {
 
     /// Instantaneous velocity of a point at parametric value `t`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn velocity(&self, t: f32) -> P {
         let [_, b, c, d] = self.coeff;
         // Evaluate the derivative, which is `b + 2ct + 3dt^2`, avoiding exponentiation
@@ -988,6 +991,7 @@ impl<P: VectorSpace> CubicSegment<P> {
 
     /// Instantaneous acceleration of a point at parametric value `t`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acceleration(&self, t: f32) -> P {
         let [_, _, c, d] = self.coeff;
         // Evaluate the second derivative, which is `2c + 6dt`
@@ -1066,7 +1070,7 @@ impl CubicSegment<Vec2> {
     /// y
     /// │         ●
     /// │       ⬈
-    /// │     ⬈    
+    /// │     ⬈
     /// │   ⬈
     /// │ ⬈
     /// ●─────────── x (time)
@@ -1080,8 +1084,8 @@ impl CubicSegment<Vec2> {
     /// ```text
     /// y
     ///          ⬈➔●
-    /// │      ⬈   
-    /// │     ↑      
+    /// │      ⬈
+    /// │     ↑
     /// │     ↑
     /// │    ⬈
     /// ●➔⬈───────── x (time)
@@ -1100,6 +1104,7 @@ impl CubicSegment<Vec2> {
     ///
     /// > Once a solution is found, use the resulting `y` value as the final result
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn ease(&self, time: f32) -> f32 {
         let x = time.clamp(0.0, 1.0);
         self.find_y_given_x(x)
@@ -1157,6 +1162,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn position(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.position(t)
@@ -1167,6 +1173,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn velocity(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.velocity(t)
@@ -1177,6 +1184,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acceleration(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.acceleration(t)
@@ -1191,6 +1199,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     /// For `subdivisions = 2`, this will split the curve into two lines, or three points, and
     /// return an iterator with 3 items, the three points, one at the start, middle, and end.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn iter_samples<'a, 'b: 'a>(
         &'b self,
         subdivisions: usize,
@@ -1216,6 +1225,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     /// When sampling over the entire curve, you should either use one of the
     /// `iter_*` methods or account for the segment count using `curve.segments().len()`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn segments(&self) -> &[CubicSegment<P>] {
         &self.segments
     }
@@ -1303,6 +1313,7 @@ pub struct RationalSegment<P: VectorSpace> {
 impl<P: VectorSpace> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
         let [x, y, z, w] = self.weight_coeff;
@@ -1315,6 +1326,7 @@ impl<P: VectorSpace> RationalSegment<P> {
 
     /// Instantaneous velocity of a point at parametric value `t` in `[0, 1]`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn velocity(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
         // curves and surfaces" by Choi et al. See equation 19.
@@ -1340,6 +1352,7 @@ impl<P: VectorSpace> RationalSegment<P> {
 
     /// Instantaneous acceleration of a point at parametric value `t` in `[0, 1]`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acceleration(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
         // curves and surfaces" by Choi et al. See equation 20. Note: In come copies of this paper, equation 20
@@ -1447,6 +1460,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     ///
     /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn position(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.position(t)
@@ -1457,6 +1471,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     ///
     /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn velocity(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.velocity(t)
@@ -1467,6 +1482,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     ///
     /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn acceleration(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
         segment.acceleration(t)
@@ -1481,6 +1497,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     /// For `subdivisions = 2`, this will split the curve into two lines, or three points, and
     /// return an iterator with 3 items, the three points, one at the start, middle, and end.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn iter_samples<'a, 'b: 'a>(
         &'b self,
         subdivisions: usize,
@@ -1506,6 +1523,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     /// When sampling over the entire curve, you should either use one of the
     /// `iter_*` methods or account for the segment count using `curve.segments().len()`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn segments(&self) -> &[RationalSegment<P>] {
         &self.segments
     }
@@ -1527,6 +1545,7 @@ impl<P: VectorSpace> RationalCurve<P> {
 
     /// Adds a segment to the curve.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn push_segment(&mut self, segment: RationalSegment<P>) {
         self.segments.push(segment);
     }
@@ -1557,6 +1576,7 @@ impl<P: VectorSpace> RationalCurve<P> {
 
     /// Returns the length of the domain of the parametric curve.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn length(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()
     }

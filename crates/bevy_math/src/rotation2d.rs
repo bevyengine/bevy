@@ -1,6 +1,7 @@
 use core::f32::consts::TAU;
 
 use glam::FloatExt;
+use no_panic::no_panic;
 
 use crate::{
     ops,
@@ -59,6 +60,7 @@ pub struct Rot2 {
 }
 
 impl Default for Rot2 {
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     fn default() -> Self {
         Self::IDENTITY
     }
@@ -122,6 +124,7 @@ impl Rot2 {
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn radians(radians: f32) -> Self {
         let (sin, cos) = ops::sin_cos(radians);
         Self::from_sin_cos(sin, cos)
@@ -147,6 +150,7 @@ impl Rot2 {
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
     }
@@ -171,6 +175,7 @@ impl Rot2 {
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn turn_fraction(fraction: f32) -> Self {
         Self::radians(TAU * fraction)
     }
@@ -183,6 +188,7 @@ impl Rot2 {
     ///
     /// Panics if `sin * sin + cos * cos != 1.0` when the `glam_assert` feature is enabled.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_sin_cos(sin: f32, cos: f32) -> Self {
         let rotation = Self { sin, cos };
         debug_assert!(
@@ -194,18 +200,21 @@ impl Rot2 {
 
     /// Returns the rotation in radians in the `(-pi, pi]` range.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_radians(self) -> f32 {
         ops::atan2(self.sin, self.cos)
     }
 
     /// Returns the rotation in degrees in the `(-180, 180]` range.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_degrees(self) -> f32 {
         self.as_radians().to_degrees()
     }
 
     /// Returns the rotation as a fraction of a full 360 degree turn.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn as_turn_fraction(self) -> f32 {
         self.as_radians() / TAU
     }
@@ -223,6 +232,7 @@ impl Rot2 {
     /// successive operations.
     #[inline]
     #[doc(alias = "norm")]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn length(self) -> f32 {
         Vec2::new(self.sin, self.cos).length()
     }
@@ -237,6 +247,7 @@ impl Rot2 {
     /// successive operations.
     #[inline]
     #[doc(alias = "norm2")]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn length_squared(self) -> f32 {
         Vec2::new(self.sin, self.cos).length_squared()
     }
@@ -245,6 +256,7 @@ impl Rot2 {
     ///
     /// For valid results, `self` must _not_ have a length of zero.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn length_recip(self) -> f32 {
         Vec2::new(self.sin, self.cos).length_recip()
     }
@@ -259,6 +271,7 @@ impl Rot2 {
     /// accumulated floating point error, or if the rotation was constructed
     /// with invalid values.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn try_normalize(self) -> Option<Self> {
         let recip = self.length_recip();
         if recip.is_finite() && recip > 0.0 {
@@ -279,6 +292,7 @@ impl Rot2 {
     ///
     /// Panics if `self` has a length of zero, NaN, or infinity when debug assertions are enabled.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn normalize(self) -> Self {
         let length_recip = self.length_recip();
         Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
@@ -288,6 +302,7 @@ impl Rot2 {
     /// Useful for preventing numerical error accumulation.
     /// See [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for an example of when such error accumulation might occur.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.length_squared();
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for more details.
@@ -300,12 +315,14 @@ impl Rot2 {
 
     /// Returns `true` if the rotation is neither infinite nor NaN.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_finite(self) -> bool {
         self.sin.is_finite() && self.cos.is_finite()
     }
 
     /// Returns `true` if the rotation is NaN.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_nan(self) -> bool {
         self.sin.is_nan() || self.cos.is_nan()
     }
@@ -314,6 +331,7 @@ impl Rot2 {
     ///
     /// Uses a precision threshold of approximately `1e-4`.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_normalized(self) -> bool {
         // The allowed length is 1 +/- 1e-4, so the largest allowed
         // squared length is (1 + 1e-4)^2 = 1.00020001, which makes
@@ -323,6 +341,7 @@ impl Rot2 {
 
     /// Returns `true` if the rotation is near [`Rot2::IDENTITY`].
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn is_near_identity(self) -> bool {
         // Same as `Quat::is_near_identity`, but using sine and cosine
         let threshold_angle_sin = 0.000_049_692_047; // let threshold_angle = 0.002_847_144_6;
@@ -341,6 +360,7 @@ impl Rot2 {
 
     /// Returns the angle in radians needed to make `self` and `other` coincide.
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn angle_to(self, other: Self) -> f32 {
         (other * self.inverse()).as_radians()
     }
@@ -395,6 +415,7 @@ impl Rot2 {
     /// assert_eq!(result2.as_degrees(), 67.5);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn nlerp(self, end: Self, s: f32) -> Self {
         Self {
             sin: self.sin.lerp(end.sin, s),
@@ -433,6 +454,7 @@ impl Rot2 {
     /// assert_eq!(result2.as_degrees(), 67.5);
     /// ```
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn slerp(self, end: Self, s: f32) -> Self {
         self * Self::radians(self.angle_to(end) * s)
     }

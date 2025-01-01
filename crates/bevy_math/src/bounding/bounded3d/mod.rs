@@ -8,6 +8,7 @@ use crate::{
     ops::{self, FloatPow},
     Isometry3d, Quat, Vec3A,
 };
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -48,6 +49,7 @@ pub struct Aabb3d {
 impl Aabb3d {
     /// Constructs an AABB from its center and half-size.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn new(center: impl Into<Vec3A>, half_size: impl Into<Vec3A>) -> Self {
         let (center, half_size) = (center.into(), half_size.into());
         debug_assert!(half_size.x >= 0.0 && half_size.y >= 0.0 && half_size.z >= 0.0);
@@ -64,6 +66,7 @@ impl Aabb3d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_point_cloud(
         isometry: impl Into<Isometry3d>,
         points: impl Iterator<Item = impl Into<Vec3A>>,
@@ -89,6 +92,7 @@ impl Aabb3d {
 
     /// Computes the smallest [`BoundingSphere`] containing this [`Aabb3d`].
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn bounding_sphere(&self) -> BoundingSphere {
         let radius = self.min.distance(self.max) / 2.0;
         BoundingSphere::new(self.center(), radius)
@@ -99,6 +103,7 @@ impl Aabb3d {
     /// If the point is outside the AABB, the returned point will be on the surface of the AABB.
     /// Otherwise, it will be inside the AABB and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         // Clamp point coordinates to the AABB
         point.into().clamp(self.min, self.max)
@@ -480,6 +485,7 @@ impl BoundingSphere {
     ///
     /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn from_point_cloud(
         isometry: impl Into<Isometry3d>,
         points: &[impl Copy + Into<Vec3A>],
@@ -502,12 +508,14 @@ impl BoundingSphere {
 
     /// Get the radius of the bounding sphere
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn radius(&self) -> f32 {
         self.sphere.radius
     }
 
     /// Computes the smallest [`Aabb3d`] containing this [`BoundingSphere`].
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn aabb_3d(&self) -> Aabb3d {
         Aabb3d {
             min: self.center - self.radius(),
@@ -520,6 +528,7 @@ impl BoundingSphere {
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
     /// Otherwise, it will be inside the sphere and returned as is.
     #[inline(always)]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn closest_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         let point = point.into();
         let radius = self.radius();

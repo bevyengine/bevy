@@ -3,6 +3,7 @@ use crate::{
     primitives::{InfinitePlane3d, Plane2d},
     Dir2, Dir3, Vec2, Vec3,
 };
+use no_panic::no_panic;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -33,12 +34,14 @@ impl Ray2d {
 
     /// Get a point at a given distance along the ray
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn get_point(&self, distance: f32) -> Vec2 {
         self.origin + *self.direction * distance
     }
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
@@ -75,12 +78,14 @@ impl Ray3d {
 
     /// Get a point at a given distance along the ray
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn get_point(&self, distance: f32) -> Vec3 {
         self.origin + *self.direction * distance
     }
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
+    #[cfg_attr(feature = "check_no_panic", no_panic)]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
