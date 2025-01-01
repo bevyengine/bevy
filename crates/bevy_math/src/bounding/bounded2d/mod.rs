@@ -272,8 +272,7 @@ mod aabb2d_tests {
     };
 
     #[cfg_attr(feature = "check_no_panic", no_panic)]
-    fn test()
-    {
+    fn test() {
         panic!();
     }
 
