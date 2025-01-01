@@ -12,6 +12,7 @@ env:
   CARGO_TERM_COLOR: always
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  RUSTFLAGS: "-D warnings"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -68,8 +69,6 @@ jobs:
           wayland: true
           xkb: true
       - name: CI job
-        env:
-          RUSTFLAGS: "-D warnings"
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
 
@@ -126,8 +125,6 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        env:
-          RUSTFLAGS: "-D warnings"
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
   check-compiles-no-std:
@@ -153,8 +150,6 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        env:
-          RUSTFLAGS: "-D warnings"
         run: cargo run -p ci -- compile-check-no-std
 
   build-wasm:
@@ -176,8 +171,6 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
-        env:
-          RUSTFLAGS: "-D warnings"
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
