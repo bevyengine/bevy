@@ -4,7 +4,6 @@ use benches::bench;
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::component::ComponentCloneHandler;
 use bevy_ecs::reflect::AppTypeRegistry;
-use bevy_ecs::system::EntityCommands;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
@@ -80,31 +79,43 @@ fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World)
     }
 }
 
-fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
+/// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
+/// bundle `B`.
+///
+/// As compared to [`bench_clone()`], this benchmarks recursively cloning an entity with several
+/// children. It does so by setting up an entity tree with a given `height` where each entity has a
+/// specified number of `children`.
+///
+/// For example, setting `height` to 5 and `children` to 1 creates a single chain of entities with
+/// no siblings. Alternatively, setting `height` to 1 and `children` to 5 will spawn 5 direct
+/// children of the root entity.
+fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
-    width: usize,
     height: usize,
+    children: usize,
     clone_via_reflect: bool,
 ) {
     let mut world = World::default();
 
     if clone_via_reflect {
-        set_reflect_clone_handler::<C>(&mut world);
+        set_reflect_clone_handler::<B>(&mut world);
     }
 
-    let id = world.spawn(black_box(C::default())).id();
+    // Spawn the first entity, which will be cloned in the benchmark routine.
+    let id = world.spawn(B::default()).id();
 
     let mut hierarchy_level = vec![id];
 
+    // Set up the hierarchy tree by spawning all children.
     for _ in 0..height {
         let current_hierarchy_level = hierarchy_level.clone();
+
         hierarchy_level.clear();
+
         for parent_id in current_hierarchy_level {
-            for _ in 0..width {
-                let child_id = world
-                    .spawn(black_box(C::default()))
-                    .set_parent(parent_id)
-                    .id();
+            for _ in 0..children {
+                let child_id = world.spawn(B::default()).set_parent(parent_id).id();
+
                 hierarchy_level.push(child_id);
             }
         }
@@ -113,10 +124,15 @@ fn hierarchy<C: Bundle + Default + GetTypeRegistration>(
     // Flush all `set_parent()` commands.
     world.flush();
 
-    b.iter(move || {
-        world.commands().entity(id).clone_and_spawn_with(|builder| {
-            builder.recursive(true);
-        });
+    b.iter(|| {
+        world
+            .commands()
+            .entity(black_box(id))
+            .clone_and_spawn_with(|builder| {
+                // Make the clone command recursive, so children are cloned as well.
+                builder.recursive(true);
+            });
+
         world.flush();
     });
 }
@@ -161,15 +177,15 @@ fn with_reflect(c: &mut Criterion) {
     });
 
     group.bench_function("hierarchy_wide", |b| {
-        hierarchy::<C1>(b, 10, 4, true);
+        bench_clone_hierarchy::<C1>(b, 10, 4, true);
     });
 
     group.bench_function("hierarchy_tall", |b| {
-        hierarchy::<C1>(b, 1, 50, true);
+        bench_clone_hierarchy::<C1>(b, 1, 50, true);
     });
 
     group.bench_function("hierarchy_many", |b| {
-        hierarchy::<ComplexBundle>(b, 5, 5, true);
+        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, true);
     });
 
     group.finish();
@@ -183,15 +199,15 @@ fn with_clone(c: &mut Criterion) {
     });
 
     group.bench_function("hierarchy_wide", |b| {
-        hierarchy::<C1>(b, 10, 4, false);
+        bench_clone_hierarchy::<C1>(b, 10, 4, false);
     });
 
     group.bench_function("hierarchy_tall", |b| {
-        hierarchy::<C1>(b, 1, 50, false);
+        bench_clone_hierarchy::<C1>(b, 1, 50, false);
     });
 
     group.bench_function("hierarchy_many", |b| {
-        hierarchy::<ComplexBundle>(b, 5, 5, false);
+        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, false);
     });
 
     group.finish();
