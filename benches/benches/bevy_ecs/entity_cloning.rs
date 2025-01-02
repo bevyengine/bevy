@@ -8,51 +8,19 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent, world::World};
 use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
-use criterion::{criterion_group, Bencher, Criterion};
+use criterion::{criterion_group, Bencher, Criterion, Throughput};
 
-criterion_group!(benches, with_reflect, with_clone);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C1(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C2(Mat4);
+criterion_group!(
+    benches,
+    single,
+    hierarchy_tall,
+    hierarchy_wide,
+    hierarchy_many,
+);
 
 #[derive(Component, Reflect, Default, Clone)]
 #[reflect(Component)]
-struct C3(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C4(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C5(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C6(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C7(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C8(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C9(Mat4);
-
-#[derive(Component, Reflect, Default, Clone)]
-#[reflect(Component)]
-struct C10(Mat4);
-
-type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+struct Foo(Mat4);
 
 /// Sets the [`ComponentCloneHandler`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
@@ -169,46 +137,70 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     });
 }
 
-fn with_clone(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("with_clone"));
+// Each benchmark runs twice: using either the `Clone` or `Reflect` traits to clone entities. This
+// constant represents this as an easy array that can be used in a `for` loop.
+const SCENARIOS: [(&'static str, bool); 2] = [("clone", false), ("reflect", true)];
 
-    group.bench_function("simple", |b| {
-        bench_clone::<ComplexBundle>(b, false);
-    });
+fn single(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("single"));
 
-    group.bench_function("hierarchy_wide", |b| {
-        bench_clone_hierarchy::<C1>(b, 10, 4, false);
-    });
+    // We're cloning 1 entity.
+    group.throughput(Throughput::Elements(1));
 
-    group.bench_function("hierarchy_tall", |b| {
-        bench_clone_hierarchy::<C1>(b, 1, 50, false);
-    });
-
-    group.bench_function("hierarchy_many", |b| {
-        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, false);
-    });
+    for (id, clone_via_reflect) in SCENARIOS {
+        group.bench_function(id, |b| {
+            bench_clone::<Foo>(b, clone_via_reflect);
+        });
+    }
 
     group.finish();
 }
 
-fn with_reflect(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("with_reflect"));
+fn hierarchy_tall(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("hierarchy_tall"));
 
-    group.bench_function("simple", |b| {
-        bench_clone::<ComplexBundle>(b, true);
-    });
+    // We're cloning both the root entity and its 50 descendents.
+    group.throughput(Throughput::Elements(51));
 
-    group.bench_function("hierarchy_wide", |b| {
-        bench_clone_hierarchy::<C1>(b, 10, 4, true);
-    });
+    for (id, clone_via_reflect) in SCENARIOS {
+        group.bench_function(id, |b| {
+            bench_clone_hierarchy::<Foo>(b, 50, 1, clone_via_reflect);
+        });
+    }
 
-    group.bench_function("hierarchy_tall", |b| {
-        bench_clone_hierarchy::<C1>(b, 1, 50, true);
-    });
+    group.finish();
+}
 
-    group.bench_function("hierarchy_many", |b| {
-        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, true);
-    });
+fn hierarchy_wide(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("hierarchy_wide"));
+
+    // We're cloning both the root entity and its 50 direct children.
+    group.throughput(Throughput::Elements(51));
+
+    for (id, clone_via_reflect) in SCENARIOS {
+        group.bench_function(id, |b| {
+            bench_clone_hierarchy::<Foo>(b, 1, 50, clone_via_reflect);
+        });
+    }
+
+    group.finish();
+}
+
+fn hierarchy_many(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("hierarchy_many"));
+
+    // We're cloning 3,906 entities total. This number was calculated by manually counting the
+    // number of entities spawned in `bench_clone_hierarchy()` with a `println!()` statement. :)
+    group.throughput(Throughput::Elements(3906));
+
+    // The default 5 seconds are not enough here.
+    group.measurement_time(std::time::Duration::from_secs(8));
+
+    for (id, clone_via_reflect) in SCENARIOS {
+        group.bench_function(id, |b| {
+            bench_clone_hierarchy::<Foo>(b, 5, 5, clone_via_reflect);
+        });
+    }
 
     group.finish();
 }
