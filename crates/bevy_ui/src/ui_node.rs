@@ -332,12 +332,11 @@ impl From<Vec2> for ScrollPosition {
     FocusPolicy,
     ScrollPosition,
     Transform,
-    VisibilityClass,
     ZIndex
 )]
-#[cfg_attr(feature = "bevy_render", require(Visibility))]
+#[cfg_attr(feature = "bevy_render", require(Visibility, VisibilityClass))]
 #[reflect(Component, Default, PartialEq, Debug)]
-#[component(on_add = view::add_visibility_class::<Node>)]
+#[cfg_attr(feature = "bevy_render", component(on_add = view::add_visibility_class::<Node>))]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

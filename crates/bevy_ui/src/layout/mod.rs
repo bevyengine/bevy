@@ -905,6 +905,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "bevy_render")]
     fn ui_node_should_properly_update_when_changing_target_camera() {
         #[derive(Component)]
         struct MovingUiNode;

@@ -201,11 +201,12 @@ impl Plugin for UiPlugin {
                     UiSystem::PostLayout,
                 )
                     .chain(),
-            )
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+        #[cfg(feature = "bevy_render")]
+        app.add_systems(
+            PreUpdate,
+            ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+        );
 
         #[cfg(feature = "bevy_render")]
         {
@@ -228,10 +229,14 @@ impl Plugin for UiPlugin {
         let systems = systems.ambiguous_with(ui_layout_system);
         #[cfg(feature = "bevy_text")]
         let systems = systems.in_set(AmbiguousWithTextSystem);
+        #[cfg(feature = "bevy_render")]
+        app.add_systems(
+            PostUpdate,
+            update_target_camera_system.in_set(UiSystem::Prepare),
+        );
         app.add_systems(
             PostUpdate,
             (
-                update_target_camera_system.in_set(UiSystem::Prepare),
                 systems,
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             ),

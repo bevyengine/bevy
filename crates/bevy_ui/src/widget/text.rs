@@ -1,39 +1,33 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node};
+use crate::{ComputedNode, ContentSize, Measure, MeasureArgs, Node};
+use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    prelude::{require, Component},
-    reflect::ReflectComponent,
-};
+use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    TextBounds, TextColor, TextFont, TextLayout, TextMeasureInfo, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    prelude::*, scale_value, ComputedTextBlock, CosmicFontSystem, FontAtlasSets, SwashCache,
+    TextBounds, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter, YAxisOrientation,
 };
 use taffy::style::AvailableSpace;
 
 #[cfg(feature = "bevy_render")]
 use {
-    crate::{ComputedNode, DefaultUiCamera, FixedMeasure, NodeMeasure, TargetCamera, UiScale},
-    bevy_asset::Assets,
+    crate::{DefaultUiCamera, FixedMeasure, NodeMeasure, TargetCamera, UiScale},
     bevy_color::Color,
     bevy_ecs::{
-        entity::Entity,
+        change_detection::DetectChanges,
         entity::EntityHashMap,
         query::With,
-        system::{Local, Query, Res, ResMut},
-        world::{Mut, Ref},
+        system::{Local, Query, Res},
+        world::Mut,
     },
-    bevy_image::Image,
     bevy_render::camera::Camera,
-    bevy_sprite::TextureAtlasLayout,
-    bevy_text::{
-        scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
-        SwashCache, TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
-    },
     bevy_utils::Entry,
 };
+
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
@@ -331,7 +325,6 @@ pub fn measure_text_system(
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
-#[cfg(feature = "bevy_render")]
 fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,
