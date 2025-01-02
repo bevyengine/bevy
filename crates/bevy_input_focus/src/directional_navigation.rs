@@ -107,6 +107,34 @@ impl DirectionalNavigationMap {
         }
     }
 
+    /// Removes a collection of entities from the navigation map.
+    ///
+    /// While this is still an O(n) operation, where n is the number of entities in the map,
+    /// it is more efficient than calling [`remove`] multiple times,
+    /// as we can check for connections to all removed entities in a single pass.
+    ///
+    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`].
+    pub fn remove_multiple(&mut self, entities: EntityHashSet) {
+        for entity in &entities {
+            self.neighbors.remove(entity);
+        }
+
+        for node in self.neighbors.values_mut() {
+            for neighbor in node.neighbors.iter_mut() {
+                if let Some(entity) = *neighbor {
+                    if entities.contains(&entity) {
+                        *neighbor = None;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Completely clears the navigation map, removing all entities and connections.
+    pub fn clear(&mut self) {
+        self.neighbors.clear();
+    }
+
     /// Adds an edge between two entities in the navigation map.
     /// Any existing edge from A in the provided direction will be overwritten.
     ///
@@ -136,29 +164,6 @@ impl DirectionalNavigationMap {
             let a = entities[i];
             let b = entities[(i + 1) % entities.len()];
             self.add_symmetrical_edge(a, b, direction);
-        }
-    }
-
-    /// Removes a collection of entities from the navigation map.
-    ///
-    /// While this is still an O(n) operation, where n is the number of entities in the map,
-    /// it is more efficient than calling [`remove`] multiple times,
-    /// as we can check for connections to all removed entities in a single pass.
-    ///
-    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`].
-    pub fn remove_multiple(&mut self, entities: EntityHashSet) {
-        for entity in &entities {
-            self.neighbors.remove(entity);
-        }
-
-        for node in self.neighbors.values_mut() {
-            for neighbor in node.neighbors.iter_mut() {
-                if let Some(entity) = *neighbor {
-                    if entities.contains(&entity) {
-                        *neighbor = None;
-                    }
-                }
-            }
         }
     }
 
