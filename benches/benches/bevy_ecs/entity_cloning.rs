@@ -167,7 +167,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
 // Each benchmark runs twice: using either the `Clone` or `Reflect` traits to clone entities. This
 // constant represents this as an easy array that can be used in a `for` loop.
-const SCENARIOS: [(&'static str, bool); 2] = [("clone", false), ("reflect", true)];
+const SCENARIOS: [(&str, bool); 2] = [("clone", false), ("reflect", true)];
 
 /// Benchmarks cloning a single entity with 10 components and no children.
 fn single(c: &mut Criterion) {
