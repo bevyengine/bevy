@@ -370,8 +370,6 @@ mod test_compass_quadrant {
 
 #[cfg(test)]
 mod test_compass_octant {
-    use core::usize;
-
     use crate::{CompassOctant, Dir2, Vec2};
 
     #[test]
