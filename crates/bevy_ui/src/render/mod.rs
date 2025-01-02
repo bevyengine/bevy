@@ -267,11 +267,11 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    let default_camera = default_ui_camera.get();
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -330,9 +330,9 @@ pub fn extract_uinode_images(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    let default_ui_camera = default_ui_camera.get();
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -423,7 +423,7 @@ pub fn extract_uinode_borders(
     ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
-    let default_ui_camera = default_ui_camera.get();
+    let default_camera_entity = default_ui_camera.get();
     for (
         entity,
         node,
@@ -435,7 +435,9 @@ pub fn extract_uinode_borders(
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
-        let Some(camera_entity) = maybe_camera.map(TargetCamera::entity).or(default_ui_camera)
+        let Some(camera_entity) = maybe_camera
+            .map(TargetCamera::entity)
+            .or(default_camera_entity)
         else {
             continue;
         };
