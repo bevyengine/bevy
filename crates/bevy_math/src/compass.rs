@@ -34,6 +34,33 @@ pub enum CompassQuadrant {
     West,
 }
 
+impl CompassQuadrant {
+    /// Converts a standard index to a [`CompassQuadrant`].
+    ///
+    /// Starts at 0 for [`CompassQuadrant::North`] and increments clockwise.
+    pub const fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::North),
+            1 => Some(Self::East),
+            2 => Some(Self::South),
+            3 => Some(Self::West),
+            _ => None,
+        }
+    }
+
+    /// Converts a [`CompassQuadrant`] to a standard index.
+    ///
+    /// Starts at 0 for [`CompassQuadrant::North`] and increments clockwise.
+    pub const fn to_index(self) -> usize {
+        match self {
+            Self::North => 0,
+            Self::East => 1,
+            Self::South => 2,
+            Self::West => 3,
+        }
+    }
+}
+
 /// A compass enum with 8 directions.
 /// ```text
 ///          N (North)
@@ -70,6 +97,41 @@ pub enum CompassOctant {
     West,
     /// Corresponds to [`Dir2::NORTH_WEST`]
     NorthWest,
+}
+
+impl CompassOctant {
+    /// Converts a standard index to a [`CompassOctant`].
+    ///
+    /// Starts at 0 for [`CompassOctant::North`] and increments clockwise.
+    pub const fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::North),
+            1 => Some(Self::NorthEast),
+            2 => Some(Self::East),
+            3 => Some(Self::SouthEast),
+            4 => Some(Self::South),
+            5 => Some(Self::SouthWest),
+            6 => Some(Self::West),
+            7 => Some(Self::NorthWest),
+            _ => None,
+        }
+    }
+
+    /// Converts a [`CompassOctant`] to a standard index.
+    ///
+    /// Starts at 0 for [`CompassOctant::North`] and increments clockwise.
+    pub const fn to_index(self) -> usize {
+        match self {
+            Self::North => 0,
+            Self::NorthEast => 1,
+            Self::East => 2,
+            Self::SouthEast => 3,
+            Self::South => 4,
+            Self::SouthWest => 5,
+            Self::West => 6,
+            Self::NorthWest => 7,
+        }
+    }
 }
 
 impl From<CompassQuadrant> for Dir2 {
