@@ -1688,6 +1688,8 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
+        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
+        // because it is created by removing a bundle from these components.
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,
@@ -1861,19 +1863,21 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
+        let mut new_location = location;
         // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
         // because it is created by removing a bundle from these components.
-        let mut new_location = location;
-        Self::move_entity_from_remove::<true>(
-            entity,
-            &mut new_location,
-            location.archetype_id,
-            location,
-            &mut world.entities,
-            &mut world.archetypes,
-            &mut world.storages,
-            new_archetype_id,
-        );
+        unsafe {
+            Self::move_entity_from_remove::<true>(
+                entity,
+                &mut new_location,
+                location.archetype_id,
+                location,
+                &mut world.entities,
+                &mut world.archetypes,
+                &mut world.storages,
+                new_archetype_id,
+            );
+        }
 
         new_location
     }
