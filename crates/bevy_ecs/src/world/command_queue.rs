@@ -346,7 +346,7 @@ mod test {
     use super::*;
     use crate as bevy_ecs;
     use crate::system::Resource;
-    use alloc::sync::Arc;
+    use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},

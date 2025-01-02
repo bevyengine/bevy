@@ -119,6 +119,7 @@ pub enum QuerySingleError {
 mod test {
     use crate as bevy_ecs;
     use crate::prelude::World;
+    use alloc::format;
     use bevy_ecs_macros::Component;
 
     #[test]

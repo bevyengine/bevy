@@ -69,7 +69,7 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, format, string::String, vec::Vec};
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 

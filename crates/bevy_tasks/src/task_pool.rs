@@ -1,5 +1,9 @@
+use alloc::{format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{self, JoinHandle};
+use std::{
+    thread::{self, JoinHandle},
+    thread_local,
+};
 
 use crate::executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;

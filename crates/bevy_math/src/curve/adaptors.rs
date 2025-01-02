@@ -5,6 +5,7 @@ use super::Curve;
 
 use crate::ops;
 use crate::VectorSpace;
+use alloc::format;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;

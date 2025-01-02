@@ -379,6 +379,8 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
+
     #[allow(unused_imports)]
     use crate::prelude::{Schedule, World};
 

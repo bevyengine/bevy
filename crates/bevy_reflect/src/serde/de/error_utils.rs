@@ -1,5 +1,6 @@
 use core::fmt::Display;
 use serde::de::Error;
+use std::thread_local;
 
 #[cfg(feature = "debug_stack")]
 thread_local! {
