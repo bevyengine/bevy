@@ -133,7 +133,7 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
 
-    /// Update the system's archetype component [`Access`].
+    /// Update the system's archetype component [`UniversalAccess`].
     ///
     /// ## Note for implementors
     /// `world` may only be used to access metadata. This can be done in safe code

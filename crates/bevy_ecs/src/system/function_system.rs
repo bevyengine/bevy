@@ -28,7 +28,7 @@ pub struct SystemMeta {
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
-    /// This [`Access`] is used to determine which systems can run in parallel with each other
+    /// This [`UniversalAccess`] is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
     /// We use a [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
@@ -150,7 +150,7 @@ impl SystemMeta {
         &self.archetype_component_access
     }
 
-    /// Returns a mutable reference to the [`Access`] for [`ArchetypeComponentId`].
+    /// Returns a mutable reference to the [`UniversalAccess`] for [`ArchetypeComponentId`].
     /// This is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
@@ -162,7 +162,7 @@ impl SystemMeta {
     ///
     /// # Safety
     ///
-    /// No access can be removed from the returned [`Access`].
+    /// No access can be removed from the returned [`UniversalAccess`].
     #[inline]
     pub unsafe fn archetype_component_access_mut(
         &mut self,
