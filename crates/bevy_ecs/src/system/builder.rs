@@ -571,25 +571,33 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
         (self.0)(&mut builder);
         let access = builder.build();
 
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+        if let Some(combined_access) = meta
+            .component_access_set
+            .combined_access()
+            .get_access(world.id())
+        {
+            let conflicts = combined_access.get_conflicts(&access);
+            if !conflicts.is_empty() {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &meta.name;
+                panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            }
         }
 
         if access.has_read_all_resources() {
             meta.component_access_set
-                .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
+                .add_unfiltered_read_all_resources(world.id());
+            meta.archetype_component_access
+                .access_mut(world.id())
+                .read_all_resources();
         } else {
             for component_id in access.resource_reads_and_writes() {
                 meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
+                    .add_unfiltered_resource_read(component_id, world.id());
 
                 let archetype_component_id = world.initialize_resource_internal(component_id).id();
                 meta.archetype_component_access
+                    .access_mut(world.id())
                     .add_resource_read(archetype_component_id);
             }
         }
@@ -634,40 +642,51 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         (self.0)(&mut builder);
         let access = builder.build();
 
-        let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&access);
-        if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
-            let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+        if let Some(combined_access) = meta
+            .component_access_set
+            .combined_access()
+            .get_access(world.id())
+        {
+            let conflicts = combined_access.get_conflicts(&access);
+            if !conflicts.is_empty() {
+                let accesses = conflicts.format_conflict_list(world);
+                let system_name = &meta.name;
+                panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
+            }
         }
 
         if access.has_read_all_resources() {
             meta.component_access_set
-                .add_unfiltered_read_all_resources();
-            meta.archetype_component_access.read_all_resources();
+                .add_unfiltered_read_all_resources(world.id());
+            meta.archetype_component_access
+                .access_mut(world.id())
+                .read_all_resources();
         } else {
             for component_id in access.resource_reads() {
                 meta.component_access_set
-                    .add_unfiltered_resource_read(component_id);
+                    .add_unfiltered_resource_read(component_id, world.id());
 
                 let archetype_component_id = world.initialize_resource_internal(component_id).id();
                 meta.archetype_component_access
+                    .access_mut(world.id())
                     .add_resource_read(archetype_component_id);
             }
         }
 
         if access.has_write_all_resources() {
             meta.component_access_set
-                .add_unfiltered_write_all_resources();
-            meta.archetype_component_access.write_all_resources();
+                .add_unfiltered_write_all_resources(world.id());
+            meta.archetype_component_access
+                .access_mut(world.id())
+                .write_all_resources();
         } else {
             for component_id in access.resource_writes() {
                 meta.component_access_set
-                    .add_unfiltered_resource_write(component_id);
+                    .add_unfiltered_resource_write(component_id, world.id());
 
                 let archetype_component_id = world.initialize_resource_internal(component_id).id();
                 meta.archetype_component_access
+                    .access_mut(world.id())
                     .add_resource_write(archetype_component_id);
             }
         }
