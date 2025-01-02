@@ -16,9 +16,12 @@
 //! For now, this graph must be built manually, but in the future, it could be generated automatically.
 
 use bevy_app::prelude::*;
-use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemParam};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    system::SystemParam,
+};
 use bevy_math::CompassOctant;
-use bevy_utils::HashMap;
 
 use crate::InputFocus;
 
@@ -80,7 +83,7 @@ pub struct DirectionalNavigationMap {
     ///
     /// Pass in the current focus as a key, and get back a collection of up to 8 neighbors,
     /// each keyed by a [`CompassOctant`].
-    pub neighbors: HashMap<Entity, NavNeighbors>,
+    pub neighbors: EntityHashMap<NavNeighbors>,
 }
 
 impl DirectionalNavigationMap {
