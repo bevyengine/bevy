@@ -9,6 +9,7 @@
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
+    scale: vec2<f32>,
     aspect: f32,
     uv_offset: f32
 };
@@ -51,19 +52,32 @@ fn karis_average(color: vec3<f32>) -> f32 {
 
 // [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
-    let a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
-    let b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
-    let c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
-    let d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
+#ifdef FIRST_DOWNSAMPLE
+    let scale = vec2<f32>(1.0, 1.0);
+#else
+    let scale = uniforms.scale;
+#endif
+    let x_s = scale.x / f32(textureDimensions(input_texture).x);
+    let y_s = scale.y / f32(textureDimensions(input_texture).y);
+    let x_l = 2.0 * x_s;
+    let y_l = 2.0 * y_s;
+    let x_ns = -1.0 * x_s;
+    let y_ns = -1.0 * y_s;
+    let x_nl = -2.0 * x_s;
+    let y_nl = -2.0 * y_s;
+    let a = textureSample(input_texture, s, uv + vec2<f32>(x_nl, y_l)).rgb;
+    let b = textureSample(input_texture, s, uv + vec2<f32>(0.0, y_l)).rgb;
+    let c = textureSample(input_texture, s, uv + vec2<f32>(x_l, y_l)).rgb;
+    let d = textureSample(input_texture, s, uv + vec2<f32>(x_nl, 0.0)).rgb;
     let e = textureSample(input_texture, s, uv).rgb;
-    let f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
-    let g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
-    let h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
-    let i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
-    let j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
-    let k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
-    let l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
-    let m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+    let f = textureSample(input_texture, s, uv + vec2<f32>(x_l, 0.0)).rgb;
+    let g = textureSample(input_texture, s, uv + vec2<f32>(x_nl, y_nl)).rgb;
+    let h = textureSample(input_texture, s, uv + vec2<f32>(0.0, y_nl)).rgb;
+    let i = textureSample(input_texture, s, uv + vec2<f32>(x_l, y_nl)).rgb;
+    let j = textureSample(input_texture, s, uv + vec2<f32>(x_ns, y_s)).rgb;
+    let k = textureSample(input_texture, s, uv + vec2<f32>(x_s, y_s)).rgb;
+    let l = textureSample(input_texture, s, uv + vec2<f32>(x_ns, y_ns)).rgb;
+    let m = textureSample(input_texture, s, uv + vec2<f32>(x_s, y_ns)).rgb;
 
 #ifdef FIRST_DOWNSAMPLE
     // [COD] slide 168

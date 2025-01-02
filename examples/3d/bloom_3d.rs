@@ -31,6 +31,7 @@ fn setup_scene(
         Camera3d::default(),
         Camera {
             hdr: true, // 1. HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
         Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
@@ -40,15 +41,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LinearRgba::rgb(0.0, 0.0, 25.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
+        emissive: LinearRgba::rgb(8.0, 100.0, 0.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(5.32, 2.0, 13.99),
+        emissive: LinearRgba::rgb(25.0, 0.0, 0.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -56,7 +57,7 @@ fn setup_scene(
         ..default()
     });
 
-    let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
+    let mesh = meshes.add(Sphere::new(0.4).mesh().ico(5).unwrap());
 
     for x in -5..5 {
         for z in -5..5 {
@@ -64,20 +65,21 @@ fn setup_scene(
             // the same spheres are always the same colors.
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
-            let rand = (hasher.finish() - 2) % 6;
+            let rand = (hasher.finish() + 3) % 6;
 
-            let material = match rand {
-                0 => material_emissive1.clone(),
-                1 => material_emissive2.clone(),
-                2 => material_emissive3.clone(),
-                3..=5 => material_non_emissive.clone(),
+            let (material, scale) = match rand {
+                0 => (material_emissive1.clone(), 1.0),
+                1 => (material_emissive2.clone(), 0.2),
+                2 => (material_emissive3.clone(), 1.0),
+                3..=5 => (material_non_emissive.clone(), 1.5),
                 _ => unreachable!(),
             };
 
             commands.spawn((
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
-                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0)
+                    .with_scale(Vec3::splat(scale)),
                 Bouncing,
             ));
         }
@@ -134,6 +136,7 @@ fn update_bloom_settings(
                 "(U/J) Threshold softness: {}\n",
                 bloom.prefilter.threshold_softness
             ));
+            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -196,6 +199,14 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness += dt / 10.0;
             }
             bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::KeyK) {
+                bloom.scale.x -= dt * 2.0;
+            }
+            if keycode.pressed(KeyCode::KeyI) {
+                bloom.scale.x += dt * 2.0;
+            }
+            bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
         (entity, None) => {

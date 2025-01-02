@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec2, Vec4};
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -40,6 +40,7 @@ pub struct BloomUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
+    pub scale: Vec2,
     pub aspect: f32,
     pub uv_offset: f32,
 }
