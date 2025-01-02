@@ -422,6 +422,9 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
+    ///
     /// # Panics
     ///
     /// This method panics if the requested entity does not exist.
@@ -481,8 +484,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Returns `None` if the entity does not exist.
     ///
-    /// This method does not guarantee that `EntityCommands` will be successfully applied,
-    /// since another command in the queue may delete the entity before them.
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
     ///
     /// # Example
     ///
@@ -1242,7 +1245,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// }
 /// ```
 ///
-/// ## Implementation
+/// # Implementation
 ///
 /// The `Marker` generic is necessary to allow multiple blanket implementations
 /// of `EntityCommand` for closures, like so (simplified):
@@ -1275,7 +1278,19 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     }
 }
 
-/// A list of commands that will be run to modify an [entity](crate::entity).
+/// A list of commands that will be run to modify an [`Entity`].
+///
+/// Most [`Commands`] (and thereby [`EntityCommands`]) are deferred: when you call the command,
+/// if it requires mutable access to the [`World`] (that is, if it removes, adds, or changes something),
+/// it's not executed immediately. Instead, the command is added to a "command queue."
+/// The command queue is applied between [`Schedules`](bevy_ecs::schedule::Schedule), one by one,
+/// so that each command can have exclusive access to the World.
+///
+/// # Fallible
+///
+/// Due to their deferred nature, an entity you're trying to change with an [`EntityCommand`] can be
+/// despawned by the time the command is executed. All deferred entity commands will check if the
+/// entity exists at the time of execution and will return an error if it doesn't.
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
