@@ -180,7 +180,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
                     )
                 })
                 .collect::<Vec<_>>();
-            entries.sort_by_key(|(type_path, _partial_reflect)| *type_path);
+            entries.sort_by_key(|(type_path, _)| *type_path);
             entries
         };
 

@@ -345,12 +345,12 @@ impl<'w, 's> Commands<'w, 's> {
     #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
     #[track_caller]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.get_or_spawn_with_caller(
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -560,13 +560,13 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             SpawnBatchIter::new(
                 world,
                 bundles_iter.into_iter(),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -709,12 +709,12 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
@@ -888,12 +888,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.insert_resource_with_caller(
                 resource,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -1131,13 +1131,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`EventWriter`]: crate::event::EventWriter
     #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             let mut events = world.resource_mut::<Events<E>>();
             events.send_with_caller(
                 event,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -2284,7 +2284,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
                 entity.insert_with_caller(
                     value,
                     InsertMode::Keep,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
                 Ok(())
@@ -2661,13 +2661,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2683,13 +2683,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.try_insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }

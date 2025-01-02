@@ -1272,28 +1272,28 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Adds a read access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_read(&mut self, index: T) {
+    pub fn add_unfiltered_resource_read(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_read(index);
         self.add(filter);
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
+    pub fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
         self.add(filter);
     }
 
     /// Adds read access to all resources to the set.
-    pub(crate) fn add_unfiltered_read_all_resources(&mut self) {
+    pub fn add_unfiltered_read_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.read_all_resources();
         self.add(filter);
     }
 
     /// Adds write access to all resources to the set.
-    pub(crate) fn add_unfiltered_write_all_resources(&mut self) {
+    pub fn add_unfiltered_write_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.write_all_resources();
         self.add(filter);
