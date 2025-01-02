@@ -582,7 +582,7 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-fn extract_mesh_materials<M: Material>(
+pub fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     mut material_ids: ResMut<RenderMeshMaterialIds>,
     mut material_bind_group_allocator: ResMut<MaterialBindGroupAllocator<M>>,
@@ -741,6 +741,7 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
                 Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
             };
         }
 

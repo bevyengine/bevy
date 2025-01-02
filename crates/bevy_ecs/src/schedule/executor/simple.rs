@@ -7,7 +7,6 @@ use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    system::System,
     world::World,
 };
 
@@ -101,8 +100,14 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                // TODO: implement an error-handling API instead of suppressing a possible failure.
-                let _ = __rust_begin_short_backtrace::run(system, world);
+                // TODO: implement an error-handling API instead of panicking.
+                if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    panic!(
+                        "Encountered an error in system `{}`: {:?}",
+                        &*system.name(),
+                        err
+                    );
+                }
             });
 
             #[cfg(feature = "std")]
@@ -130,7 +135,7 @@ impl SystemExecutor for SimpleExecutor {
 
 impl SimpleExecutor {
     /// Creates a new simple executor for use in a [`Schedule`](crate::schedule::Schedule).
-    /// This calls each system in order and immediately calls [`System::apply_deferred`].
+    /// This calls each system in order and immediately calls [`System::apply_deferred`](crate::system::System).
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),

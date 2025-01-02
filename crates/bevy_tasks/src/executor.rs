@@ -8,14 +8,13 @@
 //! [`async-executor`]: https://crates.io/crates/async-executor
 //! [`edge-executor`]: https://crates.io/crates/edge-executor
 
-pub use async_task::Task;
 use core::{
     fmt,
     panic::{RefUnwindSafe, UnwindSafe},
 };
 use derive_more::{Deref, DerefMut};
 
-#[cfg(feature = "multi_threaded")]
+#[cfg(all(feature = "multi_threaded", not(target_arch = "wasm32")))]
 pub use async_task::FallibleTask;
 
 #[cfg(feature = "async_executor")]

@@ -134,7 +134,70 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         .run();
 /// }
 /// ```
+/// # Example Setup
 ///
+/// For a quick setup that enables all first-party logging while not showing any of your dependencies'
+/// log data, you can configure the plugin as shown below.
+///
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace".to_string(), //specific filters
+///         level: Level::TRACE,//Change this to be globally change levels
+///         ..Default::default()
+///         }))
+///     .run();
+/// ```
+/// The filter (in this case an `EnvFilter`) chooses whether to print the log. The most specific filters apply with higher priority.
+/// Let's start with an example: `filter: "warn".to_string()` will only print logs with level `warn` level or greater.
+/// From here, we can change to `filter: "warn,my_crate=trace".to_string()`. Logs will print at level `warn` unless it's in `mycrate`,
+/// which will instead print at `trace` level because `my_crate=trace` is more specific.
+///
+///
+/// ## Log levels
+/// Events can be logged at various levels of importance.
+/// Only events at your configured log level and higher will be shown.
+/// ```no_run
+/// # use bevy_log::*;
+/// // here is how you write new logs at each "log level" (in "most important" to
+/// // "least important" order)
+/// error!("something failed");
+/// warn!("something bad happened that isn't a failure, but that's worth calling out");
+/// info!("helpful information that is worth printing by default");
+/// debug!("helpful for debugging");
+/// trace!("very noisy");
+/// ```
+/// In addition to `format!` style arguments, you can print a variable's debug
+/// value by using syntax like: `trace(?my_value)`.
+///
+/// ## Per module logging levels
+/// Modules can have different logging levels using syntax like `crate_name::module_name=debug`.
+///
+///
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters
+///         level: Level::TRACE, // Change this to be globally change levels
+///         ..Default::default()
+///     }))
+///     .run();
+/// ```
+/// The idea is that instead of deleting logs when they are no longer immediately applicable,
+/// you just disable them. If you do need to log in the future, then you can enable the logs instead of having to rewrite them.
+///
+/// ## Further reading
+///
+/// The `tracing` crate has much more functionality than these examples can show.
+/// Much of this configuration can be done with "layers" in the `log` crate.
+/// Check out:
+/// - Using spans to add more fine grained filters to logs
+/// - Adding instruments to capture more function information
+/// - Creating layers to add additional context such as line numbers
 /// # Panics
 ///
 /// This plugin should not be added multiple times in the same process. This plugin

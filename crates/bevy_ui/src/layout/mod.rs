@@ -170,7 +170,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -186,7 +186,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
                             entity
                         );
                     }
@@ -214,8 +214,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.is_changed() || c.measure.is_some())
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.is_changed() || c.measure.is_some())
                 {
                     let layout_context = LayoutContext::new(
                         camera.scale_factor,
@@ -495,9 +494,7 @@ mod tests {
     };
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_render::camera::{
-        camera_system, Camera, ManualTextureViews, OrthographicProjection, Viewport,
-    };
+    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
@@ -551,7 +548,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,
@@ -883,12 +880,12 @@ mod tests {
                     );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
-                        "root ui node {entity:?} doesn't have a logical size"
+                        "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
                         global_transform.affine(),
                         GlobalTransform::default().affine(),
-                        "root ui node {entity:?} global transform is not populated"
+                        "root ui node {entity} global transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
@@ -1194,7 +1191,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,

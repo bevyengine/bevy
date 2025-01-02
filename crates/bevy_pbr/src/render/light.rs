@@ -837,16 +837,10 @@ pub fn prepare_lights(
     // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
-    point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
-        clusterable_object_order(
-            ClusterableObjectOrderData {
-                entity: entity_1,
-                object_type: &ClusterableObjectType::from_point_or_spot_light(light_1),
-            },
-            ClusterableObjectOrderData {
-                entity: entity_2,
-                object_type: &ClusterableObjectType::from_point_or_spot_light(light_2),
-            },
+    point_lights.sort_by_cached_key(|(entity, light, _)| {
+        (
+            ClusterableObjectType::from_point_or_spot_light(light).ordering(),
+            *entity,
         )
     });
 
@@ -858,12 +852,10 @@ pub fn prepare_lights(
     //   shadows
     // - then by entity as a stable key to ensure that a consistent set of
     //   lights are chosen if the light count limit is exceeded.
-    directional_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
-        directional_light_order(
-            (entity_1, &light_1.volumetric, &light_1.shadows_enabled),
-            (entity_2, &light_2.volumetric, &light_2.shadows_enabled),
-        )
-    });
+    // - because entities are unique, we can use `sort_unstable_by_key`
+    //   and still end up with a stable order.
+    directional_lights
+        .sort_unstable_by_key(|(entity, light)| (light.volumetric, light.shadows_enabled, *entity));
 
     if global_light_meta.entity_to_index.capacity() < point_lights.len() {
         global_light_meta

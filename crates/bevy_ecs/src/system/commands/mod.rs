@@ -1,30 +1,27 @@
 #[cfg(feature = "std")]
 mod parallel_scope;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::{marker::PhantomData, panic::Location};
 
-use super::{
-    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
-    UnregisterSystem, UnregisterSystemCached,
-};
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
-    event::{Event, SendEvent},
-    observer::{Observer, TriggerEvent, TriggerTargets},
+    event::{Event, Events},
+    observer::{Observer, TriggerTargets},
     schedule::ScheduleLabel,
-    system::{input::SystemInput, RunSystemWith, SystemId},
+    system::{input::SystemInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
         EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
-use log::{error, info};
+use log::{error, info, warn};
 
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
@@ -335,12 +332,12 @@ impl<'w, 's> Commands<'w, 's> {
     #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
     #[track_caller]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.get_or_spawn_with_caller(
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -452,7 +449,7 @@ impl<'w, 's> Commands<'w, 's> {
         #[track_caller]
         fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
-                "Attempting to create an EntityCommands for entity {entity:?}, which {}",
+                "Attempting to create an EntityCommands for entity {entity}, which {}",
                 entities.entity_does_not_exist_error_details_message(entity)
             );
         }
@@ -550,13 +547,13 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             SpawnBatchIter::new(
                 world,
                 bundles_iter.into_iter(),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -636,12 +633,12 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
@@ -815,12 +812,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.insert_resource_with_caller(
                 resource,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -878,7 +875,11 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(RunSystemWith::new_with_input(id, input));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.run_system_with(id, input) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -939,7 +940,12 @@ impl<'w, 's> Commands<'w, 's> {
         O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
-        self.queue(RegisterSystem::new(system, entity));
+        let system = RegisteredSystem::new(Box::new(IntoSystem::into_system(system)));
+        self.queue(move |world: &mut World| {
+            if let Ok(mut entity) = world.get_entity_mut(entity) {
+                entity.insert(system);
+            }
+        });
         SystemId::from_entity(entity)
     }
 
@@ -951,7 +957,11 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(UnregisterSystem::new(system_id));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.unregister_system(system_id) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Removes a system previously registered with [`World::register_system_cached`].
@@ -966,7 +976,11 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(UnregisterSystemCached::new(system));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.unregister_system_cached(system) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
@@ -990,7 +1004,11 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, (), M> + Send + 'static,
     {
-        self.queue(RunSystemCachedWith::new(system, input));
+        self.queue(move |world: &mut World| {
+            if let Err(error) = world.run_system_cached_with(system, input) {
+                warn!("{error}");
+            }
+        });
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -998,7 +1016,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
-        self.queue(TriggerEvent { event, targets: () });
+        self.queue(move |world: &mut World| {
+            world.trigger(event);
+        });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
@@ -1010,7 +1030,9 @@ impl<'w, 's> Commands<'w, 's> {
         event: impl Event,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
-        self.queue(TriggerEvent { event, targets });
+        self.queue(move |world: &mut World| {
+            world.trigger_targets(event, targets);
+        });
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
@@ -1038,10 +1060,15 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`EventWriter`]: crate::event::EventWriter
     #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.queue(SendEvent {
-            event,
-            #[cfg(feature = "track_change_detection")]
-            caller: Location::caller(),
+        #[cfg(feature = "track_location")]
+        let caller = Location::caller();
+        self.queue(move |world: &mut World| {
+            let mut events = world.resource_mut::<Events<E>>();
+            events.send_with_caller(
+                event,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
         });
         self
     }
@@ -1405,7 +1432,7 @@ impl<'a> EntityCommands<'a> {
                     entity.insert_by_id(component_id, ptr);
                 });
             } else {
-                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
+                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
             }
         })
     }
@@ -1739,7 +1766,7 @@ impl<'a> EntityCommands<'a> {
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
     ///     .queue(|entity: EntityWorldMut| {
-    ///         println!("Executed an EntityCommand for {:?}", entity.id());
+    ///         println!("Executed an EntityCommand for {}", entity.id());
     ///     });
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
@@ -2115,11 +2142,11 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
                 entity.insert_with_caller(
                     value,
                     InsertMode::Keep,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
             } else {
-                panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity) );
+                panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity) );
             }
         });
         self
@@ -2163,13 +2190,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2185,13 +2212,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.try_insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2221,11 +2248,11 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
             entity.insert_with_caller(
                 bundle,
                 mode,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
         }
     }
 }
@@ -2234,14 +2261,14 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
 /// Does nothing if the entity does not exist.
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
