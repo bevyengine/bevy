@@ -53,6 +53,7 @@ fn karis_average(color: vec3<f32>) -> f32 {
 // [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 #ifdef FIRST_DOWNSAMPLE
+    // Prevents noticeable sampling/ghosting artifacts when using large scales.
     let scale = vec2<f32>(1.0, 1.0);
 #else
     let scale = uniforms.scale;
