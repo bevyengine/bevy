@@ -343,10 +343,35 @@ mod test_compass_quadrant {
             assert_eq!(CompassQuadrant::from(dir), expected);
         }
     }
+
+    #[test]
+    fn out_of_bounds_indexes_return_none() {
+        assert_eq!(CompassQuadrant::from_index(4), None);
+        assert_eq!(CompassQuadrant::from_index(5), None);
+        assert_eq!(CompassQuadrant::from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn compass_indexes_are_reversible() {
+        for i in 0..4 {
+            let quadrant = CompassQuadrant::from_index(i).unwrap();
+            assert_eq!(quadrant.to_index(), i);
+        }
+    }
+
+    #[test]
+    fn oppposite_directions_reverse_themselves() {
+        for i in 0..4 {
+            let quadrant = CompassQuadrant::from_index(i).unwrap();
+            assert_eq!(-(-quadrant), quadrant);
+        }
+    }
 }
 
 #[cfg(test)]
 mod test_compass_octant {
+    use core::usize;
+
     use crate::{CompassOctant, Dir2, Vec2};
 
     #[test]
@@ -526,6 +551,29 @@ mod test_compass_octant {
 
         for (dir, expected) in tests {
             assert_eq!(CompassOctant::from(dir), expected);
+        }
+    }
+
+    #[test]
+    fn out_of_bounds_indexes_return_none() {
+        assert_eq!(CompassOctant::from_index(8), None);
+        assert_eq!(CompassOctant::from_index(9), None);
+        assert_eq!(CompassOctant::from_index(usize::MAX), None);
+    }
+
+    #[test]
+    fn compass_indexes_are_reversible() {
+        for i in 0..8 {
+            let octant = CompassOctant::from_index(i).unwrap();
+            assert_eq!(octant.to_index(), i);
+        }
+    }
+
+    #[test]
+    fn oppposite_directions_reverse_themselves() {
+        for i in 0..8 {
+            let octant = CompassOctant::from_index(i).unwrap();
+            assert_eq!(-(-octant), octant);
         }
     }
 }
