@@ -22,7 +22,7 @@
 #[cfg(not(feature = "libm"))]
 #[expect(
     clippy::disallowed_methods,
-    reason = "Many of the disallowed methods point to methods which are ultimately defined here."
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
 )]
 mod std_ops {
 
@@ -522,7 +522,7 @@ mod libm_ops_for_no_std {
 #[cfg(feature = "std")]
 #[expect(
     clippy::disallowed_methods,
-    reason = "Many of the disallowed methods point to methods which are ultimately defined here."
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
 )]
 mod std_ops_for_no_std {
     //! Provides standardized names for [`f32`] operations which may not be
