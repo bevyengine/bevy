@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::{Access, UniversalAccess},
+    query::UniversalAccess,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
