@@ -2145,7 +2145,7 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
-            
+
             #[allow(
                 unused_variables,
                 reason = "Zero-length tuples won't use the world variable."

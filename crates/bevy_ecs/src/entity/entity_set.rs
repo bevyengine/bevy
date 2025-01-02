@@ -382,11 +382,11 @@ mod tests {
     use crate::prelude::{Schedule, World};
 
     use crate::component::Component;
+    use crate::entity::Entity;
     use crate::query::{QueryState, With};
     use crate::system::Query;
     use crate::world::Mut;
     use crate::{self as bevy_ecs};
-    use crate::entity::Entity;
 
     use super::UniqueEntityIter;
 
