@@ -5,6 +5,7 @@ mod runner;
 
 pub use entity_observer::CloneEntityWithObserversExt;
 pub use runner::*;
+use variadics_please::all_tuples;
 
 use crate::{
     archetype::ArchetypeFlags,
@@ -172,91 +173,130 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
 /// will run.
 pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> &[ComponentId];
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone;
 
     /// The entities the trigger should target.
-    fn entities(&self) -> &[Entity];
-}
-
-impl TriggerTargets for () {
-    fn components(&self) -> &[ComponentId] {
-        &[]
-    }
-
-    fn entities(&self) -> &[Entity] {
-        &[]
-    }
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone;
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        core::slice::from_ref(self)
-    }
-}
-
-impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
-    }
-
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
-    }
-}
-
-impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> &[ComponentId] {
-        &[]
-    }
-
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        core::iter::once(*self)
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> &[ComponentId] {
-        core::slice::from_ref(self)
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        core::iter::once(*self)
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        [].into_iter()
     }
 }
 
-impl TriggerTargets for Vec<ComponentId> {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+impl<T: TriggerTargets> TriggerTargets for Vec<T> {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        self.iter()
+            .flat_map(T::components)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        self.iter()
+            .flat_map(T::entities)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
-impl<const N: usize> TriggerTargets for [ComponentId; N] {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+impl<T: TriggerTargets> TriggerTargets for &Vec<T> {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        self.iter()
+            .flat_map(T::components)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        self.iter()
+            .flat_map(T::entities)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
-impl TriggerTargets for &Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        self.iter()
+            .flat_map(T::components)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        self.iter()
+            .flat_map(T::entities)
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
+
+impl<T: TriggerTargets> TriggerTargets for &[T] {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+        self.iter()
+            .flat_map(T::components)
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+        self.iter()
+            .flat_map(T::entities)
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+}
+
+macro_rules! impl_trigger_targets_tuples {
+    ($(#[$meta:meta])* $($trigger_targets: ident),*) => {
+        #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+        $(#[$meta])*
+        impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
+        {
+            fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.components());
+                )*
+                iter.collect::<Vec<_>>().into_iter()
+            }
+
+            fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.entities());
+                )*
+                iter.collect::<Vec<_>>().into_iter()
+            }
+        }
+    }
+}
+
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_trigger_targets_tuples,
+    0,
+    15,
+    T
+);
 
 /// A description of what an [`Observer`] observes.
 #[derive(Default, Clone)]
@@ -596,7 +636,8 @@ impl World {
         targets: Targets,
     ) {
         let mut world = DeferredWorld::from(self);
-        if targets.entities().is_empty() {
+        let mut entity_targets = targets.entities().peekable();
+        if entity_targets.peek().is_none() {
             // SAFETY: `event_data` is accessible as the type represented by `event_id`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
@@ -608,12 +649,12 @@ impl World {
                 );
             };
         } else {
-            for target in targets.entities() {
+            for target_entity in entity_targets {
                 // SAFETY: `event_data` is accessible as the type represented by `event_id`
                 unsafe {
                     world.trigger_observers_with_data::<_, E::Traversal>(
                         event_id,
-                        *target,
+                        target_entity,
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
