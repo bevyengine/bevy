@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::prelude::*;

@@ -36,7 +36,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
-use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;

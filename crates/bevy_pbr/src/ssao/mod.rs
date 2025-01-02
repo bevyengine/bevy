@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{require, Bundle, Component, Entity},
+    prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,

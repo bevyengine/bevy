@@ -48,9 +48,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::widget::TextBundle;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]

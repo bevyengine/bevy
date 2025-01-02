@@ -8,7 +8,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
-    prelude::{require, Bundle, Component, Entity, ReflectComponent},
+    prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},

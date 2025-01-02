@@ -12,7 +12,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
     component::{require, Component},
     entity::Entity,
     query::{Has, QueryItem, With},

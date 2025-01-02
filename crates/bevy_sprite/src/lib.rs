@@ -33,7 +33,6 @@ pub mod prelude {
     };
 }
 
-pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]

@@ -57,7 +57,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material, MeshMaterial3d, PreviousGlobalTransform};
+use crate::graph::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -66,7 +66,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
     component::{require, Component},
     entity::Entity,
     query::Has,
@@ -76,15 +75,9 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::Shader,
-    renderer::RenderDevice,
-    settings::WgpuFeatures,
-    view::{
-        self, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility,
-        VisibilityClass,
-    },
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    render_graph::{RenderGraphApp, ViewNodeRunner}, render_resource::Shader, renderer::RenderDevice, settings::WgpuFeatures, view::{
+        self, prepare_view_targets, Msaa,
+    }, ExtractSchedule, Render, RenderApp, RenderSet
 };
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::error;

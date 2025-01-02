@@ -8,9 +8,7 @@ use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
         OrthographicProjection, Projection,
-    },
-    extract_component::ExtractComponent,
-    primitives::Frustum,
+    }, extract_component::ExtractComponent, primitives::Frustum, sync_world::SyncToRenderWorld, view::{Msaa, VisibleEntities}
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -29,10 +27,6 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct Camera2d;
 
 #[derive(Bundle, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `Camera2d` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
