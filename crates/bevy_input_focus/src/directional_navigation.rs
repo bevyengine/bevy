@@ -74,7 +74,7 @@ impl NavNeighbors {
 /// - **Connected**: Every focusable entity should be reachable from every other focusable entity.
 /// - **Symmetric**: If entity A is a neighbor of entity B, then entity B should be a neighbor of entity A, ideally in the reverse direction.
 /// - **Physical**: The direction of navigation should match the layout of the entities when possible,
-/// although looping around the edges of the screen is also acceptable.
+///   although looping around the edges of the screen is also acceptable.
 /// - **Not self-connected**: An entity should not be a neighbor of itself; use [`None`] instead.
 ///
 /// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
@@ -111,7 +111,7 @@ impl DirectionalNavigationMap {
     /// Removes a collection of entities from the navigation map.
     ///
     /// While this is still an O(n) operation, where n is the number of entities in the map,
-    /// it is more efficient than calling [`remove`] multiple times,
+    /// it is more efficient than calling [`remove`](Self::remove) multiple times,
     /// as we can check for connections to all removed entities in a single pass.
     ///
     /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`].
