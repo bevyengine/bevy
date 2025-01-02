@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet, UniversalAccess, UniversalFilteredAccessSet},
+    query::{FilteredAccessSet, UniversalAccess},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -27,7 +27,7 @@ pub struct SystemMeta {
     /// The set of component accesses for this system. This is used to determine
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
-    pub(crate) component_access_set: UniversalFilteredAccessSet<ComponentId>,
+    pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     /// This [`Access`] is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
@@ -56,7 +56,7 @@ impl SystemMeta {
         Self {
             name: name.into(),
             archetype_component_access: UniversalAccess::default(),
-            component_access_set: UniversalFilteredAccessSet::default(),
+            component_access_set: FilteredAccessSet::default(),
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
@@ -173,7 +173,7 @@ impl SystemMeta {
     /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
     /// Used to check if systems and/or system params have conflicting access.
     #[inline]
-    pub fn component_access_set(&self) -> &UniversalFilteredAccessSet<ComponentId> {
+    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
         &self.component_access_set
     }
 
@@ -184,9 +184,7 @@ impl SystemMeta {
     ///
     /// No access can be removed from the returned [`FilteredAccessSet`].
     #[inline]
-    pub unsafe fn component_access_set_mut(
-        &mut self,
-    ) -> &mut UniversalFilteredAccessSet<ComponentId> {
+    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
         &mut self.component_access_set
     }
 }
@@ -790,7 +788,7 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &UniversalAccess<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
 

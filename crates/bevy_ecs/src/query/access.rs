@@ -952,12 +952,15 @@ impl<T: SparseSetIndex> UniversalAccess<T> {
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &UniversalAccess<T>) -> SmallVec<[AccessConflicts; 2]> {
+    pub fn get_conflicts(
+        &self,
+        other: &UniversalAccess<T>,
+    ) -> SmallVec<[(AccessConflicts, WorldId); 2]> {
         let mut result = SmallVec::new();
 
         for (world, access) in self.per_world.iter() {
             if let Some(other) = other.get_access(*world) {
-                result.push(access.get_conflicts(other));
+                result.push((access.get_conflicts(other), *world));
             }
         }
 
@@ -1514,7 +1517,7 @@ mod tests {
         query::{
             access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
         },
-        world::{World, WorldId},
+        world::World,
     };
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;

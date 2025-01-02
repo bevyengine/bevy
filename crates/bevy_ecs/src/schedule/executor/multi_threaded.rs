@@ -18,7 +18,7 @@ use alloc::sync::Arc;
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
-    query::Access,
+    query::UniversalAccess,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -67,7 +67,7 @@ impl<'env, 'sys> Environment<'env, 'sys> {
 // Copied here because it can't be read from the system when it's running.
 struct SystemTaskMetadata {
     /// The [`ArchetypeComponentId`] access of the system.
-    archetype_component_access: Access<ArchetypeComponentId>,
+    archetype_component_access: UniversalAccess<ArchetypeComponentId>,
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
     /// Is `true` if the system does not access `!Send` data.
@@ -102,7 +102,7 @@ pub struct ExecutorState {
     /// Metadata for scheduling and running system tasks.
     system_task_metadata: Vec<SystemTaskMetadata>,
     /// Union of the accesses of all currently running systems.
-    active_access: Access<ArchetypeComponentId>,
+    active_access: UniversalAccess<ArchetypeComponentId>,
     /// Returns `true` if a system with non-`Send` access is running.
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
