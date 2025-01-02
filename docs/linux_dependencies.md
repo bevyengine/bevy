@@ -138,8 +138,8 @@ If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https:
 to link graphics drivers into the context of software installed by nix:
 
 1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
-   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
-   * Otherwise, choose another wrapper appropriate for your system.
+   - If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   - Otherwise, choose another wrapper appropriate for your system.
 2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
