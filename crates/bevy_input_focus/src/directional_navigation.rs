@@ -22,6 +22,7 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::CompassOctant;
+use thiserror::Error;
 
 use crate::InputFocus;
 
@@ -194,13 +195,37 @@ pub struct DirectionalNavigation<'w> {
 
 impl DirectionalNavigation<'_> {
     /// Navigates to the neighbor in a given direction from the current focus, if any.
-    pub fn navigate(&mut self, octant: CompassOctant) {
+    ///
+    /// Returns the new focus if successful.
+    /// Returns an error if there is no focus set or if there is no neighbor in the requested direction.
+    ///
+    /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of this method call.
+    pub fn navigate(
+        &mut self,
+        octant: CompassOctant,
+    ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
             if let Some(new_focus) = self.map.get_neighbor(current_focus, octant) {
                 self.focus.set(new_focus);
+                Ok(new_focus)
+            } else {
+                Err(DirectionalNavigationError::NoNeighborInDirection)
             }
+        } else {
+            Err(DirectionalNavigationError::NoFocus)
         }
     }
+}
+
+/// An error that can occur when navigating between focusable entities using [directional navigation](crate::directional_navigation).
+#[derive(Debug, PartialEq, Clone, Error)]
+pub enum DirectionalNavigationError {
+    /// No focusable entity is currently set.
+    #[error("No focusable entity is currently set.")]
+    NoFocus,
+    /// No neighbor in the requested direction.
+    #[error("No neighbor in the requested direction.")]
+    NoNeighborInDirection,
 }
 
 #[cfg(test)]
@@ -339,7 +364,7 @@ mod tests {
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
 
         fn navigate_east(mut nav: DirectionalNavigation) {
-            nav.navigate(CompassOctant::East);
+            nav.navigate(CompassOctant::East).unwrap();
         }
 
         world.run_system_once(navigate_east).unwrap();
