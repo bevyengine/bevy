@@ -36,7 +36,7 @@ impl Plugin for DirectionalNavigationPlugin {
 }
 
 /// The up-to-eight neighbors of a focusable entity, one for each [`CompassOctant`].
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
     /// The mapping between array elemnents and directions is determined by [`CompassOctant::to_index`].
