@@ -1,3 +1,7 @@
+use crate::CalculatedClip;
+use crate::ComputedNode;
+use crate::DefaultUiCamera;
+use crate::TargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -10,13 +14,10 @@ use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::view::ViewVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-
-use crate::ComputedNode;
-use crate::DefaultUiCamera;
-use crate::TargetCamera;
 
 use super::ExtractedUiItem;
 use super::ExtractedUiNode;
@@ -30,6 +31,10 @@ pub struct UiDebugOptions {
     pub enabled: bool,
     /// Width of the overlay's lines in logical pixels
     pub line_width: f32,
+    /// Show outlines for non-visible UI nodes
+    pub show_hidden: bool,
+    /// Show outlines for clipped sections of UI nodes
+    pub show_clipped: bool,
 }
 
 impl UiDebugOptions {
@@ -43,6 +48,8 @@ impl Default for UiDebugOptions {
         Self {
             enabled: false,
             line_width: 1.,
+            show_hidden: false,
+            show_clipped: false,
         }
     }
 }
@@ -57,6 +64,8 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
             &GlobalTransform,
             Option<&TargetCamera>,
         )>,
@@ -67,7 +76,11 @@ pub fn extract_debug_overlay(
         return;
     }
 
-    for (entity, uinode, transform, camera) in &uinode_query {
+    for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
+        if !debug_options.show_hidden && !visibility.get() {
+            continue;
+        }
+
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -88,7 +101,9 @@ pub fn extract_debug_overlay(
                     min: Vec2::ZERO,
                     max: uinode.size,
                 },
-                clip: None,
+                clip: maybe_clip
+                    .filter(|_| !debug_options.show_clipped)
+                    .map(|clip| clip.clip),
                 image: AssetId::default(),
                 camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
