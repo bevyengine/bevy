@@ -3,8 +3,7 @@
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
-To run an example, use the command `cargo run --example <Example>`, and add the
-option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
+To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
 
 ```bash
 cargo run --features wayland --example hello_world
@@ -12,8 +11,7 @@ cargo run --features wayland --example hello_world
 
 > **⚠️ Note: for users of releases on crates.io!**
 
-There are often large differences and incompatible API changes between the latest
-[crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
+There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
 If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
 
@@ -65,18 +63,18 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-|Example | Description|
-|--- | ---|
-|[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"|
+| Example | Description |
+| --- | --- |
+| [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world" |
 
 # Cross-Platform Examples
 {% for category, details in all_examples %}
 ## {{ category }}
 
 {% if details.description is string %}{{ details.description }}
-{% endif %}|Example | Description|
-|--- | ---|
-{% for example in details.examples %}|[{{ example.name }}](../{{ example.path }}) | {{ example.description }}|
+{% endif %}| Example | Description |
+| --- | --- |
+{% for example in details.examples %}| [{{ example.name }}](../{{ example.path }}) | {{ example.description }} |
 {% endfor %}{% endfor %}
 # Tests
 
@@ -98,8 +96,7 @@ cargo install cargo-ndk
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
-When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT`
-must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
+When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
 Alternatively, you can install Android Studio.
 
@@ -117,8 +114,7 @@ For example, to compile to a 64-bit ARM platform:
 cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
-Setting the output path ensures the shared object files can be found in target-specific
-directories under `jniLibs` where the JNI can find them.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
 
 See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
 
@@ -134,16 +130,11 @@ Then you can test it in your Android project.
 
 #### About `libc++_shared.so`
 
-Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate,
-but typically `cargo-ndk` does not copy this file automatically.
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
 
-To include it, you can manually obtain it from NDK source or use a `build.rs` script for
-automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
 
-Alternatively, you can modify project files to include it when building an APK.
-To understand the specific steps taken in this project, please refer to the comments
-within the project files for detailed
-instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -180,9 +171,9 @@ Then build it as the [Build & Run](#build--run) section stated above.
 You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`.
 If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
-|Example | File | Description|
-|--- | --- | ---|
-|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
+| Example | File | Description |
+| --- | --- | --- |
+|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## iOS
 
@@ -224,9 +215,9 @@ open bevy_mobile_example.xcodeproj/
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
 
-|Example | File | Description|
-|--- | --- | ---|
-|`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
+| Example | File | Description |
+| --- | --- | --- |
+| `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## Wasm
 
@@ -271,9 +262,7 @@ ruby -run -ehttpd examples/wasm
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
-To build for WebGPU, you'll need to enable the `webgpu` feature.
-This will override the `webgl2` feature, and builds with the `webgpu`
-feature enabled won't be able to run on browsers that don't support WebGPU.
+To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
 Bevy has a helper to build its examples:
 
@@ -284,13 +273,9 @@ This helper will log the command used to build the examples.
 
 ### Audio in the browsers
 
-For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers.
-Not all browsers react the same way for all games, you will have to experiment for your game.
+For the moment, everything is single threaded. This can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games. You will have to experiment with your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction.
-This is to avoid multiple tabs all starting to auto play some sounds.
-You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/).
-This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by a user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 ### Optimizing
 
