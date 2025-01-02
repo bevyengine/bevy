@@ -237,6 +237,7 @@ pub struct ExtractedUiTextureSlice {
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
 }
 
@@ -331,6 +332,7 @@ pub fn extract_ui_texture_slices(
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
+                inverse_scale_factor: uinode.inverse_scale_factor,
                 main_entity: entity.into(),
             },
         );
@@ -371,8 +373,7 @@ pub fn queue_ui_slices(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: 1.,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }
@@ -441,7 +442,7 @@ pub fn prepare_ui_slices(
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
@@ -474,7 +475,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
@@ -609,7 +610,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size(),
+                        uinode_rect.size() * texture_slices.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 
@@ -765,20 +766,20 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
-            let target_side_height = target_size.x * (border[2] - border[0]);
-            let target_side_width = target_size.y * (border[3] - border[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
+            let target_side_width = target_size.x * (border[2] - border[0]);
+            let target_side_height = target_size.y * (border[3] - border[1]);
 
             // compute the number of times to repeat the side and center slices when tiling along each axis
             // if the returned value is `1.` the slice will be stretched to fill the axis.
             let repeat_side_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, sides_scale_mode);
             let repeat_center_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, center_scale_mode);
             let repeat_center_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, center_scale_mode);
 
             [
                 slices,

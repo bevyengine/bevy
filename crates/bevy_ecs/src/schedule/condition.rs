@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, format};
 use core::ops::Not;
 
 use crate::system::{
@@ -80,7 +80,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```should_panic
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource, PartialEq)]
@@ -90,7 +90,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
-    ///     // The `resource_equals` run condition will fail since we don't initialize `R`,
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );
@@ -401,6 +401,7 @@ pub mod common_conditions {
         removal_detection::RemovedComponents,
         system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
+    use alloc::format;
 
     /// A [`Condition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
@@ -1316,10 +1317,8 @@ mod tests {
         schedule.add_systems(
             (
                 increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
                 increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
                 double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
                 increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
                 increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
                 double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
@@ -1330,9 +1329,9 @@ mod tests {
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 7);
+        assert_eq!(world.resource::<Counter>().0, 5);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 72);
+        assert_eq!(world.resource::<Counter>().0, 52);
     }
 
     #[test]

@@ -240,14 +240,22 @@ fn prepare_cas_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
     sharpening_pipeline: Res<CasPipeline>,
-    views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
+    views: Query<
+        (Entity, &ExtractedView, &DenoiseCas),
+        Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
+    >,
+    mut removals: RemovedComponents<CasUniform>,
 ) {
-    for (entity, view, cas) in &views {
+    for entity in removals.read() {
+        commands.entity(entity).remove::<ViewCasPipeline>();
+    }
+
+    for (entity, view, denoise_cas) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
             CasPipelineKey {
-                denoise: cas.0,
+                denoise: denoise_cas.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {

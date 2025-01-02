@@ -57,8 +57,8 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, PreviousGlobalTransform};
-use bevy_app::{App, Plugin, PostUpdate};
+use crate::{graph::NodePbr, Material, MeshMaterial3d, PreviousGlobalTransform};
+use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -66,9 +66,9 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
+    bundle::Bundle,
+    component::{require, Component},
     entity::Entity,
-    prelude::With,
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
@@ -80,7 +80,10 @@ use bevy_render::{
     render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{check_visibility, prepare_view_targets, Msaa, Visibility, VisibilitySystems},
+    view::{
+        self, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility, Visibility,
+        VisibilityClass,
+    },
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
@@ -137,6 +140,7 @@ impl MeshletPlugin {
         WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
+            | WgpuFeatures::DEPTH_CLIP_CONTROL
             | WgpuFeatures::PUSH_CONSTANTS
     }
 }
@@ -213,11 +217,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshLoader)
-            .add_systems(
-                PostUpdate,
-                check_visibility::<With<MeshletMesh3d>>.in_set(VisibilitySystems::CheckVisibility),
-            );
+            .register_asset_loader(MeshletMeshLoader);
     }
 
     fn finish(&self, app: &mut App) {
@@ -297,7 +297,8 @@ impl Plugin for MeshletPlugin {
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, PreviousGlobalTransform, Visibility)]
+#[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {

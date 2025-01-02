@@ -9,7 +9,11 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
-    component::Component, query::With, reflect::ReflectComponent, schedule::IntoSystemConfigs,
+    bundle::Bundle,
+    component::{require, Component},
+    query::With,
+    reflect::ReflectComponent,
+    schedule::IntoSystemConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{

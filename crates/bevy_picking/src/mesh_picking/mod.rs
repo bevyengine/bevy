@@ -19,7 +19,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
@@ -89,7 +89,7 @@ pub fn update_hits(
 
         let cam_layers = cam_layers.to_owned().unwrap_or_default();
 
-        let settings = RayCastSettings {
+        let settings = MeshRayCastSettings {
             visibility: backend_settings.ray_cast_visibility,
             filter: &|entity| {
                 let marker_requirement =
@@ -99,10 +99,7 @@ pub fn update_hits(
                 let entity_layers = layers.get(entity).cloned().unwrap_or_default();
                 let render_layers_match = cam_layers.intersects(&entity_layers);
 
-                let is_pickable = pickables
-                    .get(entity)
-                    .map(|p| p.is_hoverable)
-                    .unwrap_or(true);
+                let is_pickable = pickables.get(entity).ok().is_none_or(|p| p.is_hoverable);
 
                 marker_requirement && render_layers_match && is_pickable
             },

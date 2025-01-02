@@ -10,10 +10,10 @@ use crate::{
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
-use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
-use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
@@ -106,46 +106,52 @@ impl<
 }
 
 /// An error that is encountered during [`Process::process`].
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum ProcessError {
-    MissingAssetLoaderForExtension(MissingAssetLoaderForExtensionError),
-    MissingAssetLoaderForTypeName(MissingAssetLoaderForTypeNameError),
-    #[display("The processor '{_0}' does not exist")]
-    #[error(ignore)]
+    #[error(transparent)]
+    MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
+    #[error(transparent)]
+    MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
+    #[error("The processor '{0}' does not exist")]
     #[from(ignore)]
     MissingProcessor(String),
-    #[display("Encountered an AssetReader error for '{path}': {err}")]
+    #[error("Encountered an AssetReader error for '{path}': {err}")]
     #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
-    #[display("Encountered an AssetWriter error for '{path}': {err}")]
+    #[error("Encountered an AssetWriter error for '{path}': {err}")]
     #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
         err: AssetWriterError,
     },
-    MissingAssetWriterError(MissingAssetWriterError),
-    MissingProcessedAssetReaderError(MissingProcessedAssetReaderError),
-    MissingProcessedAssetWriterError(MissingProcessedAssetWriterError),
-    #[display("Failed to read asset metadata for {path}: {err}")]
+    #[error(transparent)]
+    MissingAssetWriterError(#[from] MissingAssetWriterError),
+    #[error(transparent)]
+    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    #[error(transparent)]
+    MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
+    #[error("Failed to read asset metadata for {path}: {err}")]
     #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
-    DeserializeMetaError(DeserializeMetaError),
-    AssetLoadError(AssetLoadError),
-    #[display("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
+    #[error(transparent)]
+    DeserializeMetaError(#[from] DeserializeMetaError),
+    #[error(transparent)]
+    AssetLoadError(#[from] AssetLoadError),
+    #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
-    #[display("Encountered an error while saving the asset: {_0}")]
+    #[error("Encountered an error while saving the asset: {0}")]
     #[from(ignore)]
     AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
-    #[display("Encountered an error while transforming the asset: {_0}")]
+    #[error("Encountered an error while transforming the asset: {0}")]
     #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
-    #[display("Assets without extensions are not supported.")]
+    #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
 
@@ -300,14 +306,7 @@ impl<'a> ProcessContext<'a> {
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
-                self.path,
-                Box::new(meta),
-                &*loader,
-                &mut reader,
-                false,
-                true,
-            )
+            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
         for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info
