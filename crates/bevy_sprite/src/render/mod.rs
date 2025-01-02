@@ -396,7 +396,7 @@ pub fn extract_sprites(
                         commands.spawn(TemporaryRenderEntity).id(),
                         sprite,
                     )
-                    .map(|e| (original_entity.into(), e)),
+                    .map(|e| (commands.spawn(TemporaryRenderEntity).id().into(), e)),
             );
         } else {
             let atlas_rect = sprite
@@ -417,7 +417,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                original_entity.into(),
+                commands.spawn(TemporaryRenderEntity).id().into(),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
