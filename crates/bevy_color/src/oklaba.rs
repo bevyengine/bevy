@@ -216,7 +216,10 @@ impl ColorToComponents for Oklaba {
     }
 }
 
-#[allow(clippy::excessive_precision)]
+#[expect(
+    clippy::excessive_precision,
+    reason = "The code with excessive precision was copied from another codebase."
+)]
 impl From<LinearRgba> for Oklaba {
     fn from(value: LinearRgba) -> Self {
         let LinearRgba {
@@ -239,7 +242,10 @@ impl From<LinearRgba> for Oklaba {
     }
 }
 
-#[allow(clippy::excessive_precision)]
+#[expect(
+    clippy::excessive_precision,
+    reason = "The code with excessive precision was copied from another codebase."
+)]
 impl From<Oklaba> for LinearRgba {
     fn from(value: Oklaba) -> Self {
         let Oklaba {
