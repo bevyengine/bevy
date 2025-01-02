@@ -1,4 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -10,10 +11,6 @@
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason
 )]
 
 //! Reflection in Rust.
