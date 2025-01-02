@@ -46,6 +46,6 @@ fn empty_listener_base(trigger: Trigger<EventBase>) {
     black_box(trigger);
 }
 
-fn send_base_event(world: &mut World, entities: &[Entity]) {
+fn send_base_event(world: &mut World, entities: impl TriggerTargets) {
     world.trigger_targets(EventBase, entities);
 }
