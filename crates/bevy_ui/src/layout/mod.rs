@@ -494,6 +494,7 @@ mod tests {
     };
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_render::camera::Viewport;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
@@ -504,7 +505,6 @@ mod tests {
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
     };
-    use bevy_render::camera::Viewport;
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
