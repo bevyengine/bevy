@@ -75,9 +75,12 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphApp, ViewNodeRunner}, render_resource::Shader, renderer::RenderDevice, settings::WgpuFeatures, view::{
-        self, prepare_view_targets, Msaa,
-    }, ExtractSchedule, Render, RenderApp, RenderSet
+    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_resource::Shader,
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
+    view::{self, prepare_view_targets, Msaa},
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::error;

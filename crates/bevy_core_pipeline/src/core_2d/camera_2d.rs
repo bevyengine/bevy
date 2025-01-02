@@ -8,7 +8,11 @@ use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
         OrthographicProjection, Projection,
-    }, extract_component::ExtractComponent, primitives::Frustum, sync_world::SyncToRenderWorld, view::{Msaa, VisibleEntities}
+    },
+    extract_component::ExtractComponent,
+    primitives::Frustum,
+    sync_world::SyncToRenderWorld,
+    view::{Msaa, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
