@@ -1688,7 +1688,6 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,
@@ -1715,7 +1714,10 @@ impl<'w> EntityWorldMut<'w> {
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Can't be rewritten with less arguments."
+    )]
     unsafe fn move_entity_from_remove<const DROP: bool>(
         entity: Entity,
         self_location: &mut EntityLocation,
@@ -1795,7 +1797,6 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;

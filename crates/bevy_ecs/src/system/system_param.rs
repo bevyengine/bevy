@@ -201,11 +201,10 @@ pub unsafe trait SystemParam: Sized {
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
     #[inline]
-    #[allow(unused_variables)]
     unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
+        _state: &mut Self::State,
+        _archetype: &Archetype,
+        _system_meta: &mut SystemMeta,
     ) {
     }
 
@@ -214,13 +213,11 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
-    #[allow(unused_variables)]
-    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+    fn apply(_state: &mut Self::State, _system_meta: &SystemMeta, _world: &mut World) {}
 
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     #[inline]
-    #[allow(unused_variables)]
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
+    fn queue(_state: &mut Self::State, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
     /// Built-in executors use this to prevent systems with invalid params from running.
@@ -687,8 +684,14 @@ macro_rules! impl_param_set {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
 
-            // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is in a macro, and as such may not always lint."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Variable names use parameters provided by the macro invocation."
+            )]
             fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                 $(
                     // Pretend to add each param to the system alone, see if it conflicts
@@ -2005,10 +2008,16 @@ macro_rules! impl_system_param_tuple {
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
-        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
-        #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is inside a macro, and thus the lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Variable names use parameters provided by the macro invocation."
+        )]
         $(#[$meta])*
+        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
@@ -2019,10 +2028,9 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            #[allow(unused_unsafe)]
             unsafe fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
                 // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                unsafe { $($param::new_archetype($param, _archetype, _system_meta);)* }
+                $(unsafe { $param::new_archetype($param, _archetype, _system_meta); })*
             }
 
             #[inline]
@@ -2046,7 +2054,10 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples won't have any parameters to create."
+            )]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 _system_meta: &SystemMeta,
@@ -2643,8 +2654,11 @@ mod tests {
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[test]
     fn system_param_const_generics() {
-        #[allow(dead_code)]
         #[derive(SystemParam)]
+        #[expect(
+            dead_code,
+            reason = "This is used for testing if `#[derive(SystemParam)]` actually derives the correct traits, and as such, we don't need to read the inner field."
+        )]
         pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
         fn my_system(_: ConstGenericParam<0>, _: ConstGenericParam<1000>) {}
@@ -2701,8 +2715,11 @@ mod tests {
         #[derive(SystemParam)]
         pub struct UnitParam;
 
-        #[allow(dead_code)]
         #[derive(SystemParam)]
+        #[expect(
+            dead_code,
+            reason = "This is used for testing if `#[derive(SystemParam)]` actually derives the correct traits, and as such, we don't need to read the inner fields."
+        )]
         pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
             Res<'w, R>,
             Local<'s, L>,
@@ -2718,8 +2735,11 @@ mod tests {
         #[derive(Resource)]
         struct PrivateResource;
 
-        #[allow(dead_code)]
         #[derive(SystemParam)]
+        #[expect(
+            dead_code,
+            reason = "This is used for testing if `#[derive(SystemParam)]` actually derives the correct traits, and as such, we don't need to read the inner field."
+        )]
         pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
         fn my_system(_: EncapsulatedParam) {}

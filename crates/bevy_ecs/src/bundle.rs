@@ -322,7 +322,7 @@ macro_rules! tuple_impl {
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 #[allow(
                     non_snake_case,
-                    reason = "The name of these variables is determined at the invocation location, not by this macro."
+                    reason = "Variable names use parameters provided by the macro invocation."
                 )]
                 let ($(mut $name,)*) = self;
                 $(
