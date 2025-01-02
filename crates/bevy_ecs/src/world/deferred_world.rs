@@ -109,7 +109,7 @@ impl<'w> DeferredWorld<'w> {
                 return Err(EntityFetchError::AliasedMutability(entity))
             }
             Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(entity, self.world))
+                return Err(EntityFetchError::NoSuchEntity(entity))
             }
         };
 
