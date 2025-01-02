@@ -60,9 +60,8 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(query: Query<Entity, With<Marker>>, children_query: Query<&Children>) {
-    ///     let entity = query.single();
-    ///     for descendant in children_query.iter_descendants(entity) {
+    /// fn system(entity: Single<Entity, With<Marker>>, children_query: Query<&Children>) {
+    ///     for descendant in children_query.iter_descendants(*entity) {
     ///         // Do something!
     ///     }
     /// }
@@ -95,9 +94,8 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(query: Query<Entity, With<Marker>>, parent_query: Query<&Parent>) {
-    ///     let entity = query.single();
-    ///     for ancestor in parent_query.iter_ancestors(entity) {
+    /// fn system(entity: Single<Entity, With<Marker>>, parent_query: Query<&Parent>) {
+    ///     for ancestor in parent_query.iter_ancestors(*entity) {
     ///         // Do something!
     ///     }
     /// }
@@ -141,10 +139,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
+                .ok()
                 // These are leaf nodes if they have the `Children` component but it's empty
-                .map(|children| children.is_empty())
                 // Or if they don't have the `Children` component at all
-                .unwrap_or(true)
+                .is_none_or(|children| children.is_empty())
         })
     }
 

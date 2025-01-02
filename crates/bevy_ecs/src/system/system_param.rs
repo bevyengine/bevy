@@ -16,11 +16,11 @@ use crate::{
         FromWorld, World,
     },
 };
-use bevy_ecs_macros::impl_param_set;
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
-use bevy_utils::{all_tuples, synccell::SyncCell};
-#[cfg(feature = "track_change_detection")]
+use bevy_utils::synccell::SyncCell;
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     any::Any,
@@ -28,8 +28,10 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use disqualified::ShortName;
 
 use super::Populated;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -208,14 +210,14 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     #[inline]
     #[allow(unused_variables)]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
@@ -352,8 +354,12 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let accesses = conflicts.format_conflict_list(world);
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    let mut accesses = conflicts.format_conflict_list(world);
+    // Access list may be empty (if access to all components requested)
+    if !accesses.is_empty() {
+        accesses.push(' ');
+    }
+    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001", ShortName(query_type), ShortName(filter_type));
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -671,7 +677,106 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     change_tick: Tick,
 }
 
-impl_param_set!();
+macro_rules! impl_param_set {
+    ($(($index: tt, $param: ident, $system_meta: ident, $fn_name: ident)),*) => {
+        // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
+        unsafe impl<'w, 's, $($param,)*> ReadOnlySystemParam for ParamSet<'w, 's, ($($param,)*)>
+        where $($param: ReadOnlySystemParam,)*
+        { }
+
+        // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+        // with any prior access, a panic will occur.
+        unsafe impl<'_w, '_s, $($param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, ($($param,)*)>
+        {
+            type State = ($($param::State,)*);
+            type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
+
+            // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
+            #[allow(non_snake_case)]
+            fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+                $(
+                    // Pretend to add each param to the system alone, see if it conflicts
+                    let mut $system_meta = system_meta.clone();
+                    $system_meta.component_access_set.clear();
+                    $system_meta.archetype_component_access.clear();
+                    $param::init_state(world, &mut $system_meta);
+                    // The variable is being defined with non_snake_case here
+                    let $param = $param::init_state(world, &mut system_meta.clone());
+                )*
+                // Make the ParamSet non-send if any of its parameters are non-send.
+                if false $(|| !$system_meta.is_send())* {
+                    system_meta.set_non_send();
+                }
+                $(
+                    system_meta
+                        .component_access_set
+                        .extend($system_meta.component_access_set);
+                    system_meta
+                        .archetype_component_access
+                        .extend(&$system_meta.archetype_component_access);
+                )*
+                ($($param,)*)
+            }
+
+            unsafe fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+                // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                unsafe { <($($param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
+            }
+
+            fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                <($($param,)*) as SystemParam>::apply(state, system_meta, world);
+            }
+
+            fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                <($($param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
+            }
+
+            #[inline]
+            unsafe fn validate_param<'w, 's>(
+                state: &'s Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+            ) -> bool {
+                <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
+            }
+
+            #[inline]
+            unsafe fn get_param<'w, 's>(
+                state: &'s mut Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+                change_tick: Tick,
+            ) -> Self::Item<'w, 's> {
+                ParamSet {
+                    param_states: state,
+                    system_meta: system_meta.clone(),
+                    world,
+                    change_tick,
+                }
+            }
+        }
+
+        impl<'w, 's, $($param: SystemParam,)*> ParamSet<'w, 's, ($($param,)*)>
+        {
+            $(
+                /// Gets exclusive access to the parameter at index
+                #[doc = stringify!($index)]
+                /// in this [`ParamSet`].
+                /// No other parameters may be accessed while this one is active.
+                pub fn $fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, $param> {
+                    // SAFETY: systems run without conflicts with other systems.
+                    // Conflicting params in ParamSet are not accessible at the same time
+                    // ParamSets are guaranteed to not conflict with other SystemParams
+                    unsafe {
+                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                    }
+                }
+            )*
+        }
+    }
+}
+
+all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
@@ -813,7 +918,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref(),
         }
     }
@@ -848,7 +953,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
     }
@@ -926,7 +1031,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: value.changed_by,
         }
     }
@@ -958,7 +1063,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: value.changed_by,
             })
     }
@@ -1151,12 +1256,12 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
-/// [`apply_deferred`](crate::schedule::apply_deferred).
+/// [`ApplyDeferred`](crate::schedule::ApplyDeferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
 /// [`Commands`]: crate::system::Commands
@@ -1194,12 +1299,12 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta};
 ///
-/// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
+/// // Uses deferred mutations to allow signaling the alarm from multiple systems in parallel.
 /// #[derive(Resource, Default)]
 /// struct AlarmFlag(bool);
 ///
 /// impl AlarmFlag {
-///     /// Sounds the alarm the next time buffers are applied via apply_deferred.
+///     /// Sounds the alarm the next time buffers are applied via ApplyDeferred.
 ///     pub fn flag(&mut self) {
 ///         self.0 = true;
 ///     }
@@ -1207,7 +1312,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
-///     // called the next time buffers are applied via apply_deferred.
+///     // called the next time buffers are applied via ApplyDeferred.
 ///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
@@ -1218,18 +1323,17 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// // Sound the alarm if there are any criminals who pose a threat.
 /// fn alert_criminal(
-///     settlements: Query<&Settlement>,
+///     settlement: Single<&Settlement>,
 ///     criminals: Query<&Criminal>,
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
-///     let settlement = settlements.single();
 ///     for criminal in &criminals {
 ///         // Only sound the alarm if the criminal is a threat.
 ///         // For this example, assume that this check is expensive to run.
 ///         // Since the majority of this system's run-time is dominated
 ///         // by calling `is_threat()`, we defer sounding the alarm to
 ///         // allow this system to run in parallel with other alarm systems.
-///         if criminal.is_threat(settlement) {
+///         if criminal.is_threat(*settlement) {
 ///             alarm.flag();
 ///         }
 ///     }
@@ -1340,7 +1444,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {
@@ -1348,7 +1452,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     changed_by: &'static Location<'static>,
 }
 
@@ -1376,7 +1480,7 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 
     /// The location that last caused this to change.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn changed_by(&self) -> &'static Location<'static> {
         self.changed_by
     }
@@ -1399,7 +1503,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             },
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: nsm.changed_by,
         }
     }
@@ -1475,7 +1579,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             ticks: ticks.read(),
             last_run: system_meta.last_run,
             this_run: change_tick,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref(),
         }
     }
@@ -1507,7 +1611,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
     }
@@ -1583,7 +1687,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref_mut(),
         }
     }
@@ -1610,7 +1714,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             .map(|(ptr, ticks, _caller)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref_mut(),
             })
     }
@@ -2340,12 +2444,12 @@ trait DynParamState: Sync + Send {
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
     /// [`Commands`]: crate::prelude::Commands
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 
-    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
     /// Refer to [`SystemParam::validate_param`].

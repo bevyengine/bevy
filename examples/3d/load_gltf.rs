@@ -56,7 +56,7 @@ fn animate_light_direction(
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            time.elapsed_seconds() * PI / 5.0,
+            time.elapsed_secs() * PI / 5.0,
             -FRAC_PI_4,
         );
     }

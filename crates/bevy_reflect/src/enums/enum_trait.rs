@@ -4,7 +4,7 @@ use crate::{
     type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, format, string::String, sync::Arc};
 use bevy_utils::HashMap;
 use core::slice::Iter;
 
@@ -132,6 +132,13 @@ pub trait Enum: PartialReflect {
     /// Returns the full path to the current variant.
     fn variant_path(&self) -> String {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.get_represented_type_info()?.as_enum().ok()
     }
 }
 

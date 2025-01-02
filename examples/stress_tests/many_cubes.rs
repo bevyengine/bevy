@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -59,9 +59,9 @@ struct Args {
     #[argh(switch)]
     no_automatic_batching: bool,
 
-    /// whether to enable GPU culling.
+    /// whether to disable indirect drawing.
     #[argh(switch)]
-    gpu_culling: bool,
+    no_indirect_drawing: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -176,8 +176,8 @@ fn setup(
 
             // camera
             let mut camera = commands.spawn(Camera3d::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
+            if args.no_indirect_drawing {
+                camera.insert(NoIndirectDrawing);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -438,14 +438,13 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 fn move_camera(
     time: Res<Time>,
     args: Res<Args>,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
     let delta = 0.15
         * if args.benchmark {
             1.0 / 60.0
         } else {
-            time.delta_seconds()
+            time.delta_secs()
         };
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

@@ -24,9 +24,7 @@ fn main() {
 }
 
 // This system runs when the user clicks the left arrow key or right arrow key
-fn trigger_animation<S: Component>(mut query: Query<&mut AnimationConfig, With<S>>) {
-    // we expect the Component of type S to be used as a marker Component by only a single entity
-    let mut animation = query.single_mut();
+fn trigger_animation<S: Component>(mut animation: Single<&mut AnimationConfig, With<S>>) {
     // we create a new timer when the animation is triggered
     animation.frame_timer = AnimationConfig::timer_from_fps(animation.fps);
 }
@@ -137,7 +135,7 @@ fn setup(
     // create a minimal UI explaining how to interact with the example
     commands.spawn((
         Text::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

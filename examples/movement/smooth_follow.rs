@@ -90,19 +90,17 @@ fn setup(
 }
 
 fn move_target(
-    mut target: Query<&mut Transform, With<TargetSphere>>,
+    mut target: Single<&mut Transform, With<TargetSphere>>,
     target_speed: Res<TargetSphereSpeed>,
     mut target_pos: ResMut<TargetPosition>,
     time: Res<Time>,
     mut rng: ResMut<RandomSource>,
 ) {
-    let mut target = target.single_mut();
-
     match Dir3::new(target_pos.0 - target.translation) {
         // The target and the present position of the target sphere are far enough to have a well-
         // defined direction between them, so let's move closer:
         Ok(dir) => {
-            let delta_time = time.delta_seconds();
+            let delta_time = time.delta_secs();
             let abs_delta = (target_pos.0 - target.translation).norm();
 
             // Avoid overshooting in case of high values of `delta_time`:
@@ -119,15 +117,13 @@ fn move_target(
 }
 
 fn move_follower(
-    mut following: Query<&mut Transform, With<FollowingSphere>>,
-    target: Query<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
+    mut following: Single<&mut Transform, With<FollowingSphere>>,
+    target: Single<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
     decay_rate: Res<DecayRate>,
     time: Res<Time>,
 ) {
-    let target = target.single();
-    let mut following = following.single_mut();
     let decay_rate = decay_rate.0;
-    let delta_time = time.delta_seconds();
+    let delta_time = time.delta_secs();
 
     // Calling `smooth_nudge` is what moves the following sphere smoothly toward the target.
     following

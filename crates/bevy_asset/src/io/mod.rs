@@ -22,33 +22,32 @@ pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use alloc::sync::Arc;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use core::future::Future;
 use core::{
     mem::size_of,
     pin::Pin,
     task::{Context, Poll},
 };
-use derive_more::derive::{Display, Error, From};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Display, Debug, Clone)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[display("Path not found: {}", _0.display())]
-    #[error(ignore)]
+    #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[display("Encountered an I/O error while loading asset: {_0}")]
+    #[error("Encountered an I/O error while loading asset: {0}")]
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
-    #[display("Encountered HTTP status {_0:?} when loading asset")]
-    #[error(ignore)]
+    #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
 }
 
@@ -117,6 +116,40 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
         offset: u64,
     ) -> Poll<futures_io::Result<u64>> {
         Pin::new(&mut **self).poll_seek_forward(cx, offset)
+    }
+}
+
+/// Extension trait for [`AsyncSeekForward`].
+pub trait AsyncSeekForwardExt: AsyncSeekForward {
+    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
+    fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
+    where
+        Self: Unpin,
+    {
+        SeekForwardFuture {
+            seeker: self,
+            offset,
+        }
+    }
+}
+
+impl<R: AsyncSeekForward + ?Sized> AsyncSeekForwardExt for R {}
+
+#[derive(Debug)]
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+pub struct SeekForwardFuture<'a, S: Unpin + ?Sized> {
+    seeker: &'a mut S,
+    offset: u64,
+}
+
+impl<S: Unpin + ?Sized> Unpin for SeekForwardFuture<'_, S> {}
+
+impl<S: AsyncSeekForward + Unpin + ?Sized> Future for SeekForwardFuture<'_, S> {
+    type Output = futures_lite::io::Result<u64>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let offset = self.offset;
+        Pin::new(&mut *self.seeker).poll_seek_forward(cx, offset)
     }
 }
 
@@ -298,11 +331,11 @@ pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
-    #[display("encountered an io error while loading asset: {_0}")]
-    Io(std::io::Error),
+    #[error("encountered an io error while loading asset: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
@@ -348,6 +381,12 @@ pub trait AssetWriter: Send + Sync + 'static {
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
@@ -425,6 +464,12 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -487,6 +532,12 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
+    }
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+        Box::pin(Self::create_directory(self, path))
     }
     fn remove_directory<'a>(
         &'a self,
@@ -728,10 +779,7 @@ struct EmptyPathStream;
 impl Stream for EmptyPathStream {
     type Item = PathBuf;
 
-    fn poll_next(
-        self: Pin<&mut Self>,
-        _cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }
 }

@@ -1,4 +1,4 @@
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 use crate::{entity::Entity, world::unsafe_world_cell::UnsafeWorldCell};
 
@@ -11,7 +11,7 @@ pub enum QueryEntityError<'w> {
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
     /// The given [`Entity`] does not exist.
-    NoSuchEntity(Entity),
+    NoSuchEntity(Entity, UnsafeWorldCell<'w>),
     /// The [`Entity`] was requested mutably more than once.
     ///
     /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
@@ -26,15 +26,22 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
             Self::QueryDoesNotMatch(entity, world) => {
                 write!(
                     f,
-                    "The query does not match the entity {entity}, which has components "
+                    "The query does not match entity {entity}, which has components "
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity) => write!(f, "The entity {entity} does not exist"),
-            Self::AliasedMutability(entity) => write!(
-                f,
-                "The entity {entity} was requested mutably more than once"
-            ),
+            Self::NoSuchEntity(entity, world) => {
+                write!(
+                    f,
+                    "Entity {entity} {}",
+                    world
+                        .entities()
+                        .entity_does_not_exist_error_details_message(entity)
+                )
+            }
+            Self::AliasedMutability(entity) => {
+                write!(f, "Entity {entity} was requested mutably more than once")
+            }
         }
     }
 }
@@ -47,7 +54,15 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity) => write!(f, "NoSuchEntity({entity})"),
+            Self::NoSuchEntity(entity, world) => {
+                write!(
+                    f,
+                    "NoSuchEntity({entity} {})",
+                    world
+                        .entities()
+                        .entity_does_not_exist_error_details_message(entity)
+                )
+            }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }
     }
@@ -70,7 +85,7 @@ fn format_archetype(
             .components()
             .get_name(component_id)
             .expect("entity does not belong to world");
-        write!(f, "{name}")?;
+        write!(f, "{}", disqualified::ShortName(name))?;
     }
     Ok(())
 }
@@ -79,7 +94,7 @@ impl<'w> PartialEq for QueryEntityError<'w> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::QueryDoesNotMatch(e1, _), Self::QueryDoesNotMatch(e2, _)) if e1 == e2 => true,
-            (Self::NoSuchEntity(e1), Self::NoSuchEntity(e2)) if e1 == e2 => true,
+            (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
             (Self::AliasedMutability(e1), Self::AliasedMutability(e2)) if e1 == e2 => true,
             _ => false,
         }
@@ -90,15 +105,13 @@ impl<'w> Eq for QueryEntityError<'w> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum QuerySingleError {
     /// No entity fits the query.
-    #[display("No entities fit the query {_0}")]
-    #[error(ignore)]
+    #[error("No entities fit the query {0}")]
     NoEntities(&'static str),
     /// Multiple entities fit the query.
-    #[display("Multiple entities fit the query {_0}")]
-    #[error(ignore)]
+    #[error("Multiple entities fit the query {0}")]
     MultipleEntities(&'static str),
 }
 
@@ -126,6 +139,9 @@ mod test {
             .get(&world, entity)
             .unwrap_err();
 
-        assert_eq!(format!("{err:?}"), "QueryDoesNotMatch(0v1 with components bevy_ecs::query::error::test::query_does_not_match::Present1, bevy_ecs::query::error::test::query_does_not_match::Present2)");
+        assert_eq!(
+            format!("{err:?}"),
+            "QueryDoesNotMatch(0v1 with components Present1, Present2)"
+        );
     }
 }

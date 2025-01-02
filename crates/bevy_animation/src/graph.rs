@@ -1,7 +1,9 @@
 //! The animation graph, which allows animations to be blended together.
 
-use core::iter;
-use core::ops::{Index, IndexMut, Range};
+use core::{
+    iter,
+    ops::{Index, IndexMut, Range},
+};
 use std::io::{self, Write};
 
 use bevy_asset::{
@@ -16,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
 use bevy_utils::HashMap;
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     Direction,
@@ -24,6 +26,7 @@ use petgraph::{
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use thiserror::Error;
 
 use crate::{AnimationClip, AnimationTargetId};
 
@@ -148,8 +151,9 @@ pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
 
 /// The index of either an animation or blend node in the animation graph.
 ///
-/// These indices are the way that [`crate::AnimationPlayer`]s identify
-/// particular animations.
+/// These indices are the way that [animation players] identify each animation.
+///
+/// [animation players]: crate::AnimationPlayer
 pub type AnimationNodeIndex = NodeIndex<u32>;
 
 /// An individual node within an animation graph.
@@ -157,9 +161,7 @@ pub type AnimationNodeIndex = NodeIndex<u32>;
 /// The [`AnimationGraphNode::node_type`] field specifies the type of node: one
 /// of a *clip node*, a *blend node*, or an *add node*. Clip nodes, the leaves
 /// of the graph, contain animation clips to play. Blend and add nodes describe
-/// how to combine their children to produce a final animation. The difference
-/// between blend nodes and add nodes is that blend nodes normalize the weights
-/// of their children to 1.0, while add nodes don't.
+/// how to combine their children to produce a final animation.
 #[derive(Clone, Reflect, Debug)]
 pub struct AnimationGraphNode {
     /// Animation node data specific to the type of node (clip, blend, or add).
@@ -176,11 +178,24 @@ pub struct AnimationGraphNode {
     /// this node and its descendants *cannot* animate mask group N.
     pub mask: AnimationMask,
 
-    /// The weight of this node.
+    /// The weight of this node, which signifies its contribution in blending.
     ///
-    /// Weights are propagated down to descendants. Thus if an animation clip
-    /// has weight 0.3 and its parent blend node has effective weight 0.6, the
-    /// computed weight of the animation clip is 0.18.
+    /// Note that this does not propagate down the graph hierarchy; rather,
+    /// each [Blend] and [Add] node uses the weights of its children to determine
+    /// the total animation that is accumulated at that node. The parent node's
+    /// weight is used only to determine the contribution of that total animation
+    /// in *further* blending.
+    ///
+    /// In other words, it is as if the blend node is replaced by a single clip
+    /// node consisting of the blended animation with the weight specified at the
+    /// blend node.
+    ///
+    /// For animation clips, this weight is also multiplied by the [active animation weight]
+    /// before being applied.
+    ///
+    /// [Blend]: AnimationNodeType::Blend
+    /// [Add]: AnimationNodeType::Add
+    /// [active animation weight]: crate::ActiveAnimation::weight
     pub weight: f32,
 }
 
@@ -201,11 +216,12 @@ pub enum AnimationNodeType {
     #[default]
     Blend,
 
-    /// An *additive blend node*, which combines the animations of its children,
-    /// scaled by their weights.
+    /// An *additive blend node*, which combines the animations of its children
+    /// additively.
     ///
     /// The weights of all the children of this node are *not* normalized to
-    /// 1.0.
+    /// 1.0. Rather, each child is multiplied by its respective weight and
+    /// added in sequence.
     ///
     /// Add nodes are primarily useful for superimposing an animation for a
     /// portion of a rig on top of the main animation. For example, an add node
@@ -224,18 +240,18 @@ pub struct AnimationGraphAssetLoader;
 
 /// Various errors that can occur when serializing or deserializing animation
 /// graphs to and from RON, respectively.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum AnimationGraphLoadError {
     /// An I/O error occurred.
-    #[display("I/O")]
-    Io(io::Error),
+    #[error("I/O")]
+    Io(#[from] io::Error),
     /// An error occurred in RON serialization or deserialization.
-    #[display("RON serialization")]
-    Ron(ron::Error),
+    #[error("RON serialization")]
+    Ron(#[from] ron::Error),
     /// An error occurred in RON deserialization, and the location of the error
     /// is supplied.
-    #[display("RON serialization")]
-    SpannedRon(SpannedError),
+    #[error("RON serialization")]
+    SpannedRon(#[from] SpannedError),
 }
 
 /// Acceleration structures for animation graphs that allows Bevy to evaluate
@@ -406,7 +422,7 @@ impl AnimationGraph {
         Self {
             graph,
             root,
-            mask_groups: HashMap::new(),
+            mask_groups: HashMap::default(),
         }
     }
 
@@ -427,7 +443,7 @@ impl AnimationGraph {
     /// All of the animation clips will be direct children of the root with
     /// weight 1.0.
     ///
-    /// Returns the the graph and indices of the new nodes.
+    /// Returns the graph and indices of the new nodes.
     pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,

@@ -10,6 +10,7 @@ use bevy_window::{
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
+    error::ExternalError,
     event_loop::ActiveEventLoop,
     monitor::{MonitorHandle, VideoModeHandle},
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
@@ -125,6 +126,26 @@ impl WinitWindows {
             use winit::platform::windows::WindowAttributesExtWindows;
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            use winit::platform::macos::WindowAttributesExtMacOS;
+            winit_window_attributes = winit_window_attributes
+                .with_movable_by_window_background(window.movable_by_window_background)
+                .with_fullsize_content_view(window.fullsize_content_view)
+                .with_has_shadow(window.has_shadow)
+                .with_titlebar_hidden(!window.titlebar_shown)
+                .with_titlebar_transparent(window.titlebar_transparent)
+                .with_title_hidden(!window.titlebar_show_title)
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            use winit::platform::ios::WindowAttributesExtIOS;
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
         }
 
         let display_info = DisplayInfo {
@@ -259,7 +280,7 @@ impl WinitWindows {
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor_options.grab_mode != CursorGrabMode::None {
-            attempt_grab(&winit_window, window.cursor_options.grab_mode);
+            let _ = attempt_grab(&winit_window, window.cursor_options.grab_mode);
         }
 
         winit_window.set_cursor_visible(window.cursor_options.visible);
@@ -269,7 +290,7 @@ impl WinitWindows {
         if !window.cursor_options.hit_test {
             if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
+                    "Could not set cursor hit test for window {}: {}",
                     window.title, err
                 );
             }
@@ -312,55 +333,32 @@ impl WinitWindows {
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-
-    fn abs_diff(a: u32, b: u32) -> u32 {
-        if a > b {
-            return a - b;
-        }
-        b - a
-    }
-
-    modes.sort_by(|a, b| {
-        use core::cmp::Ordering::*;
-        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
-            Equal => {
-                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b
-                        .refresh_rate_millihertz()
-                        .cmp(&a.refresh_rate_millihertz()),
-                    default => default,
-                }
-            }
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
+    monitor
+        .video_modes()
+        .max_by_key(|x| {
+            (
+                x.size().width.abs_diff(width),
+                x.size().height.abs_diff(height),
+                x.refresh_rate_millihertz(),
+            )
+        })
+        .unwrap()
 }
 
 /// Gets the "best" video-mode handle from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-    modes.sort_by(|a, b| {
-        use core::cmp::Ordering::*;
-        match b.size().width.cmp(&a.size().width) {
-            Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b
-                    .refresh_rate_millihertz()
-                    .cmp(&a.refresh_rate_millihertz()),
-                default => default,
-            },
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
+    monitor
+        .video_modes()
+        .max_by_key(|x| (x.size(), x.refresh_rate_millihertz()))
+        .unwrap()
 }
 
-pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode) {
+pub(crate) fn attempt_grab(
+    winit_window: &WinitWindow,
+    grab_mode: CursorGrabMode,
+) -> Result<(), ExternalError> {
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
@@ -378,6 +376,9 @@ pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode
         };
 
         bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
+        Err(err)
+    } else {
+        Ok(())
     }
 }
 

@@ -20,22 +20,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // Systems that fail parameter validation will emit warnings.
-        // The default policy is to emit a warning once per system.
-        // This is good for catching unexpected behavior, but can
-        // lead to spam. You can disable invalid param warnings
-        // per system using the `.never_param_warn()` method.
+        // Default system policy is to panic if parameters fail to be fetched.
+        // We overwrite that configuration, to either warn us once or never.
+        // This is good for catching unexpected behavior without crashing the app,
+        // but can lead to spam.
         .add_systems(
             Update,
             (
-                user_input,
+                user_input.param_warn_once(),
                 move_targets.never_param_warn(),
                 move_pointer.never_param_warn(),
             )
                 .chain(),
         )
-        // We will leave this systems with default warning policy.
-        .add_systems(Update, do_nothing_fail_validation)
+        .add_systems(Update, do_nothing_fail_validation.param_warn_once())
         .run();
 }
 
@@ -116,7 +114,7 @@ fn user_input(
 // Only runs if there are enemies.
 fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
-        target.rotation += target.rotation_speed * time.delta_seconds();
+        target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
         transform.translation = target.origin.extend(0.0) + offset;
@@ -145,12 +143,12 @@ fn move_pointer(
         player_transform.rotation = Quat::from_mat3(&Mat3::from_cols(side, front, up));
         let max_step = distance - player.min_follow_radius;
         if 0.0 < max_step {
-            let velocity = (player.speed * time.delta_seconds()).min(max_step);
+            let velocity = (player.speed * time.delta_secs()).min(max_step);
             player_transform.translation += front * velocity;
         }
     } else {
         // No enemy found, keep searching.
-        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_seconds());
+        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }
 

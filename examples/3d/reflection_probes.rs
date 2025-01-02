@@ -154,7 +154,7 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
     commands.spawn((
         app_status.create_text(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -303,7 +303,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(time.delta_seconds() * PI / 5.0)
+        transform.translation = Vec2::from_angle(time.delta_secs() * PI / 5.0)
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();

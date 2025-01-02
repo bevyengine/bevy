@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility};
 
 use super::*;
 
@@ -9,7 +9,8 @@ use super::*;
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Frustum, VisibleMeshEntities, Transform, Visibility)]
+#[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
 pub struct SpotLight {
     /// The color of the light.
     ///
@@ -57,7 +58,20 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
+    #[cfg(feature = "experimental_pbr_pcss")]
     pub soft_shadows_enabled: bool,
+
+    /// Whether this spot light contributes diffuse lighting to meshes with
+    /// lightmaps.
+    ///
+    /// Set this to false if your lightmap baking tool bakes the direct diffuse
+    /// light from this directional light into the lightmaps in order to avoid
+    /// counting the radiance from this light twice. Note that the specular
+    /// portion of the light is always considered, because Bevy currently has no
+    /// means to bake specular light.
+    ///
+    /// By default, this is set to true.
+    pub affects_lightmapped_mesh_diffuse: bool,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
@@ -115,12 +129,14 @@ impl Default for SpotLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadows_enabled: false,
+            affects_lightmapped_mesh_diffuse: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
             outer_angle: core::f32::consts::FRAC_PI_4,
+            #[cfg(feature = "experimental_pbr_pcss")]
+            soft_shadows_enabled: false,
         }
     }
 }

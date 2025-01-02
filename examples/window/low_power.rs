@@ -136,8 +136,8 @@ pub(crate) mod test_setup {
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
         for mut transform in &mut cube_transform {
-            transform.rotate_x(time.delta_seconds());
-            transform.rotate_local_y(time.delta_seconds());
+            transform.rotate_x(time.delta_secs());
+            transform.rotate_local_y(time.delta_secs());
         }
     }
 
@@ -147,8 +147,8 @@ pub(crate) mod test_setup {
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        query: Query<Entity, With<ModeText>>,
-        mut writer: UiTextWriter,
+        text: Single<Entity, With<ModeText>>,
+        mut writer: TextUiWriter,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -159,9 +159,8 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let text = query.single();
-        *writer.text(text, 2) = mode.to_string();
-        *writer.text(text, 4) = frame.to_string();
+        *writer.text(*text, 2) = mode.to_string();
+        *writer.text(*text, 4) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -189,7 +188,7 @@ pub(crate) mod test_setup {
         commands
             .spawn((
                 Text::default(),
-                Style {
+                Node {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
                     top: Val::Px(12.0),
@@ -200,27 +199,9 @@ pub(crate) mod test_setup {
             ))
             .with_children(|p| {
                 p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
-                p.spawn((
-                    TextSpan::default(),
-                    TextStyle {
-                        color: LIME.into(),
-                        ..default()
-                    },
-                ));
-                p.spawn((
-                    TextSpan::new("\nFrame: "),
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ));
-                p.spawn((
-                    TextSpan::new(""),
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ));
+                p.spawn((TextSpan::default(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new("\nFrame: "), TextColor(YELLOW.into())));
+                p.spawn((TextSpan::new(""), TextColor(YELLOW.into())));
             });
     }
 }

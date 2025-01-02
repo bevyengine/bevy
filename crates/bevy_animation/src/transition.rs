@@ -122,7 +122,7 @@ pub fn advance_transitions(
         for transition in &mut animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
-                - transition.weight_decline_per_sec * time.delta_seconds())
+                - transition.weight_decline_per_sec * time.delta_secs())
             .max(0.0);
 
             // Update weight.

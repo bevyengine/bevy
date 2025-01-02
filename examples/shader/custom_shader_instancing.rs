@@ -30,7 +30,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         sync_world::MainEntity,
-        view::{ExtractedView, NoFrustumCulling},
+        view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
         Render, RenderApp, RenderSet,
     },
 };
@@ -49,7 +49,6 @@ fn main() {
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-        SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -74,6 +73,10 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // We need this component because we use `draw_indexed` and `draw`
+        // instead of `draw_indirect_indexed` and `draw_indirect` in
+        // `DrawMeshInstanced::render`.
+        NoIndirectDrawing,
     ));
 }
 
@@ -162,7 +165,7 @@ fn queue_custom(
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
             });
         }
     }

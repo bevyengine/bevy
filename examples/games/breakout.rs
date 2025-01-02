@@ -89,9 +89,6 @@ struct Ball;
 #[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec2);
 
-#[derive(Component)]
-struct Collider;
-
 #[derive(Event, Default)]
 struct CollisionEvent;
 
@@ -101,15 +98,14 @@ struct Brick;
 #[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
-// This bundle is a collection of the components that define a "wall" in our game
-#[derive(Bundle)]
-struct WallBundle {
-    // You can nest bundles inside of other bundles like this
-    // Allowing you to compose their functionality
-    sprite: Sprite,
-    transform: Transform,
-    collider: Collider,
-}
+// Default must be implemented to define this as a required component for the Wall component below
+#[derive(Component, Default)]
+struct Collider;
+
+// This is a collection of the components that define a "Wall" in our game
+#[derive(Component)]
+#[require(Sprite, Transform, Collider)]
+struct Wall;
 
 /// Which side of the arena is this wall located on?
 enum WallLocation {
@@ -149,13 +145,15 @@ impl WallLocation {
     }
 }
 
-impl WallBundle {
+impl Wall {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    fn new(location: WallLocation) -> WallBundle {
-        WallBundle {
-            sprite: Sprite::from_color(WALL_COLOR, Vec2::ONE),
-            transform: Transform {
+    // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined for the required components
+    fn new(location: WallLocation) -> (Wall, Sprite, Transform) {
+        (
+            Wall,
+            Sprite::from_color(WALL_COLOR, Vec2::ONE),
+            Transform {
                 // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
                 // This is used to determine the order of our sprites
                 translation: location.position().extend(0.0),
@@ -165,8 +163,7 @@ impl WallBundle {
                 scale: location.size().extend(1.0),
                 ..default()
             },
-            collider: Collider,
-        }
+        )
     }
 }
 
@@ -219,13 +216,13 @@ fn setup(
     commands
         .spawn((
             Text::new("Score: "),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: TEXT_COLOR,
                 ..default()
             },
+            TextColor(TEXT_COLOR),
             ScoreboardUi,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
@@ -234,18 +231,18 @@ fn setup(
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
                 ..default()
             },
+            TextColor(SCORE_COLOR),
         ));
 
     // Walls
-    commands.spawn(WallBundle::new(WallLocation::Left));
-    commands.spawn(WallBundle::new(WallLocation::Right));
-    commands.spawn(WallBundle::new(WallLocation::Bottom));
-    commands.spawn(WallBundle::new(WallLocation::Top));
+    commands.spawn(Wall::new(WallLocation::Left));
+    commands.spawn(Wall::new(WallLocation::Right));
+    commands.spawn(Wall::new(WallLocation::Bottom));
+    commands.spawn(Wall::new(WallLocation::Top));
 
     // Bricks
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
@@ -301,10 +298,9 @@ fn setup(
 
 fn move_paddle(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Paddle>>,
+    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
     time: Res<Time>,
 ) {
-    let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
 
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
@@ -317,7 +313,7 @@ fn move_paddle(
 
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position =
-        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_seconds();
+        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_secs();
 
     // Update the paddle position,
     // making sure it doesn't cause the paddle to leave the arena
@@ -329,27 +325,27 @@ fn move_paddle(
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
-        transform.translation.x += velocity.x * time.delta_seconds();
-        transform.translation.y += velocity.y * time.delta_seconds();
+        transform.translation.x += velocity.x * time.delta_secs();
+        transform.translation.y += velocity.y * time.delta_secs();
     }
 }
 
 fn update_scoreboard(
     score: Res<Score>,
-    query: Query<Entity, (With<ScoreboardUi>, With<Text>)>,
-    mut writer: UiTextWriter,
+    score_root: Single<Entity, (With<ScoreboardUi>, With<Text>)>,
+    mut writer: TextUiWriter,
 ) {
-    *writer.text(query.single(), 1) = score.to_string();
+    *writer.text(*score_root, 1) = score.to_string();
 }
 
 fn check_for_collisions(
     mut commands: Commands,
     mut score: ResMut<Score>,
-    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
+    ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
+    let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
     for (collider_entity, collider_transform, maybe_brick) in &collider_query {
         let collision = ball_collision(

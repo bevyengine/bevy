@@ -76,11 +76,7 @@ fn setup(mut commands: Commands) {
             "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
         ),
-        TextStyle {
-            color: Color::WHITE,
-            ..default()
-        },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
@@ -121,12 +117,12 @@ fn on_add_mine(
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
-    let mine = query.get(trigger.entity()).unwrap();
+    let mine = query.get(trigger.target()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
-    index.map.entry(tile).or_default().insert(trigger.entity());
+    index.map.entry(tile).or_default().insert(trigger.target());
 }
 
 // Remove despawned mines from our index
@@ -135,23 +131,23 @@ fn on_remove_mine(
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
-    let mine = query.get(trigger.entity()).unwrap();
+    let mine = query.get(trigger.target()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
     index.map.entry(tile).and_modify(|set| {
-        set.remove(&trigger.entity());
+        set.remove(&trigger.target());
     });
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.entity()`
-    let id = trigger.entity();
+    let id = trigger.target();
     let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
-    info!("Boom! {:?} exploded.", id.index());
+    info!("Boom! {} exploded.", id.index());
     entity.despawn();
     let mine = query.get(id).unwrap();
     // Trigger another explosion cascade.
@@ -175,13 +171,12 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 // Trigger `ExplodeMines` at the position of a given click
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    camera: Query<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    windows: Single<&Window>,
     mut commands: Commands,
 ) {
-    let (camera, camera_transform) = camera.single();
+    let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
-        .single()
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())

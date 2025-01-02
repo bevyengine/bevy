@@ -26,21 +26,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         current: 128.0,
         speed: 50.0,
     });
-    commands.spawn((
-        Sprite::from_image(asset_server.load("branding/icon.png")),
-        ImageScaleMode::Tiled {
+    commands.spawn(Sprite {
+        image: asset_server.load("branding/icon.png"),
+        image_mode: SpriteImageMode::Tiled {
             tile_x: true,
             tile_y: true,
             stretch_value: 0.5, // The image will tile every 128px
         },
-    ));
+        ..default()
+    });
 }
 
 fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, time: Res<Time>) {
     if state.current >= state.max || state.current <= state.min {
         state.speed = -state.speed;
     };
-    state.current += state.speed * time.delta_seconds();
+    state.current += state.speed * time.delta_secs();
     for mut sprite in &mut sprites {
         sprite.custom_size = Some(Vec2::splat(state.current));
     }

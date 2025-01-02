@@ -59,7 +59,7 @@ fn setup(
     // UI
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -71,18 +71,17 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.single_mut();
-    let mut text = text.single_mut();
+    let bloom = camera.into_inner();
 
     match bloom {
         (entity, Some(mut bloom)) => {
-            **text = "Bloom (Toggle: Space)\n".to_string();
+            text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -113,7 +112,7 @@ fn update_bloom_settings(
                 commands.entity(entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;
@@ -173,7 +172,7 @@ fn update_bloom_settings(
         }
 
         (entity, None) => {
-            **text = "Bloom: Off (Toggle: Space)".to_string();
+            text.0 = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(Bloom::default());
