@@ -118,6 +118,15 @@ impl DepthAttachment {
             stencil_ops: None,
         }
     }
+
+    /// Get this texture view as a read-only attachment.
+    pub fn get_read_only_attachment(&self) -> RenderPassDepthStencilAttachment {
+        RenderPassDepthStencilAttachment {
+            view: &self.view,
+            depth_ops: None,
+            stencil_ops: None,
+        }
+    }
 }
 
 /// A wrapper for a [`TextureView`] that is used as a [`RenderPassColorAttachment`] for a view
