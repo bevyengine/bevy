@@ -1095,7 +1095,10 @@ impl<'w> UnsafeWorldCell<'w> {
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
-#[allow(unsafe_op_in_unsafe_fn)]
+#[expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See <https://github.com/bevyengine/bevy/issues/11590>. To be removed once the lint is fixed."
+)]
 unsafe fn get_component(
     world: UnsafeWorldCell<'_>,
     component_id: ComponentId,
@@ -1122,7 +1125,10 @@ unsafe fn get_component(
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
-#[allow(unsafe_op_in_unsafe_fn)]
+#[expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See <https://github.com/bevyengine/bevy/issues/11590>. To be removed once the lint is fixed."
+)]
 unsafe fn get_component_and_ticks(
     world: UnsafeWorldCell<'_>,
     component_id: ComponentId,
@@ -1166,7 +1172,10 @@ unsafe fn get_component_and_ticks(
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
-#[allow(unsafe_op_in_unsafe_fn)]
+#[expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See <https://github.com/bevyengine/bevy/issues/11590>. To be removed once the lint is fixed."
+)]
 unsafe fn get_ticks(
     world: UnsafeWorldCell<'_>,
     component_id: ComponentId,

@@ -1,7 +1,8 @@
 // FIXME(11590): remove this once the lint is fixed
-#![allow(unsafe_op_in_unsafe_fn)]
-// TODO: remove once Edition 2024 is released
-#![allow(dependency_on_unit_never_type_fallback)]
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See <https://github.com/bevyengine/bevy/issues/11590>. To be removed once the lint is fixed."
+)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -11,7 +12,7 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -52,7 +53,10 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "Items here are part of a prelude meant for consumer crates, not for us."
+    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -139,8 +143,11 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
     #[derive(Default)]
+    #[expect(
+        dead_code,
+        reason = "We don't care about the specific values contained within this struct, so long as we can use it for testing."
+    )]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
@@ -158,10 +165,12 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
+    #[expect(
+        dead_code,
+        reason = "We don't care about the specific values contained within this struct, so long as we can use it for testing."
+    )]
     struct DropCkSparse(DropCk);
 
     #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
@@ -2635,31 +2644,37 @@ mod tests {
 
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
     #[derive(Component)]
+    #[expect(
+        dead_code,
+        reason = "This struct is primarily a compilation test to test the derive macros, and so is intentionally never constructed."
+    )]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
     #[derive(Component)]
+    #[expect(
+        dead_code,
+        reason = "This struct is primarily a compilation test to test the derive macros, and so is intentionally never constructed."
+    )]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    #[expect(
+        dead_code,
+        reason = "This struct is primarily a compilation test to test the derive macros, and so is intentionally never constructed."
+    )]
     struct MyEntities {
         entities: Vec<Entity>,
         another_one: Entity,
@@ -2668,7 +2683,10 @@ mod tests {
         something_else: String,
     }
 
-    #[allow(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    #[expect(
+        dead_code,
+        reason = "This struct is primarily a compilation test to test the derive macros, and so is intentionally never constructed."
+    )]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

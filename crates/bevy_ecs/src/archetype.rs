@@ -409,7 +409,7 @@ impl Archetype {
             component_index
                 .entry(component_id)
                 .or_default()
-                .insert(id, ArchetypeRecord { column: Some(idx) });
+                .insert(id, ArchetypeRecord { _column: Some(idx) });
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
@@ -427,7 +427,7 @@ impl Archetype {
             component_index
                 .entry(component_id)
                 .or_default()
-                .insert(id, ArchetypeRecord { column: None });
+                .insert(id, ArchetypeRecord { _column: None });
         }
         Self {
             id,
@@ -789,8 +789,7 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
-    #[allow(dead_code)]
-    pub(crate) column: Option<usize>,
+    pub(crate) _column: Option<usize>,
 }
 
 impl Archetypes {
@@ -827,7 +826,10 @@ impl Archetypes {
 
     /// Fetches the total number of [`Archetype`]s within the world.
     #[inline]
-    #[allow(clippy::len_without_is_empty)] // the internal vec is never empty.
+    #[expect(
+        clippy::len_without_is_empty,
+        reason = "The internal vec is never empty"
+    )]
     pub fn len(&self) -> usize {
         self.archetypes.len()
     }

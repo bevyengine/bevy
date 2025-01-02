@@ -379,26 +379,25 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use crate::prelude::{Schedule, World};
 
-    #[allow(unused_imports)]
     use crate::component::Component;
     use crate::query::{QueryState, With};
     use crate::system::Query;
     use crate::world::Mut;
-    #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
-    #[allow(unused_imports)]
-    use crate::{entity::Entity, world::unsafe_world_cell};
+    use crate::entity::Entity;
 
     use super::UniqueEntityIter;
 
     #[derive(Component, Clone)]
     pub struct Thing;
 
-    #[allow(clippy::iter_skip_zero)]
     #[test]
+    #[expect(
+        clippy::iter_skip_zero,
+        reason = "Uniqueness of entities should be preserved, even when skipping zero entities."
+    )]
     fn preserving_uniqueness() {
         let mut world = World::new();
 

@@ -122,7 +122,10 @@ impl SystemSchedule {
     since = "0.16.0",
     note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
 )]
-#[expect(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "This used to be a function, but is now an alias to a struct for the purposes of deprecation."
+)]
 pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 
 /// A special [`System`] that instructs the executor to call

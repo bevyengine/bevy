@@ -254,23 +254,45 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            #[allow(unused_variables)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is within a macro, and as such won't always be linted."
+            )]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't have any components to get IDs for."
+            )]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
-            #[allow(unused_variables)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is within a macro, and as such won't always be linted."
+            )]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't have any components to get IDs for."
+            )]
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            #[allow(unused_variables, unused_mut)]
-            #[allow(clippy::unused_unit)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is within a macro, and as such the lints may not apply."
+            )]
+            #[allow(
+                unused_mut,
+                unused_unsafe,
+                unused_variables,
+                clippy::unused_unit,
+                reason = "Zero-length tuples won't return any component data."
+            )]
             unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(unused_unsafe)]
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
@@ -287,10 +309,21 @@ macro_rules! tuple_impl {
 
         $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
-            #[allow(unused_variables, unused_mut)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is within a macro, and as such the lints may not apply."
+            )]
+            #[allow(
+                unused_mut,
+                unused_variables,
+                reason = "Zero-length tuples won't have any components to get."
+            )]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                #[allow(non_snake_case)]
+                #[allow(
+                    non_snake_case,
+                    reason = "The name of these variables is determined at the invocation location, not by this macro."
+                )]
                 let ($(mut $name,)*) = self;
                 $(
                     $name.get_components(&mut *func);
@@ -504,7 +537,10 @@ impl BundleInfo {
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Can't be rewritten with less arguments."
+    )]
     unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
@@ -594,7 +630,10 @@ impl BundleInfo {
     /// This method _should not_ be called outside of [`BundleInfo::write_components`].
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Can't be rewritten with less arguments."
+    )]
     pub(crate) unsafe fn initialize_required_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,

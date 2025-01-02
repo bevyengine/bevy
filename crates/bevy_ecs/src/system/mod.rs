@@ -1609,6 +1609,11 @@ mod tests {
 
     #[test]
     #[should_panic]
+    // TODO: remove this expect once Edition 2024 is released
+    #[expect(
+        dependency_on_unit_never_type_fallback,
+        reason = "`#[should_panic]` cannot be used unless the return type is `()`. Additionally, the return type here doesn't actually matter."
+    )]
     fn panic_inside_system() {
         let mut world = World::new();
         run_system(&mut world, || panic!("this system panics"));

@@ -2073,6 +2073,11 @@ mod tests {
 
     // regression test for https://github.com/bevyengine/bevy/issues/9114
     #[test]
+    // TODO: remove this expect once Edition 2024 is released
+    #[expect(
+        dependency_on_unit_never_type_fallback,
+        reason = "The panic here will never run, and thus the never type is not actually the return type."
+    )]
     fn ambiguous_with_not_breaking_run_conditions() {
         #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
         struct Set;

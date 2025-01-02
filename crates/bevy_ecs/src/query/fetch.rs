@@ -2015,8 +2015,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
         $(#[$meta])*
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
@@ -2033,8 +2031,18 @@ macro_rules! impl_tuple_query_data {
 macro_rules! impl_anytuple_fetch {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such won't always lint."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The `name` macro parameter is provided by the invocation, not by us."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will often return no data."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
@@ -2059,7 +2067,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                  // SAFETY: The invariants are uphold by the caller.
@@ -2100,7 +2107,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline(always)]
-            #[allow(clippy::unused_unit)]
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
@@ -2139,11 +2145,18 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
-            #[allow(unused_variables)]
+            
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't use the world variable."
+            )]
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
-            #[allow(unused_variables)]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't get the state of any components."
+            )]
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
@@ -2155,8 +2168,14 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such won't always lint."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The `name` macro parameter is provided by the invocation, not by us."
+        )]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
