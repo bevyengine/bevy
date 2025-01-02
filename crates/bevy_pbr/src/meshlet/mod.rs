@@ -39,7 +39,6 @@ pub use self::asset::{
 pub use self::from_mesh::{
     MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
 };
-
 use self::{
     graph::NodeMeshlet,
     instance_manager::extract_meshlet_mesh_entities,
@@ -58,6 +57,7 @@ use self::{
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::graph::NodePbr;
+use crate::PreviousGlobalTransform;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -79,7 +79,7 @@ use bevy_render::{
     render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{self, prepare_view_targets, Msaa},
+    view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
