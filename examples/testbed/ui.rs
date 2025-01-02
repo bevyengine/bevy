@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ));
 
                                 parent.spawn((
-                                    Text::new("V: toggle UI visibility"),
+                                    Text::new("V: toggle UI root's visibility"),
                                     TextFont {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 12.,
