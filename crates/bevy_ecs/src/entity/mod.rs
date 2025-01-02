@@ -69,12 +69,15 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::{borrow::ToOwned, format, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
 #[cfg(feature = "track_location")]
-use core::panic::Location;
+use {
+    core::panic::Location,
+    alloc::format,
+};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -1064,6 +1067,7 @@ impl EntityLocation {
 
 #[cfg(test)]
 mod tests {
+    use alloc::format;
     use super::*;
 
     #[test]

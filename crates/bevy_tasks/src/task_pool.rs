@@ -1,4 +1,4 @@
-use alloc::{format, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::{
     thread::{self, JoinHandle},
@@ -10,7 +10,7 @@ use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
 #[cfg(feature = "portable-atomic")]
-use {alloc::boxed::Box, portable_atomic_util::Arc};
+use portable_atomic_util::Arc;
 
 #[cfg(not(feature = "portable-atomic"))]
 use alloc::sync::Arc;
