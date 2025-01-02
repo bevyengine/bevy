@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
