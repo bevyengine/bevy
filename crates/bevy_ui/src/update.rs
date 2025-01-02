@@ -115,7 +115,8 @@ fn update_clipping(
         clip_rect.max.x -= clip_inset.right;
         clip_rect.max.y -= clip_inset.bottom;
 
-        clip_rect = clip_rect.inflate(node.overflow_clip_margin.margin.max(0.));
+        clip_rect = clip_rect
+            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
 
         if node.overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -145,7 +146,7 @@ pub fn update_target_camera_system(
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
-    let mut updated_entities = HashSet::new();
+    let mut updated_entities = <HashSet<_>>::default();
 
     // Assuming that TargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change

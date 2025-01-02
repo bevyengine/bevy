@@ -413,7 +413,7 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
-    /// This method will can [`Self::swap_remove_unchecked`] and drop the result.
+    /// This method will call [`Self::swap_remove_unchecked`] and drop the result.
     ///
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).

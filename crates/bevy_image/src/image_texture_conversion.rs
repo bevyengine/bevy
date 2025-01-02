@@ -1,8 +1,8 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
-use derive_more::derive::{Display, Error};
 use image::{DynamicImage, ImageBuffer};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use thiserror::Error;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].
@@ -204,16 +204,14 @@ impl Image {
 
 /// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
 #[non_exhaustive]
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum IntoDynamicImageError {
     /// Conversion into dynamic image not supported for source format.
-    #[display("Conversion into dynamic image not supported for {_0:?}.")]
-    #[error(ignore)]
+    #[error("Conversion into dynamic image not supported for {0:?}.")]
     UnsupportedFormat(TextureFormat),
 
     /// Encountered an unknown error during conversion.
-    #[display("Failed to convert into {_0:?}.")]
-    #[error(ignore)]
+    #[error("Failed to convert into {0:?}.")]
     UnknownConversionError(TextureFormat),
 }
 
@@ -231,7 +229,7 @@ mod test {
 
         let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
 
-        // NOTE: Fails if `is_srbg = false` or the dynamic image is of the type rgb8.
+        // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
     }
 }

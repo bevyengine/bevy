@@ -1,6 +1,6 @@
 use crate::image::{Image, ImageFormat, ImageType, TextureError};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
@@ -109,12 +109,12 @@ impl Default for ImageLoaderSettings {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum ImageLoaderError {
-    #[display("Could load shader: {_0}")]
-    Io(std::io::Error),
-    #[display("Could not load texture file: {_0}")]
-    FileTexture(FileTextureError),
+    #[error("Could load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not load texture file: {0}")]
+    FileTexture(#[from] FileTextureError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -171,8 +171,8 @@ impl AssetLoader for ImageLoader {
 }
 
 /// An error that occurs when loading a texture from a file.
-#[derive(Error, Display, Debug)]
-#[display("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
+#[derive(Error, Debug)]
+#[error("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
 pub struct FileTextureError {
     error: TextureError,
     path: String,

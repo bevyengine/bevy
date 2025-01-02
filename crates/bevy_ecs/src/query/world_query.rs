@@ -6,7 +6,7 @@ use crate::{
     storage::{Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -26,10 +26,13 @@ use bevy_utils::all_tuples;
 ///     - [`matches_component_set`] must be a disjunction of the element's implementations
 ///     - [`update_component_access`] must replace the filters with a disjunction of filters
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
+/// - For each resource mutably accessed by [`init_fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
+/// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
 /// [`fetch`]: Self::fetch
+/// [`init_fetch`]: Self::init_fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`update_component_access`]: Self::update_component_access

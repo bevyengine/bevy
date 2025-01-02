@@ -26,10 +26,7 @@ struct Example {
 
 impl Ord for Example {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.category.cmp(&other.category) {
-            Ordering::Equal => self.name.cmp(&other.name),
-            ordering => ordering,
-        }
+        (&self.category, &self.name).cmp(&(&other.category, &other.name))
     }
 }
 
