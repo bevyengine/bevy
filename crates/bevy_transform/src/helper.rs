@@ -80,6 +80,7 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use core::f32::consts::TAU;
 
     use bevy_app::App;

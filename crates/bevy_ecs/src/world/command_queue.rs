@@ -352,6 +352,9 @@ mod test {
         sync::atomic::{AtomicU32, Ordering},
     };
 
+    #[cfg(miri)]
+    use alloc::format;
+
     struct DropCheck(Arc<AtomicU32>);
 
     impl DropCheck {
