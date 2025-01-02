@@ -1,3 +1,5 @@
+use core::ops::Neg;
+
 use crate::Dir2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -57,6 +59,18 @@ impl CompassQuadrant {
             Self::East => 1,
             Self::South => 2,
             Self::West => 3,
+        }
+    }
+
+    /// Returns the opposite [`CompassQuadrant`], located 180 degrees from `self`.
+    ///
+    /// This can also be accessed via the `-` operator, using the [`Neg`] trait.
+    pub const fn opposite(&self) -> CompassQuadrant {
+        match self {
+            Self::North => Self::South,
+            Self::East => Self::West,
+            Self::South => Self::North,
+            Self::West => Self::East,
         }
     }
 }
@@ -132,6 +146,22 @@ impl CompassOctant {
             Self::NorthWest => 7,
         }
     }
+
+    /// Returns the opposite [`CompassOctant`], located 180 degrees from `self`.
+    ///
+    /// This can also be accessed via the `-` operator, using the [`Neg`] trait.
+    pub const fn opposite(&self) -> CompassOctant {
+        match self {
+            Self::North => Self::South,
+            Self::NorthEast => Self::SouthWest,
+            Self::East => Self::West,
+            Self::SouthEast => Self::NorthWest,
+            Self::South => Self::North,
+            Self::SouthWest => Self::NorthEast,
+            Self::West => Self::East,
+            Self::NorthWest => Self::SouthEast,
+        }
+    }
 }
 
 impl From<CompassQuadrant> for Dir2 {
@@ -193,6 +223,22 @@ impl From<Dir2> for CompassOctant {
             -157.5..=-112.5 => Self::SouthWest,
             _ => unreachable!(),
         }
+    }
+}
+
+impl Neg for CompassQuadrant {
+    type Output = CompassQuadrant;
+
+    fn neg(self) -> Self::Output {
+        self.opposite()
+    }
+}
+
+impl Neg for CompassOctant {
+    type Output = CompassOctant;
+
+    fn neg(self) -> Self::Output {
+        self.opposite()
     }
 }
 
