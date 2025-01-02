@@ -85,7 +85,7 @@ pub struct DirectionalNavigationMap {
 
 impl DirectionalNavigationMap {
     /// Adds a new entity to the navigation map, overwriting any existing neighbors for that entity.
-    /////
+    ///
     /// Removes an entity from the navigation map, including all connections to and from it.
     ///
     /// Note that this is an O(n) operation, where n is the number of entities in the map,
@@ -101,6 +101,38 @@ impl DirectionalNavigationMap {
                     *neighbor = None;
                 }
             }
+        }
+    }
+
+    /// Adds an edge between two entities in the navigation map.
+    /// Any existing edge from A in the provided direction will be overwritten.
+    ///
+    /// The reverse edge will not be added, so navigation will only be possible in one direction.
+    /// If you want to add a symmetrical edge, use [`add_symmetrical_edge`](Self::add_symmetrical_edge) instead.
+    pub fn add_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
+        self.neighbors
+            .entry(a)
+            .or_insert(NavNeighbors::EMPTY)
+            .set(direction, b);
+    }
+
+    /// Adds a symmetrical edge between two entities in the navigation map.
+    /// The A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
+    ///
+    /// Any existing connections between the two entities will be overwritten.
+    pub fn add_symmetrical_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
+        self.add_edge(a, b, direction);
+        self.add_edge(b, a, direction.opposite());
+    }
+
+    /// Add symettrical edges between all entities in the provided slice, looping back to the first entity at the end.
+    ///
+    /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
+    pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
+        for i in 0..entities.len() {
+            let a = entities[i];
+            let b = entities[(i + 1) % entities.len()];
+            self.add_symmetrical_edge(a, b, direction);
         }
     }
 
