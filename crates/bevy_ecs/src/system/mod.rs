@@ -116,6 +116,8 @@
 //! - [`DynSystemParam`]
 //! - [`Vec<P>`] where `P: SystemParam`
 //! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
+//!
+//! [`Vec<P>`]: alloc::vec::Vec
 
 mod adapter_system;
 mod builder;

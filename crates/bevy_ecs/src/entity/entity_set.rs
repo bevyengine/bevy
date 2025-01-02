@@ -135,6 +135,7 @@ unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
 /// [`into_iter()`]: IntoIterator::into_iter
 /// [`iter_many_unique`]: crate::system::Query::iter_many_unique
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_unique_mut
+/// [`Vec`]: alloc::vec::Vec
 pub trait EntitySet: IntoIterator<IntoIter: EntitySetIterator> {}
 
 impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
