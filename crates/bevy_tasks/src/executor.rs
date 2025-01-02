@@ -50,9 +50,8 @@ pub struct LocalExecutor<'a>(LocalExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
-    // NOTE: This struct is used under `crate::TaskPool`, and so this is not
-    // technically dead code. However, if that code is changed, then this may
-    // become dead code *depending on what feature flags are enabled.*
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
+    #[allow(dead_code, reason = "not all feature flags require this function.")]
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
     }
@@ -60,9 +59,8 @@ impl Executor<'_> {
 
 impl LocalExecutor<'_> {
     /// Construct a new [`LocalExecutor`]
-    // NOTE: This struct is used under `crate::TaskPool` inside a static, and so
-    // this is not technically dead code. However, if that code is changed, then
-    // this may become dead code *depending on what feature flags are enabled.*
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
+    #[allow(dead_code, reason = "not all feature flags require this function.")]
     pub const fn new() -> Self {
         Self(LocalExecutorInner::new())
     }
