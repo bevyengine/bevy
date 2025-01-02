@@ -82,6 +82,38 @@ fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World)
 /// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
 /// bundle `B`.
 ///
+/// The bundle must implement [`Default`], which is used to create the first entity that gets cloned
+/// in the benchmark.
+///
+/// If `clone_via_reflect` is false, this will use the default [`ComponentCloneHandler`] for all
+/// components (which is usually [`ComponentCloneHandler::clone_handler()`]). If `clone_via_reflect`
+/// is true, it will overwrite the handler for all components in the bundle to be
+/// [`ComponentCloneHandler::reflect_handler()`].
+fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
+    b: &mut Bencher,
+    clone_via_reflect: bool,
+) {
+    let mut world = World::default();
+
+    if clone_via_reflect {
+        set_reflect_clone_handler::<B>(&mut world);
+    }
+
+    // Spawn the first entity, which will be cloned in the benchmark routine.
+    let id = world.spawn(B::default()).id();
+
+    b.iter(|| {
+        // Queue the command to clone the entity.
+        world.commands().entity(black_box(id)).clone_and_spawn();
+
+        // Run the command.
+        world.flush();
+    });
+}
+
+/// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
+/// bundle `B`.
+///
 /// As compared to [`bench_clone()`], this benchmarks recursively cloning an entity with several
 /// children. It does so by setting up an entity tree with a given `height` where each entity has a
 /// specified number of `children`.
@@ -137,36 +169,26 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
     });
 }
 
-/// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
-/// bundle `B`.
-///
-/// The bundle must implement [`Default`], which is used to create the first entity that gets cloned
-/// in the benchmark.
-///
-/// If `clone_via_reflect` is false, this will use the default [`ComponentCloneHandler`] for all
-/// components (which is usually [`ComponentCloneHandler::clone_handler()`]). If `clone_via_reflect`
-/// is true, it will overwrite the handler for all components in the bundle to be
-/// [`ComponentCloneHandler::reflect_handler()`].
-fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
-    b: &mut Bencher,
-    clone_via_reflect: bool,
-) {
-    let mut world = World::default();
+fn with_clone(c: &mut Criterion) {
+    let mut group = c.benchmark_group(bench!("with_clone"));
 
-    if clone_via_reflect {
-        set_reflect_clone_handler::<B>(&mut world);
-    }
-
-    // Spawn the first entity, which will be cloned in the benchmark routine.
-    let id = world.spawn(B::default()).id();
-
-    b.iter(|| {
-        // Queue the command to clone the entity.
-        world.commands().entity(black_box(id)).clone_and_spawn();
-
-        // Run the command.
-        world.flush();
+    group.bench_function("simple", |b| {
+        bench_clone::<ComplexBundle>(b, false);
     });
+
+    group.bench_function("hierarchy_wide", |b| {
+        bench_clone_hierarchy::<C1>(b, 10, 4, false);
+    });
+
+    group.bench_function("hierarchy_tall", |b| {
+        bench_clone_hierarchy::<C1>(b, 1, 50, false);
+    });
+
+    group.bench_function("hierarchy_many", |b| {
+        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, false);
+    });
+
+    group.finish();
 }
 
 fn with_reflect(c: &mut Criterion) {
@@ -186,28 +208,6 @@ fn with_reflect(c: &mut Criterion) {
 
     group.bench_function("hierarchy_many", |b| {
         bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, true);
-    });
-
-    group.finish();
-}
-
-fn with_clone(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("with_clone"));
-
-    group.bench_function("simple", |b| {
-        bench_clone::<ComplexBundle>(b, false);
-    });
-
-    group.bench_function("hierarchy_wide", |b| {
-        bench_clone_hierarchy::<C1>(b, 10, 4, false);
-    });
-
-    group.bench_function("hierarchy_tall", |b| {
-        bench_clone_hierarchy::<C1>(b, 1, 50, false);
-    });
-
-    group.bench_function("hierarchy_many", |b| {
-        bench_clone_hierarchy::<ComplexBundle>(b, 5, 5, false);
     });
 
     group.finish();
