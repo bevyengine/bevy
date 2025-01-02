@@ -623,15 +623,24 @@ pub struct ScheduleGraph {
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
-enum ConflictingSystemRecord {
+/// Describes a conflict between two systems.
+pub enum ConflictingSystemRecord {
+    /// The two systems have overlapping access
     ConflictingAccess {
+        /// one of the system's nodes
         node_a: NodeId,
+        /// the other system's node
         node_b: NodeId,
+        /// the component ids of the conflicting access. If this is empty, the systems conflict over some non-component, non-exclusive system parameter.
         components: Vec<ComponentId>,
+        /// the world the systems conflict over. Usually, this is the world the systems run on.
         common_world: WorldId,
     },
+    /// one or both of the systems require exclusive world access
     ConflicingExclusivity {
+        /// one of the system's nodes
         node_a: NodeId,
+        /// the other system's node
         node_b: NodeId,
     },
 }
@@ -640,13 +649,13 @@ impl ConflictingSystemRecord {
     /// provides the nodes that conflict
     fn nodes(&self) -> (NodeId, NodeId) {
         match self {
-            ConflictingSystemRecord::ConflictingAccess {
+            ConflictingSystemRecord::ConflicingExclusivity { node_a, node_b }
+            | ConflictingSystemRecord::ConflictingAccess {
                 node_a,
                 node_b,
                 components: _,
                 common_world: _,
             } => (*node_a, *node_b),
-            ConflictingSystemRecord::ConflicingExclusivity { node_a, node_b } => (*node_a, *node_b),
         }
     }
 }
@@ -758,7 +767,6 @@ impl ScheduleGraph {
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
     ///
-    /// If the `Vec<ComponentId>` is empty, the systems conflict on [`World`] access.
     /// Must be called after [`ScheduleGraph::build_schedule`] to be non-empty.
     pub fn conflicting_systems(&self) -> &[ConflictingSystemRecord] {
         &self.conflicting_systems

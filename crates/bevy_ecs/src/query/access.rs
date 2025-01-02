@@ -826,8 +826,7 @@ impl<T: SparseSetIndex> UniversalAccess<T> {
     pub fn get_access(&self, world: WorldId) -> Option<&Access<T>> {
         self.per_world
             .iter()
-            .filter(|found| found.0 == world)
-            .next()
+            .find(|found| found.0 == world)
             .map(|found| &found.1)
     }
 
@@ -835,8 +834,7 @@ impl<T: SparseSetIndex> UniversalAccess<T> {
     pub fn get_access_mut(&mut self, world: WorldId) -> Option<&mut Access<T>> {
         self.per_world
             .iter_mut()
-            .filter(|found| found.0 == world)
-            .next()
+            .find(|found| found.0 == world)
             .map(|found| &mut found.1)
     }
 
