@@ -51,10 +51,12 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
-        #[allow(clippy::nonminimal_bool)]
-        if !inverted && angle >= right_angle && angle <= left_angle
-            || inverted && (angle >= right_angle || angle <= left_angle)
-        {
+        let angle_within_parameters = if inverted {
+            angle >= right_angle || angle <= left_angle
+        } else {
+            angle >= right_angle && angle <= left_angle
+        };
+        if angle_within_parameters {
             bounds.push(extremum * arc.radius);
         }
     }
@@ -475,7 +477,6 @@ mod tests {
     // Arcs and circular segments have the same bounding shapes so they share test cases.
     fn arc_and_segment() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -629,7 +630,6 @@ mod tests {
     #[test]
     fn circular_sector() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
