@@ -23,7 +23,7 @@ use crate::{
 };
 use log::{error, info};
 
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 
 #[cfg(feature = "std")]
@@ -2275,7 +2275,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     where
         T: FromWorld,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.entity_commands
             .queue(move |entity: Entity, world: &mut World| -> Result {
@@ -2510,19 +2510,19 @@ pub mod entity_command {
     };
     use bevy_ptr::OwningPtr;
 
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     use core::panic::Location;
 
     /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
     #[track_caller]
     pub fn insert(bundle: impl Bundle) -> impl EntityCommand<World> {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         move |mut entity: EntityWorldMut| {
             entity.insert_with_caller(
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -2531,13 +2531,13 @@ pub mod entity_command {
     /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
     #[track_caller]
     pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand<World> {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         move |mut entity: EntityWorldMut| {
             entity.insert_with_caller(
                 bundle,
                 InsertMode::Keep,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -2603,11 +2603,11 @@ pub mod entity_command {
     /// This won't clean up external references to the entity (such as parent-child relationships
     /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
     pub fn despawn() -> impl EntityCommand<World> {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         move |entity: EntityWorldMut| {
             entity.despawn_with_caller(
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
