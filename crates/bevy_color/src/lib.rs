@@ -90,7 +90,7 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 #[cfg(feature = "alloc")]

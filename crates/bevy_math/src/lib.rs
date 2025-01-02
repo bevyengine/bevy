@@ -21,7 +21,7 @@
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 #[cfg(feature = "alloc")]

@@ -37,7 +37,8 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
-#![cfg(feature = "std")]
+
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

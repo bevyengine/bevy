@@ -7,7 +7,7 @@
 #![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![no_std]
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

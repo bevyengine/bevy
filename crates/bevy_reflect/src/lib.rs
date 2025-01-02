@@ -558,7 +558,8 @@
 //! [derive `Reflect`]: derive@crate::Reflect
 
 #![no_std]
-#![cfg(feature = "std")]
+
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

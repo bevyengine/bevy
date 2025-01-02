@@ -16,7 +16,7 @@
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

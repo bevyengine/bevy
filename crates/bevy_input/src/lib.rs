@@ -12,7 +12,7 @@
 //!
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

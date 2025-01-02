@@ -52,7 +52,7 @@
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;

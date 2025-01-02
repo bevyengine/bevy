@@ -5,7 +5,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 #![no_std]
-#![cfg(feature = "std")]
+
+#[cfg(feature = "std")]
 extern crate std;
 
 #[cfg(feature = "alloc")]

@@ -12,7 +12,7 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-#![cfg(feature = "std")]
+#[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;
