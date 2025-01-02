@@ -74,10 +74,7 @@ use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
 #[cfg(feature = "track_location")]
-use {
-    core::panic::Location,
-    alloc::format,
-};
+use {alloc::format, core::panic::Location};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -1067,8 +1064,8 @@ impl EntityLocation {
 
 #[cfg(test)]
 mod tests {
-    use alloc::format;
     use super::*;
+    use alloc::format;
 
     #[test]
     fn entity_niche_optimization() {
