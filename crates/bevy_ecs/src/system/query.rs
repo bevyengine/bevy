@@ -746,7 +746,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_many`](Self::iter_many) to get read-only query items.
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many_inner<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many_inner<EntityList: IntoIterator<Item: EntityBorrow>>(
         self,
         entities: EntityList,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter> {
