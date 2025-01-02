@@ -1,5 +1,6 @@
 //! Contains error types returned by bevy's schedule.
 
+use alloc::boxed::Box;
 use thiserror::Error;
 
 use crate::{component::ComponentId, entity::Entity, schedule::InternedScheduleLabel};
@@ -31,4 +32,15 @@ pub enum EntityFetchError {
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once.")]
     AliasedMutability(Entity),
+}
+
+/// An error that occurs when executing a command.
+#[derive(Error, Debug)]
+pub enum CommandError {
+    /// The entity with the given ID does not exist.
+    #[error("Command failed because the entity with ID {0} does not exist.")]
+    NoSuchEntity(Entity),
+    /// The command returned an error.
+    #[error("Command returned an error: {0}")]
+    CommandFailed(Box<dyn core::error::Error + Send + Sync + 'static>),
 }

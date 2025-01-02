@@ -249,7 +249,7 @@ fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx
 mod tests {
     use bevy_ecs::{
         component::Component,
-        system::Commands,
+        system::{handler, Commands},
         world::{CommandQueue, World},
     };
 
@@ -309,7 +309,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.silent_on_error();
+            commands.override_error_handler(handler::silent());
             commands.entity(parent_entity).despawn_recursive();
             // despawning the same entity twice should not panic
             commands.entity(parent_entity).despawn_recursive();

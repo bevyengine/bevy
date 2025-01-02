@@ -55,7 +55,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{any::TypeId, fmt};
-use log::{error, warn};
+use log::warn;
 
 #[cfg(not(feature = "portable-atomic"))]
 use core::sync::atomic::{AtomicU32, Ordering};
@@ -119,47 +119,22 @@ pub trait Command<Marker = ()>: Send + 'static {
     fn apply(self, world: &mut World) -> Result;
 
     /// Returns a new [`Command`] that, when applied, will apply the original command
-    /// and handle any resulting errors according to the provided [`CommandErrorMode`].
+    /// and pass any resulting error to the provided `error_handler`.
     fn with_error_handling(
         self,
-        error_mode: CommandErrorMode,
+        error_handler: Option<fn(&mut World, Box<dyn core::error::Error>)>,
     ) -> impl FnOnce(&mut World) + Send + 'static
     where
         Self: Sized,
     {
         move |world: &mut World| {
             if let Err(error) = self.apply(world) {
-                match error_mode {
-                    CommandErrorMode::Silent => (),
-                    CommandErrorMode::Warning => warn!("Command returned an error: {error}"),
-                    CommandErrorMode::Error => error!("Command returned an error: {error}"),
-                    CommandErrorMode::Panic => panic!("Command returned an error: {error}"),
-                    CommandErrorMode::Custom(function) => function(world, Err(error)),
-                }
+                // TODO: Pass the error to the global error handler if `error_handler` is `None`.
+                let error_handler = error_handler.unwrap_or(|_, error| panic!("{error}"));
+                error_handler(world, error);
             }
         }
     }
-}
-
-/// How a [`Command`] should respond upon encountering an [`Error`](crate::result::Error).
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum CommandErrorMode {
-    /// Upon encountering an error, the command will fail silently.
-    Silent,
-    /// Upon encountering an error, the command will send a warning with [`warn!`].
-    Warning,
-    /// Upon encountering an error, the command will send an error message with [`error!`].
-    Error,
-    /// Upon encountering an error, the command will start a panic.
-    Panic,
-    /// Upon encountering an error, the command will call a custom function,
-    /// passing in its `&mut World` access and the error.
-    ///
-    /// `fn()` can be a closure if it doesn't capture its environment.
-    ///
-    /// If `CommandErrorMode` is used in a situation without `&mut World` access
-    /// (e.g. a non-deferred [`Commands`] method), this mode will instead panic.
-    Custom(fn(&mut World, Result)),
 }
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
