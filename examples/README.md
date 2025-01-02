@@ -3,8 +3,7 @@
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
-To run an example, use the command `cargo run --example <Example>`, and add the
-option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
+To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
 
 ```bash
 cargo run --features wayland --example hello_world
@@ -763,8 +762,8 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`,
-which can be loaded using this [example HTML file](./wasm/index.html).
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this 
+ [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
 
@@ -783,9 +782,7 @@ ruby -run -ehttpd examples/wasm
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
-To build for WebGPU, you'll need to enable the `webgpu` feature.
-This will override the `webgl2` feature, and builds with the `webgpu`
-feature enabled won't be able to run on browsers that don't support WebGPU.
+To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
 Bevy has a helper to build its examples:
 
@@ -796,13 +793,9 @@ This helper will log the command used to build the examples.
 
 ### Audio in the browsers
 
-For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers.
-Not all browsers react the same way for all games, you will have to experiment for your game.
+For the moment, everything is single threaded. This can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games. You will have to experiment with your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction.
-This is to avoid multiple tabs all starting to auto play some sounds.
-You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/).
-This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by a user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 ### Optimizing
 
