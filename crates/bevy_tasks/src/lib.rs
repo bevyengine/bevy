@@ -5,10 +5,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason
-)]
+#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 
 extern crate alloc;
 
