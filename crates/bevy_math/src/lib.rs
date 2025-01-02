@@ -1,4 +1,8 @@
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason
+)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
