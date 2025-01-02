@@ -126,6 +126,7 @@ fn switch_projection(
                 },
                 ..OrthographicProjection::default_3d()
             }),
+            _ => return,
         }
     }
 }
@@ -162,5 +163,6 @@ fn zoom(
                 camera_settings.perspective_zoom_range.end,
             );
         }
+        _ => (),
     }
 }

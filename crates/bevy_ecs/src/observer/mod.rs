@@ -2,10 +2,9 @@
 
 mod entity_observer;
 mod runner;
-mod trigger_event;
 
+pub use entity_observer::CloneEntityWithObserversExt;
 pub use runner::*;
-pub use trigger_event::*;
 
 use crate::{
     archetype::ArchetypeFlags,
@@ -16,6 +15,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
+use alloc::vec::Vec;
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
 use core::{
@@ -66,9 +66,22 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
-    pub fn entity(&self) -> Entity {
-        self.trigger.entity
+    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer. It may
+    /// be [`Entity::PLACEHOLDER`].
+    ///
+    /// Observable events can target specific entities. When those events fire, they will trigger
+    /// any observers on the targeted entities. In this case, the `target()` and `observer()` are
+    /// the same, because the observer that was triggered is attached to the entity that was
+    /// targeted by the event.
+    ///
+    /// However, it is also possible for those events to bubble up the entity hierarchy and trigger
+    /// observers on *different* entities, or trigger a global observer. In these cases, the
+    /// observing entity is *different* from the entity being targeted by the event.
+    ///
+    /// This is an important distinction: the entity reacting to an event is not always the same as
+    /// the entity triggered by the event.
+    pub fn target(&self) -> Entity {
+        self.trigger.target
     }
 
     /// Returns the components that triggered the observer, out of the
@@ -153,6 +166,98 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
     }
 }
 
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+///
+/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
+/// will run.
+pub trait TriggerTargets {
+    /// The components the trigger should target.
+    fn components(&self) -> &[ComponentId];
+
+    /// The entities the trigger should target.
+    fn entities(&self) -> &[Entity];
+}
+
+impl TriggerTargets for () {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        &[]
+    }
+}
+
+impl TriggerTargets for Entity {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        core::slice::from_ref(self)
+    }
+}
+
+impl TriggerTargets for Vec<Entity> {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
+    }
+}
+
+impl<const N: usize> TriggerTargets for [Entity; N] {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
+    }
+}
+
+impl TriggerTargets for ComponentId {
+    fn components(&self) -> &[ComponentId] {
+        core::slice::from_ref(self)
+    }
+
+    fn entities(&self) -> &[Entity] {
+        &[]
+    }
+}
+
+impl TriggerTargets for Vec<ComponentId> {
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
+    }
+
+    fn entities(&self) -> &[Entity] {
+        &[]
+    }
+}
+
+impl<const N: usize> TriggerTargets for [ComponentId; N] {
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
+    }
+
+    fn entities(&self) -> &[Entity] {
+        &[]
+    }
+}
+
+impl TriggerTargets for &Vec<Entity> {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
+    }
+}
+
 /// A description of what an [`Observer`] observes.
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
@@ -206,7 +311,7 @@ pub struct ObserverTrigger {
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
-    pub entity: Entity,
+    pub target: Entity,
 }
 
 impl ObserverTrigger {
@@ -276,7 +381,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        entity: Entity,
+        target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
@@ -303,7 +408,7 @@ impl Observers {
                     observer,
                     event_type,
                     components: components.clone().collect(),
-                    entity,
+                    target,
                 },
                 data.into(),
                 propagate,
@@ -313,8 +418,8 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if entity != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&entity) {
+        if target != Entity::PLACEHOLDER {
+            if let Some(map) = observers.entity_observers.get(&target) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -327,8 +432,8 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if entity != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&entity) {
+                if target != Entity::PLACEHOLDER {
+                    if let Some(map) = component_observers.entity_map.get(&target) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -416,16 +521,20 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
-    pub fn trigger(&mut self, event: impl Event) {
-        TriggerEvent { event, targets: () }.trigger(self);
+    pub fn trigger<E: Event>(&mut self, mut event: E) {
+        let event_id = self.register_component::<E>();
+        // SAFETY: We just registered `event_id` with the type of `event`
+        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, ()) };
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
-    pub fn trigger_ref(&mut self, event: &mut impl Event) {
-        TriggerEvent { event, targets: () }.trigger_ref(self);
+    pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
+        let event_id = self.register_component::<E>();
+        // SAFETY: We just registered `event_id` with the type of `event`
+        unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
     }
 
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -433,8 +542,10 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
-    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.trigger(self);
+    pub fn trigger_targets<E: Event>(&mut self, mut event: E, targets: impl TriggerTargets) {
+        let event_id = self.register_component::<E>();
+        // SAFETY: We just registered `event_id` with the type of `event`
+        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, targets) };
     }
 
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
@@ -442,8 +553,74 @@ impl World {
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
-    pub fn trigger_targets_ref(&mut self, event: &mut impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.trigger_ref(self);
+    pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
+        let event_id = self.register_component::<E>();
+        // SAFETY: We just registered `event_id` with the type of `event`
+        unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
+    }
+
+    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    ///
+    /// While event types commonly implement [`Copy`],
+    /// those that don't will be consumed and will no longer be accessible.
+    /// If you need to use the event after triggering it, use [`World::trigger_targets_dynamic_ref`] instead.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
+        &mut self,
+        event_id: ComponentId,
+        mut event_data: E,
+        targets: Targets,
+    ) {
+        // SAFETY: `event_data` is accessible as the type represented by `event_id`
+        unsafe {
+            self.trigger_targets_dynamic_ref(event_id, &mut event_data, targets);
+        };
+    }
+
+    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// which will run any [`Observer`]s watching for it.
+    ///
+    /// Compared to [`World::trigger_targets_dynamic`], this method is most useful when it's necessary to check
+    /// or use the event after it has been modified by observers.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
+        &mut self,
+        event_id: ComponentId,
+        event_data: &mut E,
+        targets: Targets,
+    ) {
+        let mut world = DeferredWorld::from(self);
+        if targets.entities().is_empty() {
+            // SAFETY: `event_data` is accessible as the type represented by `event_id`
+            unsafe {
+                world.trigger_observers_with_data::<_, E::Traversal>(
+                    event_id,
+                    Entity::PLACEHOLDER,
+                    targets.components(),
+                    event_data,
+                    false,
+                );
+            };
+        } else {
+            for target in targets.entities() {
+                // SAFETY: `event_data` is accessible as the type represented by `event_id`
+                unsafe {
+                    world.trigger_observers_with_data::<_, E::Traversal>(
+                        event_id,
+                        *target,
+                        targets.components(),
+                        event_data,
+                        E::AUTO_PROPAGATE,
+                    );
+                };
+            }
+        }
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -455,7 +632,7 @@ impl World {
             // Populate ObservedBy for each observed entity.
             for watched_entity in &(*observer_state).descriptor.entities {
                 let mut entity_mut = self.entity_mut(*watched_entity);
-                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default();
+                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default().into_mut();
                 observed_by.0.push(observer_entity);
             }
             (&*observer_state, &mut self.archetypes, &mut self.observers)
@@ -575,7 +752,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
-        observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
+        observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
         traversal::Traversal,
     };
@@ -614,8 +791,8 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for &'_ Parent {
-        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+    impl<D> Traversal<D> for &'_ Parent {
+        fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
     }
@@ -732,20 +909,20 @@ mod tests {
         world.add_observer(
             |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.entity()).insert(B);
+                commands.entity(obs.target()).insert(B);
             },
         );
         world.add_observer(
             |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.entity()).remove::<B>();
+                commands.entity(obs.target()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.entity()).remove::<A>();
+                commands.entity(obs.target()).remove::<A>();
             },
         );
         world.add_observer(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {
@@ -914,7 +1091,7 @@ mod tests {
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
+            assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
 
@@ -939,7 +1116,7 @@ mod tests {
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.entity(), entity);
+            assert_eq!(obs.target(), entity);
             res.observed("a_2");
         });
 
@@ -1094,7 +1271,7 @@ mod tests {
         let event_a = world.register_component::<EventA>();
 
         world.spawn(ObserverState {
-            // SAFETY: we registered `event_a` above and it matches the type of TriggerA
+            // SAFETY: we registered `event_a` above and it matches the type of EventA
             descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
             runner: |mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
@@ -1102,10 +1279,10 @@ mod tests {
             ..Default::default()
         });
 
-        world.commands().queue(
-            // SAFETY: we registered `event_a` above and it matches the type of TriggerA
-            unsafe { EmitDynamicTrigger::new_with_id(event_a, EventA, ()) },
-        );
+        world.commands().queue(move |world: &mut World| {
+            // SAFETY: we registered `event_a` above and it matches the type of EventA
+            unsafe { world.trigger_targets_dynamic(event_a, EventA, ()) };
+        });
         world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
@@ -1359,7 +1536,7 @@ mod tests {
 
         world.add_observer(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.entity()).is_ok() {
+                if query.get(trigger.target()).is_ok() {
                     res.observed("event");
                 }
             },
