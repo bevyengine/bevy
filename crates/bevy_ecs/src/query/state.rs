@@ -483,6 +483,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// returns the world id this querry expects to be on
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.world_id
+    }
+
     /// Update the current [`QueryState`] with information from the provided [`Archetype`]
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     ///
