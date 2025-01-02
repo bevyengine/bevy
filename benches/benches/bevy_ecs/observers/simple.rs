@@ -1,6 +1,6 @@
 use core::hint::black_box;
 
-use bevy_ecs::{entity::Entity, event::Event, observer::Trigger, world::World};
+use bevy_ecs::{event::Event, observer::{Trigger, TriggerTarget}, world::World};
 
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
