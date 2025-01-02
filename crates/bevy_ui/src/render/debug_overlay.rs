@@ -1,3 +1,7 @@
+use crate::CalculatedClip;
+use crate::ComputedNode;
+use crate::DefaultUiCamera;
+use crate::TargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -10,13 +14,10 @@ use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::view::ViewVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-
-use crate::ComputedNode;
-use crate::DefaultUiCamera;
-use crate::TargetCamera;
 
 use super::ExtractedUiItem;
 use super::ExtractedUiNode;
@@ -75,8 +76,8 @@ pub fn extract_debug_overlay(
         return;
     }
 
-    for (entity, uinode, transform, camera) in &uinode_query {
-        if !debug_overlay.show_hidden && !visibility.get() {
+    for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
+        if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
