@@ -995,7 +995,6 @@ impl<P: VectorSpace> CubicSegment<P> {
     }
 
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
-    #[allow(unused)]
     #[inline]
     fn coefficients(p: [P; 4], char_matrix: [[f32; 4]; 4]) -> Self {
         let [c0, c1, c2, c3] = char_matrix;
@@ -1376,7 +1375,6 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
-    #[allow(unused)]
     #[inline]
     fn coefficients(
         control_points: [P; 4],
