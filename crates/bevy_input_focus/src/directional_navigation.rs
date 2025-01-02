@@ -197,3 +197,153 @@ impl DirectionalNavigation<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::system::RunSystemOnce;
+
+    use super::*;
+
+    #[test]
+    fn setting_and_getting_nav_neighbors() {
+        let mut neighbors = NavNeighbors::EMPTY;
+        assert_eq!(neighbors.get(CompassOctant::SouthEast), None);
+
+        neighbors.set(CompassOctant::SouthEast, Entity::PLACEHOLDER);
+
+        for i in 0..8 {
+            if i == CompassOctant::SouthEast.to_index() {
+                assert_eq!(
+                    neighbors.get(CompassOctant::SouthEast),
+                    Some(Entity::PLACEHOLDER)
+                );
+            } else {
+                assert_eq!(neighbors.get(CompassOctant::from_index(i).unwrap()), None);
+            }
+        }
+    }
+
+    #[test]
+    fn simple_set_and_get_navmap() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edge(a, b, CompassOctant::SouthEast);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::SouthEast), Some(b));
+        assert_eq!(
+            map.get_neighbor(b, CompassOctant::SouthEast.opposite()),
+            None
+        );
+    }
+
+    #[test]
+    fn symettrical_edges() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_symmetrical_edge(a, b, CompassOctant::North);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), Some(a));
+    }
+
+    #[test]
+    fn remove_nodes() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edge(a, b, CompassOctant::North);
+        map.add_edge(b, a, CompassOctant::South);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), Some(a));
+
+        map.remove(b);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
+    }
+
+    #[test]
+    fn remove_multiple_nodes() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edge(a, b, CompassOctant::North);
+        map.add_edge(b, a, CompassOctant::South);
+        map.add_edge(b, c, CompassOctant::East);
+        map.add_edge(c, b, CompassOctant::West);
+
+        let mut to_remove = EntityHashSet::default();
+        to_remove.insert(b);
+        to_remove.insert(c);
+
+        map.remove_multiple(to_remove);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::North), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), None);
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), None);
+    }
+
+    #[test]
+    fn looping_edges() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_looping_edges(&[a, b, c], CompassOctant::East);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), Some(a));
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), Some(c));
+        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
+    }
+
+    #[test]
+    fn nav_with_system_param() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_looping_edges(&[a, b, c], CompassOctant::East);
+
+        world.insert_resource(map);
+
+        let mut focus = InputFocus::default();
+        focus.set(a);
+        world.insert_resource(focus);
+
+        assert_eq!(world.resource::<InputFocus>().get(), Some(a));
+
+        fn navigate_east(mut nav: DirectionalNavigation) {
+            nav.navigate(CompassOctant::East);
+        }
+
+        world.run_system_once(navigate_east).unwrap();
+        assert_eq!(world.resource::<InputFocus>().get(), Some(b));
+
+        world.run_system_once(navigate_east).unwrap();
+        assert_eq!(world.resource::<InputFocus>().get(), Some(c));
+
+        world.run_system_once(navigate_east).unwrap();
+        assert_eq!(world.resource::<InputFocus>().get(), Some(a));
+    }
+}
