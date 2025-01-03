@@ -357,11 +357,14 @@ mod test {
     use super::*;
     use crate::system::Resource;
     use crate::{self as bevy_ecs, result::Result};
-    use alloc::sync::Arc;
+    use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},
     };
+
+    #[cfg(miri)]
+    use alloc::format;
 
     struct DropCheck(Arc<AtomicU32>);
 

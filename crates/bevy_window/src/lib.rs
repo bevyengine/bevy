@@ -3,7 +3,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -11,6 +11,9 @@
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
