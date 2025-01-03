@@ -49,7 +49,7 @@ use crate::{
     system::{Commands, Resource},
     world::{
         command_queue::RawCommandQueue,
-        error::{EntityFetchError, TryRunScheduleError},
+        error::{CommandError, EntityFetchError, TryRunScheduleError},
     },
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -87,7 +87,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) -> Result {
+///     fn apply(self, world: &mut World) -> Result<(), CommandError> {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
 ///         Ok(())
@@ -116,13 +116,13 @@ pub trait Command<Marker = ()>: Send + 'static {
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> Result;
+    fn apply(self, world: &mut World) -> Result<(), CommandError>;
 
     /// Returns a new [`Command`] that, when applied, will apply the original command
     /// and pass any resulting error to the provided `error_handler`.
     fn with_error_handling(
         self,
-        error_handler: Option<fn(&mut World, Box<dyn core::error::Error>)>,
+        error_handler: Option<fn(&mut World, CommandError)>,
     ) -> impl FnOnce(&mut World) + Send + 'static
     where
         Self: Sized,

@@ -17,7 +17,9 @@ use crate::{
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, error::CommandError, unsafe_world_cell::UnsafeWorldCell,
+        command_queue::RawCommandQueue,
+        error::{CommandError, EntityFetchError},
+        unsafe_world_cell::UnsafeWorldCell,
         Command, CommandQueue, EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
@@ -89,7 +91,7 @@ pub struct Commands<'w, 's> {
     /// more convenient than using [`Commands::queue_fallible_with`] to override
     /// each command individually if you wanted to use the same error handler for
     /// all of them.
-    error_handler_override: Option<fn(&mut World, Box<dyn core::error::Error>)>,
+    error_handler_override: Option<fn(&mut World, CommandError)>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -589,7 +591,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// struct AddToCounter(u64);
     ///
     /// impl Command for AddToCounter {
-    ///     fn apply(self, world: &mut World) -> Result {
+    ///     fn apply(self, world: &mut World) -> Result<(), CommandError> {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += self.0;
     ///         Ok(())
@@ -643,7 +645,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_fallible_with<C: Command<M>, M: 'static>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        error_handler: fn(&mut World, CommandError),
     ) {
         self.queue(command.with_error_handling(Some(error_handler)));
     }
@@ -658,7 +660,7 @@ impl<'w, 's> Commands<'w, 's> {
     fn queue_fallible_with_default<C: Command<M>, M: 'static>(
         &mut self,
         command: C,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        error_handler: fn(&mut World, CommandError),
     ) {
         let error_handler = self.error_handler_override.unwrap_or(error_handler);
         self.queue(command.with_error_handling(Some(error_handler)));
@@ -669,10 +671,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This will apply to all subsequent commands. You can use [`Self::reset_error_handler`] to undo this.
     ///
     /// `fn()` can be a closure if it doesn't capture its environment.
-    pub fn override_error_handler(
-        &mut self,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
-    ) {
+    pub fn override_error_handler(&mut self, error_handler: fn(&mut World, CommandError)) {
         self.error_handler_override = Some(error_handler);
     }
 
@@ -1261,7 +1260,7 @@ impl<'w, 's> Commands<'w, 's> {
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`] and
     /// returns a [`Result`] for error handling.
-    fn apply(self, entity: Entity, world: &mut World) -> Result;
+    fn apply(self, entity: Entity, world: &mut World) -> Result<(), CommandError>;
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
@@ -1270,11 +1269,11 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
     #[must_use = "commands do nothing unless applied to a `World`"]
-    fn with_entity(self, entity: Entity) -> impl Command<Result>
+    fn with_entity(self, entity: Entity) -> impl Command<(Result, CommandError)>
     where
         Self: Sized,
     {
-        move |world: &mut World| -> Result { self.apply(entity, world) }
+        move |world: &mut World| -> Result<(), CommandError> { self.apply(entity, world) }
     }
 }
 
@@ -1869,7 +1868,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_with<M: 'static>(
         &mut self,
         command: impl EntityCommand<M>,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        error_handler: fn(&mut World, CommandError),
     ) -> &mut Self {
         self.commands
             .queue_fallible_with(command.with_entity(self.entity), error_handler);
@@ -1883,7 +1882,7 @@ impl<'a> EntityCommands<'a> {
     fn queue_with_default<M: 'static>(
         &mut self,
         command: impl EntityCommand<M>,
-        default_error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        default_error_handler: fn(&mut World, CommandError),
     ) -> &mut Self {
         let error_handler = self
             .commands
@@ -1901,7 +1900,7 @@ impl<'a> EntityCommands<'a> {
     /// `fn()` can be a closure if it doesn't capture its environment.
     pub fn override_error_handler(
         &mut self,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        error_handler: fn(&mut World, CommandError),
     ) -> &mut Self {
         self.commands.override_error_handler(error_handler);
         self
@@ -2199,7 +2198,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// `fn()` can be a closure if it doesn't capture its environment.
     pub fn override_error_handler(
         &mut self,
-        error_handler: fn(&mut World, Box<dyn core::error::Error>),
+        error_handler: fn(&mut World, CommandError),
     ) -> &mut Self {
         self.entity_commands.override_error_handler(error_handler);
         self
@@ -2312,7 +2311,7 @@ impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
         self(world);
         Ok(())
     }
@@ -2322,7 +2321,20 @@ impl<F> Command<Result> for F
 where
     F: FnOnce(&mut World) -> Result + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
+        match self(world) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(CommandError::CommandFailed(error)),
+        }
+    }
+}
+
+// Necessary to avoid erasing the type of the `CommandError` in `EntityCommand::with_entity`.
+impl<F> Command<(Result, CommandError)> for F
+where
+    F: FnOnce(&mut World) -> Result<(), CommandError> + Send + 'static,
+{
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
         self(world)
     }
 }
@@ -2331,7 +2343,7 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result {
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
         if world.entities().contains(id) {
             self(id, world);
             Ok(())
@@ -2345,11 +2357,14 @@ impl<F> EntityCommand<Result> for F
 where
     F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result {
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
         if world.entities().contains(id) {
-            self(id, world)
+            match self(id, world) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(CommandError::CommandFailed(error)),
+            }
         } else {
-            Err(CommandError::NoSuchEntity(id))?
+            Err(CommandError::NoSuchEntity(id))
         }
     }
 }
@@ -2358,10 +2373,17 @@ impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        let entity = world.get_entity_mut(id)?;
-        self(entity);
-        Ok(())
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        match world.get_entity_mut(id) {
+            Ok(entity) => {
+                self(entity);
+                Ok(())
+            }
+            Err(error) => match error {
+                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
+                error => Err(CommandError::CommandFailed(Box::new(error))),
+            },
+        }
     }
 }
 
@@ -2369,9 +2391,17 @@ impl<F> EntityCommand<(World, Result)> for F
 where
     F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result {
-        let entity = world.get_entity_mut(id)?;
-        self(entity)
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        match world.get_entity_mut(id) {
+            Ok(entity) => match self(entity) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(CommandError::CommandFailed(error)),
+            },
+            Err(error) => match error {
+                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
+                error => Err(CommandError::CommandFailed(Box::new(error))),
+            },
+        }
     }
 }
 
@@ -2382,29 +2412,27 @@ where
 /// - [`EntityCommands::override_error_handler`](super::EntityCommands::override_error_handler)
 /// - [`EntityEntryCommands::override_error_handler`](super::EntityEntryCommands::override_error_handler)
 pub mod handler {
-    use crate::world::World;
-    use alloc::boxed::Box;
-    use core::error::Error;
+    use crate::world::{error::CommandError, World};
     use log::{error, warn};
 
     /// An error handler that does nothing.
-    pub fn silent() -> fn(&mut World, Box<dyn Error>) {
+    pub fn silent() -> fn(&mut World, CommandError) {
         |_, _| {}
     }
 
     /// An error handler that accepts an error and logs it with [`warn!`].
-    pub fn warn() -> fn(&mut World, Box<dyn Error>) {
+    pub fn warn() -> fn(&mut World, CommandError) {
         |_, error| warn!("{error}")
     }
 
     /// An error handler that accepts an error and logs it with [`error!`].
-    pub fn error() -> fn(&mut World, Box<dyn Error>) {
+    pub fn error() -> fn(&mut World, CommandError) {
         |_, error| error!("{error}")
     }
 
     /// An error handler that accepts an error and panics with the error in
     /// the panic message.
-    pub fn panic() -> fn(&mut World, Box<dyn Error>) {
+    pub fn panic() -> fn(&mut World, CommandError) {
         |_, error| panic!("{error}")
     }
 }
