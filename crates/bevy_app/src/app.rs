@@ -8,7 +8,7 @@ use alloc::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    component::RequiredComponentsError,
+    component::{ComponentHooks, RequiredComponentsError},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -1320,6 +1320,38 @@ impl App {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// Allows access to [`World::register_component_hooks`] method directly from the app.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::component::ComponentHooks;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// #
+    /// # #[derive(Component)]
+    /// # struct MyComponent;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.with_component_hooks::<MyComponent>(|hooks: &mut ComponentHooks| {
+    ///     hooks.on_add(|mut world, entity, component_id| {
+    ///        println!("Component: {component_id:?} added to : {entity:?}");
+    ///     });
+    /// });
+    /// ```
+    pub fn with_component_hooks<T>(&mut self, hooks: impl Fn(&mut ComponentHooks)) -> &mut Self
+    where
+        T: Component,
+    {
+        let component_hooks = self.world_mut().register_component_hooks::<T>();
+        hooks(component_hooks);
         self
     }
 }
