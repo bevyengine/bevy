@@ -1,10 +1,7 @@
 //! Showcase how to use and configure FPS overlay.
 
-use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
-    prelude::*,
-    text::FontSmoothing,
-};
+use bevy::{prelude::*, text::FontSmoothing};
+use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 
 struct OverlayColor;
 
