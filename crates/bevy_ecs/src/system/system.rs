@@ -133,11 +133,11 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
 
-    /// Update the system's archetype component [`UniversalAccess`].
+    /// Update the system's archetype component [`UniversalAccess`]. This includes the archetypes for nested worlds.
     ///
     /// ## Note for implementors
     /// `world` may only be used to access metadata. This can be done in safe code
-    /// via functions such as [`UnsafeWorldCell::archetypes`].
+    /// via functions such as [`UnsafeWorldCell::archetypes`]. (No synchronization should be depended on for this function).
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.

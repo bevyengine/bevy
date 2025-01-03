@@ -474,7 +474,6 @@ impl ExecutorState {
             return false;
         }
 
-        // TODO: an earlier out if world's archetypes did not change
         for set_idx in conditions.sets_with_conditions_of_systems[system_index]
             .difference(&self.evaluated_sets)
         {

@@ -4,9 +4,9 @@
 use core::marker::PhantomData;
 
 use crate::{
-    component::ComponentId,
+    archetype::ArchetypeGeneration,
     prelude::DetectChangesMut,
-    system::{Res, SystemMeta, SystemParam, SystemParamItem},
+    system::{SystemMeta, SystemParam, SystemParamItem},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, World, WorldId};
@@ -29,15 +29,16 @@ mod wrapper {
     use bevy_ecs_macros::Resource;
 
     /// This resouce links one world to another via a [`WorldLink`].
+    ///
+    /// # Safety
+    ///
+    /// This resource is private to this file. Hence, there can be no conflicts outside of this file. To prevent conflicts in the file,
+    /// access should be purely read-only, unless exclusive access is garenteed.
     #[derive(Resource)]
-    pub struct Link<L: WorldLink> {
-        /// Safety: since the inner value of `Link` is private, and there is currently only immutably access to the resoruce thanks to using `Res<Link<L>>`,
-        /// the only way the link is being accessed is through the interfaces and abstractions provided in this file, which are checked properly via [`SystemMeta`]'s access lists.
-        pub(super) inner: L,
-    }
+    pub(super) struct Link<L: WorldLink>(pub L);
 }
 use derive_more::derive::{Deref, DerefMut};
-pub use wrapper::Link;
+use wrapper::Link;
 
 /// A [`SystemParam`] that is sourced from a linked world via a [`Link`].
 #[derive(Deref, DerefMut)]
@@ -51,21 +52,22 @@ pub struct Linked<'w, 's, L: WorldLink, P: SystemParam> {
 
 // SAFETY: This assumes the Link exists, pannicing otherwise. This assumes that the inner system parameter will report access properly.
 unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
-    // the [`ComponentId`] is for `Res<Link<L>>`
-    type State = (P::State, ComponentId, WorldId);
+    // the WorldId is for the linked world
+    type State = (P::State, WorldId, ArchetypeGeneration);
 
     type Item<'world, 'state> = Linked<'world, 'state, L, P>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let link_res = Res::<Link<L>>::init_state(world, system_meta);
+        // see See [`Link`]. for why future access doesn't need to be registered
+        world.register_resource::<Link<L>>();
+
         let mut link = world
             .get_resource_mut::<Link<L>>()
             .expect("attempting to build a system parameter from a missing link");
-        let state = P::init_state(
-            link.bypass_change_detection().inner.get_world_mut(),
-            system_meta,
-        );
-        (state, link_res, world.id())
+
+        let link_world = link.bypass_change_detection().0.get_world_mut();
+        let state = P::init_state(link_world, system_meta);
+        (state, link_world.id(), link_world.archetypes().generation())
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -74,16 +76,17 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         world: UnsafeWorldCell<'world>,
         _change_tick: crate::component::Tick,
     ) -> Self::Item<'world, 'state> {
-        // prevents undefined behavior. If this ever fails, the safety of this system param is comprimised.
-        assert_eq!(state.2, world.id());
-        // Safety: conflicts are prevented by initing `Res<Link<L>>` in `init_state`.
+        // Safety: See [`Link`].
         let link = unsafe {
             world
                 .get_resource::<Link<L>>()
                 .expect("attempting to get a system parameter from a missing link")
         };
-        // Safety: See [`Link::inner`].
-        let link = unsafe { link.inner.get_unsafe_world() };
+        // Safety: See [`Link`].
+        let link = unsafe { link.0.get_unsafe_world() };
+        // prevents undefined behavior. If this ever fails, the safety of this system param is comprimised.
+        assert_eq!(state.1, link.id());
+
         // IMPORTANT: We use the link's change tick to keep it fully seperate from the base world. This is what is really relevant.
         let item = P::get_param(&mut state.0, system_meta, link, link.change_tick());
         Linked {
@@ -92,12 +95,30 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         }
     }
 
-    unsafe fn new_archetype(
-        _state: &mut Self::State,
-        _archetype: &crate::archetype::Archetype,
-        _system_meta: &mut SystemMeta,
+    unsafe fn update_meta(
+        state: &mut Self::State,
+        world: UnsafeWorldCell,
+        system_meta: &mut SystemMeta,
     ) {
-        // how do we inform the inner parameter of archetype changes to the nested world?
+        // Safety: See [`Link`].
+        let link = unsafe {
+            world
+                .get_resource::<Link<L>>()
+                .expect("attempting to get a system parameter from a missing link")
+        };
+        // Safety: See [`Link`].
+        let link = unsafe { link.0.get_unsafe_world() };
+        // prevents undefined behavior. If this ever fails, the safety of this system param is comprimised.
+        assert_eq!(state.1, link.id());
+
+        let archetypes = link.archetypes();
+        let old_generation = core::mem::replace(&mut state.2, archetypes.generation());
+        for archetype in &archetypes[old_generation..] {
+            // SAFETY: The assertion above ensures that the param_state was initialized from `link`.
+            unsafe { P::new_archetype(&mut state.0, archetype, system_meta) };
+        }
+
+        P::update_meta(&mut state.0, link, system_meta);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -107,19 +128,19 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         P::apply(
             &mut state.0,
             system_meta,
-            link.bypass_change_detection().inner.get_world_mut(),
+            link.bypass_change_detection().0.get_world_mut(),
         );
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: super::DeferredWorld) {
-        let mut link = world
-            .get_resource_mut::<Link<L>>()
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: super::DeferredWorld) {
+        let link = world
+            .get_resource::<Link<L>>()
             .expect("attempting to queue a system parameter from a missing link");
-        P::apply(
-            &mut state.0,
-            system_meta,
-            link.bypass_change_detection().inner.get_world_mut(),
-        );
+        // Safety: See [`Link`].
+        let link = unsafe { link.0.get_unsafe_world() };
+        // Safety: `link` has not been used to get any mutably references
+        let link_defered = unsafe { link.into_deferred() };
+        P::queue(&mut state.0, system_meta, link_defered);
     }
 
     unsafe fn validate_param(
@@ -131,8 +152,6 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
             return false;
         };
         // Safety: See [`Link::inner`]
-        P::validate_param(&state.0, system_meta, unsafe {
-            link.inner.get_unsafe_world()
-        })
+        P::validate_param(&state.0, system_meta, unsafe { link.0.get_unsafe_world() })
     }
 }

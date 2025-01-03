@@ -580,6 +580,11 @@ impl<Param: SystemParam> SystemState<Param> {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
             unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
         }
+
+        // Safety: garenteed by the assertion above
+        unsafe {
+            Param::update_meta(&mut self.param_state, world, &mut self.meta);
+        }
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -892,6 +897,9 @@ where
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
             unsafe { F::Param::new_archetype(&mut state.param, archetype, &mut self.system_meta) };
         }
+
+        // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+        unsafe { F::Param::update_meta(&mut state.param, world, &mut self.system_meta) };
     }
 
     #[inline]

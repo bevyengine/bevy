@@ -128,6 +128,21 @@ const _: () = {
             };
         }
 
+        unsafe fn update_meta(
+            state: &mut Self::State,
+            world: UnsafeWorldCell,
+            system_meta: &mut super::SystemMeta,
+        ) {
+            // SAFETY:5 Caller guarantees the archetype is from the world used in `init_state`
+            unsafe {
+                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::update_meta(
+                    &mut state.state,
+                    world,
+                    system_meta,
+                );
+            };
+        }
+
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,

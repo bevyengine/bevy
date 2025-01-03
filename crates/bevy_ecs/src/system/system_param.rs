@@ -196,7 +196,7 @@ pub unsafe trait SystemParam: Sized {
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
+    /// For the specified [`Archetype`] on the system's hoem world, registers the components accessed by this [`SystemParam`] (if applicable).a
     ///
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
@@ -206,6 +206,19 @@ pub unsafe trait SystemParam: Sized {
         state: &mut Self::State,
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
+    ) {
+    }
+
+    /// Provides an opportunity to update system metadata with full* world access.
+    ///
+    /// # Safety
+    ///
+    /// This is called with no regard to synchronization. Any form of syncrinizing world access must be done by the implementor.
+    /// This must be called on the same world as initialized.
+    unsafe fn update_meta(
+        _state: &mut Self::State,
+        _world: UnsafeWorldCell,
+        _system_meta: &mut SystemMeta,
     ) {
     }
 
@@ -1939,6 +1952,19 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         }
     }
 
+    unsafe fn update_meta(
+        state: &mut Self::State,
+        world: UnsafeWorldCell,
+        system_meta: &mut SystemMeta,
+    ) {
+        for state in state {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            unsafe {
+                T::update_meta(state, world, system_meta);
+            };
+        }
+    }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         for state in state {
             T::apply(state, system_meta, world);
@@ -1987,6 +2013,19 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         for state in state {
             // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
             unsafe { T::new_archetype(state, archetype, system_meta) }
+        }
+    }
+
+    unsafe fn update_meta(
+        state: &mut Self::State,
+        world: UnsafeWorldCell,
+        system_meta: &mut SystemMeta,
+    ) {
+        for state in state {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            unsafe {
+                T::update_meta(state, world, system_meta);
+            }
         }
     }
 
@@ -2059,6 +2098,13 @@ macro_rules! impl_system_param_tuple {
             unsafe fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
                 // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
                 unsafe { $($param::new_archetype($param, _archetype, _system_meta);)* }
+            }
+
+            #[inline]
+            #[allow(unused_unsafe)]
+            unsafe fn update_meta(($($param,)*): &mut Self::State, _world: UnsafeWorldCell, _system_meta: &mut SystemMeta) {
+                // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                unsafe { $($param::update_meta($param, _world, _system_meta);)* }
             }
 
             #[inline]
@@ -2227,6 +2273,15 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     ) {
         // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
         unsafe { P::new_archetype(state, archetype, system_meta) };
+    }
+
+    unsafe fn update_meta(
+        state: &mut Self::State,
+        world: UnsafeWorldCell,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
+        unsafe { P::update_meta(state, world, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2475,6 +2530,13 @@ trait DynParamState: Sync + Send {
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
+    /// Provides an opportunity to update the system's metadata with full* world access.
+    ///
+    /// # Safety
+    /// `world` must be the [`World`] used to initialize `state` in [`SystemParam::init_state`].
+    /// `world` has **no** garentees for synchronization.
+    unsafe fn update_meta(&mut self, world: UnsafeWorldCell, system_meta: &mut SystemMeta);
+
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
@@ -2502,6 +2564,11 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
         unsafe { T::new_archetype(&mut self.0, archetype, system_meta) };
+    }
+
+    unsafe fn update_meta(&mut self, world: UnsafeWorldCell, system_meta: &mut SystemMeta) {
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        unsafe { T::update_meta(&mut self.0, world, system_meta) };
     }
 
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
@@ -2565,6 +2632,15 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     ) {
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
         unsafe { state.0.new_archetype(archetype, system_meta) };
+    }
+
+    unsafe fn update_meta(
+        state: &mut Self::State,
+        world: UnsafeWorldCell,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        unsafe { state.0.update_meta(world, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
