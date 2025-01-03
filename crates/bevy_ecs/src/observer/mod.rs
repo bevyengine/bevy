@@ -173,14 +173,14 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
 /// will run.
 pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone;
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_;
 
     /// The entities the trigger should target.
     fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone;
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         [].into_iter()
     }
 
@@ -190,7 +190,7 @@ impl TriggerTargets for Entity {
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         core::iter::once(*self)
     }
 
@@ -200,7 +200,7 @@ impl TriggerTargets for ComponentId {
 }
 
 impl<T: TriggerTargets> TriggerTargets for Vec<T> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         self.iter()
             .flat_map(T::components)
             .collect::<Vec<_>>()
@@ -216,7 +216,7 @@ impl<T: TriggerTargets> TriggerTargets for Vec<T> {
 }
 
 impl<T: TriggerTargets> TriggerTargets for &Vec<T> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         self.iter()
             .flat_map(T::components)
             .collect::<Vec<_>>()
@@ -232,7 +232,7 @@ impl<T: TriggerTargets> TriggerTargets for &Vec<T> {
 }
 
 impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         self.iter()
             .flat_map(T::components)
             .collect::<Vec<_>>()
@@ -248,7 +248,7 @@ impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
 }
 
 impl<T: TriggerTargets> TriggerTargets for &[T] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
         self.iter()
             .flat_map(T::components)
             .collect::<Vec<_>>()
@@ -269,7 +269,7 @@ macro_rules! impl_trigger_targets_tuples {
         $(#[$meta])*
         impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
         {
-            fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+            fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
                 let iter = [].into_iter();
                 let ($($trigger_targets,)*) = self;
                 $(
