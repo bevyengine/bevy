@@ -155,7 +155,6 @@ jobs:
   build-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -176,7 +175,6 @@ jobs:
   build-wasm-atomics:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -399,7 +397,6 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
