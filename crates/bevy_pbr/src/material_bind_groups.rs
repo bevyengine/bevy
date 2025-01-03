@@ -25,6 +25,20 @@ use bevy_render::{
 use bevy_utils::{default, tracing::error, HashMap};
 use core::{any, iter, marker::PhantomData, num::NonZero};
 
+/// The way we currently do bindless requires that the device supports a lot of sampler bindings.
+/// This is an issue when using Vulkan with an Intel iGPU on Windows because their drivers only 
+/// support an extremely low amount of sampler bindings (which doesn't appear to be a hardware limit,
+/// since they support much higher sampler binding counts on Linux).
+/// 
+/// 2000 was chosen as a somewhat arbitrary number that would cut off old Nvidia GPUs running ancient drivers,
+/// as well as Intel iGPUs as those were crashing and unable to run examples. It is specifically not set higher
+/// as that would remove support for bindless on DX12, which supports a maximum of 2048 samplers per shader stage.
+/// 
+/// https://vulkan.gpuinfo.org/displaydevicelimit.php?name=maxPerStageDescriptorSamplers&platform=all
+/// https://learn.microsoft.com/en-us/windows/win32/direct3d12/hardware-support
+/// `render_device.limits().max_samplers_per_shader_stage`
+const MINIMUM_BINDLESS_REQUIRED_SAMPLERS: u32 = 2000;
+
 /// An object that creates and stores bind groups for a single material type.
 ///
 /// This object collects bindless materials into groups as appropriate and
@@ -799,6 +813,9 @@ where
         && render_device
             .features()
             .contains(WgpuFeatures::BUFFER_BINDING_ARRAY | WgpuFeatures::TEXTURE_BINDING_ARRAY)
+        // Workaround for Intel's Windows Vulkan driver having a stupidly low sampler binding limit and how we're
+        // currently doing bindless.
+        && render_device.limits().max_samplers_per_shader_stage >= MINIMUM_BINDLESS_REQUIRED_SAMPLERS
 }
 
 impl FromWorld for FallbackBindlessResources {
