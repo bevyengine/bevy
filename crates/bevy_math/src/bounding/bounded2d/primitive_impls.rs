@@ -443,6 +443,7 @@ impl Bounded2d for Capsule2d {
 #[cfg(test)]
 mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use std::println;
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;

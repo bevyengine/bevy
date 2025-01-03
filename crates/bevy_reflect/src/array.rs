@@ -513,6 +513,8 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> core::fmt::R
 #[cfg(test)]
 mod tests {
     use crate::Reflect;
+    use alloc::boxed::Box;
+
     #[test]
     fn next_index_increment() {
         const SIZE: usize = if cfg!(debug_assertions) {

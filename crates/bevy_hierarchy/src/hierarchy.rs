@@ -247,6 +247,7 @@ fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx
 
 #[cfg(test)]
 mod tests {
+    use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
     use bevy_ecs::{
         component::Component,
         system::Commands,
