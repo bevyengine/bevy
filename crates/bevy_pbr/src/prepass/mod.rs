@@ -202,9 +202,6 @@ where
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
 
-#[cfg(not(feature = "meshlet"))]
-type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
-#[cfg(feature = "meshlet")]
 type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
 
 pub fn update_previous_view_data(
@@ -216,6 +213,7 @@ pub fn update_previous_view_data(
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
+            clip_from_view: camera.clip_from_view(),
         });
     }
 }
@@ -706,6 +704,7 @@ pub fn prepare_previous_view_uniforms(
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
+                    clip_from_view: camera.clip_from_view,
                 }
             }
         };

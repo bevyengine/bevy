@@ -4062,3 +4062,14 @@ name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "occlusion_culling"
+path = "examples/3d/occlusion_culling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.occlusion_culling]
+name = "Occlusion Culling"
+description = "Demonstration of Occlusion Culling"
+category = "3D Rendering"
+wasm = false
