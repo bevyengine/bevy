@@ -285,6 +285,11 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// The vertical height of a line of text, from the top of one line to the top of the
+    /// next.
+    ///
+    /// Defaults to `LineHeight::Scalar(1.2)`
+    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -324,8 +329,36 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            line_height: LineHeight::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// Specifies the height of each line of text for `Text` and `Text2d`
+///
+/// Default is 1.2x the font size
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Debug)]
+pub enum LineHeight {
+    /// Set line height to a specific number of pixels
+    Px(f32),
+    /// Set line height to a multiple of the font size
+    Scalar(f32),
+}
+
+impl LineHeight {
+    pub(crate) fn eval(self, font_size: f32) -> f32 {
+        match self {
+            LineHeight::Px(px) => px,
+            LineHeight::Scalar(scale) => scale * font_size,
+        }
+    }
+}
+
+impl Default for LineHeight {
+    fn default() -> Self {
+        LineHeight::Scalar(1.2)
     }
 }
 
