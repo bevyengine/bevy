@@ -74,7 +74,7 @@ use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
 #[cfg(feature = "track_location")]
-use {alloc::format, core::panic::Location};
+use core::panic::Location;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
