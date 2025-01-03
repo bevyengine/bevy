@@ -40,7 +40,7 @@ impl Plugin for DirectionalNavigationPlugin {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
-    /// The mapping between array elemnents and directions is determined by [`CompassOctant::to_index`].
+    /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
     ///
     /// If no neighbor exists in a given direction, the value will be [`None`].
     /// In most cases, using [`NavNeighbors::set`] and [`NavNeighbors::get`]
@@ -157,7 +157,7 @@ impl DirectionalNavigationMap {
         self.add_edge(b, a, direction.opposite());
     }
 
-    /// Add symettrical edges between all entities in the provided slice, looping back to the first entity at the end.
+    /// Add symmetrical edges between all entities in the provided slice, looping back to the first entity at the end.
     ///
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
@@ -270,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn symettrical_edges() {
+    fn symmetrical_edges() {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
