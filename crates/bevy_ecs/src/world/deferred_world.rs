@@ -192,6 +192,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityMut`]: crate::world::EntityMut
     /// [`&EntityHashSet`]: crate::entity::EntityHashSet
     /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -323,6 +324,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityMut`]: crate::world::EntityMut
     /// [`&EntityHashSet`]: crate::entity::EntityHashSet
     /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()

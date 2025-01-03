@@ -666,6 +666,7 @@ mod tests {
         entity::Entity,
         storage::SparseSet,
     };
+    use alloc::{vec, vec::Vec};
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);
