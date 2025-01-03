@@ -173,6 +173,7 @@ impl World {
         self.remove_resource::<Link<L>>();
     }
 
+    // NOTE: we can't safely provide an api for this that takes an immutable frerence to world. See [`Link`] for why.
     /// Allows modification of an active world link. Returns `None` if the link was not active.
     pub fn peek_link<'w, L: WorldLink>(&'w mut self) -> Option<LinkPeek<'w, L>> {
         self.get_resource_mut::<Link<L>>().map(LinkPeek)
