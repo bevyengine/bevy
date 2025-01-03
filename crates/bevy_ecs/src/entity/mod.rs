@@ -999,11 +999,6 @@ impl Entities {
             #[cfg(feature = "track_location")]
             location: self.entity_get_spawned_or_despawned_by(_entity),
         };
-        return EntityDoesNotExistDetails {
-            location: self.entity_get_spawned_or_despawned_by(_entity),
-        };
-        #[cfg(not(feature = "track_location"))]
-        return EntityDoesNotExistDetails {};
     }
 }
 
