@@ -568,7 +568,7 @@ mod test_compass_octant {
     }
 
     #[test]
-    fn oppposite_directions_reverse_themselves() {
+    fn opposite_directions_reverse_themselves() {
         for i in 0..8 {
             let octant = CompassOctant::from_index(i).unwrap();
             assert_eq!(-(-octant), octant);
