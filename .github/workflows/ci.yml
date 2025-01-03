@@ -12,6 +12,7 @@ env:
   CARGO_TERM_COLOR: always
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  RUSTFLAGS: "-D warnings"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -154,7 +155,6 @@ jobs:
   build-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -170,14 +170,11 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
-        env:
-          RUSTFLAGS: "-D warnings"
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -400,7 +397,6 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
