@@ -1,4 +1,9 @@
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -39,7 +44,10 @@ mod volume;
 /// The audio prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
+#[expect(
+    deprecated,
+    reason = "Items here are part of a prelude meant for consumers of this crate, not for us."
+)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

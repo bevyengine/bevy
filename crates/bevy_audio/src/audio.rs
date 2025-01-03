@@ -1,4 +1,7 @@
-#![expect(deprecated)]
+#![expect(
+    deprecated,
+    reason = "See the NOTE comment attached to AudioSourceBundle."
+)]
 
 use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
@@ -212,6 +215,10 @@ pub struct DefaultSpatialScale(pub SpatialScale);
     since = "0.15.0",
     note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
+#[expect(
+    deprecated,
+    reason = "This is a deprecated alias for a deprecated item."
+)]
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
 
 /// A component for playing a sound.
@@ -267,6 +274,15 @@ impl AudioPlayer<AudioSource> {
     since = "0.15.0",
     note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
+// NOTE: When removing this, please remove the `#[expect(deprecated)]` at the top of this file.
+//
+// For whatever reason, this struct counts as a use of itself, causing rustc to lint about a use of
+// a deprecated struct. However, adding an `#[expect(deprecated)]` to this strict causes rustc to
+// say that the lint expectation is unfulfilled.
+//
+// The only solution I could find to this was to mark the whole module as expecting a deprecated
+// lint. So, if this item is ever removed, please remove the `#[expect(deprecated)]` at the top of
+// this file.
 pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
@@ -280,6 +296,10 @@ where
     pub settings: PlaybackSettings,
 }
 
+#[expect(
+    deprecated,
+    reason = "This is an impl for a deprecated item; rustc should not be complaining about this being a use of a deprecated item."
+)]
 impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
     fn clone(&self) -> Self {
         Self {
@@ -289,6 +309,10 @@ impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "This is an impl for a deprecated item; rustc should not be complaining about this being a use of a deprecated item."
+)]
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {
