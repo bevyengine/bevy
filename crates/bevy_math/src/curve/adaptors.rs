@@ -10,7 +10,10 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
+use {
+    alloc::format,
+    bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath},
+};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {

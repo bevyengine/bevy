@@ -823,6 +823,8 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     pub use crate as bevy_ecs;
 

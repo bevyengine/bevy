@@ -403,6 +403,7 @@ mod tests {
         system::{Commands, SystemState},
         world::World,
     };
+    use alloc::{borrow::ToOwned, boxed::Box};
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 

@@ -117,9 +117,10 @@ mod tests {
         system::{assert_is_system, IntoSystem, Query, System, SystemState},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
+    use alloc::{vec, vec::Vec};
     use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
-    use std::collections::HashSet;
+    use std::{collections::HashSet, println};
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);

@@ -2,9 +2,6 @@ use alloc::{borrow::Cow, sync::Arc};
 use core::fmt::Debug;
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 use bevy_utils::HashMap;
 
 use crate::func::{
@@ -359,6 +356,7 @@ impl FunctionRegistryArc {
 mod tests {
     use super::*;
     use crate::func::{ArgList, IntoFunction};
+    use alloc::format;
 
     #[test]
     fn should_register_function() {

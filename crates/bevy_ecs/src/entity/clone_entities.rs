@@ -671,6 +671,7 @@ mod tests {
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
+    use alloc::vec::Vec;
     use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
     use core::alloc::Layout;
@@ -679,6 +680,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
+        use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
         #[test]

@@ -1,7 +1,7 @@
 use crate::func::args::ArgCount;
 use crate::func::signature::{ArgListSignature, ArgumentSignature};
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use bevy_utils::HashMap;
 use core::fmt::{Debug, Formatter};
 

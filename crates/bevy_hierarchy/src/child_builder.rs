@@ -597,6 +597,7 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
+    use alloc::{vec, vec::Vec};
     use smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{

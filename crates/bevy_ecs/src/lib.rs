@@ -16,7 +16,10 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -120,7 +123,12 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::{sync::Arc, vec};
+    use alloc::{
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;

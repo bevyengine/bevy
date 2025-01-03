@@ -822,6 +822,8 @@ mod tests {
         ptr::OwningPtr,
         storage::{Storages, TableBuilder, TableId, TableRow, Tables},
     };
+    use alloc::vec::Vec;
+
     #[cfg(feature = "track_location")]
     use core::panic::Location;
 

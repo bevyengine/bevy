@@ -241,6 +241,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{Reflect, Typed};
+    use alloc::string::String;
     use core::fmt::Debug;
 
     #[test]

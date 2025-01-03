@@ -186,6 +186,7 @@ unsafe fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};

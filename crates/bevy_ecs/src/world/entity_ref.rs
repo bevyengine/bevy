@@ -4115,8 +4115,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+
     #[cfg(feature = "track_location")]
     use core::panic::Location;
     #[cfg(feature = "track_location")]

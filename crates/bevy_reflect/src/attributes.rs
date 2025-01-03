@@ -181,6 +181,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 
     #[derive(Reflect, PartialEq, Debug)]

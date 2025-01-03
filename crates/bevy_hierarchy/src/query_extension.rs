@@ -312,6 +312,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use bevy_ecs::{
         prelude::Component,
         system::{Query, SystemState},

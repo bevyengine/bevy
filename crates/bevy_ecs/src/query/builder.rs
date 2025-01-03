@@ -278,6 +278,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 mod tests {
     use crate as bevy_ecs;
     use crate::{prelude::*, world::FilteredEntityRef};
+    use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);

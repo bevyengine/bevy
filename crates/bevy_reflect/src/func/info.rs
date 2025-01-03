@@ -1,8 +1,5 @@
-use alloc::{borrow::Cow, vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::fmt::{Debug, Formatter};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 use crate::{
     func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},

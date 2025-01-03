@@ -4,7 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! Parent-child relationships for Bevy entities.
 //!
@@ -51,6 +51,9 @@
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 

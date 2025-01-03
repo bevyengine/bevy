@@ -4,6 +4,7 @@ use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
 
 use crate::StableInterpolate;
+use alloc::format;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 
@@ -369,6 +370,7 @@ mod tests {
     //! - function pointers
     use super::{SampleCurve, UnevenSampleCurve};
     use crate::{curve::Interval, VectorSpace};
+    use alloc::boxed::Box;
     use bevy_reflect::Reflect;
 
     #[test]

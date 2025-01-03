@@ -2284,7 +2284,7 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };
-    use alloc::sync::Arc;
+    use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use core::{
         any::TypeId,
         sync::atomic::{AtomicUsize, Ordering},

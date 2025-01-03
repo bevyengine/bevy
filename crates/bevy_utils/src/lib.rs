@@ -1,17 +1,16 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![expect(
-    unsafe_code,
-    reason = "Some utilities, such as cells, require unsafe code."
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -367,6 +366,10 @@ impl<F: FnOnce()> OnDrop<F> {
 
 impl<F: FnOnce()> Drop for OnDrop<F> {
     fn drop(&mut self) {
+        #![expect(
+            unsafe_code,
+            reason = "Taking from a ManuallyDrop requires unsafe code."
+        )]
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();

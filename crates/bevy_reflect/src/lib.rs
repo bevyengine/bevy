@@ -557,7 +557,10 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -712,7 +715,14 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use alloc::borrow::Cow;
+    use alloc::{
+        borrow::Cow,
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bevy_utils::HashMap;
     use core::{
         any::TypeId,
@@ -2556,6 +2566,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2631,6 +2643,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_value_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Clone, Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2714,6 +2728,8 @@ bevy_reflect::tests::Test {
             // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
             // ```
             pub mod external_crate {
+                use alloc::string::String;
+
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -2735,6 +2751,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_enum() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, PartialEq, Eq)]
             pub enum TheirType {
                 Unit,
@@ -2899,6 +2917,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
@@ -2931,6 +2951,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_try_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,

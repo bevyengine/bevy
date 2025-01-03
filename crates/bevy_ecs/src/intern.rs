@@ -180,6 +180,7 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{boxed::Box, string::ToString};
     use bevy_utils::FixedHasher;
     use core::hash::{BuildHasher, Hash, Hasher};
 

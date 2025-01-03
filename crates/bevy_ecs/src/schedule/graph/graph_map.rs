@@ -393,6 +393,7 @@ impl CompactNodeIdPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     /// The `Graph` type _must_ preserve the order that nodes are inserted in if
     /// no removals occur. Removals are permitted to swap the latest node into the

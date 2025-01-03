@@ -8,8 +8,12 @@ use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+#[cfg(all(debug_assertions, feature = "std"))]
+use std::eprintln;
 
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]

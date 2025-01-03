@@ -4,7 +4,10 @@ use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};

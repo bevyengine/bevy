@@ -1338,6 +1338,7 @@ mod tests {
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
     };
+    use alloc::vec;
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 
