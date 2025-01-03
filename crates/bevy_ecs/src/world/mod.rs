@@ -78,7 +78,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::Command;
+/// # use bevy_ecs::world::{Command, error::CommandError};
 /// // Our world resource
 /// #[derive(Resource, Default)]
 /// struct Counter(u64);

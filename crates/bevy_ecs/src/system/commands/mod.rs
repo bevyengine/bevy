@@ -584,7 +584,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{world::Command, prelude::*};
+    /// # use bevy_ecs::{world::{Command, error::CommandError}, prelude::*};
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
