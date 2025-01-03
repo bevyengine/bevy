@@ -282,8 +282,8 @@ impl AudioPlayer<AudioSource> {
 // does not fix this issue - and in fact, rustc will say that the lint expectation is unfulfilled.
 //
 // I consider this to be an issue with rustc itself, as it shouldn't be linting about use of
-// deprecated structs on trait impls for those same structs (at least when the trait impls and the
-// struct live in the same crate). Thus, while I could modify the Bundle derive code to add
+// deprecated structs on impls for those same structs (at least when the impls and the struct live
+// in the same crate). Thus, while I could modify the Bundle derive code to add
 // `#[allow(deprecated)]`, I don't believe it's a good idea.
 //
 // The only other solution I could find to this issue was to mark the whole module as expecting a
