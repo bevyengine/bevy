@@ -50,6 +50,21 @@ pub struct SystemMeta {
     pub(crate) commands_span: Span,
 }
 
+/// Trait for retrieving system metas.
+pub trait SystemMetaProvider {
+    /// Returns immutable references of system metas as a vector.
+    fn system_metas(&self) -> Vec<&SystemMeta>;
+
+    /// Returns mutable references of system metas as a vector.
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta>;
+
+    /// Helper method for `system_metas`.
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>);
+
+    /// Helper method for `system_metas_mut`.
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>);
+}
+
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
         let name = core::any::type_name::<T>();
@@ -922,6 +937,32 @@ where
     F: SystemParamFunction<Marker>,
     F::Param: ReadOnlySystemParam,
 {
+}
+
+impl<Marker, F> SystemMetaProvider for FunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: SystemParamFunction<Marker>,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec: Vec<&mut SystemMeta> = Vec::new();
+        self.extend_with_system_metas_mut(&mut vec);
+        vec
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>) {
+        vec.push(&self.system_meta);
+    }
+
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>) {
+        vec_mut.push(&mut self.system_meta);
+    }
 }
 
 /// A trait implemented for all functions that can be used as [`System`]s.

@@ -11,7 +11,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System, SystemMeta, SystemMetaProvider};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -275,6 +275,37 @@ where
     }
 }
 
+impl<Func, A, B> SystemMetaProvider for CombinatorSystem<Func, A, B>
+where
+    Func: Combine<A, B> + 'static,
+    A: System + SystemMetaProvider,
+    B: System + SystemMetaProvider,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.a.extend_with_system_metas(&mut vec);
+        self.b.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec_mut: Vec<&mut SystemMeta> = Vec::new();
+        self.a.extend_with_system_metas_mut(&mut vec_mut);
+        self.b.extend_with_system_metas_mut(&mut vec_mut);
+        vec_mut
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>) {
+        self.a.extend_with_system_metas(vec);
+        self.b.extend_with_system_metas(vec);
+    }
+
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>) {
+        self.a.extend_with_system_metas_mut(vec_mut);
+        self.b.extend_with_system_metas_mut(vec_mut);
+    }
+}
+
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
 pub struct IntoPipeSystem<A, B> {
     a: A,
@@ -475,6 +506,36 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
+    }
+}
+
+impl<A, B> SystemMetaProvider for PipeSystem<A, B>
+where
+    A: System + SystemMetaProvider,
+    B: System + SystemMetaProvider,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.a.extend_with_system_metas(&mut vec);
+        self.b.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec_mut: Vec<&mut SystemMeta> = Vec::new();
+        self.a.extend_with_system_metas_mut(&mut vec_mut);
+        self.b.extend_with_system_metas_mut(&mut vec_mut);
+        vec_mut
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>) {
+        self.a.extend_with_system_metas(vec);
+        self.b.extend_with_system_metas(vec);
+    }
+
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>) {
+        self.a.extend_with_system_metas_mut(vec_mut);
+        self.b.extend_with_system_metas_mut(vec_mut);
     }
 }
 
