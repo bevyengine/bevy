@@ -11,8 +11,7 @@ cargo run --features wayland --example hello_world
 
 > **⚠️ Note: for users of releases on crates.io!**
 
-There are often large differences and incompatible API changes between the latest
-[crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
+There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
 If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
 
@@ -93,9 +92,9 @@ git checkout v0.4.0
 <!-- markdownlint-disable-next-line MD026 -->
 ## Hello, World!
 
-|Example | Description|
-|--- | ---|
-|[`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"|
+| Example | Description |
+| --- | --- |
+| [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world" |
 
 # Cross-Platform Examples
 
@@ -219,23 +218,23 @@ Example | Description
 
 ## Application
 
-|Example | Description|
-|--- | ---|
-|[Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS|
-|[Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually)|
-|[Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app|
-|[Empty](../examples/app/empty.rs) | An empty application (does nothing)|
-|[Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins|
-|[Headless](../examples/app/headless.rs) | An application that runs without default plugins|
-|[Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file|
-|[Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers|
-|[Logs](../examples/app/logs.rs) | Illustrate how to use generate log output|
-|[No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer|
-|[Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin|
-|[Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group|
-|[Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited|
-|[Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool|
-|[Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)|
+| Example | Description |
+| --- | --- |
+| [Advanced log layers](../examples/app/log_layers_ecs.rs) | Illustrate how to transfer data between log layers and Bevy's ECS |
+| [Custom Loop](../examples/app/custom_loop.rs) | Demonstrates how to create a custom runner (to update an app manually) |
+| [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app |
+| [Empty](../examples/app/empty.rs) | An empty application (does nothing) |
+| [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins |
+| [Headless](../examples/app/headless.rs) | An application that runs without default plugins |
+| [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file |
+| [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers |
+| [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output |
+| [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer |
+| [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin |
+| [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group |
+| [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited |
+| [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool |
+| [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop) |
 
 ## Assets
 
@@ -257,47 +256,47 @@ Example | Description
 
 ## Async Tasks
 
-|Example | Description|
-|--- | ---|
-|[Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks|
-|[External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel|
+| Example | Description |
+| --- | --- |
+| [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks |
+| [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel |
 
 ## Audio
 
-|Example | Description|
-|--- | ---|
-|[Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file|
-|[Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played|
-|[Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.|
-|[Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch|
-|[Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state|
-|[Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D|
-|[Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D|
+| Example | Description |
+| --- | --- |
+| [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file |
+| [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played |
+| [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type. |
+| [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch |
+| [Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state |
+| [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D |
+| [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D |
 
 ## Camera
 
-Example | Description
---- | ---
-[2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
-[Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
-[Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
-[First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
-[Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
-[Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
+| Example | Description |
+| --- | --- |
+| [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements |
+| [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll. |
+| [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections. |
+| [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV) |
+| [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras. |
+| [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect |
 
 ## Dev tools
 
-|Example | Description|
-|--- | ---|
-|[FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay|
+| Example | Description |
+| --- | --- |
+| [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay |
 
 ## Diagnostics
 
-|Example | Description|
-|--- | ---|
-|[Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic|
-|[Enabling/disabling diagnostic](../examples/diagnostics/enabling_disabling_diagnostic.rs) | Shows how to disable/re-enable a Diagnostic during runtime|
-|[Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console|
+| Example | Description |
+| --- | --- |
+| [Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic |
+| [Enabling/disabling diagnostic](../examples/diagnostics/enabling_disabling_diagnostic.rs) | Shows how to disable/re-enable a Diagnostic during runtime |
+| [Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console |
 
 ## ECS (Entity Component System)
 
@@ -342,23 +341,23 @@ Example | Description
 
 ## Games
 
-|Example | Description|
-|--- | ---|
-|[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game|
-|[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".|
-|[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!|
-|[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!|
-|[Game Menu](../examples/games/game_menu.rs) | A simple game menu|
-|[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.|
+| Example | Description |
+| --- | --- |
+| [Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game |
+| [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout". |
+| [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball! |
+| [Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes! |
+| [Game Menu](../examples/games/game_menu.rs) | A simple game menu |
+| [Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled. |
 
 ## Gizmos
 
-|Example | Description|
-|--- | ---|
-|[2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos|
-|[3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos|
-|[Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos|
-|[Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos|
+| Example | Description |
+| --- | --- |
+| [2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos |
+| [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos |
+| [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos |
+| [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos |
 
 ## Helpers
 
@@ -369,21 +368,21 @@ Example | Description
 
 ## Input
 
-|Example | Description|
-|--- | ---|
-|[Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted|
-|[Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections|
-|[Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events|
-|[Gamepad Rumble](../examples/input/gamepad_rumble.rs) | Shows how to rumble a gamepad using force feedback|
-|[Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release|
-|[Keyboard Input Events](../examples/input/keyboard_input_events.rs) | Prints out all keyboard events|
-|[Keyboard Modifiers](../examples/input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift)|
-|[Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen|
-|[Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release|
-|[Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)|
-|[Text Input](../examples/input/text_input.rs) | Simple text input with IME support|
-|[Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels|
-|[Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs|
+| Example | Description |
+| --- | --- |
+| [Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted |
+| [Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections |
+| [Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events |
+| [Gamepad Rumble](../examples/input/gamepad_rumble.rs) | Shows how to rumble a gamepad using force feedback |
+| [Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release |
+| [Keyboard Input Events](../examples/input/keyboard_input_events.rs) | Prints out all keyboard events |
+| [Keyboard Modifiers](../examples/input/keyboard_modifiers.rs) | Demonstrates using key modifiers (ctrl, shift) |
+| [Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen |
+| [Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release |
+| [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.) |
+| [Text Input](../examples/input/text_input.rs) | Simple text input with IME support |
+| [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels |
+| [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs |
 
 ## Math
 
@@ -399,9 +398,9 @@ Example | Description
 
 ## Movement
 
-|Example | Description|
-|--- | ---|
-|[Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep|
+| Example | Description |
+| --- | --- |
+| [Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep |
 
 ## Picking
 
@@ -414,36 +413,34 @@ Example | Description
 
 ## Reflection
 
-|Example | Description|
-|--- | ---|
-|[Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types|
-|[Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection|
-|[Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection|
-|[Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection|
-|[Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types|
-|[Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available|
-|[Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data|
+| Example | Description |
+| --- | --- |
+| [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types |
+| [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection |
+| [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection |
+| [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection |
+| [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types |
+| [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available |
+| [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data |
 
 ## Remote Protocol
 
-|Example | Description|
-|--- | ---|
-|[client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP|
-|[server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit|
+| Example | Description |
+| --- | --- |
+| [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP |
+| [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit |
 
 ## Scene
 
-|Example | Description|
-|--- | ---|
-|[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files|
+| Example | Description |
+| --- | --- |
+| [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files |
 
 ## Shaders
 
 These examples demonstrate how to implement different shaders in user code.
 
-A shader in its most common usage is a small program that is run by the GPU per-vertex
-in a mesh (a vertex shader) or per-affected-screen-fragment (a fragment shader.)
-The GPU executes these programs in a highly parallel way.
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader) or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
 
 There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
 
@@ -475,12 +472,12 @@ Example | Description
 
 ## State
 
-|Example | Description|
-|--- | ---|
-|[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States.|
-|[Custom State Transition Behavior](../examples/state/custom_transitions.rs) | Creating and working with custom state transition schedules.|
-|[States](../examples/state/states.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state.|
-|[Sub States](../examples/state/sub_states.rs) | Using Sub States for hierarchical state handling.|
+| Example | Description |
+| --- | --- |
+| [Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States. |
+| [Custom State Transition Behavior](../examples/state/custom_transitions.rs) | Creating and working with custom state transition schedules. |
+| [States](../examples/state/states.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state. |
+| [Sub States](../examples/state/sub_states.rs) | Using Sub States for hierarchical state handling. |
 
 ## Stress Tests
 
@@ -512,28 +509,28 @@ Example | Description
 
 ## Time
 
-|Example | Description|
-|--- | ---|
-|[Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS|
-|[Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state|
-|[Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game.|
+| Example | Description |
+| --- | --- |
+| [Time handling](../examples/time/time.rs) | Explains how Time is handled in ECS |
+| [Timers](../examples/time/timers.rs) | Illustrates ticking `Timer` resources inside systems and handling their state |
+| [Virtual time](../examples/time/virtual_time.rs) | Shows how `Time<Virtual>` can be used to pause, resume, slow down and speed up a game. |
 
 ## Tools
 
-|Example | Description|
-|--- | ---|
-|[Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers|
-|[Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory|
+| Example | Description |
+| --- | --- |
+| [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers |
+| [Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory |
 
 ## Transforms
 
-|Example | Description|
-|--- | ---|
-|[3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis|
-|[Alignment](../examples/transforms/align.rs) | A demonstration of Transform's axis-alignment feature|
-|[Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction|
-|[Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects|
-|[Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis|
+| Example | Description |
+| --- | --- |
+| [3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis |
+| [Alignment](../examples/transforms/align.rs) | A demonstration of Transform's axis-alignment feature |
+| [Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction |
+| [Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects |
+| [Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis |
 
 ## UI (User Interface)
 
@@ -591,10 +588,10 @@ Example | Description
 
 # Tests
 
-Example | Description
---- | ---
-[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
-[How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
+| Example | Description |
+| --- | --- |
+| [How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing) |
+| [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources |
 
 # Platform-Specific Examples
 
@@ -609,8 +606,7 @@ cargo install cargo-ndk
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
-When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT`
-must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
+When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
 Alternatively, you can install Android Studio.
 
@@ -628,8 +624,7 @@ For example, to compile to a 64-bit ARM platform:
 cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
-Setting the output path ensures the shared object files can be found in target-specific
-directories under `jniLibs` where the JNI can find them.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
 
 See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
 
@@ -645,16 +640,11 @@ Then you can test it in your Android project.
 
 #### About `libc++_shared.so`
 
-Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate,
-but typically `cargo-ndk` does not copy this file automatically.
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
 
-To include it, you can manually obtain it from NDK source or use a `build.rs` script for
-automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
 
-Alternatively, you can modify project files to include it when building an APK.
-To understand the specific steps taken in this project, please refer to the comments
-within the project files for detailed
-instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -674,8 +664,8 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
-[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+In its examples, Bevy targets the minimum Android API that Play Store
+[requires](https://developer.android.com/google/play/requirements/target-sdk) to upload and update apps.
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
@@ -691,9 +681,9 @@ Then build it as the [Build & Run](#build--run) section stated above.
 You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`.
 If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
-|Example | File | Description|
-|--- | --- | ---|
-|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
+| Example | File | Description |
+| --- | --- | --- |
+|`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## iOS
 
@@ -735,9 +725,9 @@ open bevy_mobile_example.xcodeproj/
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
 
-|Example | File | Description|
-|--- | --- | ---|
-|`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound|
+| Example | File | Description |
+| --- | --- | --- |
+| `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound |
 
 ## Wasm
 
@@ -762,8 +752,8 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this 
- [example HTML file](./wasm/index.html).
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`,
+which can be loaded using this [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
 
