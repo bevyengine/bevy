@@ -342,7 +342,6 @@ mod tests {
 
     use super::*;
 
-    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
     #[derive(Asset, TypePath, Debug)]
     struct A;
 
