@@ -165,6 +165,10 @@ fn init_cursor_icons(
         #[cfg(feature = "custom_cursor")]
         CustomCursor::Image {
             handle: asset_server.load("branding/icon.png"),
+            texture_atlas: None,
+            flip_x: false,
+            flip_y: false,
+            rect: None,
             hotspot: (128, 128),
         }
         .into(),
