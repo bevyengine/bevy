@@ -229,10 +229,10 @@ where
     }
 
     /// Returns the piece of buffered data at the given index.
-    /// 
+    ///
     /// # Safety
     /// `uniform_index` should be within the bounds of [`Self::buffer`]
-    /// 
+    ///
     /// Can return data that has previously been removed.
     pub fn get_unchecked(&self, uniform_index: u32) -> BDI {
         self.buffer.values()[uniform_index as usize]
