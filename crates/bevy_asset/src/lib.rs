@@ -182,6 +182,9 @@ mod reflect;
 mod render_asset;
 mod server;
 
+#[cfg(feature = "http_source")]
+mod http_source;
+
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
 pub use direct_access_ext::DirectAssetAccessExt;
@@ -314,6 +317,9 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "http_source")]
+        app.add_plugins(http_source::http_source_plugin);
+
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
