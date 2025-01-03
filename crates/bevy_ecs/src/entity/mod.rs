@@ -995,10 +995,10 @@ impl Entities {
         &self,
         _entity: Entity,
     ) -> EntityDoesNotExistDetails {
-        return EntityDoesNotExistDetails {
+        EntityDoesNotExistDetails {
             #[cfg(feature = "track_location")]
             location: self.entity_get_spawned_or_despawned_by(_entity),
-        };
+        }
     }
 }
 
