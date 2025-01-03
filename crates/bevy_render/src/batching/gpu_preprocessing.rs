@@ -222,11 +222,22 @@ where
         if (uniform_index as usize) < self.buffer.len()
             || !self.free_uniform_indices.contains(&uniform_index)
         {
-            Some(self.buffer.values()[uniform_index as usize])
+            Some(self.get_unchecked(uniform_index))
         } else {
             None
         }
     }
+
+    /// Returns the piece of buffered data at the given index.
+    /// 
+    /// # Safety
+    /// `uniform_index` should be within the bounds of [`Self::buffer`]
+    /// 
+    /// Can return data that has previously been removed.
+    pub fn get_unchecked(&self, uniform_index: u32) -> BDI {
+        self.buffer.values()[uniform_index as usize]
+    }
+
     /// Stores a piece of buffered data at the given index.
     pub fn set(&mut self, uniform_index: u32, element: BDI) {
         self.buffer.values_mut()[uniform_index as usize] = element;
