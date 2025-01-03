@@ -1,7 +1,10 @@
 //! This modules defins and implements links between worlds.
 //! This allows a system to have [`SystemParam`](crate::system::SystemParam)s that link to other worlds besides the world the system lives in.
 
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use crate::{
     archetype::ArchetypeGeneration,
@@ -9,7 +12,7 @@ use crate::{
     system::{SystemMeta, SystemParam, SystemParamItem},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, World, WorldId};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, WorldId};
 
 /// This trait allows a link to be made between a two worlds via a system. One world can hold a nested world via this link.
 pub trait WorldLink: Send + Sync + 'static {
@@ -153,5 +156,39 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         };
         // Safety: See [`Link::inner`]
         P::validate_param(&state.0, system_meta, unsafe { link.0.get_unsafe_world() })
+    }
+}
+
+/// Allows viewing a link
+pub struct LinkPeek<'w, L: WorldLink>(Mut<'w, Link<L>>);
+
+impl World {
+    /// Links this world to another one. This is one way. You can use the link in systems via [`Linked`]
+    pub fn link<L: WorldLink>(&mut self, link: L) {
+        self.insert_resource(Link(link));
+    }
+
+    /// Removes the world link of this type if it was linked. Note that if a system with [`Linked`] depends on this and is run, it will panic.
+    pub fn unlink<L: WorldLink>(&mut self) {
+        self.remove_resource::<Link<L>>();
+    }
+
+    /// Allows modification of an active world link. Returns `None` if the link was not active.
+    pub fn peek_link<'w, L: WorldLink>(&'w mut self) -> Option<LinkPeek<'w, L>> {
+        self.get_resource_mut::<Link<L>>().map(LinkPeek)
+    }
+}
+
+impl<L: WorldLink> Deref for LinkPeek<'_, L> {
+    type Target = L;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0 .0
+    }
+}
+
+impl<L: WorldLink> DerefMut for LinkPeek<'_, L> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0 .0
     }
 }
