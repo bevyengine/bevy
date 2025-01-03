@@ -11,7 +11,7 @@ use crate::{
     change_detection::Mut,
     component::{Component, ComponentId, ComponentInfo, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
-    event::{Event, SendEvent},
+    event::{Event, Events},
     observer::{Observer, TriggerTargets},
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
@@ -332,12 +332,12 @@ impl<'w, 's> Commands<'w, 's> {
     #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
     #[track_caller]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.get_or_spawn_with_caller(
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -547,13 +547,13 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             SpawnBatchIter::new(
                 world,
                 bundles_iter.into_iter(),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -633,12 +633,12 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
@@ -812,12 +812,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             world.insert_resource_with_caller(
                 resource,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         });
@@ -1060,10 +1060,15 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`EventWriter`]: crate::event::EventWriter
     #[track_caller]
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.queue(SendEvent {
-            event,
-            #[cfg(feature = "track_change_detection")]
-            caller: Location::caller(),
+        #[cfg(feature = "track_location")]
+        let caller = Location::caller();
+        self.queue(move |world: &mut World| {
+            let mut events = world.resource_mut::<Events<E>>();
+            events.send_with_caller(
+                event,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
         });
         self
     }
@@ -2137,7 +2142,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
                 entity.insert_with_caller(
                     value,
                     InsertMode::Keep,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
             } else {
@@ -2185,13 +2190,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2207,13 +2212,13 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |world: &mut World| {
         world.try_insert_batch_with_caller(
             batch,
             mode,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2243,7 +2248,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
             entity.insert_with_caller(
                 bundle,
                 mode,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         } else {
@@ -2256,14 +2261,14 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
 /// Does nothing if the entity does not exist.
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -2279,7 +2284,7 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };
-    use alloc::sync::Arc;
+    use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use core::{
         any::TypeId,
         sync::atomic::{AtomicUsize, Ordering},

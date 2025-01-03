@@ -189,7 +189,7 @@ mod tests {
         use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
         use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
         use crate::{ReflectFromReflect, TypePath};
-        use alloc::sync::Arc;
+        use alloc::{format, string::String, sync::Arc, vec, vec::Vec};
         use bevy_reflect_derive::reflect_trait;
         use core::any::TypeId;
         use core::fmt::{Debug, Formatter};

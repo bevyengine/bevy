@@ -1,8 +1,5 @@
 use crate::func::{DynamicFunction, ReflectFn, TypedFunction};
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// A trait for types that can be converted into a [`DynamicFunction`].
 ///
 /// This trait is automatically implemented for any type that implements

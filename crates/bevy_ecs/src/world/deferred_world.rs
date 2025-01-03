@@ -14,7 +14,7 @@ use crate::{
     world::{error::EntityFetchError, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -82,6 +82,88 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_entity(entity)?.get_mut() }
     }
 
+    /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
+    /// runs the provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
+    #[inline]
+    pub(crate) fn modify_component<T: Component, R>(
+        &mut self,
+        entity: Entity,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Result<Option<R>, EntityFetchError> {
+        // If the component is not registered, then it doesn't exist on this entity, so no action required.
+        let Some(component_id) = self.component_id::<T>() else {
+            return Ok(None);
+        };
+
+        let entity_cell = match self.get_entity_mut(entity) {
+            Ok(cell) => cell,
+            Err(EntityFetchError::AliasedMutability(..)) => {
+                return Err(EntityFetchError::AliasedMutability(entity))
+            }
+            Err(EntityFetchError::NoSuchEntity(..)) => {
+                return Err(EntityFetchError::NoSuchEntity(entity, self.world))
+            }
+        };
+
+        if !entity_cell.contains::<T>() {
+            return Ok(None);
+        }
+
+        let archetype = &raw const *entity_cell.archetype();
+
+        // SAFETY:
+        // - DeferredWorld ensures archetype pointer will remain valid as no
+        //   relocations will occur.
+        // - component_id exists on this world and this entity
+        // - ON_REPLACE is able to accept ZST events
+        unsafe {
+            let archetype = &*archetype;
+            self.trigger_on_replace(archetype, entity, [component_id].into_iter());
+            if archetype.has_replace_observer() {
+                self.trigger_observers(ON_REPLACE, entity, [component_id].into_iter());
+            }
+        }
+
+        let mut entity_cell = self
+            .get_entity_mut(entity)
+            .expect("entity access confirmed above");
+
+        // SAFETY: we will run the required hooks to simulate removal/replacement.
+        let mut component = unsafe {
+            entity_cell
+                .get_mut_assume_mutable::<T>()
+                .expect("component access confirmed above")
+        };
+
+        let result = f(&mut component);
+
+        // Simulate adding this component by updating the relevant ticks
+        *component.ticks.added = *component.ticks.changed;
+
+        // SAFETY:
+        // - DeferredWorld ensures archetype pointer will remain valid as no
+        //   relocations will occur.
+        // - component_id exists on this world and this entity
+        // - ON_REPLACE is able to accept ZST events
+        unsafe {
+            let archetype = &*archetype;
+            self.trigger_on_insert(archetype, entity, [component_id].into_iter());
+            if archetype.has_insert_observer() {
+                self.trigger_observers(ON_INSERT, entity, [component_id].into_iter());
+            }
+        }
+
+        Ok(Some(result))
+    }
+
     /// Returns [`EntityMut`]s that expose read and write operations for the
     /// given `entities`, returning [`Err`] if any of the given entities do not
     /// exist. Instead of immediately unwrapping the value returned from this
@@ -110,6 +192,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityMut`]: crate::world::EntityMut
     /// [`&EntityHashSet`]: crate::entity::EntityHashSet
     /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -241,6 +324,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityMut`]: crate::world::EntityMut
     /// [`&EntityHashSet`]: crate::entity::EntityHashSet
     /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()

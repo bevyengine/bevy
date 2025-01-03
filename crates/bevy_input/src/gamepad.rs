@@ -1760,6 +1760,7 @@ mod tests {
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
+    use alloc::string::ToString;
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;

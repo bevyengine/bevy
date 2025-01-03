@@ -141,17 +141,17 @@ impl Srgba {
             3 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b) = (l & 0x0F, (b & 0xF0) >> 4, b & 0x0F);
-                Ok(Self::rgb_u8(r << 4 | r, g << 4 | g, b << 4 | b))
+                Ok(Self::rgb_u8((r << 4) | r, (g << 4) | g, (b << 4) | b))
             }
             // RGBA
             4 => {
                 let [l, b] = u16::from_str_radix(hex, 16)?.to_be_bytes();
                 let (r, g, b, a) = ((l & 0xF0) >> 4, l & 0xF, (b & 0xF0) >> 4, b & 0x0F);
                 Ok(Self::rgba_u8(
-                    r << 4 | r,
-                    g << 4 | g,
-                    b << 4 | b,
-                    a << 4 | a,
+                    (r << 4) | r,
+                    (g << 4) | g,
+                    (b << 4) | b,
+                    (a << 4) | a,
                 ))
             }
             // RRGGBB
