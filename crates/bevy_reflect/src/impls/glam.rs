@@ -10,7 +10,10 @@ macro_rules! reflect_enum {
         impl_reflect!($(#[$meta])* enum $ident { $($ty)* });
 
         #[assert_type_match($ident, test_only)]
-        #[allow(clippy::upper_case_acronyms)]
+        #[expect(
+            clippy::upper_case_acronyms,
+            reason = "The variants used are not acronyms."
+        )]
         enum $ident { $($ty)* }
     };
 }
@@ -378,7 +381,7 @@ impl_reflect_opaque!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
 
 #[cfg(test)]
 mod tests {
-    use alloc::format;
+    use alloc::{format, string::String};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,

@@ -9,7 +9,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! Representations of colors in various color spaces.
 //!
@@ -94,6 +94,9 @@
 //! println!("Srgba: {:?}", srgba);
 //! println!("Hsla: {:?}", hsla);
 //! ```
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
