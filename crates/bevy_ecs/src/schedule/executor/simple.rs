@@ -1,7 +1,11 @@
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
+
 #[cfg(feature = "trace")]
 use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
 
 use crate::{
     schedule::{

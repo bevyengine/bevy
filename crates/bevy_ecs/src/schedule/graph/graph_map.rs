@@ -393,6 +393,7 @@ impl CompactNodeIdPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     /// The `Graph` type _must_ preserve the order that nodes are inserted in if
     /// no removals occur. Removals are permitted to swap the latest node into the
@@ -436,7 +437,7 @@ mod tests {
         assert_eq!(graph.nodes().collect::<Vec<_>>(), vec![]);
     }
 
-    /// Nodes that have bidrectional edges (or any edge in the case of undirected graphs) are
+    /// Nodes that have bidirectional edges (or any edge in the case of undirected graphs) are
     /// considered strongly connected. A strongly connected component is a collection of
     /// nodes where there exists a path from any node to any other node in the collection.
     #[test]

@@ -3766,7 +3766,13 @@ mod tests {
         system::Resource,
         world::error::EntityFetchError,
     };
-    use alloc::sync::Arc;
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::Component;
     use bevy_utils::{HashMap, HashSet};
     use core::{
@@ -3774,7 +3780,7 @@ mod tests {
         panic,
         sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
-    use std::sync::Mutex;
+    use std::{println, sync::Mutex};
 
     // For bevy_ecs_macros
     use crate as bevy_ecs;
