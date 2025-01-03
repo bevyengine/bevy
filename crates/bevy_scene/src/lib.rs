@@ -13,7 +13,6 @@
 
 extern crate alloc;
 
-mod bundle;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
@@ -29,7 +28,6 @@ pub mod serde;
 pub use bevy_asset::ron;
 
 use bevy_ecs::schedule::IntoSystemConfigs;
-pub use bundle::*;
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;

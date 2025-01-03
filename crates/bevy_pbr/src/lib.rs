@@ -24,7 +24,7 @@ pub mod experimental {
     }
 }
 
-mod bundle;
+mod components;
 mod cluster;
 pub mod deferred;
 mod extended_material;
@@ -47,7 +47,7 @@ use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 
-pub use bundle::*;
+pub use components::*;
 pub use cluster::*;
 pub use extended_material::*;
 pub use fog::*;
