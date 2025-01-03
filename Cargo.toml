@@ -2125,7 +2125,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.state_scoped]
 name = "State Scoped"
-description = "Show how to use state scoped systems"
+description = "Shows how to use a game state enum to run systems during state transitions."
 category = "ECS (Entity Component System)"
 wasm = false
 

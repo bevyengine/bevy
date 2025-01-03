@@ -1,4 +1,8 @@
-//! Shows how to use state scoped systems.
+//! Shows how to use a game state enum to run systems during state transitions.
+//! A simple to understand, yet powerful pattern is to pre-define certain game states.
+//! During transitions between states, entities often need to be created which are
+//! only meant to exist during a given state. This example shows how that is supposed
+//! to look, can can be easily adapted for real use cases.
 
 use bevy::prelude::*;
 
