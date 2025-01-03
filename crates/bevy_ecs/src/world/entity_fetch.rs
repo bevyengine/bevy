@@ -21,7 +21,7 @@ use crate::{
 ///
 /// # Performance
 ///
-/// - The slice and array implementations perform an aliased mutabiltiy check
+/// - The slice and array implementations perform an aliased mutability check
 ///   in [`WorldEntityFetch::fetch_mut`] that is `O(N^2)`.
 /// - The single [`Entity`] implementation performs no such check as only one
 ///   reference is returned.

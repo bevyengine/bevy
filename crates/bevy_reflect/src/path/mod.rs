@@ -507,6 +507,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
+    use alloc::vec;
 
     #[derive(Reflect)]
     struct A {

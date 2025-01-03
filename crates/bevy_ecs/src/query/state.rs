@@ -1882,6 +1882,7 @@ mod tests {
     use crate::{
         component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
     };
+    use alloc::vec::Vec;
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {
