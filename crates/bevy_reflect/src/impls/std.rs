@@ -2428,7 +2428,7 @@ mod tests {
         self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
-    use alloc::collections::BTreeMap;
+    use alloc::{collections::BTreeMap, string::String, vec};
     use bevy_utils::{Duration, HashMap, Instant};
     use core::f32::consts::{PI, TAU};
     use static_assertions::assert_impl_all;
