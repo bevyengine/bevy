@@ -471,9 +471,15 @@ mod easing_functions {
     // with blatantly more digits than needed (since rust will round them to the
     // nearest representable value anyway) rather than make it seem like the
     // truncated value is somehow carefully chosen.
-    #[allow(clippy::excessive_precision)]
+    #[expect(
+        clippy::excessive_precision,
+        reason = "This is deliberately more precise than an f32 will allow, as truncating the value might imply that the value is carefully chosen."
+    )]
     const LOG2_1023: f32 = 9.998590429745328646459226;
-    #[allow(clippy::excessive_precision)]
+    #[expect(
+        clippy::excessive_precision,
+        reason = "This is deliberately more precise than an f32 will allow, as truncating the value might imply that the value is carefully chosen."
+    )]
     const FRAC_1_1023: f32 = 0.00097751710654936461388074291;
     #[inline]
     pub(crate) fn exponential_in(t: f32) -> f32 {

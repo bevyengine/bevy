@@ -15,9 +15,6 @@ use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// An [`Arc`] containing a callback to a reflected function.
 ///
 /// The `Arc` is used to both ensure that it is `Send + Sync`
@@ -473,6 +470,7 @@ mod tests {
     use crate::func::signature::ArgumentSignature;
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
+    use alloc::{format, string::String, vec, vec::Vec};
     use bevy_utils::HashSet;
     use core::ops::Add;
 

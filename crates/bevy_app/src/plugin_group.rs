@@ -554,6 +554,7 @@ impl PluginGroup for NoopPluginGroup {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use core::{any::TypeId, fmt::Debug};
 
     use super::PluginGroupBuilder;

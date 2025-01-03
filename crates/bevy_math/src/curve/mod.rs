@@ -1005,6 +1005,7 @@ pub enum ResamplingError {
 mod tests {
     use super::*;
     use crate::{ops, Quat};
+    use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use core::f32::consts::TAU;
     use glam::*;
