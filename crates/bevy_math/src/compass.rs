@@ -360,7 +360,7 @@ mod test_compass_quadrant {
     }
 
     #[test]
-    fn oppposite_directions_reverse_themselves() {
+    fn opposite_directions_reverse_themselves() {
         for i in 0..4 {
             let quadrant = CompassQuadrant::from_index(i).unwrap();
             assert_eq!(-(-quadrant), quadrant);
