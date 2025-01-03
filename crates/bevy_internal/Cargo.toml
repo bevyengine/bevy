@@ -240,6 +240,12 @@ bevy_sprite_picking_backend = [
 # Provides a UI picking backend
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
+# Provides a Text2d picking backend
+bevy_text2d_picking_backend = [
+  "bevy_picking",
+  "bevy_text/bevy_text2d_picking_backend",
+]
+
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
 
