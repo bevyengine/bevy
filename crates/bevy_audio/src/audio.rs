@@ -276,13 +276,19 @@ impl AudioPlayer<AudioSource> {
 )]
 // NOTE: When removing this, please remove the `#[expect(deprecated)]` at the top of this file.
 //
-// For whatever reason, this struct counts as a use of itself, causing rustc to lint about a use of
-// a deprecated struct. However, adding an `#[expect(deprecated)]` to this strict causes rustc to
-// say that the lint expectation is unfulfilled.
+// To explain: The `#[derive(Bundle)]` attached to this struct generates two trait impls. However,
+// trait impls count as a use of a deprecated struct (for some reason). Thus, rustc lints about the
+// use of a deprecated struct on the struct itself. Adding a `#[expect(deprecated)]` to the struct
+// does not fix this issue - and in fact, rustc will say that the lint expectation is unfulfilled.
 //
-// The only solution I could find to this was to mark the whole module as expecting a deprecated
-// lint. So, if this item is ever removed, please remove the `#[expect(deprecated)]` at the top of
-// this file.
+// I consider this to be an issue with rustc itself, as it shouldn't be linting about use of
+// deprecated structs on trait impls for those same structs (at least when the trait impls and the
+// struct live in the same crate). Thus, while I could modify the Bundle derive code to add
+// `#[allow(deprecated)]`, I don't believe it's a good idea.
+//
+// The only other solution I could find to this issue was to mark the whole module as expecting a
+// deprecated lint. So, if this item is ever removed, please remove the `#[expect(deprecated)]` at
+// the top of this file.
 pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
