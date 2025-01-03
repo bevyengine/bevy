@@ -359,10 +359,7 @@ pub fn extract_sprite_events(
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
-
-    for event in image_events.read() {
-        images.push(*event);
-    }
+    images.extend(image_events.read());
 }
 
 pub fn extract_sprites(

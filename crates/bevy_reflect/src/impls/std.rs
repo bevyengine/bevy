@@ -1132,17 +1132,18 @@ where
     }
 
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        // BTreeMap doesn't have a `drain` function. See
-        // https://github.com/rust-lang/rust/issues/81074. So we have to fake one by popping
-        // elements off one at a time.
-        let mut result = Vec::with_capacity(self.len());
-        while let Some((k, v)) = self.pop_first() {
-            result.push((
-                Box::new(k) as Box<dyn PartialReflect>,
-                Box::new(v) as Box<dyn PartialReflect>,
-            ));
-        }
-        result
+        // BTreeMap doesn't have a `drain` function, so one must be faked by popping one at a time.
+        // See https://github.com/rust-lang/rust/issues/81074
+        let mut tree = Self::new();
+        core::mem::swap(self, &mut tree);
+        tree.into_iter()
+            .map(|(k, v)| {
+                (
+                    Box::new(k) as Box<dyn PartialReflect>,
+                    Box::new(v) as Box<dyn PartialReflect>,
+                )
+            })
+            .collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {

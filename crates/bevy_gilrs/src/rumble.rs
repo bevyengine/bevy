@@ -6,6 +6,7 @@ use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_time::{Real, Time};
 use bevy_utils::{
+    prelude::*,
     synccell::SyncCell,
     tracing::{debug, warn},
     Duration, HashMap,
@@ -48,35 +49,44 @@ fn to_gilrs_magnitude(ratio: f32) -> u16 {
     (ratio * u16::MAX as f32) as u16
 }
 
-fn get_base_effects(
-    GamepadRumbleIntensity {
-        weak_motor,
-        strong_motor,
-    }: GamepadRumbleIntensity,
-    duration: Duration,
-) -> Vec<BaseEffect> {
-    let mut effects = Vec::new();
-    if strong_motor > 0. {
-        effects.push(BaseEffect {
+fn get_gamepad(
+    rumble: &GamepadRumbleRequest,
+    gilrs: &mut gilrs::Gilrs,
+    gamepads: &GilrsGamepads,
+) -> Result<GamepadId, RumbleError> {
+    let gamepad = rumble.gamepad();
+    let (gamepad_id, _) = gilrs
+        .gamepads()
+        .find(|(pad_id, _)| *pad_id == gamepads.get_gamepad_id(gamepad).unwrap())
+        .ok_or(RumbleError::GamepadNotFound)?;
+    Ok(gamepad_id)
+}
+
+fn build_base_effects(intensity: GamepadRumbleIntensity, duration: Duration) -> ff::EffectBuilder {
+    let mut effect_builder = ff::EffectBuilder::new();
+    if intensity.strong_motor > 0. {
+        effect_builder.add_effect(BaseEffect {
             kind: BaseEffectType::Strong {
-                magnitude: to_gilrs_magnitude(strong_motor),
+                magnitude: to_gilrs_magnitude(intensity.strong_motor),
             },
             scheduling: Replay {
                 play_for: duration.into(),
-                ..Default::default()
+                ..default()
             },
-            ..Default::default()
+            ..default()
         });
+        effect_builder.repeat(Repeat::For(duration.into()));
     }
-    if weak_motor > 0. {
-        effects.push(BaseEffect {
+    if intensity.weak_motor > 0. {
+        effect_builder.add_effect(BaseEffect {
             kind: BaseEffectType::Strong {
-                magnitude: to_gilrs_magnitude(weak_motor),
+                magnitude: to_gilrs_magnitude(intensity.weak_motor),
             },
-            ..Default::default()
+            ..default()
         });
+        effect_builder.repeat(Repeat::For(duration.into()));
     }
-    effects
+    effect_builder
 }
 
 fn handle_rumble_request(
@@ -86,34 +96,23 @@ fn handle_rumble_request(
     rumble: GamepadRumbleRequest,
     current_time: Duration,
 ) -> Result<(), RumbleError> {
-    let gamepad = rumble.gamepad();
-
-    let (gamepad_id, _) = gilrs
-        .gamepads()
-        .find(|(pad_id, _)| *pad_id == gamepads.get_gamepad_id(gamepad).unwrap())
-        .ok_or(RumbleError::GamepadNotFound)?;
-
+    let gamepad_id = get_gamepad(&rumble, gilrs, gamepads)?;
+    let rumbles = &mut running_rumbles.rumbles;
     match rumble {
         GamepadRumbleRequest::Stop { .. } => {
             // `ff::Effect` uses RAII, dropping = deactivating
-            running_rumbles.rumbles.remove(&gamepad_id);
+            rumbles.remove(&gamepad_id);
         }
         GamepadRumbleRequest::Add {
             duration,
             intensity,
             ..
         } => {
-            let mut effect_builder = ff::EffectBuilder::new();
-
-            for effect in get_base_effects(intensity, duration) {
-                effect_builder.add_effect(effect);
-                effect_builder.repeat(Repeat::For(duration.into()));
-            }
-
-            let effect = effect_builder.gamepads(&[gamepad_id]).finish(gilrs)?;
+            let effect = build_base_effects(intensity, duration)
+                .gamepads(&[gamepad_id])
+                .finish(gilrs)?;
             effect.play()?;
-
-            let gamepad_rumbles = running_rumbles.rumbles.entry(gamepad_id).or_default();
+            let gamepad_rumbles = rumbles.entry(gamepad_id).or_default();
             let deadline = current_time + duration;
             gamepad_rumbles.push(RunningRumble {
                 deadline,
@@ -121,9 +120,9 @@ fn handle_rumble_request(
             });
         }
     }
-
     Ok(())
 }
+
 pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
