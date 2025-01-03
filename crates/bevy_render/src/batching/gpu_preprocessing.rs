@@ -219,7 +219,9 @@ where
     ///
     /// Returns [`None`] if the index is out of bounds or the data is removed.
     pub fn get(&self, uniform_index: u32) -> Option<BDI> {
-        if (uniform_index as usize) < self.buffer.len() || !self.free_uniform_indices.contains(&uniform_index) {
+        if (uniform_index as usize) < self.buffer.len()
+            || !self.free_uniform_indices.contains(&uniform_index)
+        {
             Some(self.buffer.values()[uniform_index as usize])
         } else {
             None
