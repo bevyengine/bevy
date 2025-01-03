@@ -920,7 +920,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.remove(value))
+                    .is_some_and(|value| self.remove(value))
             }
 
             fn contains(&self, value: &dyn PartialReflect) -> bool {
@@ -931,7 +931,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.contains(value))
+                    .is_some_and(|value| self.contains(value))
             }
         }
 
@@ -2428,7 +2428,7 @@ mod tests {
         self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
-    use alloc::collections::BTreeMap;
+    use alloc::{collections::BTreeMap, string::String, vec};
     use bevy_utils::{Duration, HashMap, Instant};
     use core::f32::consts::{PI, TAU};
     use static_assertions::assert_impl_all;

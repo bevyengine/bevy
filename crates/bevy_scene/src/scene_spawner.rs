@@ -5,9 +5,9 @@ use bevy_ecs::{
     event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
-    world::{Command, Mut, World},
+    world::{Mut, World},
 };
-use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -375,18 +375,14 @@ impl SceneSpawner {
                     // the scene parent
                     if !world
                         .get_entity(entity)
+                        .ok()
                         // This will filter only the scene root entity, as all other from the
                         // scene have a parent
-                        .map(|entity| entity.contains::<Parent>())
-                        // Default is true so that it won't run on an entity that wouldn't exist anymore
+                        // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .unwrap_or(true)
+                        .is_none_or(|entity| entity.contains::<Parent>())
                     {
-                        AddChild {
-                            parent,
-                            child: entity,
-                        }
-                        .apply(world);
+                        world.entity_mut(parent).add_child(entity);
                     }
                 }
 

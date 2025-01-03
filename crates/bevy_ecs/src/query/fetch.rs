@@ -1322,9 +1322,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(not(feature = "track_location"))]
             (),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1350,7 +1350,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Ref {
@@ -1361,7 +1361,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: caller.deref(),
                 }
             },
@@ -1373,7 +1373,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: _caller.deref(),
                 }
             },
@@ -1521,9 +1521,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(not(feature = "track_location"))]
             (),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1549,7 +1549,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Mut {
@@ -1560,7 +1560,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: caller.deref_mut(),
                 }
             },
@@ -1572,7 +1572,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     changed_by: _caller.deref_mut(),
                 }
             },

@@ -43,7 +43,7 @@ bevy_debug_stepping = []
 
 ## Provides more detailed tracking of the cause of various effects within the ECS.
 ## This will often provide more detailed error messages.
-track_change_detection = []
+track_location = []
 
 # Executor Backend
 

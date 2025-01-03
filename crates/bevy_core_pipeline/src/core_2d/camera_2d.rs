@@ -10,7 +10,7 @@ use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
-        OrthographicProjection,
+        OrthographicProjection, Projection,
     },
     extract_component::ExtractComponent,
     prelude::Msaa,
@@ -27,7 +27,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
     Camera,
     DebandDither,
     CameraRenderGraph(|| CameraRenderGraph::new(Core2d)),
-    OrthographicProjection(OrthographicProjection::default_2d),
+    Projection(|| Projection::Orthographic(OrthographicProjection::default_2d())),
     Frustum(|| OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default()))),
     Tonemapping(|| Tonemapping::None),
 )]
@@ -41,7 +41,7 @@ pub struct Camera2d;
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
-    pub projection: OrthographicProjection,
+    pub projection: Projection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
     pub transform: Transform,
@@ -57,7 +57,7 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        let projection = OrthographicProjection::default_2d();
+        let projection = Projection::Orthographic(OrthographicProjection::default_2d());
         let transform = Transform::default();
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
@@ -88,10 +88,10 @@ impl Camera2dBundle {
     pub fn new_with_far(far: f32) -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
         // the camera's translation by far and use a right handed coordinate system
-        let projection = OrthographicProjection {
+        let projection = Projection::Orthographic(OrthographicProjection {
             far,
             ..OrthographicProjection::default_2d()
-        };
+        });
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
