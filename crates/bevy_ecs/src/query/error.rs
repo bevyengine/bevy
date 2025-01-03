@@ -37,7 +37,10 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 write!(f, "The entity with ID {entity} {details}")
             }
             Self::AliasedMutability(entity) => {
-                write!(f, "The entity with ID {entity} was requested mutably more than once")
+                write!(
+                    f,
+                    "The entity with ID {entity} was requested mutably more than once"
+                )
             }
         }
     }
