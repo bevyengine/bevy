@@ -34,7 +34,7 @@ pub enum SpritePickingMode {
 pub struct SpritePickingSettings {
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
-    /// Defaults to an incusive alpha threshold of 0.1
+    /// Defaults to an inclusive alpha threshold of 0.1
     pub picking_mode: SpritePickingMode,
 }
 

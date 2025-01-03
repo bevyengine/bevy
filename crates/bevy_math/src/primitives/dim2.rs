@@ -2242,9 +2242,9 @@ mod tests {
         let mut rotated_vertices = polygon.vertices(core::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
-        let side_sistance = FRAC_1_SQRT_2;
+        let side_distance = FRAC_1_SQRT_2;
         assert!(
-            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_distance, side_distance)).length()
                 < 1e-7,
         );
     }

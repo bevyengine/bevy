@@ -50,7 +50,7 @@ impl Component for ObservedBy {
 
 /// Trait that holds functions for configuring interaction with observers during entity cloning.
 pub trait CloneEntityWithObserversExt {
-    /// Sets the option to automatically add cloned entities to the obsevers targeting source entity.
+    /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     fn add_observers(&mut self, add_observers: bool) -> &mut Self;
 }
 

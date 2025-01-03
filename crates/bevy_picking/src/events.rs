@@ -393,7 +393,7 @@ pub struct PickingEventWriters<'w> {
 /// Both [`Click`] and [`Released`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
 /// on the frame they are released. The end effect is that these two events can
-/// be received sequentally after an [`Out`] event (but always on the same frame
+/// be received sequentially after an [`Out`] event (but always on the same frame
 /// as the [`Out`] event).
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain
