@@ -114,6 +114,11 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     fn default_system_sets(&self) -> Vec<crate::schedule::InternedSystemSet> {
         self.0.default_system_sets()
     }
+
+    #[inline(always)]
+    fn yielded(&self) -> bool {
+        self.0.yielded()
+    }
 }
 
 /// Type alias for a `BoxedSystem` that a `Schedule` can store.
