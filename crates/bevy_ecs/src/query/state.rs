@@ -24,26 +24,35 @@ use super::{
     QueryManyUniqueIter, QuerySingleError, ROQueryItem,
 };
 
-/// An ID for either a table or an archetype. Used for Query iteration.
-///
-/// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
-///
-/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
-/// any combination of their values can happen.
-///
-/// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
-/// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
-/// removes the need for discriminator to minimize memory usage and branching during iteration, but requires
-/// a safety invariant be verified when disambiguating them.
-///
-/// # Safety
-/// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
-/// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
-#[derive(Clone, Copy)]
-pub(super) union StorageId {
-    pub(super) table_id: TableId,
-    pub(super) archetype_id: ArchetypeId,
+/// A collection of storage IDs that all have the same type, so instead of storing `StorageId` and
+/// checking the discriminator repeatedly, this enum "factors out" the discriminator so that
+/// callers can perform one match once before accessing the underlying storage IDs.
+#[derive(Clone)]
+pub(super) enum StorageIds {
+    Archetypes(Vec<ArchetypeId>),
+    Tables(Vec<TableId>),
+}
+
+impl StorageIds {
+    /// Utility to create `StorageIds` with the correct variant automatically based on the
+    /// type parameters being used by a Query. Effectively determines whether all data accessed
+    /// by the query is "dense" (can be safely iterated only by iterating tables).
+    fn new_from_query_types<D: QueryData, F: QueryFilter>() -> Self {
+        Self::new_from_dense_flag(D::IS_DENSE && F::IS_DENSE)
+    }
+
+    /// Utility to create `StorageIds` with the correct variant based on the caller already having
+    /// determined whether the associated Query is "dense".
+    fn new_from_dense_flag(dense: bool) -> Self {
+        match dense {
+            true => Self::Tables(Vec::new()),
+            false => Self::Archetypes(Vec::new()),
+        }
+    }
+
+    fn is_tables(&self) -> bool {
+        matches!(self, Self::Tables(_))
+    }
 }
 
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
@@ -72,11 +81,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
     pub(crate) component_access: FilteredAccess<ComponentId>,
-    // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
-    pub(super) matched_storage_ids: Vec<StorageId>,
-    // Represents whether this query iteration is dense or not. When this is true
-    // `matched_storage_ids` stores `TableId`s, otherwise it stores `ArchetypeId`s.
-    pub(super) is_dense: bool,
+    pub(super) storage_ids: StorageIds,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
@@ -256,15 +261,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
-        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
-        // of its static type parameters.
-        let is_dense = D::IS_DENSE && F::IS_DENSE;
-
         Self {
             world_id,
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_storage_ids: Vec::new(),
-            is_dense,
+            storage_ids: StorageIds::new_from_query_types::<D, F>(),
             fetch_state,
             filter_state,
             component_access,
@@ -288,9 +288,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
-            matched_storage_ids: Vec::new(),
-            // For dynamic queries the dense-ness is given by the query builder.
-            is_dense: builder.is_dense(),
+            storage_ids: StorageIds::new_from_dense_flag(builder.is_dense()),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),
@@ -519,19 +517,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                if !self.is_dense {
-                    self.matched_storage_ids.push(StorageId {
-                        archetype_id: archetype.id(),
-                    });
+                if let StorageIds::Archetypes(ref mut archetype_ids) = self.storage_ids {
+                    archetype_ids.push(archetype.id());
                 }
             }
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                if self.is_dense {
-                    self.matched_storage_ids.push(StorageId {
-                        table_id: archetype.table_id(),
-                    });
+                if let StorageIds::Tables(ref mut table_ids) = self.storage_ids {
+                    table_ids.push(archetype.table_id());
                 }
             }
             true
@@ -652,8 +646,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
+            storage_ids: self.storage_ids.clone(),
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -748,34 +741,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         // the join is dense of both the queries were dense.
-        let is_dense = self.is_dense && other.is_dense;
+        let is_iterating_tables = self.storage_ids.is_tables() && other.storage_ids.is_tables();
 
         // take the intersection of the matched ids
         let mut matched_tables = self.matched_tables.clone();
         let mut matched_archetypes = self.matched_archetypes.clone();
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
-        let matched_storage_ids = if is_dense {
-            matched_tables
-                .ones()
-                .map(|id| StorageId {
-                    table_id: TableId::from_usize(id),
-                })
-                .collect()
+        let storage_ids = if is_iterating_tables {
+            StorageIds::Tables(matched_tables.ones().map(TableId::from_usize).collect())
         } else {
-            matched_archetypes
-                .ones()
-                .map(|id| StorageId {
-                    archetype_id: ArchetypeId::new(id),
-                })
-                .collect()
+            StorageIds::Archetypes(matched_archetypes.ones().map(ArchetypeId::new).collect())
         };
 
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
-            matched_storage_ids,
-            is_dense,
+            storage_ids,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -1643,8 +1625,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[allow(clippy::too_many_arguments)]
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT, I>(
         &self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
@@ -1652,23 +1635,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         func: FN,
         last_run: Tick,
         this_run: Tick,
+        storage_ids: &[I::StorageId],
     ) where
         FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
+        I: IterationType,
+        I::StorageId: Copy + Send,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
-            let tables = unsafe { &world.storages().tables };
-            let archetypes = world.archetypes();
+            let iter_state = I::init_state(world);
             let mut batch_queue = ArrayVec::new();
             let mut queue_entity_count = 0;
 
             // submit a list of storages which smaller than batch_size as single task
-            let submit_batch_queue = |queue: &mut ArrayVec<StorageId, 128>| {
+            let submit_batch_queue = |queue: &mut ArrayVec<I::StorageId, 128>| {
                 if queue.is_empty() {
                     return;
                 }
@@ -1681,13 +1665,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
+                        accum = I::fold_over_storage_range_by_id(
+                            &mut iter, accum, &mut func, storage_id, None,
+                        );
                     }
                 });
             };
 
             // submit single storage larger than batch_size
-            let submit_single = |count, storage_id: StorageId| {
+            let submit_single = |count, storage_id: I::StorageId| {
                 for offset in (0..count).step_by(batch_size) {
                     let mut func = func.clone();
                     let init_accum = init_accum.clone();
@@ -1697,22 +1683,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        self.iter_unchecked_manual(world, last_run, this_run)
-                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
+                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                        I::fold_over_storage_range_by_id(
+                            &mut iter,
+                            accum,
+                            &mut func,
+                            storage_id,
+                            Some(batch),
+                        );
                     });
                 }
             };
 
-            let storage_entity_count = |storage_id: StorageId| -> usize {
-                if self.is_dense {
-                    tables[storage_id.table_id].entity_count()
-                } else {
-                    archetypes[storage_id.archetype_id].len()
-                }
-            };
-
-            for storage_id in &self.matched_storage_ids {
-                let count = storage_entity_count(*storage_id);
+            for storage_id in storage_ids.iter().copied() {
+                let count = I::entity_count(&iter_state, storage_id);
 
                 // skip empty storage
                 if count == 0 {
@@ -1720,11 +1704,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
                 // immediately submit large storage
                 if count >= batch_size {
-                    submit_single(count, *storage_id);
+                    submit_single(count, storage_id);
                     continue;
                 }
                 // merge small storage
-                batch_queue.push(*storage_id);
+                batch_queue.push(storage_id);
                 queue_entity_count += count;
 
                 // submit batch_queue
@@ -1868,6 +1852,115 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 Self,
             >())),
         }
+    }
+}
+
+/// Abstraction over a method of iterating entities, e.g. by Table or by Archetype. This
+/// allows code to be generic over the iteration mode without branching regularly.
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) trait IterationType {
+    /// State captured from the world at the start of iteration
+    type State<'w>;
+    /// ID used to address a particular storage during iteration
+    type StorageId;
+
+    /// Capture initial state from the world needed for iteration
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_>;
+
+    /// Queries the number of entities within the addressed storage
+    fn entity_count(state: &Self::State<'_>, id: Self::StorageId) -> usize;
+
+    /// Implements fold operation on a subset of entities from the specified storage,
+    /// given a pre-constructed `QueryIter`.
+    ///
+    /// # Safety
+    ///
+    /// - Caller must ensure the selected implementation of this trait matches the
+    ///   expected iteration type of the `QueryIter`.
+    /// - Range must be `[0..entity_count)` for the number of entities in the addressed storage.
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter;
+}
+
+/// Represents iterating entities by Table
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) struct TableIteration;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+impl IterationType for TableIteration {
+    type State<'w> = &'w crate::storage::Tables;
+    type StorageId = TableId;
+
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_> {
+        // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
+        unsafe { &world.storages().tables }
+    }
+
+    fn entity_count(state: &Self::State<'_>, id: Self::StorageId) -> usize {
+        state[id].entity_count()
+    }
+
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter,
+    {
+        // SAFETY:
+        // - Caller ensures that table iteration is valid for this query
+        // - Caller ensures the range is valid
+        unsafe { iter.fold_over_table_range_by_id(accum, func, storage_id, range) }
+    }
+}
+
+/// Represents iterating entities by Archetype
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+pub(crate) struct ArchetypeIteration;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+impl IterationType for ArchetypeIteration {
+    type State<'w> = &'w crate::archetype::Archetypes;
+    type StorageId = ArchetypeId;
+
+    fn init_state(world: UnsafeWorldCell) -> Self::State<'_> {
+        world.archetypes()
+    }
+
+    fn entity_count(state: &Self::State<'_>, id: ArchetypeId) -> usize {
+        state[id].len()
+    }
+
+    unsafe fn fold_over_storage_range_by_id<'w, 's, D, F, T, FN>(
+        iter: &mut QueryIter<'w, 's, D, F>,
+        accum: T,
+        func: &mut FN,
+        storage_id: Self::StorageId,
+        range: Option<core::ops::Range<usize>>,
+    ) -> T
+    where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        D: QueryData,
+        F: QueryFilter,
+    {
+        // SAFETY:
+        // - Caller ensures that archetype iteration is valid for this query
+        // - Caller ensures the range is valid
+        unsafe { iter.fold_over_archetype_range_by_id(accum, func, storage_id, range) }
     }
 }
 

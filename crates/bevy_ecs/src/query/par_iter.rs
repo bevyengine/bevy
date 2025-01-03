@@ -1,8 +1,11 @@
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::state::{ArchetypeIteration, StorageIds, TableIteration};
 use crate::{
-    batching::BatchingStrategy, component::Tick, world::unsafe_world_cell::UnsafeWorldCell,
+    batching::BatchingStrategy,
+    component::Tick,
+    query::{QueryData, QueryFilter, QueryItem, QueryState},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
-
-use super::{QueryData, QueryFilter, QueryItem, QueryState};
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
@@ -107,16 +110,37 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             } else {
                 // Need a batch size of at least 1.
                 let batch_size = self.get_batch_size(thread_count).max(1);
-                // SAFETY: See the safety comment above.
-                unsafe {
-                    self.state.par_fold_init_unchecked_manual(
-                        init,
-                        self.world,
-                        batch_size,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                match &self.state.storage_ids {
+                    StorageIds::Tables(table_ids) => {
+                        // SAFETY: See the safety comment above.
+                        unsafe {
+                            self.state
+                                .par_fold_init_unchecked_manual::<T, _, INIT, TableIteration>(
+                                    init,
+                                    self.world,
+                                    batch_size,
+                                    func,
+                                    self.last_run,
+                                    self.this_run,
+                                    table_ids,
+                                );
+                        }
+                    }
+                    StorageIds::Archetypes(archetype_ids) => {
+                        // SAFETY: See the safety comment above.
+                        unsafe {
+                            self.state
+                                .par_fold_init_unchecked_manual::<T, _, INIT, ArchetypeIteration>(
+                                    init,
+                                    self.world,
+                                    batch_size,
+                                    func,
+                                    self.last_run,
+                                    self.this_run,
+                                    archetype_ids,
+                                );
+                        }
+                    }
                 }
             }
         }
@@ -124,21 +148,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
+        use crate::query::StorageIds;
+
         let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
-            if self.state.is_dense {
-                // SAFETY: We only access table metadata.
-                let tables = unsafe { &self.world.world_metadata().storages().tables };
-                id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                    .map(|id| unsafe { tables[id.table_id].entity_count() })
-                    .max()
-            } else {
-                let archetypes = &self.world.archetypes();
-                id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
-                    .max()
+            match &self.state.storage_ids {
+                StorageIds::Tables(table_ids) => {
+                    // SAFETY: We only access table metadata.
+                    let tables = unsafe { &self.world.world_metadata().storages().tables };
+                    table_ids.iter().map(|id| tables[*id].entity_count()).max()
+                }
+                StorageIds::Archetypes(archetype_ids) => {
+                    let archetypes = &self.world.archetypes();
+                    archetype_ids.iter().map(|id| archetypes[*id].len()).max()
+                }
             }
             .unwrap_or(0)
         };
