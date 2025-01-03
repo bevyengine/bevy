@@ -193,3 +193,58 @@ impl<L: WorldLink> DerefMut for LinkPeek<'_, L> {
         &mut self.0 .0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as bevy_ecs, prelude::Schedule, system::RunSystemOnce};
+    use bevy_ecs_macros::{Component, Resource};
+
+    use crate::system::{Query, ResMut};
+
+    use super::*;
+
+    struct NestedWorld(World);
+
+    #[derive(Resource)]
+    struct MyRes;
+
+    #[derive(Component)]
+    struct MyComponent;
+
+    impl WorldLink for NestedWorld {
+        fn get_world_mut(&mut self) -> &mut World {
+            &mut self.0
+        }
+
+        unsafe fn get_unsafe_world(&self) -> UnsafeWorldCell {
+            UnsafeWorldCell::new_readonly(&self.0)
+        }
+    }
+
+    #[test]
+    fn test_example_usage() {
+        let mut main = World::new();
+        main.insert_resource(MyRes);
+        main.link(NestedWorld(World::new()));
+        main.peek_link::<NestedWorld>()
+            .unwrap()
+            .deref_mut()
+            .0
+            .insert_resource(MyRes);
+
+        fn my_system(
+            _main_res: ResMut<MyRes>,
+            _main_query: Query<&mut MyComponent>,
+            _nested_res: Linked<NestedWorld, ResMut<MyRes>>,
+            _nested_query: Linked<NestedWorld, Query<&'static mut MyComponent>>,
+        ) {
+            // would do stuff here
+        }
+
+        main.run_system_once(my_system).unwrap();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_system);
+        schedule.run(&mut main);
+    }
+}
