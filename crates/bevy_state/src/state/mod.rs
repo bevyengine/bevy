@@ -17,6 +17,7 @@ pub use transitions::*;
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use bevy_ecs::{event::EventRegistry, prelude::*};
     use bevy_state_macros::{States, SubStates};
 

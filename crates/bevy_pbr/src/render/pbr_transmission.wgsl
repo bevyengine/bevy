@@ -15,7 +15,7 @@
 #endif
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
-    // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh
+    // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
     // Calculate incidence vector (opposite to view vector) and its dot product with the mesh normal
@@ -26,7 +26,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let k = 1.0 - eta * eta * (1.0 - NdotI * NdotI);
     let T = eta * I - (eta * NdotI + sqrt(k)) * N;
 
-    // Calculate the exit position of the refracted ray, by propagating refacted direction through thickness
+    // Calculate the exit position of the refracted ray, by propagating refracted direction through thickness
     let exit_position = world_position.xyz + T * thickness;
 
     // Transform exit_position into clip space
