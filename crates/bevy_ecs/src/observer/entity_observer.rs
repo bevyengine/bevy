@@ -54,7 +54,7 @@ pub trait CloneEntityWithObserversExt {
     fn add_observers(&mut self, add_observers: bool) -> &mut Self;
 }
 
-impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
+impl<'w> CloneEntityWithObserversExt for EntityCloneBuilder<'w> {
     fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
             self.override_component_clone_handler::<ObservedBy>(

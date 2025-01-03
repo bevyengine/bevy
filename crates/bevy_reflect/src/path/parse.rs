@@ -157,7 +157,7 @@ impl fmt::Display for Token<'_> {
         }
     }
 }
-impl<'a> Token<'a> {
+impl Token<'_> {
     const SYMBOLS: &'static [u8] = b".#[]";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
         match byte {

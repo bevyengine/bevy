@@ -39,7 +39,7 @@ fn _assert_send_sync_ui_surface_impl_safe() {
 }
 
 impl fmt::Debug for UiSurface {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
             .field("camera_entity_to_taffy", &self.camera_entity_to_taffy)

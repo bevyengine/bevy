@@ -19,7 +19,7 @@ pub(super) struct ListVisitor<'a, P> {
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
     type Value = DynamicList;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected list value")
     }
 

@@ -290,7 +290,7 @@ impl<'a> Iterator for VariantFieldIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
+impl ExactSizeIterator for VariantFieldIter<'_> {}
 
 pub enum VariantField<'a> {
     Struct(&'a str, &'a dyn PartialReflect),

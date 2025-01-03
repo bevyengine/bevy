@@ -16,7 +16,7 @@ pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> QueryParIter<'w, '_, D, F> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see

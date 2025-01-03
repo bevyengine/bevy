@@ -29,10 +29,10 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
     {
         struct TypeRegistrationVisitor<'a>(&'a TypeRegistry);
 
-        impl<'de, 'a> Visitor<'de> for TypeRegistrationVisitor<'a> {
+        impl<'a> Visitor<'_> for TypeRegistrationVisitor<'a> {
             type Value = &'a TypeRegistration;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
                 formatter.write_str("string containing `type` entry for the reflected value")
             }
 

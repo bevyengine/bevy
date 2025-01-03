@@ -248,10 +248,10 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 }
 
 // SAFETY: Only reads World removed component events
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
+unsafe impl ReadOnlySystemParam for &RemovedComponentEvents {}
 
 // SAFETY: no component value access.
-unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
+unsafe impl SystemParam for &RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
 

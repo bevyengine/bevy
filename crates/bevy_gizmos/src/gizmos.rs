@@ -184,7 +184,7 @@ where
 
 #[allow(unsafe_code)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
-unsafe impl<Config, Clear> SystemParam for Gizmos<'_, '_, Config, Clear>
+unsafe impl<'world, 'state, Config, Clear> SystemParam for Gizmos<'world, 'state, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

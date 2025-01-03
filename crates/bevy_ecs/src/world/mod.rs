@@ -177,7 +177,7 @@ impl Drop for World {
     }
 }
 
-impl World {
+impl<'w> World {
     /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
@@ -207,13 +207,13 @@ impl World {
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
     #[inline]
-    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+    pub fn as_unsafe_world_cell(&'w mut self) -> UnsafeWorldCell<'w> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
     #[inline]
-    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
+    pub fn as_unsafe_world_cell_readonly(&'w self) -> UnsafeWorldCell<'w> {
         UnsafeWorldCell::new_readonly(self)
     }
 
@@ -704,7 +704,7 @@ impl World {
     /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
+    pub fn entity<F: WorldEntityFetch>(&'w self, entities: F) -> F::Ref<'w> {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -842,7 +842,7 @@ impl World {
     /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     #[track_caller]
-    pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
+    pub fn entity_mut<F: WorldEntityFetch>(&'w mut self, entities: F) -> F::Mut<'w> {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -945,7 +945,7 @@ impl World {
     ///
     /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
-    pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
+    pub fn get_entity<F: WorldEntityFetch>(&'w self, entities: F) -> Result<F::Ref<'w>, Entity> {
         let cell = self.as_unsafe_world_cell_readonly();
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
         unsafe { entities.fetch_ref(cell) }
@@ -984,9 +984,9 @@ impl World {
     /// [`EntityHashSet`]: crate::entity::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
-        &mut self,
+        &'w mut self,
         entities: F,
-    ) -> Result<F::Mut<'_>, EntityFetchError> {
+    ) -> Result<F::Mut<'w>, EntityFetchError<'w>> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -997,7 +997,7 @@ impl World {
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
     #[inline]
-    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
+    pub fn iter_entities(&'w self) -> impl Iterator<Item = EntityRef<'w>> + 'w {
         self.archetypes.iter().flat_map(|archetype| {
             archetype
                 .entities()
@@ -1025,7 +1025,7 @@ impl World {
     }
 
     /// Returns a mutable iterator over all entities in the `World`.
-    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
+    pub fn iter_entities_mut(&'w mut self) -> impl Iterator<Item = EntityMut<'w>> + 'w {
         let world_cell = self.as_unsafe_world_cell();
         world_cell.archetypes().iter().flat_map(move |archetype| {
             archetype
@@ -1150,7 +1150,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     #[track_caller]
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+    pub fn spawn<B: Bundle>(&'w mut self, bundle: B) -> EntityWorldMut<'w> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1220,7 +1220,7 @@ impl World {
     /// assert_eq!(entities.len(), 2);
     /// ```
     #[track_caller]
-    pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
+    pub fn spawn_batch<I>(&'w mut self, iter: I) -> SpawnBatchIter<'w, I::IntoIter>
     where
         I: IntoIterator,
         I::Item: Bundle,
@@ -1250,7 +1250,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[inline]
-    pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
+    pub fn get<T: Component>(&'w self, entity: Entity) -> Option<&'w T> {
         self.get_entity(entity).ok()?.get()
     }
 
@@ -1610,7 +1610,7 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> impl Iterator<Item = Entity> + '_ {
+    pub fn removed<T: Component>(&'w self) -> impl Iterator<Item = Entity> + 'w {
         self.components
             .get_id(TypeId::of::<T>())
             .map(|component_id| self.removed_with_id(component_id))
@@ -1620,7 +1620,10 @@ impl World {
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
+    pub fn removed_with_id(
+        &'w self,
+        component_id: ComponentId,
+    ) -> impl Iterator<Item = Entity> + 'w {
         self.removed_components
             .get(component_id)
             .map(|removed| removed.iter_current_update_events().cloned())
@@ -1970,7 +1973,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
+    pub fn resource_ref<R: Resource>(&'w self) -> Ref<'w, R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -1994,7 +1997,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource>(&'w mut self) -> Mut<'w, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2018,7 +2021,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
+    pub fn get_resource_ref<R: Resource>(&'w self) -> Option<Ref<'w, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2027,7 +2030,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource>(&'w mut self) -> Option<Mut<'w, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -2052,9 +2055,9 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn get_resource_or_insert_with<R: Resource>(
-        &mut self,
+        &'w mut self,
         func: impl FnOnce() -> R,
-    ) -> Mut<'_, R> {
+    ) -> Mut<'w, R> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
@@ -2118,7 +2121,7 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource + FromWorld>(&'w mut self) -> Mut<'w, R> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
@@ -2171,7 +2174,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
+    pub fn non_send_resource<R: 'static>(&'w self) -> &'w R {
         match self.get_non_send_resource() {
             Some(x) => x,
             None => panic!(
@@ -2193,7 +2196,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+    pub fn non_send_resource_mut<R: 'static>(&'w mut self) -> Mut<'w, R> {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2211,7 +2214,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+    pub fn get_non_send_resource<R: 'static>(&'w self) -> Option<&'w R> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
@@ -2224,7 +2227,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_resource_mut<R: 'static>(&'w mut self) -> Option<Mut<'w, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access the entire world mutably
         // - `&mut self` ensures that there are no borrows of world data
@@ -3228,9 +3231,7 @@ impl World {
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()
     }
-}
 
-impl World {
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
@@ -3238,7 +3239,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
-    pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_resource_by_id(&'w self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
         // - `&self` ensures there are no mutable borrows on world data
@@ -3255,7 +3256,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
-    pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_resource_mut_by_id(
+        &'w mut self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
@@ -3351,7 +3355,7 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&'w self) -> impl Iterator<Item = (&'w ComponentInfo, Ptr<'w>)> {
         self.storages
             .resources
             .iter()
@@ -3432,7 +3436,9 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     #[inline]
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &'w mut self,
+    ) -> impl Iterator<Item = (&'w ComponentInfo, MutUntyped<'w>)> {
         self.storages
             .resources
             .iter()
@@ -3483,7 +3489,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_non_send_by_id(&'w self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access the whole world immutably
         // - `&self` ensures there are no mutable borrows on world data
@@ -3503,7 +3509,10 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_non_send_mut_by_id(
+        &'w mut self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
@@ -3517,7 +3526,7 @@ impl World {
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
-    pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+    pub fn remove_resource_by_id(&'w mut self, component_id: ComponentId) -> Option<()> {
         self.storages
             .resources
             .get_mut(component_id)?
@@ -3532,7 +3541,7 @@ impl World {
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
+    pub fn remove_non_send_by_id(&'w mut self, component_id: ComponentId) -> Option<()> {
         self.storages
             .non_send_resources
             .get_mut(component_id)?
@@ -3549,7 +3558,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub fn get_by_id(&'w self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY:
         // - `&self` ensures that all accessed data is not mutably aliased
         // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
@@ -3567,10 +3576,10 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_mut_by_id(
-        &mut self,
+        &'w mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'_>> {
+    ) -> Option<MutUntyped<'w>> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
@@ -3581,16 +3590,15 @@ impl World {
                 .ok()
         }
     }
-}
 
-// Schedule-related methods
-impl World {
+    // Schedule-related methods
+
     /// Adds the specified [`Schedule`] to the world. The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
-    pub fn add_schedule(&mut self, schedule: Schedule) {
+    pub fn add_schedule(&'w mut self, schedule: Schedule) {
         let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
     }
@@ -3683,7 +3691,7 @@ impl World {
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     pub fn try_run_schedule(
-        &mut self,
+        &'w mut self,
         label: impl ScheduleLabel,
     ) -> Result<(), TryRunScheduleError> {
         self.try_schedule_scope(label, |world, sched| sched.run(world))
@@ -3699,19 +3707,19 @@ impl World {
     /// # Panics
     ///
     /// If the requested schedule does not exist.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+    pub fn run_schedule(&'w mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
-    pub fn allow_ambiguous_component<T: Component>(&mut self) {
+    pub fn allow_ambiguous_component<T: Component>(&'w mut self) {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_component::<T>(self);
         self.insert_resource(schedules);
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
-    pub fn allow_ambiguous_resource<T: Resource>(&mut self) {
+    pub fn allow_ambiguous_resource<T: Resource>(&'w mut self) {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);
@@ -3719,7 +3727,7 @@ impl World {
 }
 
 impl fmt::Debug for World {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // SAFETY: `UnsafeWorldCell` requires that this must only access metadata.
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
@@ -3745,12 +3753,12 @@ unsafe impl Sync for World {}
 /// [`FromWorld`] is automatically implemented for any type implementing [`Default`].
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
-    fn from_world(world: &mut World) -> Self;
+    fn from_world<'w>(world: &'w mut World) -> Self;
 }
 
 impl<T: Default> FromWorld for T {
     /// Creates `Self` using [`default()`](`Default::default`).
-    fn from_world(_world: &mut World) -> Self {
+    fn from_world<'w>(_world: &'w mut World) -> Self {
         T::default()
     }
 }
