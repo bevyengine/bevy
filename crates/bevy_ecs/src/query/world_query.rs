@@ -122,7 +122,7 @@ pub unsafe trait WorldQuery {
     /// # Safety
     ///
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
+    ///   `table_row` must be in the range of the current table and archetype.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
