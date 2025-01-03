@@ -52,7 +52,7 @@ impl Default for TextNodeFlags {
 /// [`TextBundle`] was removed in favor of required components.
 /// The core component is now [`Text`] which can contain a single text segment.
 /// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).
+/// Additional segments can be added through children with [`TextSpan`].
 /// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
 /// while node-related configuration uses [`TextNodeFlags`] component.
 #[deprecated(
@@ -66,7 +66,7 @@ pub struct TextBundle {}
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`] for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
