@@ -60,14 +60,14 @@ pub unsafe trait WorldQuery {
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of this fetch.
-    /// Readonly accesses resourses registered in [`update_component_access`].
+    /// Readonly accesses resources registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
     ///
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
     /// - `world` must have the **right** to access any access registered in `update_component_access`.
-    /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`update_component_access`].
+    /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         state: &Self::State,
@@ -117,7 +117,7 @@ pub unsafe trait WorldQuery {
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
     /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
-    /// Accesses components registered in [`update_component_access`].
+    /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
     ///
