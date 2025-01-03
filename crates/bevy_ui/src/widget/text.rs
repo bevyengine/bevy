@@ -1,5 +1,3 @@
-use std::default;
-
 use crate::{
     ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
     NodeMeasure, TargetCamera, UiScale,
