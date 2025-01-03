@@ -274,7 +274,7 @@ impl AudioPlayer<AudioSource> {
     since = "0.15.0",
     note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
-// NOTE: When removing this, please remove the `#[expect(deprecated)]` at the top of this file.
+// NOTE: When removing this, please remove the `#![expect(deprecated)]` at the top of this file.
 //
 // To explain: The `#[derive(Bundle)]` attached to this struct generates two trait impls. However,
 // trait impls count as a use of a deprecated struct (for some reason). Thus, rustc lints about the
@@ -287,7 +287,7 @@ impl AudioPlayer<AudioSource> {
 // `#[allow(deprecated)]`, I don't believe it's a good idea.
 //
 // The only other solution I could find to this issue was to mark the whole module as expecting a
-// deprecated lint. So, if this item is ever removed, please remove the `#[expect(deprecated)]` at
+// deprecated lint. So, if this item is ever removed, please remove the `#![expect(deprecated)]` at
 // the top of this file.
 pub struct AudioSourceBundle<Source = AudioSource>
 where
