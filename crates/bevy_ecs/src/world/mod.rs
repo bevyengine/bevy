@@ -8,6 +8,7 @@ mod entity_ref;
 pub mod error;
 mod filtered_resource;
 mod identifier;
+pub mod links;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
