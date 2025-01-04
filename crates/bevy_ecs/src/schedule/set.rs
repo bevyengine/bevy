@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::{
     any::TypeId,
     fmt::Debug,

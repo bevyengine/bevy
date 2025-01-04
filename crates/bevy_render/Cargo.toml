@@ -40,7 +40,6 @@ bevy_color = { path = "../bevy_color", version = "0.15.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
@@ -79,11 +78,8 @@ naga = { version = "23", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "1", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
 ktx2 = { version = "0.3.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }
@@ -95,6 +91,7 @@ async-channel = "2.3.0"
 nonmax = "0.5"
 smallvec = { version = "1.11", features = ["const_new"] }
 offset-allocator = "0.2"
+variadics_please = "1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.

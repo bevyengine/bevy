@@ -1,28 +1,14 @@
-use crate::components::{Children, Parent};
-use bevy_ecs::{
-    entity::Entity,
-    system::EntityCommands,
-    world::{Command, EntityWorldMut, World},
+use crate::{
+    components::{Children, Parent},
+    BuildChildren,
 };
-use bevy_utils::tracing::debug;
-
-/// Despawns the given entity and all its children recursively
-#[derive(Debug)]
-pub struct DespawnRecursive {
-    /// Target entity
-    pub entity: Entity,
-    /// Whether or not this command should output a warning if the entity does not exist
-    pub warn: bool,
-}
-
-/// Despawns the given entity's children recursively
-#[derive(Debug)]
-pub struct DespawnChildrenRecursive {
-    /// Target entity
-    pub entity: Entity,
-    /// Whether or not this command should output a warning if the entity does not exist
-    pub warn: bool,
-}
+use bevy_ecs::{
+    component::ComponentCloneHandler,
+    entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
+    system::EntityCommands,
+    world::{DeferredWorld, EntityWorldMut, World},
+};
+use log::debug;
 
 /// Function for despawning an entity and all its children
 pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: bool) {
@@ -37,7 +23,7 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: 
     despawn_with_children_recursive_inner(world, entity, warn);
 }
 
-// Should only be called by `despawn_with_children_recursive` and `try_despawn_with_children_recursive`!
+// Should only be called by `despawn_with_children_recursive` and `despawn_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn: bool) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in core::mem::take(&mut children.0) {
@@ -47,10 +33,10 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn
 
     if warn {
         if !world.despawn(entity) {
-            debug!("Failed to despawn entity {:?}", entity);
+            debug!("Failed to despawn entity {}", entity);
         }
     } else if !world.try_despawn(entity) {
-        debug!("Failed to despawn entity {:?}", entity);
+        debug!("Failed to despawn entity {}", entity);
     }
 }
 
@@ -59,35 +45,6 @@ fn despawn_children_recursive(world: &mut World, entity: Entity, warn: bool) {
         for e in children.0 {
             despawn_with_children_recursive_inner(world, e, warn);
         }
-    }
-}
-
-impl Command for DespawnRecursive {
-    fn apply(self, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
-            "command",
-            name = "DespawnRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity),
-            warn = bevy_utils::tracing::field::debug(self.warn)
-        )
-        .entered();
-        despawn_with_children_recursive(world, self.entity, self.warn);
-    }
-}
-
-impl Command for DespawnChildrenRecursive {
-    fn apply(self, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
-            "command",
-            name = "DespawnChildrenRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity),
-            warn = bevy_utils::tracing::field::debug(self.warn)
-        )
-        .entered();
-
-        despawn_children_recursive(world, self.entity, self.warn);
     }
 }
 
@@ -110,33 +67,65 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     /// Despawns the provided entity and its children.
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
-        let entity = self.id();
-        self.commands()
-            .queue(DespawnRecursive { entity, warn: true });
+        let warn = true;
+        self.queue(move |entity: Entity, world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _span = tracing::info_span!(
+                "command",
+                name = "DespawnRecursive",
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
+            )
+            .entered();
+            despawn_with_children_recursive(world, entity, warn);
+        });
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
-        let entity = self.id();
-        self.commands()
-            .queue(DespawnChildrenRecursive { entity, warn: true });
+        let warn = true;
+        self.queue(move |entity: Entity, world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _span = tracing::info_span!(
+                "command",
+                name = "DespawnChildrenRecursive",
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
+            )
+            .entered();
+            despawn_children_recursive(world, entity, warn);
+        });
         self
     }
 
     /// Despawns the provided entity and its children.
     /// This will never emit warnings.
     fn try_despawn_recursive(mut self) {
-        let entity = self.id();
-        self.commands().queue(DespawnRecursive {
-            entity,
-            warn: false,
+        let warn = false;
+        self.queue(move |entity: Entity, world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _span = tracing::info_span!(
+                "command",
+                name = "TryDespawnRecursive",
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
+            )
+            .entered();
+            despawn_with_children_recursive(world, entity, warn);
         });
     }
 
     fn try_despawn_descendants(&mut self) -> &mut Self {
-        let entity = self.id();
-        self.commands().queue(DespawnChildrenRecursive {
-            entity,
-            warn: false,
+        let warn = false;
+        self.queue(move |entity: Entity, world: &mut World| {
+            #[cfg(feature = "trace")]
+            let _span = tracing::info_span!(
+                "command",
+                name = "TryDespawnChildrenRecursive",
+                entity = tracing::field::debug(entity),
+                warn = tracing::field::debug(warn)
+            )
+            .entered();
+            despawn_children_recursive(world, entity, warn);
         });
         self
     }
@@ -146,10 +135,10 @@ fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!(
+    let _span = tracing::info_span!(
         "despawn_recursive",
-        entity = bevy_utils::tracing::field::debug(entity),
-        warn = bevy_utils::tracing::field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
@@ -163,10 +152,10 @@ fn despawn_descendants_inner<'v, 'w>(
     let entity = world.id();
 
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!(
+    let _span = tracing::info_span!(
         "despawn_descendants",
-        entity = bevy_utils::tracing::field::debug(entity),
-        warn = bevy_utils::tracing::field::debug(warn)
+        entity = tracing::field::debug(entity),
+        warn = tracing::field::debug(warn)
     )
     .entered();
 
@@ -198,8 +187,67 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     }
 }
 
+/// Trait that holds functions for cloning entities recursively down the hierarchy
+pub trait CloneEntityHierarchyExt {
+    /// Sets the option to recursively clone entities.
+    /// When set to true all children will be cloned with the same options as the parent.
+    fn recursive(&mut self, recursive: bool) -> &mut Self;
+    /// Sets the option to add cloned entity as a child to the parent entity.
+    fn as_child(&mut self, as_child: bool) -> &mut Self;
+}
+
+impl CloneEntityHierarchyExt for EntityCloneBuilder<'_> {
+    fn recursive(&mut self, recursive: bool) -> &mut Self {
+        if recursive {
+            self.override_component_clone_handler::<Children>(
+                ComponentCloneHandler::custom_handler(component_clone_children),
+            )
+        } else {
+            self.remove_component_clone_handler_override::<Children>()
+        }
+    }
+    fn as_child(&mut self, as_child: bool) -> &mut Self {
+        if as_child {
+            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::custom_handler(
+                component_clone_parent,
+            ))
+        } else {
+            self.remove_component_clone_handler_override::<Parent>()
+        }
+    }
+}
+
+/// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
+fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let children = ctx
+        .read_source_component::<Children>()
+        .expect("Source entity must have Children component")
+        .iter();
+    let parent = ctx.target();
+    for child in children {
+        let child_clone = world.commands().spawn_empty().id();
+        let mut clone_entity = ctx
+            .entity_cloner()
+            .with_source_and_target(*child, child_clone);
+        world.commands().queue(move |world: &mut World| {
+            clone_entity.clone_entity(world);
+            world.entity_mut(child_clone).set_parent(parent);
+        });
+    }
+}
+
+/// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
+fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let parent = ctx
+        .read_source_component::<Parent>()
+        .map(|p| p.0)
+        .expect("Source entity must have Parent component");
+    world.commands().entity(ctx.target()).set_parent(parent);
+}
+
 #[cfg(test)]
 mod tests {
+    use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
     use bevy_ecs::{
         component::Component,
         system::Commands,
@@ -210,6 +258,7 @@ mod tests {
     use crate::{
         child_builder::{BuildChildren, ChildBuild},
         components::Children,
+        CloneEntityHierarchyExt,
     };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
@@ -341,5 +390,92 @@ mod tests {
         assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
         assert!(world.get_entity(child).is_err());
+    }
+
+    #[test]
+    fn clone_entity_recursive() {
+        #[derive(Component, PartialEq, Eq, Clone)]
+        struct Component1 {
+            field: usize,
+        }
+
+        let parent_component = Component1 { field: 10 };
+        let child1_component = Component1 { field: 20 };
+        let child1_1_component = Component1 { field: 30 };
+        let child2_component = Component1 { field: 21 };
+        let child2_1_component = Component1 { field: 31 };
+
+        let mut world = World::default();
+
+        let mut queue = CommandQueue::default();
+        let e_clone = {
+            let mut commands = Commands::new(&mut queue, &world);
+            let e = commands
+                .spawn(parent_component.clone())
+                .with_children(|children| {
+                    children
+                        .spawn(child1_component.clone())
+                        .with_children(|children| {
+                            children.spawn(child1_1_component.clone());
+                        });
+                    children
+                        .spawn(child2_component.clone())
+                        .with_children(|children| {
+                            children.spawn(child2_1_component.clone());
+                        });
+                })
+                .id();
+            let e_clone = commands
+                .entity(e)
+                .clone_and_spawn_with(|builder| {
+                    builder.recursive(true);
+                })
+                .id();
+            e_clone
+        };
+        queue.apply(&mut world);
+
+        assert!(world
+            .get::<Component1>(e_clone)
+            .is_some_and(|c| *c == parent_component));
+
+        let children = world.get::<Children>(e_clone).unwrap();
+        for (child, (component1, component2)) in children.iter().zip([
+            (child1_component, child1_1_component),
+            (child2_component, child2_1_component),
+        ]) {
+            assert!(world
+                .get::<Component1>(*child)
+                .is_some_and(|c| *c == component1));
+            for child2 in world.get::<Children>(*child).unwrap().iter() {
+                assert!(world
+                    .get::<Component1>(*child2)
+                    .is_some_and(|c| *c == component2));
+            }
+        }
+    }
+
+    #[test]
+    fn clone_entity_as_child() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn_empty().add_child(child).id();
+
+        let child_clone = commands
+            .entity(child)
+            .clone_and_spawn_with(|builder| {
+                builder.as_child(true);
+            })
+            .id();
+
+        queue.apply(&mut world);
+
+        assert!(world
+            .entity(parent)
+            .get::<Children>()
+            .is_some_and(|c| c.contains(&child_clone)));
     }
 }

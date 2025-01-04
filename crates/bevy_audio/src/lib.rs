@@ -34,6 +34,7 @@ mod audio_output;
 mod audio_source;
 mod pitch;
 mod sinks;
+mod volume;
 
 /// The audio prelude.
 ///
@@ -51,6 +52,7 @@ pub mod prelude {
 pub use audio::*;
 pub use audio_source::*;
 pub use pitch::*;
+pub use volume::*;
 
 pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;

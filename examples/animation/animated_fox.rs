@@ -18,6 +18,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .init_resource::<ParticleAssets>()
@@ -48,7 +49,7 @@ fn observe_on_step(
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let translation = transforms.get(trigger.entity()).unwrap().translation();
+    let translation = transforms.get(trigger.target()).unwrap().translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.gen::<Dir2>() * seeded_rng.0.gen_range(8.0..12.0);
@@ -275,12 +276,12 @@ fn simulate_particles(
     time: Res<Time>,
 ) {
     for (entity, mut transform, mut particle) in &mut query {
-        if particle.lifeteime_timer.tick(time.delta()).just_finished() {
+        if particle.lifetime_timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         } else {
             transform.translation += particle.velocity * time.delta_secs();
             transform.scale =
-                Vec3::splat(particle.size.lerp(0.0, particle.lifeteime_timer.fraction()));
+                Vec3::splat(particle.size.lerp(0.0, particle.lifetime_timer.fraction()));
             particle
                 .velocity
                 .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_secs());
@@ -299,7 +300,7 @@ fn spawn_particle<M: Material>(
     move |world: &mut World| {
         world.spawn((
             Particle {
-                lifeteime_timer: Timer::from_seconds(lifetime, TimerMode::Once),
+                lifetime_timer: Timer::from_seconds(lifetime, TimerMode::Once),
                 size,
                 velocity,
             },
@@ -316,7 +317,7 @@ fn spawn_particle<M: Material>(
 
 #[derive(Component)]
 struct Particle {
-    lifeteime_timer: Timer,
+    lifetime_timer: Timer,
     size: f32,
     velocity: Vec3,
 }
