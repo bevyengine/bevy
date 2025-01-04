@@ -219,12 +219,12 @@ where
     ///
     /// Returns [`None`] if the index is out of bounds or the data is removed.
     pub fn get(&self, uniform_index: u32) -> Option<BDI> {
-        if (uniform_index as usize) < self.buffer.len()
-            || !self.free_uniform_indices.contains(&uniform_index)
+        if (uniform_index as usize) >= self.buffer.len()
+            || self.free_uniform_indices.contains(&uniform_index)
         {
-            Some(self.get_unchecked(uniform_index))
-        } else {
             None
+        } else {
+            Some(self.get_unchecked(uniform_index))
         }
     }
 
@@ -940,4 +940,22 @@ pub fn write_indirect_parameters_buffer(
         .buffer
         .write_buffer(&render_device, &render_queue);
     indirect_parameters_buffer.buffer.clear();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn instance_buffer_correct_behaviour() {
+        let mut instance_buffer = InstanceInputUniformBuffer::new();
+
+        let index = instance_buffer.add(2);
+        instance_buffer.remove(index);
+        assert_eq!(instance_buffer.get_unchecked(index), 2);
+        assert_eq!(instance_buffer.get(index), None);
+
+        instance_buffer.add(5);
+        assert_eq!(instance_buffer.buffer().len(), 1);
+    }
 }
