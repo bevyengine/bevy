@@ -298,3 +298,228 @@ fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -
         _ => None,
     }
 }
+
+#[cfg(feature = "custom_cursor")]
+#[cfg(test)]
+mod tests {
+    use bevy_asset::RenderAssetUsages;
+    use bevy_image::Image;
+    use bevy_math::Rect;
+    use bevy_math::Vec2;
+    use wgpu_types::{Extent3d, TextureDimension};
+
+    use super::*;
+
+    fn create_image_rgba8(data: &[u8]) -> Image {
+        Image::new(
+            Extent3d {
+                width: 3,
+                height: 3,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            data.to_vec(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        )
+    }
+
+    macro_rules! test_image_to_rgba_pixels {
+        ($name:ident, $flip_x:expr, $flip_y:expr, $rect:expr, $expected:expr) => {
+            #[test]
+            fn $name() {
+                let image_data: &[u8] = &[
+                    // Row 1: Red, Green, Blue
+                    255, 0, 0, 255, // Red
+                    0, 255, 0, 255, // Green
+                    0, 0, 255, 255, // Blue
+                    // Row 2: Yellow, Cyan, Magenta
+                    255, 255, 0, 255, // Yellow
+                    0, 255, 255, 255, // Cyan
+                    255, 0, 255, 255, // Magenta
+                    // Row 3: White, Gray, Black
+                    255, 255, 255, 255, // White
+                    128, 128, 128, 255, // Gray
+                    0, 0, 0, 255, // Black
+                ];
+
+                // RGBA8 test
+                {
+                    let image = create_image_rgba8(image_data);
+                    let rect = $rect;
+                    let result = image_to_rgba_pixels(&image, $flip_x, $flip_y, rect);
+                    assert_eq!(result, Some($expected.to_vec()));
+                }
+            }
+        };
+    }
+
+    test_image_to_rgba_pixels!(
+        no_flip_full_image,
+        false,
+        false,
+        Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 1: Red, Green, Blue
+            255, 0, 0, 255, // Red
+            0, 255, 0, 255, // Green
+            0, 0, 255, 255, // Blue
+            // Row 2: Yellow, Cyan, Magenta
+            255, 255, 0, 255, // Yellow
+            0, 255, 255, 255, // Cyan
+            255, 0, 255, 255, // Magenta
+            // Row 3: White, Gray, Black
+            255, 255, 255, 255, // White
+            128, 128, 128, 255, // Gray
+            0, 0, 0, 255, // Black
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_x_full_image,
+        true,
+        false,
+        Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 1 flipped: Blue, Green, Red
+            0, 0, 255, 255, // Blue
+            0, 255, 0, 255, // Green
+            255, 0, 0, 255, // Red
+            // Row 2 flipped: Magenta, Cyan, Yellow
+            255, 0, 255, 255, // Magenta
+            0, 255, 255, 255, // Cyan
+            255, 255, 0, 255, // Yellow
+            // Row 3 flipped: Black, Gray, White
+            0, 0, 0, 255, // Black
+            128, 128, 128, 255, // Gray
+            255, 255, 255, 255, // White
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_y_full_image,
+        false,
+        true,
+        Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 3: White, Gray, Black
+            255, 255, 255, 255, // White
+            128, 128, 128, 255, // Gray
+            0, 0, 0, 255, // Black
+            // Row 2: Yellow, Cyan, Magenta
+            255, 255, 0, 255, // Yellow
+            0, 255, 255, 255, // Cyan
+            255, 0, 255, 255, // Magenta
+            // Row 1: Red, Green, Blue
+            255, 0, 0, 255, // Red
+            0, 255, 0, 255, // Green
+            0, 0, 255, 255, // Blue
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_both_full_image,
+        true,
+        true,
+        Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 3 flipped: Black, Gray, White
+            0, 0, 0, 255, // Black
+            128, 128, 128, 255, // Gray
+            255, 255, 255, 255, // White
+            // Row 2 flipped: Magenta, Cyan, Yellow
+            255, 0, 255, 255, // Magenta
+            0, 255, 255, 255, // Cyan
+            255, 255, 0, 255, // Yellow
+            // Row 1 flipped: Blue, Green, Red
+            0, 0, 255, 255, // Blue
+            0, 255, 0, 255, // Green
+            255, 0, 0, 255, // Red
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        no_flip_rect,
+        false,
+        false,
+        Rect {
+            min: Vec2::new(1.0, 1.0),
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Only includes part of the original image (sub-rectangle)
+            // Row 2, columns 2-3: Cyan, Magenta
+            0, 255, 255, 255, // Cyan
+            255, 0, 255, 255, // Magenta
+            // Row 3, columns 2-3: Gray, Black
+            128, 128, 128, 255, // Gray
+            0, 0, 0, 255, // Black
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_x_rect,
+        true,
+        false,
+        Rect {
+            min: Vec2::new(1.0, 1.0),
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 2 flipped: Magenta, Cyan
+            255, 0, 255, 255, // Magenta
+            0, 255, 255, 255, // Cyan
+            // Row 3 flipped: Black, Gray
+            0, 0, 0, 255, // Black
+            128, 128, 128, 255, // Gray
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_y_rect,
+        false,
+        true,
+        Rect {
+            min: Vec2::new(1.0, 1.0),
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 3 first: Gray, Black
+            128, 128, 128, 255, // Gray
+            0, 0, 0, 255, // Black
+            // Row 2 second: Cyan, Magenta
+            0, 255, 255, 255, // Cyan
+            255, 0, 255, 255, // Magenta
+        ]
+    );
+
+    test_image_to_rgba_pixels!(
+        flip_both_rect,
+        true,
+        true,
+        Rect {
+            min: Vec2::new(1.0, 1.0),
+            max: Vec2::new(3.0, 3.0)
+        },
+        [
+            // Row 3 flipped: Black, Gray
+            0, 0, 0, 255, // Black
+            128, 128, 128, 255, // Gray
+            // Row 2 flipped: Magenta, Cyan
+            255, 0, 255, 255, // Magenta
+            0, 255, 255, 255, // Cyan
+        ]
+    );
+}
