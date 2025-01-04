@@ -1,7 +1,6 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
-    color::palettes::basic::GRAY,
     core_pipeline::{
         bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
@@ -40,19 +39,19 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(0.0, 0.0, 25.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LinearRgba::rgb(0.0, 0.0, 150.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(8.0, 100.0, 0.0),
+        emissive: LinearRgba::rgb(1000.0, 1000.0, 1000.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(25.0, 0.0, 0.0),
+        emissive: LinearRgba::rgb(50.0, 0.0, 0.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
-        base_color: GRAY.into(),
+        base_color: Color::BLACK,
         ..default()
     });
 
@@ -67,8 +66,8 @@ fn setup_scene(
             let rand = (hasher.finish() + 3) % 6;
 
             let (material, scale) = match rand {
-                0 => (material_emissive1.clone(), 1.0),
-                1 => (material_emissive2.clone(), 0.2),
+                0 => (material_emissive1.clone(), 0.5),
+                1 => (material_emissive2.clone(), 0.1),
                 2 => (material_emissive3.clone(), 1.0),
                 3..=5 => (material_non_emissive.clone(), 1.5),
                 _ => unreachable!(),

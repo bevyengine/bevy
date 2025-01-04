@@ -11,7 +11,6 @@ struct BloomUniforms {
     viewport: vec4<f32>,
     scale: vec2<f32>,
     aspect: f32,
-    uv_offset: f32
 };
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
@@ -83,12 +82,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     // mention it anywhere: https://www.w3.org/TR/WGSL/#texturesample, but the fact that the offset
     // syntax uses a const-expr implies that it allows some compiler optimizations - maybe more
     // impactful on mobile?
-    #ifdef FIRST_DOWNSAMPLE
-        // Prevents noticeable sampling/ghosting artifacts when using large scales.
-        let scale = vec2<f32>(1.0, 1.0);
-    #else
-        let scale = uniforms.scale;
-    #endif
+    let scale = uniforms.scale;
     let ps = scale / vec2<f32>(textureDimensions(input_texture));
     let pl = 2.0 * ps;
     let ns = -1.0 * ps;
@@ -138,9 +132,11 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
-    // UV offsets configured from uniforms.
-    let x = uniforms.uv_offset / uniforms.aspect;
-    let y = uniforms.uv_offset;
+    // While this is probably technically incorrect, it makes nonuniform bloom smoother, without
+    // having any impact on uniform bloom, which simply evaluates to 1.0 here.
+    let frag_size = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
+    let x = frag_size.x;
+    let y = frag_size.y;
 
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
     let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;

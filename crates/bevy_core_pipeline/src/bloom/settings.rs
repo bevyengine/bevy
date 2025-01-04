@@ -113,10 +113,6 @@ pub struct Bloom {
     /// Only tweak if you are seeing visual artifacts.
     pub max_mip_dimension: u32,
 
-    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension`.
-    /// Only tweak if you are seeing visual artifacts.
-    pub uv_offset: f32,
-
     /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
     /// anamorphic blur by using a large x-value. For large values, you may need to increase
     /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
@@ -128,7 +124,6 @@ pub type BloomSettings = Bloom;
 
 impl Bloom {
     const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
-    const DEFAULT_UV_OFFSET: f32 = 0.004;
 
     /// The default bloom preset.
     ///
@@ -144,16 +139,14 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
         scale: Vec2::ONE,
     };
 
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
     pub const ANAMORPHIC: Self = Self {
-        uv_offset: Self::DEFAULT_UV_OFFSET / 2.0,
         // The larger scale necessitates a larger resolution to reduce artifacts:
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
-        scale: Vec2::new(8.0, 1.0),
+        scale: Vec2::new(6.0, 0.8),
         ..Self::NATURAL
     };
 
@@ -169,7 +162,6 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::Additive,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
         scale: Vec2::ONE,
     };
 
@@ -185,7 +177,6 @@ impl Bloom {
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
-        uv_offset: Self::DEFAULT_UV_OFFSET,
         scale: Vec2::ONE,
     };
 }
@@ -263,7 +254,6 @@ impl ExtractComponent for Bloom {
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
-                    uv_offset: bloom.uv_offset,
                     scale: bloom.scale,
                 };
 
