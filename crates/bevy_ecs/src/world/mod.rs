@@ -43,12 +43,13 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Resource},
     world::{
         command_queue::RawCommandQueue,
-        error::{EntityFetchError, TryRunScheduleError},
+        error::{CommandError, EntityFetchError, TryRunScheduleError},
     },
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -77,7 +78,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::Command;
+/// # use bevy_ecs::world::{Command, error::CommandError};
 /// // Our world resource
 /// #[derive(Resource, Default)]
 /// struct Counter(u64);
@@ -86,9 +87,10 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
+///     fn apply(self, world: &mut World) -> Result<(), CommandError> {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
+///         Ok(())
 ///     }
 /// }
 ///
@@ -96,13 +98,43 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-pub trait Command: Send + 'static {
+///
+/// ## Implementation
+///
+/// The `Marker` generic is necessary to allow multiple blanket implementations
+/// of `Command` for closures, like so (simplified):
+/// ```ignore (This would conflict with the real implementations)
+/// impl Command for FnOnce(&mut World)
+/// impl Command<Result> for FnOnce(&mut World) -> Result
+/// ```
+/// Without the generic, Rust would consider the two implementations to be conflicting.
+///
+/// The type used for `Marker` has no connection to anything else in the implementation.
+pub trait Command<Marker = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
+    fn apply(self, world: &mut World) -> Result<(), CommandError>;
+
+    /// Returns a new [`Command`] that, when applied, will apply the original command
+    /// and pass any resulting error to the provided `error_handler`.
+    fn with_error_handling(
+        self,
+        error_handler: Option<fn(&mut World, CommandError)>,
+    ) -> impl FnOnce(&mut World) + Send + 'static
+    where
+        Self: Sized,
+    {
+        move |world: &mut World| {
+            if let Err(error) = self.apply(world) {
+                // TODO: Pass the error to the global error handler if `error_handler` is `None`.
+                let error_handler = error_handler.unwrap_or(|_, error| panic!("{error}"));
+                error_handler(world, error);
+            }
+        }
+    }
 }
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
@@ -1327,7 +1359,7 @@ impl World {
                 return Err(EntityFetchError::AliasedMutability(entity))
             }
             Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
+                return Err(EntityFetchError::NoSuchEntity(entity))
             }
         };
 
@@ -4393,24 +4425,24 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1
+            Err(EntityFetchError::NoSuchEntity(e)) if e == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e,..)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
         assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
         assert!(matches!(
             world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1,
+            Err(EntityFetchError::NoSuchEntity(e)) if e == e1,
         ));
         assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
     }
 }

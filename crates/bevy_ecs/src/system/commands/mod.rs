@@ -2,7 +2,7 @@
 mod parallel_scope;
 
 use alloc::{boxed::Box, vec::Vec};
-use core::{marker::PhantomData, panic::Location};
+use core::marker::PhantomData;
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource};
 use crate::{
@@ -13,15 +13,20 @@ use crate::{
     entity::{Entities, Entity, EntityCloneBuilder},
     event::{Event, Events},
     observer::{Observer, TriggerTargets},
+    result::Result,
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
-        EntityWorldMut, FromWorld, SpawnBatchIter, World,
+        command_queue::RawCommandQueue,
+        error::{CommandError, EntityFetchError},
+        unsafe_world_cell::UnsafeWorldCell,
+        Command, CommandQueue, EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
-use bevy_ptr::OwningPtr;
-use log::{error, info, warn};
+use log::{error, info};
+
+#[cfg(feature = "track_location")]
+use core::panic::Location;
 
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
@@ -81,6 +86,12 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
+    /// This can be set using [`Commands::override_error_handler`] to override
+    /// the global error handler for all subsequent commands, which would be
+    /// more convenient than using [`Commands::queue_fallible_with`] to override
+    /// each command individually if you wanted to use the same error handler for
+    /// all of them.
+    error_handler_override: Option<fn(&mut World, CommandError)>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -176,6 +187,7 @@ const _: () = {
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
+                error_handler_override: None,
             }
         }
     }
@@ -212,6 +224,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::CommandQueue(Deferred(queue)),
             entities,
+            error_handler_override: None,
         }
     }
 
@@ -229,6 +242,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
+            error_handler_override: None,
         }
     }
 
@@ -259,6 +273,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             },
             entities: self.entities,
+            error_handler_override: self.error_handler_override,
         }
     }
 
@@ -409,6 +424,9 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
+    ///
     /// # Panics
     ///
     /// This method panics if the requested entity does not exist.
@@ -468,8 +486,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Returns `None` if the entity does not exist.
     ///
-    /// This method does not guarantee that `EntityCommands` will be successfully applied,
-    /// since another command in the queue may delete the entity before them.
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
     ///
     /// # Example
     ///
@@ -566,16 +584,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{world::Command, prelude::*};
+    /// # use bevy_ecs::{world::{Command, error::CommandError}, prelude::*};
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
     /// struct AddToCounter(u64);
     ///
     /// impl Command for AddToCounter {
-    ///     fn apply(self, world: &mut World) {
+    ///     fn apply(self, world: &mut World) -> Result<(), CommandError> {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += self.0;
+    ///         Ok(())
     ///     }
     /// }
     ///
@@ -591,7 +610,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue<C: Command>(&mut self, command: C) {
+    pub fn queue<C: Command<M>, M: 'static>(&mut self, command: C) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -604,6 +623,65 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             }
         }
+    }
+
+    /// Pushes a generic [`Command`] to the command queue with error handling.
+    ///
+    /// If the command returns an error, it will be passed to the global error handler
+    /// (or the [`Commands`] instance's error handler override, if set).
+    ///
+    /// To directly provide an error handler to the command, see [`Commands::queue_fallible_with`].
+    pub fn queue_fallible<C: Command<M>, M: 'static>(&mut self, command: C) {
+        self.queue(command.with_error_handling(self.error_handler_override));
+    }
+
+    /// Pushes a generic [`Command`] to the command queue with error handling.
+    ///
+    /// If the command returns an error, it will be passed to `error_handler`.
+    ///
+    /// Versions of built-in fallible commands that can be queued manually can be found in
+    /// the [`fallible_command`] submodule. Simple error handlers can be found in the
+    /// [`handler`] submodule.
+    pub fn queue_fallible_with<C: Command<M>, M: 'static>(
+        &mut self,
+        command: C,
+        error_handler: fn(&mut World, CommandError),
+    ) {
+        self.queue(command.with_error_handling(Some(error_handler)));
+    }
+
+    /// Pushes a generic [`Command`] to the command queue with error handling.
+    ///
+    /// If the command returns an error, it will be passed to the [`Commands`] instance's
+    /// error handler override if set, or `error_handler` otherwise.
+    // TODO: This is only useful for commands that fail differently (non-panic) by default, but
+    // still want to be overridden by the Commands instance's setting. It can be removed once
+    // all commands obey the global error handler by default.
+    fn queue_fallible_with_default<C: Command<M>, M: 'static>(
+        &mut self,
+        command: C,
+        error_handler: fn(&mut World, CommandError),
+    ) {
+        let error_handler = self.error_handler_override.unwrap_or(error_handler);
+        self.queue(command.with_error_handling(Some(error_handler)));
+    }
+
+    /// Sets the [`Commands`] instance to use a custom error handler when encountering an error.
+    ///
+    /// This will apply to all subsequent commands. You can use [`Self::reset_error_handler`] to undo this.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    pub fn override_error_handler(&mut self, error_handler: fn(&mut World, CommandError)) {
+        self.error_handler_override = Some(error_handler);
+    }
+
+    /// Resets the [`Commands`] instance's error handler, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error handler was previously overridden
+    /// by [`Self::override_error_handler`].
+    pub fn reset_error_handler(&mut self) {
+        self.error_handler_override = None;
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -859,7 +937,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.run_system_with(id, ());
+        self.queue_fallible_with_default(fallible_command::run_system(id), handler::warn());
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -875,11 +953,10 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.run_system_with(id, input) {
-                warn!("{error}");
-            }
-        });
+        self.queue_fallible_with_default(
+            fallible_command::run_system_with(id, input),
+            handler::warn(),
+        );
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -940,12 +1017,8 @@ impl<'w, 's> Commands<'w, 's> {
         O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::new(Box::new(IntoSystem::into_system(system)));
-        self.queue(move |world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert(system);
-            }
-        });
+        let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
+        self.entity(entity).insert(system);
         SystemId::from_entity(entity)
     }
 
@@ -957,11 +1030,10 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.unregister_system(system_id) {
-                warn!("{error}");
-            }
-        });
+        self.queue_fallible_with_default(
+            fallible_command::unregister_system(system_id),
+            handler::warn(),
+        );
     }
 
     /// Removes a system previously registered with [`World::register_system_cached`].
@@ -976,11 +1048,10 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.unregister_system_cached(system) {
-                warn!("{error}");
-            }
-        });
+        self.queue_fallible_with_default(
+            fallible_command::unregister_system_cached(system),
+            handler::warn(),
+        );
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
@@ -991,7 +1062,10 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         system: S,
     ) {
-        self.run_system_cached_with(system, ());
+        self.queue_fallible_with_default(
+            fallible_command::run_system_cached(system),
+            handler::warn(),
+        );
     }
 
     /// Similar to [`Self::run_system_with`], but caching the [`SystemId`] in a
@@ -1004,11 +1078,10 @@ impl<'w, 's> Commands<'w, 's> {
         M: 'static,
         S: IntoSystem<I, (), M> + Send + 'static,
     {
-        self.queue(move |world: &mut World| {
-            if let Err(error) = world.run_system_cached_with(system, input) {
-                warn!("{error}");
-            }
-        });
+        self.queue_fallible_with_default(
+            fallible_command::run_system_cached_with(system, input),
+            handler::warn(),
+        );
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -1113,11 +1186,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        self.queue(|world: &mut World| {
-            if let Err(error) = world.try_run_schedule(label) {
-                panic!("Failed to run schedule: {error}");
-            }
-        });
+        self.queue_fallible_with_default(fallible_command::run_schedule(label), handler::warn());
     }
 }
 
@@ -1174,9 +1243,24 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
+///
+/// # Implementation
+///
+/// The `Marker` generic is necessary to allow multiple blanket implementations
+/// of `EntityCommand` for closures, like so (simplified):
+/// ```ignore (This would conflict with the real implementations)
+/// impl EntityCommand for FnOnce(Entity, &mut World)
+/// impl EntityCommand<World> for FnOnce(EntityWorldMut)
+/// impl EntityCommand<Result> for FnOnce(Entity, &mut World) -> Result
+/// impl EntityCommand<(World, Result)> for FnOnce(EntityWorldMut) -> Result
+/// ```
+/// Without the generic, Rust would consider the implementations to be conflicting.
+///
+/// The type used for `Marker` has no connection to anything else in the implementation.
 pub trait EntityCommand<Marker = ()>: Send + 'static {
-    /// Executes this command for the given [`Entity`].
-    fn apply(self, entity: Entity, world: &mut World);
+    /// Executes this command for the given [`Entity`] and
+    /// returns a [`Result`] for error handling.
+    fn apply(self, entity: Entity, world: &mut World) -> Result<(), CommandError>;
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
@@ -1185,15 +1269,27 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
     #[must_use = "commands do nothing unless applied to a `World`"]
-    fn with_entity(self, entity: Entity) -> impl Command
+    fn with_entity(self, entity: Entity) -> impl Command<(Result, CommandError)>
     where
         Self: Sized,
     {
-        move |world: &mut World| self.apply(entity, world)
+        move |world: &mut World| -> Result<(), CommandError> { self.apply(entity, world) }
     }
 }
 
-/// A list of commands that will be run to modify an [entity](crate::entity).
+/// A list of commands that will be run to modify an [`Entity`].
+///
+/// Most [`Commands`] (and thereby [`EntityCommands`]) are deferred: when you call the command,
+/// if it requires mutable access to the [`World`] (that is, if it removes, adds, or changes something),
+/// it's not executed immediately. Instead, the command is added to a "command queue."
+/// The command queue is applied between [`Schedules`](bevy_ecs::schedule::Schedule), one by one,
+/// so that each command can have exclusive access to the World.
+///
+/// # Fallible
+///
+/// Due to their deferred nature, an entity you're trying to change with an [`EntityCommand`] can be
+/// despawned by the time the command is executed. All deferred entity commands will check if the
+/// entity exists at the time of execution and will return an error if it doesn't.
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
@@ -1313,7 +1409,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(insert(bundle, InsertMode::Replace))
+        self.queue_with_default(entity_command::insert(bundle), handler::panic())
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -1373,7 +1469,7 @@ impl<'a> EntityCommands<'a> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
     #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(insert(bundle, InsertMode::Keep))
+        self.queue_with_default(entity_command::insert_if_new(bundle), handler::panic())
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting if the
@@ -1422,19 +1518,10 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        let caller = Location::caller();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                // SAFETY:
-                // - `component_id` safety is ensured by the caller
-                // - `ptr` is valid within the `make` block
-                OwningPtr::make(value, |ptr| unsafe {
-                    entity.insert_by_id(component_id, ptr);
-                });
-            } else {
-                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
-            }
-        })
+        self.queue_with_default(
+            entity_command::insert_by_id(component_id, value),
+            handler::panic(),
+        )
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1451,16 +1538,10 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                // SAFETY:
-                // - `component_id` safety is ensured by the caller
-                // - `ptr` is valid within the `make` block
-                OwningPtr::make(value, |ptr| unsafe {
-                    entity.insert_by_id(component_id, ptr);
-                });
-            }
-        })
+        self.queue_with_default(
+            entity_command::insert_by_id(component_id, value),
+            handler::silent(),
+        )
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1513,7 +1594,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(try_insert(bundle, InsertMode::Replace))
+        self.queue_with_default(entity_command::insert(bundle), handler::silent())
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1612,7 +1693,7 @@ impl<'a> EntityCommands<'a> {
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(try_insert(bundle, InsertMode::Keep))
+        self.queue_with_default(entity_command::insert_if_new(bundle), handler::silent())
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1654,11 +1735,7 @@ impl<'a> EntityCommands<'a> {
     where
         T: Bundle,
     {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove::<T>();
-            }
-        })
+        self.queue_with_default(entity_command::remove::<T>(), handler::silent())
     }
 
     /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
@@ -1686,11 +1763,10 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_with_requires::<T>();
-            }
-        })
+        self.queue_with_default(
+            entity_command::remove_with_requires::<T>(),
+            handler::silent(),
+        )
     }
 
     /// Removes a dynamic [`Component`] from the entity if it exists.
@@ -1699,23 +1775,19 @@ impl<'a> EntityCommands<'a> {
     ///
     /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_by_id(component_id);
-            }
-        })
+        self.queue_with_default(
+            entity_command::remove_by_id(component_id),
+            handler::silent(),
+        )
     }
 
     /// Removes all components associated with the entity.
     pub fn clear(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.clear();
-            }
-        })
+        self.queue_with_default(entity_command::clear(), handler::silent())
     }
 
     /// Despawns the entity.
+    ///
     /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
@@ -1744,18 +1816,25 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue(despawn(true));
+        self.queue_with_default(entity_command::despawn(), handler::warn());
     }
 
     /// Despawns the entity.
+    ///
     /// This will not emit a warning if the entity does not exist, essentially performing
     /// the same function as [`Self::despawn`] without emitting warnings.
     #[track_caller]
     pub fn try_despawn(&mut self) {
-        self.queue(despawn(false));
+        self.queue_with_default(entity_command::despawn(), handler::silent());
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// All entity commands are fallible, because they must return an error if the entity
+    /// doesn't exist when a command is executed. Therefore, all entity commands are
+    /// queued with error handling.
+    ///
+    /// To directly provide an error handler to the command, see [`EntityCommands::queue_with`].
     ///
     /// # Examples
     ///
@@ -1772,7 +1851,68 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
-        self.commands.queue(command.with_entity(self.entity));
+        self.commands
+            .queue_fallible(command.with_entity(self.entity));
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// All entity commands are fallible, because they must return an error if the entity
+    /// doesn't exist when a command is executed. Therefore, all entity commands are
+    /// queued with error handling.
+    ///
+    /// Versions of built-in entity commands that can be queued manually can be found in
+    /// the [`entity_command`] submodule. Simple error handlers can be found in the
+    /// [`handler`] submodule.
+    pub fn queue_with<M: 'static>(
+        &mut self,
+        command: impl EntityCommand<M>,
+        error_handler: fn(&mut World, CommandError),
+    ) -> &mut Self {
+        self.commands
+            .queue_fallible_with(command.with_entity(self.entity), error_handler);
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    // TODO: This is only useful for commands that fail differently (non-panic) by default, but
+    // still want to be overridden by the EntityCommands instance's setting. It can be removed once
+    // all commands obey the global error handler by default.
+    fn queue_with_default<M: 'static>(
+        &mut self,
+        command: impl EntityCommand<M>,
+        default_error_handler: fn(&mut World, CommandError),
+    ) -> &mut Self {
+        let error_handler = self
+            .commands
+            .error_handler_override
+            .unwrap_or(default_error_handler);
+        self.commands
+            .queue_fallible_with(command.with_entity(self.entity), error_handler);
+        self
+    }
+
+    /// Sets the [`EntityCommands`] instance to use a custom error handler when encountering an error.
+    ///
+    /// This will apply to all subsequent commands. You can use [`Self::reset_error_handler`] to undo this.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    pub fn override_error_handler(
+        &mut self,
+        error_handler: fn(&mut World, CommandError),
+    ) -> &mut Self {
+        self.commands.override_error_handler(error_handler);
+        self
+    }
+
+    /// Resets the [`EntityCommands`] instance's error handler, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error handler was previously overridden
+    /// by [`Self::override_error_handler`].
+    pub fn reset_error_handler(&mut self) -> &mut Self {
+        self.commands.reset_error_handler();
         self
     }
 
@@ -1817,10 +1957,8 @@ impl<'a> EntityCommands<'a> {
     where
         T: Bundle,
     {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.retain::<T>();
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.retain::<T>();
         })
     }
 
@@ -1858,16 +1996,12 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
+    /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.observe(observer);
-            }
-        })
+        self.queue_with_default(entity_command::observe(observer), handler::silent())
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
@@ -1915,11 +2049,10 @@ impl<'a> EntityCommands<'a> {
         target: Entity,
         config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.clone_with(target, config);
-            }
-        })
+        self.queue_with_default(
+            entity_command::clone_with(target, config),
+            handler::silent(),
+        )
     }
 
     /// Spawns a clone of this entity and returns the [`EntityCommands`] of the clone.
@@ -2015,11 +2148,10 @@ impl<'a> EntityCommands<'a> {
     ///
     /// The command will panic when applied if the target entity does not exist.
     pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.clone_components::<B>(target);
-            }
-        })
+        self.queue_with_default(
+            entity_command::clone_components::<B>(target),
+            handler::silent(),
+        )
     }
 
     /// Clones the specified components of this entity and inserts them into another entity,
@@ -2032,11 +2164,10 @@ impl<'a> EntityCommands<'a> {
     ///
     /// The command will panic when applied if the target entity does not exist.
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.move_components::<B>(target);
-            }
-        })
+        self.queue_with_default(
+            entity_command::move_components::<B>(target),
+            handler::silent(),
+        )
     }
 }
 
@@ -2060,6 +2191,29 @@ impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Sets the [`EntityEntryCommands`] instance to use a custom error handler when encountering an error.
+    ///
+    /// This will apply to all subsequent commands. You can use [`Self::reset_error_handler`] to undo this.
+    ///
+    /// `fn()` can be a closure if it doesn't capture its environment.
+    pub fn override_error_handler(
+        &mut self,
+        error_handler: fn(&mut World, CommandError),
+    ) -> &mut Self {
+        self.entity_commands.override_error_handler(error_handler);
+        self
+    }
+
+    /// Resets the [`EntityEntryCommands`] instance's error handler, allowing commands
+    /// to respond to errors in their default manner.
+    ///
+    /// This is only useful if the instance's error handler was previously overridden
+    /// by [`Self::override_error_handler`].
+    pub fn reset_error_handler(&mut self) -> &mut Self {
+        self.entity_commands.reset_error_handler();
+        self
+    }
+
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
@@ -2135,20 +2289,20 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     where
         T: FromWorld,
     {
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
-        self.entity_commands.queue(move |entity: Entity, world: &mut World| {
-            let value = T::from_world(world);
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
+        self.entity_commands
+            .queue(move |entity: Entity, world: &mut World| -> Result {
+                let value = T::from_world(world);
+                let mut entity = world.get_entity_mut(entity)?;
                 entity.insert_with_caller(
                     value,
                     InsertMode::Keep,
                     #[cfg(feature = "track_location")]
                     caller,
                 );
-            } else {
-                panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity) );
-            }
-        });
+                Ok(())
+            });
         self
     }
 }
@@ -2157,17 +2311,31 @@ impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
 {
-    fn apply(self, world: &mut World) {
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
         self(world);
+        Ok(())
     }
 }
 
-impl<F> EntityCommand<World> for F
+impl<F> Command<Result> for F
 where
-    F: FnOnce(EntityWorldMut) + Send + 'static,
+    F: FnOnce(&mut World) -> Result + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) {
-        self(world.entity_mut(id));
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
+        match self(world) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(CommandError::CommandFailed(error)),
+        }
+    }
+}
+
+// Necessary to avoid erasing the type of the `CommandError` in `EntityCommand::with_entity`.
+impl<F> Command<(Result, CommandError)> for F
+where
+    F: FnOnce(&mut World) -> Result<(), CommandError> + Send + 'static,
+{
+    fn apply(self, world: &mut World) -> Result<(), CommandError> {
+        self(world)
     }
 }
 
@@ -2175,8 +2343,354 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) {
-        self(id, world);
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        if world.entities().contains(id) {
+            self(id, world);
+            Ok(())
+        } else {
+            Err(CommandError::NoSuchEntity(id))
+        }
+    }
+}
+
+impl<F> EntityCommand<Result> for F
+where
+    F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
+{
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        if world.entities().contains(id) {
+            match self(id, world) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(CommandError::CommandFailed(error)),
+            }
+        } else {
+            Err(CommandError::NoSuchEntity(id))
+        }
+    }
+}
+
+impl<F> EntityCommand<World> for F
+where
+    F: FnOnce(EntityWorldMut) + Send + 'static,
+{
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        match world.get_entity_mut(id) {
+            Ok(entity) => {
+                self(entity);
+                Ok(())
+            }
+            Err(error) => match error {
+                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
+                error => Err(CommandError::CommandFailed(Box::new(error))),
+            },
+        }
+    }
+}
+
+impl<F> EntityCommand<(World, Result)> for F
+where
+    F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
+{
+    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+        match world.get_entity_mut(id) {
+            Ok(entity) => match self(entity) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(CommandError::CommandFailed(error)),
+            },
+            Err(error) => match error {
+                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
+                error => Err(CommandError::CommandFailed(Box::new(error))),
+            },
+        }
+    }
+}
+
+/// Convenience functions that return simple error handlers for use with the following methods:
+/// - [`Commands::queue_fallible_with`](super::Commands::queue_fallible_with)
+/// - [`Commands::override_error_handler`](super::Commands::override_error_handler)
+/// - [`EntityCommands::queue_with`](super::EntityCommands::queue_with)
+/// - [`EntityCommands::override_error_handler`](super::EntityCommands::override_error_handler)
+/// - [`EntityEntryCommands::override_error_handler`](super::EntityEntryCommands::override_error_handler)
+pub mod handler {
+    use crate::world::{error::CommandError, World};
+    use log::{error, warn};
+
+    /// An error handler that does nothing.
+    pub fn silent() -> fn(&mut World, CommandError) {
+        |_, _| {}
+    }
+
+    /// An error handler that accepts an error and logs it with [`warn!`].
+    pub fn warn() -> fn(&mut World, CommandError) {
+        |_, error| warn!("{error}")
+    }
+
+    /// An error handler that accepts an error and logs it with [`error!`].
+    pub fn error() -> fn(&mut World, CommandError) {
+        |_, error| error!("{error}")
+    }
+
+    /// An error handler that accepts an error and panics with the error in
+    /// the panic message.
+    pub fn panic() -> fn(&mut World, CommandError) {
+        |_, error| panic!("{error}")
+    }
+}
+
+/// Convenience functions that return fallible commands for use with
+/// [`Commands::queue_fallible_with`](super::Commands::queue_fallible_with)
+/// to customize how the commands should handle errors.
+pub mod fallible_command {
+    use crate::{
+        result::Result,
+        schedule::ScheduleLabel,
+        system::{IntoSystem, SystemId, SystemInput},
+        world::{Command, World},
+    };
+
+    /// A [`Command`] that runs the system corresponding to the given [`SystemId`].
+    pub fn run_system<O: 'static>(id: SystemId<(), O>) -> impl Command<Result> {
+        move |world: &mut World| -> Result {
+            world.run_system(id)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that runs the system corresponding to the given [`SystemId`]
+    /// and provides the given input value.
+    pub fn run_system_with<I>(id: SystemId<I>, input: I::Inner<'static>) -> impl Command<Result>
+    where
+        I: SystemInput<Inner<'static>: Send> + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_with(id, input)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that runs the given system, caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    pub fn run_system_cached<M, S>(system: S) -> impl Command<Result>
+    where
+        M: 'static,
+        S: IntoSystem<(), (), M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_cached(system)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that runs the given system with the given input value,
+    /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    pub fn run_system_cached_with<I, M, S>(
+        system: S,
+        input: I::Inner<'static>,
+    ) -> impl Command<Result>
+    where
+        I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        M: 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.run_system_cached_with(system, input)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that removes a system previously registered with
+    /// [`Commands::register_system`](super::Commands::register_system) or
+    /// [`World::register_system`].
+    pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.unregister_system(system_id)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that removes a system previously registered with
+    /// [`World::register_system_cached`].
+    pub fn unregister_system_cached<I, O, M, S>(system: S) -> impl Command<Result>
+    where
+        I: SystemInput + Send + 'static,
+        O: 'static,
+        M: 'static,
+        S: IntoSystem<I, O, M> + Send + 'static,
+    {
+        move |world: &mut World| -> Result {
+            world.unregister_system_cached(system)?;
+            Ok(())
+        }
+    }
+
+    /// A [`Command`] that runs the schedule corresponding to the given [`ScheduleLabel`].
+    pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
+        move |world: &mut World| -> Result {
+            world.try_run_schedule(label)?;
+            Ok(())
+        }
+    }
+}
+
+/// Convenience functions that return entity commands for use with
+/// [`EntityCommands::queue_with`](super::EntityCommands::queue_with)
+/// to customize how the commands should handle errors.
+///
+/// All built-in entity commands are fallible. They will check if the entity exists
+/// at the time of execution and will return an error if it does not.
+pub mod entity_command {
+    use crate::{
+        bundle::{Bundle, InsertMode},
+        component::ComponentId,
+        entity::{Entity, EntityCloneBuilder},
+        event::Event,
+        system::{EntityCommand, IntoObserverSystem},
+        world::{EntityWorldMut, World},
+    };
+    use bevy_ptr::OwningPtr;
+
+    #[cfg(feature = "track_location")]
+    use core::panic::Location;
+
+    /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
+    #[track_caller]
+    pub fn insert(bundle: impl Bundle) -> impl EntityCommand<World> {
+        #[cfg(feature = "track_location")]
+        let caller = Location::caller();
+        move |mut entity: EntityWorldMut| {
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
+        }
+    }
+
+    /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
+    #[track_caller]
+    pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand<World> {
+        #[cfg(feature = "track_location")]
+        let caller = Location::caller();
+        move |mut entity: EntityWorldMut| {
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Keep,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
+        }
+    }
+
+    /// An [`EntityCommand`] that adds a dynamic component to an entity.
+    #[track_caller]
+    pub fn insert_by_id<T: Send + 'static>(
+        component_id: ComponentId,
+        value: T,
+    ) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            // SAFETY:
+            // - `component_id` safety is ensured by the caller
+            // - `ptr` is valid within the `make` block
+            OwningPtr::make(value, |ptr| unsafe {
+                entity.insert_by_id(component_id, ptr);
+            });
+        }
+    }
+
+    /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
+    pub fn remove<T: Bundle>() -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.remove::<T>();
+        }
+    }
+
+    /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity,
+    /// as well as the required components for each component removed.
+    pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.remove_with_requires::<T>();
+        }
+    }
+
+    /// An [`EntityCommand`] that removes a dynamic component from an entity.
+    pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.remove_by_id(component_id);
+        }
+    }
+
+    /// An [`EntityCommand`] that removes all components from an entity.
+    pub fn clear() -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.clear();
+        }
+    }
+
+    /// An [`EntityCommand`] that removes all components from an entity,
+    /// except for those in the given [`Bundle`].
+    pub fn retain<T: Bundle>() -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.retain::<T>();
+        }
+    }
+
+    /// An [`EntityCommand`] that despawns a specific entity.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    pub fn despawn() -> impl EntityCommand<World> {
+        #[cfg(feature = "track_location")]
+        let caller = Location::caller();
+        move |entity: EntityWorldMut| {
+            entity.despawn_with_caller(
+                #[cfg(feature = "track_location")]
+                caller,
+            );
+        }
+    }
+
+    /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
+    /// listening for events of type `E` targeting an entity
+    pub fn observe<E: Event, B: Bundle, M>(
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.observe(observer);
+        }
+    }
+
+    /// An [`EntityCommand`] that clones parts of an entity onto another entity,
+    /// configured through [`EntityCloneBuilder`].
+    pub fn clone_with(
+        target: Entity,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.clone_with(target, config);
+        }
+    }
+
+    /// An [`EntityCommand`] that clones the specified components of an entity
+    /// and inserts them into another entity.
+    pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.clone_components::<B>(target);
+        }
+    }
+
+    /// An [`EntityCommand`] that clones the specified components of an entity
+    /// and inserts them into another entity, then removes them from the original entity.
+    pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand<World> {
+        move |mut entity: EntityWorldMut| {
+            entity.move_components::<B>(target);
+        }
     }
 }
 
@@ -2221,57 +2735,6 @@ where
             #[cfg(feature = "track_location")]
             caller,
         );
-    }
-}
-
-/// A [`Command`] that despawns a specific entity.
-/// This will emit a warning if the entity does not exist.
-///
-/// # Note
-///
-/// This won't clean up external references to the entity (such as parent-child relationships
-/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
-#[track_caller]
-fn despawn(log_warning: bool) -> impl EntityCommand {
-    let caller = Location::caller();
-    move |entity: Entity, world: &mut World| {
-        world.despawn_with_caller(entity, caller, log_warning);
-    }
-}
-
-/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
-#[track_caller]
-fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
-    let caller = Location::caller();
-    move |entity: Entity, world: &mut World| {
-        if let Ok(mut entity) = world.get_entity_mut(entity) {
-            entity.insert_with_caller(
-                bundle,
-                mode,
-                #[cfg(feature = "track_location")]
-                caller,
-            );
-        } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_details_message(entity));
-        }
-    }
-}
-
-/// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
-/// Does nothing if the entity does not exist.
-#[track_caller]
-fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |entity: Entity, world: &mut World| {
-        if let Ok(mut entity) = world.get_entity_mut(entity) {
-            entity.insert_with_caller(
-                bundle,
-                mode,
-                #[cfg(feature = "track_location")]
-                caller,
-            );
-        }
     }
 }
 
