@@ -351,8 +351,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
         if self
             .store
             .get(path)
-            .filter(|diagnostic| diagnostic.is_enabled)
-            .is_some()
+            .is_some_and(|diagnostic| diagnostic.is_enabled)
         {
             let measurement = DiagnosticMeasurement {
                 time: Instant::now(),
