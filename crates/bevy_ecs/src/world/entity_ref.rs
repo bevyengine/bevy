@@ -581,7 +581,11 @@ impl<'w> EntityMut<'w> {
     ///
     /// # Safety
     ///
-    /// - `T` must be a mutable component
+    /// - One of the following should be true:
+    ///   - Either `T` is mutable, or
+    ///   - `OnReplace` hooks and observers for that component on that entity should trigger immediately before the mutation
+    ///     and `OnInsert` should trigger immediately after the mutation, or
+    ///   - The user should uphold documented invariants of `T`. If no such documentation provided, it is impossible for the end user to uphold this.
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
@@ -1262,7 +1266,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     ///
-    /// - `T` must be a mutable component
+    /// - One of the following should be true:
+    ///   - Either `T` is mutable, or
+    ///   - `OnReplace` hooks and observers for that component on that entity should trigger immediately before the mutation
+    ///     and `OnInsert` should trigger immediately after the mutation, or
+    ///   - The user should uphold documented invariants of `T`. If no such documentation provided, it is impossible for the end user to uphold this.
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY:
@@ -3313,7 +3321,11 @@ impl<'w> FilteredEntityMut<'w> {
     ///
     /// # Safety
     ///
-    /// - `T` must be a mutable component
+    /// - One of the following should be true:
+    ///   - Either `T` is mutable, or
+    ///   - `OnReplace` hooks and observers for that component on that entity should trigger immediately before the mutation
+    ///     and `OnInsert` should trigger immediately after the mutation, or
+    ///   - The user should uphold documented invariants of `T`. If no such documentation provided, it is impossible for the end user to uphold this.
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
