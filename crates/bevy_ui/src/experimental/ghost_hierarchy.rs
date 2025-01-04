@@ -155,13 +155,9 @@ impl<'w, 's> UiChildren<'w, 's> {
 
 #[cfg(not(feature = "ghost_nodes"))]
 impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the children of `entity`, skipping over [`GhostNode`].
+    /// Iterates the children of `entity`
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
-    ///
-    /// # Performance
-    ///
-    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
     pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.ui_children_query
             .get(entity)
@@ -173,7 +169,7 @@ impl<'w, 's> UiChildren<'w, 's> {
             .copied()
     }
 
-    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
+    /// Returns the UI parent of the provided entity.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .get(entity)
