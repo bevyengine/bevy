@@ -26,6 +26,7 @@ mod main_schedule;
 mod panic_handler;
 mod plugin;
 mod plugin_group;
+mod preferences;
 mod schedule_runner;
 mod sub_app;
 #[cfg(feature = "bevy_tasks")]
@@ -38,6 +39,7 @@ pub use main_schedule::*;
 pub use panic_handler::*;
 pub use plugin::*;
 pub use plugin_group::*;
+pub use preferences::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
 #[cfg(feature = "bevy_tasks")]
