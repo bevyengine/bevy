@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // spawn the game board
     let cell_scene =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/tile.glb"));
+        asset_server.load(GltfAssetLabel::scene("0").from_asset("models/AlienCake/tile.glb"));
     game.board = (0..BOARD_SIZE_J)
         .map(|j| {
             (0..BOARD_SIZE_I)
@@ -151,30 +151,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .collect();
 
     // spawn the game character
-    game.player.entity = Some(
-        commands
-            .spawn((
-                StateScoped(GameState::Playing),
-                Transform {
-                    translation: Vec3::new(
-                        game.player.i as f32,
-                        game.board[game.player.j][game.player.i].height,
-                        game.player.j as f32,
-                    ),
-                    rotation: Quat::from_rotation_y(-PI / 2.),
-                    ..default()
-                },
-                SceneRoot(
-                    asset_server
-                        .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
-                ),
-            ))
-            .id(),
-    );
+    game.player.entity =
+        Some(
+            commands
+                .spawn((
+                    StateScoped(GameState::Playing),
+                    Transform {
+                        translation: Vec3::new(
+                            game.player.i as f32,
+                            game.board[game.player.j][game.player.i].height,
+                            game.player.j as f32,
+                        ),
+                        rotation: Quat::from_rotation_y(-PI / 2.),
+                        ..default()
+                    },
+                    SceneRoot(asset_server.load(
+                        GltfAssetLabel::scene("Scene").from_asset("models/AlienCake/alien.glb"),
+                    )),
+                ))
+                .id(),
+        );
 
     // load the scene for the cake
-    game.bonus.handle =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/cakeBirthday.glb"));
+    game.bonus.handle = asset_server
+        .load(GltfAssetLabel::scene("0").from_asset("models/AlienCake/cakeBirthday.glb"));
 
     // scoreboard
     commands.spawn((

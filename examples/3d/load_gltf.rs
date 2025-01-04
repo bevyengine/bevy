@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .build(),
     ));
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+        GltfAssetLabel::scene("0").from_asset("models/FlightHelmet/FlightHelmet.gltf"),
     )));
 }
 
