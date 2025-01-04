@@ -57,10 +57,7 @@ pub struct UiRootNodes<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-#[derive(SystemParam)]
-pub struct UiRootNodes<'w, 's> {
-    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
-}
+pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<Parent>)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -71,13 +68,6 @@ impl<'w, 's> UiRootNodes<'w, 's> {
                 self.all_nodes_query
                     .iter_many(self.ui_children.iter_ui_children(root_ghost))
             }))
-    }
-}
-
-#[cfg(not(feature = "ghost_nodes"))]
-impl<'w, 's> UiRootNodes<'w, 's> {
-    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
-        self.root_node_query.iter()
     }
 }
 
