@@ -947,7 +947,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn instance_buffer_correct_behaviour() {
+    fn instance_buffer_correct_behavior() {
         let mut instance_buffer = InstanceInputUniformBuffer::new();
 
         let index = instance_buffer.add(2);
