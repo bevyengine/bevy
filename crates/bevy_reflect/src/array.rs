@@ -175,11 +175,6 @@ impl DynamicArray {
         }
     }
 
-    #[deprecated(since = "0.15.0", note = "use from_iter")]
-    pub fn from_vec<T: PartialReflect>(values: Vec<T>) -> Self {
-        Self::from_iter(values)
-    }
-
     /// Sets the [type] to be represented by this `DynamicArray`.
     ///
     /// # Panics

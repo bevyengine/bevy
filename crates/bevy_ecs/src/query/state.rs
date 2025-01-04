@@ -566,7 +566,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) {
         // As a fast path, we can iterate directly over the components involved
         // if the `access` isn't inverted.
-        #[allow(deprecated)]
         let (component_reads_and_writes, component_reads_and_writes_inverted) =
             self.component_access.access.component_reads_and_writes();
         let (component_writes, component_writes_inverted) =

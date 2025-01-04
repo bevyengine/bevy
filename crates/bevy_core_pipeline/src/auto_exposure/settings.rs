@@ -88,9 +88,6 @@ pub struct AutoExposure {
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `AutoExposure`")]
-pub type AutoExposureSettings = AutoExposure;
-
 impl Default for AutoExposure {
     fn default() -> Self {
         Self {

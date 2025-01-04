@@ -15,7 +15,7 @@
 //!    environment maps are added to every point of the scene, including
 //!    interior enclosed areas.
 //!
-//! 2. If attached to a [`LightProbe`], environment maps represent the immediate
+//! 2. If attached to a [`crate::LightProbe`], environment maps represent the immediate
 //!    surroundings of a specific location in the scene. These types of
 //!    environment maps are known as *reflection probes*.
 //!
@@ -44,19 +44,15 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-#![expect(deprecated)]
-
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
-    system::lifetimeless::Read,
+    component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
 use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstance,
-    prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
@@ -70,7 +66,7 @@ use bevy_render::{
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,
+    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
     MAX_VIEW_LIGHT_PROBES,
 };
 
@@ -140,26 +136,6 @@ pub struct EnvironmentMapIds {
     /// The typically-sharper, mipmapped image that represents specular radiance
     /// surrounding a region.
     pub(crate) specular: AssetId<Image>,
-}
-
-/// A bundle that contains everything needed to make an entity a reflection
-/// probe.
-///
-/// A reflection probe is a type of environment map that specifies the light
-/// surrounding a region in space. For more information, see
-/// [`crate::environment_map`].
-#[derive(Bundle, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `LightProbe` and `EnvironmentMapLight` components instead. Inserting them will now also insert the other components required by them automatically."
-)]
-pub struct ReflectionProbeBundle {
-    /// Contains a transform that specifies the position of this reflection probe in space.
-    pub spatial: SpatialBundle,
-    /// Marks this environment map as a light probe.
-    pub light_probe: LightProbe,
-    /// The cubemaps that make up this environment map.
-    pub environment_map: EnvironmentMapLight,
 }
 
 /// All the bind group entries necessary for PBR shaders to access the
