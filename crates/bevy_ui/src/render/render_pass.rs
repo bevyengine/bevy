@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use super::{ImageNodeBindGroups, UiBatch, UiMeta};
+use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
 use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
@@ -19,7 +19,8 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
+    ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,
+    ui_view_target_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera)>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
@@ -27,6 +28,7 @@ impl UiPassNode {
     pub fn new(world: &mut World) -> Self {
         Self {
             ui_view_query: world.query_filtered(),
+            ui_view_target_query: world.query(),
             default_camera_view_query: world.query(),
         }
     }
@@ -35,6 +37,7 @@ impl UiPassNode {
 impl Node for UiPassNode {
     fn update(&mut self, world: &mut World) {
         self.ui_view_query.update_archetypes(world);
+        self.ui_view_target_query.update_archetypes(world);
         self.default_camera_view_query.update_archetypes(world);
     }
 
@@ -44,6 +47,7 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        // Extract the UI view.
         let input_view_entity = graph.view_entity();
 
         let Some(transparent_render_phases) =
@@ -52,13 +56,26 @@ impl Node for UiPassNode {
             return Ok(());
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get(&input_view_entity) else {
+        // Query the UI view components.
+        let Ok((view, ui_view_target)) = self.ui_view_query.get_manual(world, input_view_entity)
+        else {
             return Ok(());
         };
 
-        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
+        // Fetch the render target and the camera from the main render view.
+        // These components won't be present on the UI view.
+        let Ok((target, camera)) = self
+            .ui_view_target_query
+            .get_manual(world, ui_view_target.0)
+        else {
             return Ok(());
         };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&view.retained_view_entity)
+        else {
+            return Ok(());
+        };
+
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
