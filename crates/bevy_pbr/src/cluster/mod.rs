@@ -2,7 +2,6 @@
 
 use core::num::NonZero;
 
-use self::assign::ClusterableObjectType;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
@@ -24,7 +23,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{hashbrown::HashSet, tracing::warn};
+use bevy_utils::{tracing::warn, HashSet};
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
@@ -516,34 +515,6 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
-pub(crate) struct ClusterableObjectOrderData<'a> {
-    pub(crate) entity: &'a Entity,
-    pub(crate) object_type: &'a ClusterableObjectType,
-}
-
-#[allow(clippy::too_many_arguments)]
-// Sort clusterable objects by:
-//
-// * object type, so that we can iterate point lights, spot lights, etc. in
-//   contiguous blocks in the fragment shader,
-//
-// * then those with shadows enabled first, so that the index can be used to
-//   render at most `point_light_shadow_maps_count` point light shadows and
-//   `spot_light_shadow_maps_count` spot light shadow maps,
-//
-// * then by entity as a stable key to ensure that a consistent set of
-//   clusterable objects are chosen if the clusterable object count limit is
-//   exceeded.
-pub(crate) fn clusterable_object_order(
-    a: ClusterableObjectOrderData,
-    b: ClusterableObjectOrderData,
-) -> core::cmp::Ordering {
-    a.object_type
-        .ordering()
-        .cmp(&b.object_type.ordering())
-        .then_with(|| a.entity.cmp(b.entity)) // stable
-}
-
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
@@ -853,7 +824,7 @@ impl ViewClusterBuffers {
 // the number of light probes is irrelevant.
 fn pack_offset_and_counts(offset: usize, point_count: u32, spot_count: u32) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << (CLUSTER_COUNT_SIZE * 2))
-        | (point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE
+        | ((point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE)
         | (spot_count & CLUSTER_COUNT_MASK)
 }
 

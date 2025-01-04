@@ -64,7 +64,10 @@ impl<'a> PathParser<'a> {
         //   the last byte before an ASCII utf-8 character (ie: it is a char
         //   boundary).
         // - The slice always starts after a symbol ie: an ASCII character's boundary.
-        #[allow(unsafe_code)]
+        #[expect(
+            unsafe_code,
+            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
+        )]
         let ident = unsafe { from_utf8_unchecked(ident) };
 
         self.remaining = remaining;

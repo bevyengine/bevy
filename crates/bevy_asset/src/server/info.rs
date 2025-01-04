@@ -395,10 +395,10 @@ impl AssetInfos {
 
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
-        let mut failed_deps = HashSet::new();
+        let mut failed_deps = <HashSet<_>>::default();
         let mut dep_error = None;
         let mut loading_rec_deps = loading_deps.clone();
-        let mut failed_rec_deps = HashSet::new();
+        let mut failed_rec_deps = <HashSet<_>>::default();
         let mut rec_dep_error = None;
         loading_deps.retain(|dep_id| {
             if let Some(dep_info) = self.get_mut(*dep_id) {
@@ -443,7 +443,7 @@ impl AssetInfos {
             } else {
                 // the dependency id does not exist, which implies it was manually removed or never existed in the first place
                 warn!(
-                    "Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
+                    "Dependency {} from asset {} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
                     dep_id, loaded_asset_id
                 );
                 true

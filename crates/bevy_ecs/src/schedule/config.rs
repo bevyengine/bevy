@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
+    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -518,6 +519,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
 #[doc(hidden)]
 pub struct Infallible;
 
@@ -526,17 +528,12 @@ where
     F: IntoSystem<(), (), Marker>,
 {
     fn into_configs(self) -> SystemConfigs {
-        let boxed_system = Box::new(IntoSystem::into_system(self));
-        SystemConfigs::new_system(ScheduleSystem::Infallible(boxed_system))
+        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
+        SystemConfigs::new_system(Box::new(wrapper))
     }
 }
 
-impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(ScheduleSystem::Infallible(self))
-    }
-}
-
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
 #[doc(hidden)]
 pub struct Fallible;
 
@@ -546,13 +543,13 @@ where
 {
     fn into_configs(self) -> SystemConfigs {
         let boxed_system = Box::new(IntoSystem::into_system(self));
-        SystemConfigs::new_system(ScheduleSystem::Fallible(boxed_system))
+        SystemConfigs::new_system(boxed_system)
     }
 }
 
 impl IntoSystemConfigs<()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(ScheduleSystem::Fallible(self))
+        SystemConfigs::new_system(self)
     }
 }
 
@@ -640,7 +637,7 @@ where
         self.into_configs().before(set)
     }
 
-    /// Runs before all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
+    /// Runs after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
     /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like

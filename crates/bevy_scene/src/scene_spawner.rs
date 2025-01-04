@@ -5,9 +5,9 @@ use bevy_ecs::{
     event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
-    world::{Command, Mut, World},
+    world::{Mut, World},
 };
-use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -319,7 +319,7 @@ impl SceneSpawner {
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
-                        .or_insert_with(HashSet::new);
+                        .or_insert_with(HashSet::default);
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
@@ -375,18 +375,14 @@ impl SceneSpawner {
                     // the scene parent
                     if !world
                         .get_entity(entity)
+                        .ok()
                         // This will filter only the scene root entity, as all other from the
                         // scene have a parent
-                        .map(|entity| entity.contains::<Parent>())
-                        // Default is true so that it won't run on an entity that wouldn't exist anymore
+                        // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .unwrap_or(true)
+                        .is_none_or(|entity| entity.contains::<Parent>())
                     {
-                        AddChild {
-                            parent,
-                            child: entity,
-                        }
-                        .apply(world);
+                        world.entity_mut(parent).add_child(entity);
                     }
                 }
 
@@ -426,7 +422,7 @@ impl SceneSpawner {
 pub fn scene_spawner_system(world: &mut World) {
     world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
         // remove any loading instances where parent is deleted
-        let mut dead_instances = HashSet::default();
+        let mut dead_instances = <HashSet<_>>::default();
         scene_spawner
             .scenes_with_parent
             .retain(|(instance, parent)| {
@@ -594,7 +590,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.entity(),
+                    trigger.target(),
                     scene_entity,
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );

@@ -8,10 +8,10 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    name::Name,
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
@@ -217,7 +217,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
 
-    let mut linear_textures = HashSet::default();
+    let mut linear_textures = <HashSet<_>>::default();
 
     for material in gltf.materials() {
         if let Some(texture) = material.normal_texture() {
@@ -259,11 +259,11 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
-                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::new());
+                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::default());
             }
         }
         paths
@@ -272,12 +272,14 @@ async fn load_gltf<'a, 'b, 'c>(
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
         use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
-        use bevy_math::curve::{ConstantCurve, Interval, UnevenSampleAutoCurve};
-        use bevy_math::{Quat, Vec4};
+        use bevy_math::{
+            curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
+            Quat, Vec4,
+        };
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
-        let mut named_animations = HashMap::default();
-        let mut animation_roots = HashSet::default();
+        let mut named_animations = <HashMap<_, _>>::default();
+        let mut animation_roots = <HashSet<_>>::default();
         for animation in gltf.animations() {
             let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
@@ -603,7 +605,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
 
     let mut materials = vec![];
-    let mut named_materials = HashMap::default();
+    let mut named_materials = <HashMap<_, _>>::default();
     // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
     if !settings.load_materials.is_empty() {
         // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
@@ -616,9 +618,9 @@ async fn load_gltf<'a, 'b, 'c>(
         }
     }
     let mut meshes = vec![];
-    let mut named_meshes = HashMap::default();
-    let mut meshes_on_skinned_nodes = HashSet::default();
-    let mut meshes_on_non_skinned_nodes = HashSet::default();
+    let mut named_meshes = <HashMap<_, _>>::default();
+    let mut meshes_on_skinned_nodes = <HashSet<_>>::default();
+    let mut meshes_on_non_skinned_nodes = <HashSet<_>>::default();
     for gltf_node in gltf.nodes() {
         if gltf_node.skin().is_some() {
             if let Some(mesh) = gltf_node.mesh() {
@@ -644,13 +646,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
                         primitive_label
                     );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -735,9 +737,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
                         warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                            err
+                        );
                     }
                 });
             }
@@ -783,10 +785,10 @@ async fn load_gltf<'a, 'b, 'c>(
         })
         .collect();
 
-    let mut nodes = HashMap::<usize, Handle<GltfNode>>::new();
-    let mut named_nodes = HashMap::new();
+    let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
+    let mut named_nodes = <HashMap<_, _>>::default();
     let mut skins = vec![];
-    let mut named_skins = HashMap::default();
+    let mut named_skins = <HashMap<_, _>>::default();
     for node in GltfTreeIterator::try_new(&gltf)? {
         let skin = node.skin().map(|skin| {
             let joints = skin
@@ -848,12 +850,12 @@ async fn load_gltf<'a, 'b, 'c>(
         .collect();
 
     let mut scenes = vec![];
-    let mut named_scenes = HashMap::default();
+    let mut named_scenes = <HashMap<_, _>>::default();
     let mut active_camera_found = false;
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let mut node_index_to_entity_map = HashMap::new();
+        let mut node_index_to_entity_map = <HashMap<_, _>>::default();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
 
@@ -921,7 +923,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
@@ -1904,13 +1906,13 @@ impl<'a> GltfTreeIterator<'a> {
             .collect::<HashMap<_, _>>();
 
         let mut nodes = Vec::new();
-        let mut warned_about_max_joints = HashSet::new();
+        let mut warned_about_max_joints = <HashSet<_>>::default();
         while let Some(index) = empty_children.pop_front() {
             if let Some(skin) = unprocessed_nodes.get(&index).unwrap().0.skin() {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
                 {
                     warn!(
-                        "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                        "The glTF skin {} has {} joints, but the maximum supported is {}",
                         skin.name()
                             .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),
@@ -2258,7 +2260,7 @@ mod test {
     use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
-    use bevy_app::App;
+    use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
@@ -2266,7 +2268,6 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_core::TaskPoolPlugin;
     use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};

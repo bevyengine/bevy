@@ -33,7 +33,7 @@ use bevy_render::{
         SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    view::{GpuCulling, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -47,6 +47,9 @@ use crate::{
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(16991728318640779533);
+/// The handle to the `mesh_preprocess_types.wgsl` compute shader.
+pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(2720440370122465935);
 
 /// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;
@@ -70,7 +73,7 @@ pub struct GpuPreprocessNode {
             Entity,
             Read<PreprocessBindGroup>,
             Read<ViewUniformOffset>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         ),
         Without<SkipGpuPreprocess>,
     >,
@@ -125,6 +128,12 @@ impl Plugin for GpuMeshPreprocessPlugin {
             app,
             MESH_PREPROCESS_SHADER_HANDLE,
             "mesh_preprocess.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_PREPROCESS_TYPES_SHADER_HANDLE,
+            "mesh_preprocess_types.wgsl",
             Shader::from_wgsl
         );
     }
@@ -202,7 +211,7 @@ impl Node for GpuPreprocessNode {
                 });
 
         // Run the compute passes.
-        for (view, bind_group, view_uniform_offset, gpu_culling) in
+        for (view, bind_group, view_uniform_offset, no_indirect_drawing) in
             self.view_query.iter_manual(world)
         {
             // Grab the index buffer for this view.
@@ -213,7 +222,7 @@ impl Node for GpuPreprocessNode {
 
             // Select the right pipeline, depending on whether GPU culling is in
             // use.
-            let maybe_pipeline_id = if gpu_culling {
+            let maybe_pipeline_id = if !no_indirect_drawing {
                 preprocess_pipelines.gpu_culling.pipeline_id
             } else {
                 preprocess_pipelines.direct.pipeline_id
@@ -235,7 +244,7 @@ impl Node for GpuPreprocessNode {
             compute_pass.set_pipeline(preprocess_pipeline);
 
             let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-            if gpu_culling {
+            if !no_indirect_drawing {
                 dynamic_offsets.push(view_uniform_offset.offset);
             }
             compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
@@ -402,8 +411,8 @@ pub fn prepare_preprocess_bind_groups(
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
-        current_input_buffer_vec.buffer.buffer(),
-        previous_input_buffer_vec.buffer.buffer(),
+        current_input_buffer_vec.buffer().buffer(),
+        previous_input_buffer_vec.buffer().buffer(),
         data_buffer_vec.buffer(),
     ) else {
         return;
@@ -422,7 +431,7 @@ pub fn prepare_preprocess_bind_groups(
         )
         .ok();
 
-        let bind_group = if index_buffer_vec.gpu_culling {
+        let bind_group = if !index_buffer_vec.no_indirect_drawing {
             let (
                 Some(indirect_parameters_buffer),
                 Some(mesh_culling_data_buffer),

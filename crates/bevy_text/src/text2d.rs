@@ -7,6 +7,7 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::{require, Component},
@@ -19,16 +20,15 @@ use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window};
 
 /// [`Text2dBundle`] was removed in favor of required components.
@@ -94,10 +94,11 @@ pub struct Text2dBundle {}
     TextColor,
     TextBounds,
     Anchor,
-    SpriteSource,
     Visibility,
+    VisibilityClass,
     Transform
 )]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
 
 impl Text2d {
@@ -236,7 +237,7 @@ pub fn extract_text2d_sprite(
 pub fn update_text2d_layout(
     mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -269,7 +270,7 @@ pub fn update_text2d_layout(
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
-            || queue.remove(&entity)
+            || (!queue.is_empty() && queue.remove(&entity))
         {
             let text_bounds = TextBounds {
                 width: if block.linebreak == LineBreak::NoWrap {

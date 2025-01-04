@@ -149,7 +149,7 @@ fn print_on_load(
 
     info!("Custom asset loaded: {:?}", custom_asset.unwrap());
     info!("Custom asset loaded: {:?}", other_custom_asset.unwrap());
-    info!("Blob Size: {:?} Bytes", blob.unwrap().bytes.len());
+    info!("Blob Size: {} Bytes", blob.unwrap().bytes.len());
 
     // Once printed, we won't print again
     state.printed = true;

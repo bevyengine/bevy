@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec::Vec};
 use bevy_utils::synccell::SyncCell;
 use variadics_please::all_tuples;
 
@@ -683,6 +684,7 @@ mod tests {
         prelude::{Component, Query},
         system::{Local, RunSystemOnce},
     };
+    use alloc::vec;
 
     use super::*;
 

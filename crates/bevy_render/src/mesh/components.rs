@@ -1,4 +1,7 @@
-use crate::{mesh::Mesh, view::Visibility};
+use crate::{
+    mesh::Mesh,
+    view::{self, Visibility, VisibilityClass},
+};
 use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, prelude::require, reflect::ReflectComponent};
@@ -35,7 +38,8 @@ use derive_more::derive::From;
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<Mesh2d>)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
 impl From<Mesh2d> for AssetId<Mesh> {
@@ -82,7 +86,8 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<Mesh3d>)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Mesh3d> for AssetId<Mesh> {

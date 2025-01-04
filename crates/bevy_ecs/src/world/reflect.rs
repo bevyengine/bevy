@@ -4,6 +4,7 @@ use core::any::TypeId;
 
 use thiserror::Error;
 
+use alloc::string::{String, ToString};
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
 use crate::{prelude::*, world::ComponentId};
@@ -212,7 +213,7 @@ pub enum GetComponentReflectError {
     NoCorrespondingComponentId(TypeId),
 
     /// The given [`Entity`] does not have a [`Component`] corresponding to the given [`TypeId`].
-    #[error("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
+    #[error("The given `Entity` {entity} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
     EntityDoesNotHaveComponent {
         /// The given [`Entity`].
         entity: Entity,

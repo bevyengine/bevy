@@ -88,7 +88,6 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
   "bevy_color?/serialize",
-  "bevy_core/serialize",
   "bevy_ecs/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
@@ -160,9 +159,14 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite"]
-bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
+bevy_ui = ["dep:bevy_ui", "bevy_image"]
+bevy_image = ["dep:bevy_image"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -174,12 +178,13 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
-bevy_text = ["dep:bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_image"]
 
 bevy_render = [
   "dep:bevy_render",
   "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
+  "bevy_image",
 ]
 
 # Enable assertions to check the validity of parameters passed to glam
@@ -235,6 +240,9 @@ bevy_sprite_picking_backend = [
 # Provides a UI picking backend
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
+# Provides a UI debug overlay
+bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
@@ -242,7 +250,7 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 bevy_state = ["dep:bevy_state"]
 
 # Enables source location tracking for change detection, which can assist with debugging
-track_change_detection = ["bevy_ecs/track_change_detection"]
+track_location = ["bevy_ecs/track_location"]
 
 # Enable function reflection
 reflect_functions = [
@@ -267,7 +275,6 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
@@ -276,7 +283,9 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.15.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", version = "0.15.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.15.0-dev", features = [
+  "bevy_reflect",
+] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",

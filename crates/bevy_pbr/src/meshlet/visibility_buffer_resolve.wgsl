@@ -94,6 +94,7 @@ struct VertexOutput {
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     cluster_id: u32,
+    material_bind_group_slot: u32,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     motion_vector: vec2<f32>,
@@ -173,6 +174,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         world_tangent,
         instance_uniform.flags,
         instance_id ^ meshlet_id,
+        instance_uniform.material_and_lightmap_bind_group_slot & 0xffffu,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
         motion_vector,

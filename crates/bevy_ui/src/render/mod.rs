@@ -4,6 +4,9 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_overlay;
+
 use crate::widget::ImageNode;
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
@@ -41,6 +44,8 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
+#[cfg(feature = "bevy_ui_debug")]
+pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -98,6 +103,7 @@ pub enum RenderUiSystem {
     ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
+    ExtractDebug,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -125,6 +131,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
+                RenderUiSystem::ExtractDebug,
             )
                 .chain(),
         )
@@ -136,6 +143,8 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
+                #[cfg(feature = "bevy_ui_debug")]
+                debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
             ),
         )
         .add_systems(
@@ -217,7 +226,6 @@ pub enum ExtractedUiItem {
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
-        atlas_scaling: Vec2,
         /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
     },
@@ -502,7 +510,7 @@ pub fn extract_uinode_borders(
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(computed_node.outline_width()),
+                        border: BorderRect::all(computed_node.outline_width()),
                         border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
@@ -654,14 +662,8 @@ pub fn extract_text_sections(
             continue;
         };
 
-        // Align the text to the nearest pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Round the position to the nearest physical pixel
-
-        let mut transform = global_transform.affine()
+        let transform = global_transform.affine()
             * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
-        transform.translation = transform.translation.round();
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
@@ -699,14 +701,9 @@ pub fn extract_text_sections(
                 rect,
             });
 
-            if text_layout_info
-                .glyphs
-                .get(i + 1)
-                .map(|info| {
-                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-                })
-                .unwrap_or(true)
-            {
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
                 let id = commands.spawn(TemporaryRenderEntity).id();
 
                 extracted_uinodes.uinodes.insert(
@@ -718,10 +715,7 @@ pub fn extract_text_sections(
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
                         rect,
-                        item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::ONE,
-                            range: start..end,
-                        },
+                        item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                     },
                 );
@@ -1049,7 +1043,7 @@ pub fn prepare_uinodes(
                                 );
                                 // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                                 let atlas_extent = atlas_scaling
-                                    .map(|scaling| image.size.as_vec2() * scaling)
+                                    .map(|scaling| image.size_2d().as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
                                 if *flip_x {
                                     core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
@@ -1116,15 +1110,12 @@ pub fn prepare_uinodes(
                             vertices_index += 6;
                             indices_index += 4;
                         }
-                        ExtractedUiItem::Glyphs {
-                            atlas_scaling,
-                            range,
-                        } => {
+                        ExtractedUiItem::Glyphs { range } => {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size.as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2();
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {

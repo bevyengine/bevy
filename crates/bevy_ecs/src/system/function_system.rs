@@ -11,14 +11,14 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
+use tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem, SystemParamBuilder};
+use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -60,7 +60,7 @@ impl SystemMeta {
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
-            param_warn_policy: ParamWarnPolicy::Once,
+            param_warn_policy: ParamWarnPolicy::Panic,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
             #[cfg(feature = "trace")]
@@ -190,6 +190,8 @@ impl SystemMeta {
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
 #[derive(Clone, Copy)]
 pub enum ParamWarnPolicy {
+    /// Stop app with a panic.
+    Panic,
     /// No warning should ever be emitted.
     Never,
     /// The warning will be emitted once and status will update to [`Self::Never`].
@@ -200,6 +202,7 @@ impl ParamWarnPolicy {
     /// Advances the warn policy after validation failed.
     #[inline]
     fn advance(&mut self) {
+        // Ignore `Panic` case, because it stops execution before this function gets called.
         *self = Self::Never;
     }
 
@@ -209,15 +212,21 @@ impl ParamWarnPolicy {
     where
         P: SystemParam,
     {
-        if matches!(self, Self::Never) {
-            return;
+        match self {
+            Self::Panic => panic!(
+                "{0} could not access system parameter {1}",
+                name,
+                disqualified::ShortName::of::<P>()
+            ),
+            Self::Once => {
+                log::warn!(
+                    "{0} did not run because it requested inaccessible system parameter {1}",
+                    name,
+                    disqualified::ShortName::of::<P>()
+                );
+            }
+            Self::Never => {}
         }
-
-        bevy_utils::tracing::warn!(
-            "{0} did not run because it requested inaccessible system parameter {1}",
-            name,
-            disqualified::ShortName::of::<P>()
-        );
     }
 }
 
@@ -231,6 +240,11 @@ where
 {
     /// Set warn policy.
     fn with_param_warn_policy(self, warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F>;
+
+    /// Warn only once about invalid system parameters.
+    fn param_warn_once(self) -> FunctionSystem<M, F> {
+        self.with_param_warn_policy(ParamWarnPolicy::Once)
+    }
 
     /// Disable all param warnings.
     fn never_param_warn(self) -> FunctionSystem<M, F> {
@@ -382,7 +396,7 @@ macro_rules! impl_build_system {
                 Input: SystemInput,
                 Out: 'static,
                 Marker,
-                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
@@ -458,6 +472,12 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
+    }
+
+    /// Gets the metadata for this instance.
+    #[inline]
+    pub fn meta_mut(&mut self) -> &mut SystemMeta {
+        &mut self.meta
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -630,6 +650,25 @@ impl<Param: SystemParam> SystemState<Param> {
         self.meta.last_run = change_tick;
         param
     }
+
+    /// Returns a reference to the current system param states.
+    pub fn param_state(&self) -> &Param::State {
+        &self.param_state
+    }
+
+    /// Returns a mutable reference to the current system param states.
+    /// Marked as unsafe because modifying the system states may result in violation to certain
+    /// assumptions made by the [`SystemParam`]. Use with care.
+    ///
+    /// # Safety
+    /// Modifying the system param states may have unintended consequences.
+    /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
+    /// should respect any invariants as required by the [`SystemParam`].
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
+    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
+        &mut self.param_state
+    }
 }
 
 impl<Param: SystemParam> FromWorld for SystemState<Param> {
@@ -642,7 +681,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+/// becomes the functions first parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
 ///

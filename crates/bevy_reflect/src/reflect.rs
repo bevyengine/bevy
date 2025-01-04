@@ -1,6 +1,6 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
+    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
+    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::boxed::Box;
@@ -270,13 +270,6 @@ where
         }
     }
 
-    /// Returns a serializable version of the value.
-    ///
-    /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-
     /// Indicates whether or not this type is a _dynamic_ type.
     ///
     /// Dynamic types include the ones built-in to this [crate],
@@ -359,8 +352,7 @@ impl dyn PartialReflect {
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.

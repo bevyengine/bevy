@@ -277,23 +277,33 @@ impl UiSurface {
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding
     /// and the size of the node after layout resolution but before rounding.
-    pub fn get_layout(&mut self, entity: Entity) -> Result<(taffy::Layout, Vec2), LayoutError> {
+    pub fn get_layout(
+        &mut self,
+        entity: Entity,
+        use_rounding: bool,
+    ) -> Result<(taffy::Layout, Vec2), LayoutError> {
         let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
             return Err(LayoutError::InvalidHierarchy);
         };
 
-        let layout = self
-            .taffy
-            .layout(*taffy_node)
-            .cloned()
-            .map_err(LayoutError::TaffyError)?;
+        if use_rounding {
+            self.taffy.enable_rounding();
+        } else {
+            self.taffy.disable_rounding();
+        }
 
-        self.taffy.disable_rounding();
-        let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
-        let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
+        let out = match self.taffy.layout(*taffy_node).cloned() {
+            Ok(layout) => {
+                self.taffy.disable_rounding();
+                let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
+                let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
+                Ok((layout, unrounded_size))
+            }
+            Err(taffy_error) => Err(LayoutError::TaffyError(taffy_error)),
+        };
+
         self.taffy.enable_rounding();
-
-        Ok((layout, unrounded_size))
+        out
     }
 }
 
