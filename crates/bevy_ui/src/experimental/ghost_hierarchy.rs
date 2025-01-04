@@ -3,6 +3,7 @@
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
+#[cfg(feature = "bevy_render")]
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
@@ -20,7 +21,8 @@ use crate::Node;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
-#[require(Visibility, Transform)]
+#[cfg_attr(feature = "bevy_render", require(Visibility))]
+#[require(Transform)]
 pub struct GhostNode {
     // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled
     #[reflect(ignore)]

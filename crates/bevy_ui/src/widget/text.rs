@@ -1,31 +1,32 @@
-use crate::{
-    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
-};
+use crate::{ComputedNode, ContentSize, Measure, MeasureArgs, Node};
 use bevy_asset::Assets;
-use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
-    prelude::{require, Component},
-    query::With,
-    reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
-    world::{Mut, Ref},
-};
+use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::Camera;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
+    prelude::*, scale_value, ComputedTextBlock, CosmicFontSystem, FontAtlasSets, SwashCache,
+    TextBounds, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
+
+#[cfg(feature = "bevy_render")]
+use {
+    crate::{DefaultUiCamera, FixedMeasure, NodeMeasure, TargetCamera, UiScale},
+    bevy_color::Color,
+    bevy_ecs::{
+        change_detection::DetectChanges,
+        entity::EntityHashMap,
+        query::With,
+        system::{Local, Query, Res},
+        world::Mut,
+    },
+    bevy_render::camera::Camera,
+    bevy_utils::Entry,
+};
 
 /// UI text system flags.
 ///
@@ -51,7 +52,7 @@ impl Default for TextNodeFlags {
 /// [`TextBundle`] was removed in favor of required components.
 /// The core component is now [`Text`] which can contain a single text segment.
 /// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).
+/// Additional segments can be added through children with [`TextSpan`].
 /// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
 /// while node-related configuration uses [`TextNodeFlags`] component.
 #[deprecated(
@@ -65,7 +66,7 @@ pub struct TextBundle {}
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`] for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
@@ -187,7 +188,7 @@ impl Measure for TextMeasure {
                                 font_system,
                             )
                         } else {
-                            error!("text measure failed, buffer is missing");
+                            bevy_utils::tracing::error!("text measure failed, buffer is missing");
                             Vec2::default()
                         }
                     }
@@ -202,6 +203,7 @@ impl Measure for TextMeasure {
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
+#[cfg(feature = "bevy_render")]
 fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
@@ -255,6 +257,7 @@ fn create_text_measure<'a>(
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "bevy_render")]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,

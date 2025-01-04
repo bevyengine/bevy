@@ -27,6 +27,7 @@ use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
+#[cfg(feature = "bevy_render")]
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::HashMap;

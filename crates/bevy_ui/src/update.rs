@@ -2,19 +2,24 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, With},
     system::{Commands, Query},
 };
 use bevy_math::Rect;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
+
+#[cfg(feature = "bevy_render")]
+use {
+    crate::TargetCamera,
+    bevy_ecs::query::{Changed, With},
+    bevy_utils::HashSet,
+};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -134,6 +139,7 @@ fn update_clipping(
     }
 }
 
+#[cfg(feature = "bevy_render")]
 pub fn update_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
@@ -180,6 +186,7 @@ pub fn update_target_camera_system(
     }
 }
 
+#[cfg(feature = "bevy_render")]
 fn update_children_target_camera(
     entity: Entity,
     camera_to_set: Option<&TargetCamera>,

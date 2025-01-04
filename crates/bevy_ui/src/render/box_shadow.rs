@@ -9,9 +9,8 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_ecs::prelude::*;
 use bevy_ecs::{
-    prelude::Component,
+    prelude::*,
     storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
@@ -20,16 +19,14 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
-use bevy_render::sync_world::MainEntity;
-use bevy_render::RenderApp;
 use bevy_render::{
     camera::Camera,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
