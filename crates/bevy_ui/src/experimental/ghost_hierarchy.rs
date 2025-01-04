@@ -190,7 +190,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
 #[cfg(feature = "ghost_nodes")]
 pub struct UiChildrenIter<'w, 's> {
-    stack: SmallVec<Entity>,
+    stack: SmallVec<[Entity; 8]>,
     query: &'s Query<
         'w,
         's,
