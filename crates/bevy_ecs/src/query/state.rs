@@ -1020,7 +1020,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let location = world
             .entities()
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity(entity, world))?;
+            .ok_or(QueryEntityError::NoSuchEntity(
+                entity,
+                world
+                    .entities()
+                    .entity_does_not_exist_error_details_message(entity),
+            ))?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())
