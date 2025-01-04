@@ -19,6 +19,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -31,7 +32,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntityHashMap, RenderEntity, TemporaryRenderEntity},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -340,12 +341,11 @@ pub struct ExtractedSprite {
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
-    pub render_entity: Entity,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: MainEntityHashMap<ExtractedSprite>,
+    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -390,13 +390,16 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(
-                        transform,
-                        original_entity,
-                        commands.spawn(TemporaryRenderEntity).id(),
-                        sprite,
-                    )
-                    .map(|e| (original_entity.into(), e)),
+                    .extract_sprites(transform, original_entity, sprite)
+                    .map(|e| {
+                        (
+                            (
+                                commands.spawn(TemporaryRenderEntity).id(),
+                                original_entity.into(),
+                            ),
+                            e,
+                        )
+                    }),
             );
         } else {
             let atlas_rect = sprite
@@ -417,7 +420,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                original_entity.into(),
+                (entity, original_entity.into()),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
@@ -429,7 +432,6 @@ pub fn extract_sprites(
                     image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
-                    render_entity: entity,
                 },
             );
         }
@@ -556,11 +558,8 @@ pub fn queue_sprites(
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for (main_entity, extracted_sprite) in extracted_sprites.sprites.iter() {
-            let index = extracted_sprite
-                .original_entity
-                .unwrap_or(extracted_sprite.render_entity)
-                .index();
+        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
+            let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
 
             if !view_entities.contains(index as usize) {
                 continue;
@@ -573,7 +572,7 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: (extracted_sprite.render_entity, *main_entity),
+                entity: (*entity, *main_entity),
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
@@ -663,7 +662,7 @@ pub fn prepare_sprite_image_bind_groups(
         // Compatible items share the same entity.
         for item_index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[item_index];
-            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity.1) else {
+            let Some(extracted_sprite) = extracted_sprites.sprites.get(&item.entity) else {
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
