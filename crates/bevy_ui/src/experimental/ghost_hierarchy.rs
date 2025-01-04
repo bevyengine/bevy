@@ -155,9 +155,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
 #[cfg(not(feature = "ghost_nodes"))]
 impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the children of `entity`
-    ///
-    /// Traverses the hierarchy depth-first to ensure child order.
+    /// Iterates the children of `entity`.
     pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.ui_children_query
             .get(entity)
