@@ -31,6 +31,7 @@ pub struct BloomDownsamplingPipeline {
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
+    uniform_scale: bool,
 }
 
 /// The uniform struct extracted from [`Bloom`] attached to a Camera.
@@ -103,6 +104,10 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             shader_defs.push("USE_THRESHOLD".into());
         }
 
+        if key.uniform_scale {
+            shader_defs.push("UNIFORM_SCALE".into());
+        }
+
         RenderPipelineDescriptor {
             label: Some(
                 if key.first_downsample {
@@ -149,6 +154,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: false,
+                uniform_scale: bloom.scale == Vec2::ONE,
             },
         );
 
@@ -158,6 +164,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: true,
+                uniform_scale: bloom.scale == Vec2::ONE,
             },
         );
 
