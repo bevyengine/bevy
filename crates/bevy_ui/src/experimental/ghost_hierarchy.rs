@@ -1,5 +1,6 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
+use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
@@ -8,11 +9,9 @@ use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
 
 #[cfg(feature = "ghost_nodes")]
-use smallvec::SmallVec;
-
-use crate::Node;
-#[cfg(feature = "ghost_nodes")]
 use bevy_hierarchy::HierarchyQueryExt;
+#[cfg(feature = "ghost_nodes")]
+use smallvec::SmallVec;
 
 /// Marker component for entities that should be ignored within UI hierarchies.
 ///
@@ -168,7 +167,7 @@ impl<'w, 's> UiChildren<'w, 's> {
             .get(entity)
             .ok()
             .flatten()
-            .map(|children| (*children).as_ref())
+            .map(|children| children.as_ref())
             .unwrap_or(&[])
             .iter()
             .copied()
