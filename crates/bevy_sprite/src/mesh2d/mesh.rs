@@ -203,7 +203,7 @@ pub struct RenderMesh2dInstance {
 #[derive(Default, Resource, Deref, DerefMut)]
 pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
