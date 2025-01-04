@@ -34,7 +34,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, DefaultCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -258,7 +258,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -268,7 +268,7 @@ pub fn extract_shadows(
         }
 
         let ui_physical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(render_camera_entity)
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -325,7 +325,7 @@ pub fn extract_shadows(
                     color: drop_shadow.color.into(),
                     bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    camera_entity: render_camera_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
@@ -341,13 +341,20 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(&ExtractedView, Option<&BoxShadowSamples>)>,
+    mut render_views: Query<(&DefaultCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
-        let Ok((view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity) else {
+        let Ok((default_camera_view, shadow_samples)) =
+            render_views.get_mut(extracted_shadow.camera_entity)
+        else {
+            continue;
+        };
+
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
             continue;
         };
 

@@ -344,13 +344,18 @@ pub fn queue_ui_slices(
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<&ExtractedView>,
+    mut render_views: Query<&DefaultCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok(view) = views.get_mut(extracted_slicer.camera_entity) else {
+        let Ok(default_camera_view) = render_views.get_mut(extracted_slicer.camera_entity) else {
+            continue;
+        };
+
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
             continue;
         };
 
