@@ -280,6 +280,16 @@ fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -
             Some(sub_image_data)
         }
         TextureFormat::Rgba32Float => {
+            let image_data_u8 = image
+                .data
+                .chunks(4)
+                .map(|chunk| {
+                    let chunk = chunk.try_into().unwrap();
+                    let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
+                    (num * 255.0) as u8
+                })
+                .collect::<Vec<u8>>();
+
             for y in 0..height {
                 for x in 0..width {
                     let src_x = if flip_x { width - 1 - x } else { x };
@@ -288,9 +298,7 @@ fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -
                         * image.texture_descriptor.size.width as usize
                         + (rect.min.x as usize + src_x))
                         * 4;
-                    let chunk = &image.data[index..index + 4];
-                    let num = bytemuck::cast_slice::<u8, f32>(chunk)[0];
-                    sub_image_data.push((num * 255.0) as u8);
+                    sub_image_data.extend_from_slice(&image_data_u8[index..index + 4]);
                 }
             }
             Some(sub_image_data)
@@ -324,6 +332,30 @@ mod tests {
         )
     }
 
+    fn create_image_rgba32float(data: &[u8]) -> Image {
+        let float_data: Vec<f32> = data
+            .chunks(4)
+            .flat_map(|chunk| {
+                chunk
+                    .iter()
+                    .map(|&x| x as f32 / 255.0) // convert each channel to f32
+                    .collect::<Vec<f32>>()
+            })
+            .collect();
+
+        Image::new(
+            Extent3d {
+                width: 3,
+                height: 3,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            bytemuck::cast_slice(&float_data).to_vec(),
+            TextureFormat::Rgba32Float,
+            RenderAssetUsages::default(),
+        )
+    }
+
     macro_rules! test_image_to_rgba_pixels {
         ($name:ident, $flip_x:expr, $flip_y:expr, $rect:expr, $expected:expr) => {
             #[test]
@@ -346,6 +378,14 @@ mod tests {
                 // RGBA8 test
                 {
                     let image = create_image_rgba8(image_data);
+                    let rect = $rect;
+                    let result = image_to_rgba_pixels(&image, $flip_x, $flip_y, rect);
+                    assert_eq!(result, Some($expected.to_vec()));
+                }
+
+                // RGBA32Float test
+                {
+                    let image = create_image_rgba32float(image_data);
                     let rect = $rect;
                     let result = image_to_rgba_pixels(&image, $flip_x, $flip_y, rect);
                     assert_eq!(result, Some($expected.to_vec()));
