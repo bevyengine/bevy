@@ -1,4 +1,7 @@
-#![expect(deprecated)]
+#![expect(
+    deprecated,
+    reason = "See the NOTE comment attached to AudioSourceBundle."
+)]
 
 use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
@@ -212,6 +215,10 @@ pub struct DefaultSpatialScale(pub SpatialScale);
     since = "0.15.0",
     note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
+#[expect(
+    deprecated,
+    reason = "This is a deprecated alias for a deprecated item."
+)]
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
 
 /// A component for playing a sound.
@@ -267,6 +274,21 @@ impl AudioPlayer<AudioSource> {
     since = "0.15.0",
     note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
+// NOTE: When removing this, please remove the `#![expect(deprecated)]` at the top of this file.
+//
+// To explain: The `#[derive(Bundle)]` attached to this struct generates two trait impls. However,
+// trait impls count as a use of a deprecated struct (for some reason). Thus, rustc lints about the
+// use of a deprecated struct on the struct itself. Adding a `#[expect(deprecated)]` to the struct
+// does not fix this issue - and in fact, rustc will say that the lint expectation is unfulfilled.
+//
+// I consider this to be an issue with rustc itself, as it shouldn't be linting about use of
+// deprecated structs on impls for those same structs (at least when the impls and the struct live
+// in the same crate). Thus, while I could modify the Bundle derive code to add
+// `#[allow(deprecated)]`, I don't believe it's a good idea.
+//
+// The only other solution I could find to this issue was to mark the whole module as expecting a
+// deprecated lint. So, if this item is ever removed, please remove the `#![expect(deprecated)]` at
+// the top of this file.
 pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
@@ -280,6 +302,10 @@ where
     pub settings: PlaybackSettings,
 }
 
+#[expect(
+    deprecated,
+    reason = "This is an impl for a deprecated item; rustc should not be complaining about this being a use of a deprecated item."
+)]
 impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
     fn clone(&self) -> Self {
         Self {
@@ -289,6 +315,10 @@ impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "This is an impl for a deprecated item; rustc should not be complaining about this being a use of a deprecated item."
+)]
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {
