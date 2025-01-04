@@ -136,8 +136,8 @@ You can do this in one line with `nix-shell --run "cargo run"`.
 
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
-to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell or just
-`nix develop -c cargo run` to run the program. See
+to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell or
+`nix develop -c cargo run` to just run the program. See
 [Nix's documentation](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-develop.html)
 for more information about `devShells`.
 
