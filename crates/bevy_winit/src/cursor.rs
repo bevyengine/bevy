@@ -256,31 +256,16 @@ fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: C
 ///
 /// Only supports rgba8 and rgba32float formats.
 fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -> Option<Vec<u8>> {
-    let width = (rect.max.x - rect.min.x) as usize;
-    let height = (rect.max.y - rect.min.y) as usize;
-    let mut sub_image_data = Vec::with_capacity(width * height * 4); // Assuming 4 bytes per pixel (RGBA8)
+    let image_data_as_u8s: Vec<u8>;
 
-    match image.texture_descriptor.format {
+    let image_data = match image.texture_descriptor.format {
         TextureFormat::Rgba8Unorm
         | TextureFormat::Rgba8UnormSrgb
         | TextureFormat::Rgba8Snorm
         | TextureFormat::Rgba8Uint
-        | TextureFormat::Rgba8Sint => {
-            for y in 0..height {
-                for x in 0..width {
-                    let src_x = if flip_x { width - 1 - x } else { x };
-                    let src_y = if flip_y { height - 1 - y } else { y };
-                    let index = ((rect.min.y as usize + src_y)
-                        * image.texture_descriptor.size.width as usize
-                        + (rect.min.x as usize + src_x))
-                        * 4;
-                    sub_image_data.extend_from_slice(&image.data[index..index + 4]);
-                }
-            }
-            Some(sub_image_data)
-        }
+        | TextureFormat::Rgba8Sint => Some(&image.data),
         TextureFormat::Rgba32Float => {
-            let image_data_u8 = image
+            image_data_as_u8s = image
                 .data
                 .chunks(4)
                 .map(|chunk| {
@@ -290,21 +275,30 @@ fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -
                 })
                 .collect::<Vec<u8>>();
 
-            for y in 0..height {
-                for x in 0..width {
-                    let src_x = if flip_x { width - 1 - x } else { x };
-                    let src_y = if flip_y { height - 1 - y } else { y };
-                    let index = ((rect.min.y as usize + src_y)
-                        * image.texture_descriptor.size.width as usize
-                        + (rect.min.x as usize + src_x))
-                        * 4;
-                    sub_image_data.extend_from_slice(&image_data_u8[index..index + 4]);
-                }
-            }
-            Some(sub_image_data)
+            Some(&image_data_as_u8s)
         }
         _ => None,
+    };
+
+    let image_data = image_data?;
+
+    let width = (rect.max.x - rect.min.x) as usize;
+    let height = (rect.max.y - rect.min.y) as usize;
+    let mut sub_image_data = Vec::with_capacity(width * height * 4); // assuming 4 bytes per pixel (RGBA8)
+
+    for y in 0..height {
+        for x in 0..width {
+            let src_x = if flip_x { width - 1 - x } else { x };
+            let src_y = if flip_y { height - 1 - y } else { y };
+            let index = ((rect.min.y as usize + src_y)
+                * image.texture_descriptor.size.width as usize
+                + (rect.min.x as usize + src_x))
+                * 4;
+            sub_image_data.extend_from_slice(&image_data[index..index + 4]);
+        }
     }
+
+    Some(sub_image_data)
 }
 
 #[cfg(feature = "custom_cursor")]
