@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::{
         bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
+        tonemapping::{DebandDither, Tonemapping},
     },
     prelude::*,
 };
@@ -30,6 +30,7 @@ fn setup(
         },
         Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
         Bloom::default(),           // 3. Enable bloom for the camera
+        DebandDither::Enabled,      // Optional: bloom causes gradients which cause banding
     ));
 
     // Sprite
@@ -107,6 +108,7 @@ fn update_bloom_settings(
                 "(U/J) Threshold softness: {}\n",
                 bloom.prefilter.threshold_softness
             ));
+            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -169,6 +171,14 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness += dt / 10.0;
             }
             bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::KeyK) {
+                bloom.scale.x -= dt * 2.0;
+            }
+            if keycode.pressed(KeyCode::KeyI) {
+                bloom.scale.x += dt * 2.0;
+            }
+            bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
         (entity, None) => {
