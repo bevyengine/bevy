@@ -606,7 +606,10 @@ pub fn extract_core_3d_camera_phases(
 
 // Extract the render phases for the prepass
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -686,7 +689,10 @@ pub fn extract_camera_prepass_phase(
     alpha_mask_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -777,7 +783,10 @@ pub struct ViewTransmissionTexture {
     pub sampler: Sampler,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -877,7 +886,10 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
 }
 
 // Prepares the textures used by the prepass
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,

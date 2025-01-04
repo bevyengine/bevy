@@ -3,7 +3,10 @@ mod settings;
 mod upsampling_pipeline;
 
 use bevy_color::{Gray, LinearRgba};
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "The deprecated item here (BloomSettings) is made visible for use by consumers of this crate. It is not used by this module."
+)]
 pub use settings::{
     Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
 };

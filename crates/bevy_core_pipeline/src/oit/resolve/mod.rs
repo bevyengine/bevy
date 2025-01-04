@@ -124,7 +124,6 @@ pub struct OitResolvePipelineKey {
     layer_count: i32,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_oit_resolve_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,

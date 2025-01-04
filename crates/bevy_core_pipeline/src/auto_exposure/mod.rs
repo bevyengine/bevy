@@ -24,7 +24,10 @@ use node::AutoExposureNode;
 use pipeline::{
     AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
 };
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "The deprecated item here (AutoExposureSettings) is made visible for use by consumers of this crate. It is not used by this module."
+)]
 pub use settings::{AutoExposure, AutoExposureSettings};
 
 use crate::{

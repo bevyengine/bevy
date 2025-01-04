@@ -1,5 +1,10 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -33,8 +38,11 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
-    #[expect(deprecated)]
     pub mod taa {
+        #[expect(
+            deprecated,
+            reason = "The deprecated items here (TemporalAntiAliasBundle and TemporalAntiAliasSettings) are made visible for use by consumers of this crate. They are not used by this crate."
+        )]
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
             TemporalAntiAliasSettings, TemporalAntiAliasing,
@@ -45,7 +53,10 @@ pub mod experimental {
 /// The core pipeline prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
+#[expect(
+    deprecated,
+    reason = "Items here are part of a prelude meant for consumers of this crate, not for us."
+)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
