@@ -2348,7 +2348,7 @@ where
             self(id, world);
             Ok(())
         } else {
-            Err(CommandError::NoSuchEntity(id))?
+            Err(CommandError::NoSuchEntity(id))
         }
     }
 }
@@ -2405,7 +2405,7 @@ where
     }
 }
 
-/// Convenience functions that return simple error handlers for use with the following:
+/// Convenience functions that return simple error handlers for use with the following methods:
 /// - [`Commands::queue_fallible_with`](super::Commands::queue_fallible_with)
 /// - [`Commands::override_error_handler`](super::Commands::override_error_handler)
 /// - [`EntityCommands::queue_with`](super::EntityCommands::queue_with)
@@ -2482,7 +2482,7 @@ pub mod fallible_command {
     }
 
     /// A [`Command`] that runs the given system with the given input value,
-    /// caching the [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
     pub fn run_system_cached_with<I, M, S>(
         system: S,
         input: I::Inner<'static>,
