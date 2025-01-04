@@ -1838,6 +1838,9 @@ impl<'a> EntityCommands<'a> {
     /// doesn't exist when a command is executed. Therefore, all entity commands are
     /// queued with error handling.
     ///
+    /// If the command returns an error, it will be passed to the global error handler
+    /// (or the [`EntityCommands`] instance's error handler override, if set).
+    ///
     /// To directly provide an error handler to the command, see [`EntityCommands::queue_with`].
     ///
     /// # Examples
@@ -1866,6 +1869,8 @@ impl<'a> EntityCommands<'a> {
     /// doesn't exist when a command is executed. Therefore, all entity commands are
     /// queued with error handling.
     ///
+    /// If the command returns an error, it will be passed to `error_handler`.
+    ///
     /// Versions of built-in entity commands that can be queued manually can be found in
     /// the [`entity_command`] submodule. Simple error handlers can be found in the
     /// [`handler`] submodule.
@@ -1880,6 +1885,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// If the command returns an error, it will be passed to the [`EntityCommands`] instance's
+    /// error handler override if set, or `default_error_handler` otherwise.
     // TODO: This is only useful for commands that fail differently (non-panic) by default, but
     // still want to be overridden by the EntityCommands instance's setting. It can be removed once
     // all commands obey the global error handler by default.
