@@ -259,15 +259,15 @@ fn queue_custom_phase_item(
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
+                Opaque3dBatchSetKey {
+                    draw_function: draw_custom_phase_item,
+                    pipeline: pipeline_id,
+                    material_bind_group_index: None,
+                    lightmap_slab: None,
+                    vertex_slab: default(),
+                    index_slab: None,
+                },
                 Opaque3dBinKey {
-                    batch_set_key: Opaque3dBatchSetKey {
-                        draw_function: draw_custom_phase_item,
-                        pipeline: pipeline_id,
-                        material_bind_group_index: None,
-                        lightmap_slab: None,
-                        vertex_slab: default(),
-                        index_slab: None,
-                    },
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 entity,
