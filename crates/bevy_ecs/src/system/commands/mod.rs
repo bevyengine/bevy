@@ -17,9 +17,7 @@ use crate::{
     schedule::ScheduleLabel,
     system::{input::SystemInput, SystemId},
     world::{
-        command_queue::RawCommandQueue,
-        error::{CommandError, EntityFetchError},
-        unsafe_world_cell::UnsafeWorldCell,
+        command_queue::RawCommandQueue, error::CommandError, unsafe_world_cell::UnsafeWorldCell,
         Command, CommandQueue, EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
@@ -1273,7 +1271,13 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     where
         Self: Sized,
     {
-        move |world: &mut World| -> Result<(), CommandError> { self.apply(entity, world) }
+        move |world: &mut World| -> Result<(), CommandError> {
+            if world.entities().contains(entity) {
+                self.apply(entity, world)
+            } else {
+                Err(CommandError::NoSuchEntity(entity))
+            }
+        }
     }
 }
 
@@ -2292,16 +2296,15 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.entity_commands
-            .queue(move |entity: Entity, world: &mut World| -> Result {
+            .queue(move |entity: Entity, world: &mut World| {
                 let value = T::from_world(world);
-                let mut entity = world.get_entity_mut(entity)?;
+                let mut entity = world.entity_mut(entity);
                 entity.insert_with_caller(
                     value,
                     InsertMode::Keep,
                     #[cfg(feature = "track_location")]
                     caller,
                 );
-                Ok(())
             });
         self
     }
@@ -2344,12 +2347,8 @@ where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        if world.entities().contains(id) {
-            self(id, world);
-            Ok(())
-        } else {
-            Err(CommandError::NoSuchEntity(id))
-        }
+        self(id, world);
+        Ok(())
     }
 }
 
@@ -2358,13 +2357,9 @@ where
     F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        if world.entities().contains(id) {
-            match self(id, world) {
-                Ok(_) => Ok(()),
-                Err(error) => Err(CommandError::CommandFailed(error)),
-            }
-        } else {
-            Err(CommandError::NoSuchEntity(id))
+        match self(id, world) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(CommandError::CommandFailed(error)),
         }
     }
 }
@@ -2374,16 +2369,8 @@ where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        match world.get_entity_mut(id) {
-            Ok(entity) => {
-                self(entity);
-                Ok(())
-            }
-            Err(error) => match error {
-                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
-                error => Err(CommandError::CommandFailed(Box::new(error))),
-            },
-        }
+        self(world.entity_mut(id));
+        Ok(())
     }
 }
 
@@ -2392,15 +2379,9 @@ where
     F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
 {
     fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        match world.get_entity_mut(id) {
-            Ok(entity) => match self(entity) {
-                Ok(_) => Ok(()),
-                Err(error) => Err(CommandError::CommandFailed(error)),
-            },
-            Err(error) => match error {
-                EntityFetchError::NoSuchEntity(entity) => Err(CommandError::NoSuchEntity(entity)),
-                error => Err(CommandError::CommandFailed(Box::new(error))),
-            },
+        match self(world.entity_mut(id)) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(CommandError::CommandFailed(error)),
         }
     }
 }

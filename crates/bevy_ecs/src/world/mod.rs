@@ -1359,7 +1359,7 @@ impl World {
                 return Err(EntityFetchError::AliasedMutability(entity))
             }
             Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(entity))
+                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
             }
         };
 
@@ -4425,24 +4425,24 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e)) if e == e1
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e,..)) if e == e1));
         assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
         assert!(matches!(
             world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e)) if e == e1,
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1,
         ));
         assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityFetchError::NoSuchEntity(e)) if e == e1));
+            Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
     }
 }
