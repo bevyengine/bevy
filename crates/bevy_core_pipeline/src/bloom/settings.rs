@@ -118,7 +118,7 @@ pub struct Bloom {
     pub uv_offset: f32,
 
     /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
-    /// anamorphic blur by using a large x-value. For large stretch values, you may need to increase
+    /// anamorphic blur by using a large x-value. For large values, you may need to increase
     /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
     pub scale: Vec2,
 }
@@ -151,6 +151,7 @@ impl Bloom {
     /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
     pub const ANAMORPHIC: Self = Self {
         uv_offset: Self::DEFAULT_UV_OFFSET / 2.0,
+        // The larger scale necessitates a larger resolution to reduce artifacts:
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
         scale: Vec2::new(8.0, 1.0),
         ..Self::NATURAL
