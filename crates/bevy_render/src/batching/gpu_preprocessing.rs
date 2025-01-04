@@ -229,16 +229,18 @@ where
     }
 
     /// Returns the piece of buffered data at the given index.
-    ///
-    /// # Safety
-    /// `uniform_index` should be within the bounds of [`Self::buffer`]
-    ///
     /// Can return data that has previously been removed.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn get_unchecked(&self, uniform_index: u32) -> BDI {
         self.buffer.values()[uniform_index as usize]
     }
 
     /// Stores a piece of buffered data at the given index.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn set(&mut self, uniform_index: u32, element: BDI) {
         self.buffer.values_mut()[uniform_index as usize] = element;
     }
