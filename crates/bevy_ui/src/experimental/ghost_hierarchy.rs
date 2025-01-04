@@ -109,7 +109,7 @@ impl<'w, 's> UiChildren<'w, 's> {
             stack: self
                 .ui_children_query
                 .get(entity)
-                .map_or(Vec::new(), |(children, _)| {
+                .map_or(SmallVec::new(), |(children, _)| {
                     children.into_iter().flatten().rev().copied().collect()
                 }),
             query: &self.ui_children_query,
