@@ -146,7 +146,7 @@ impl Bloom {
     pub const ANAMORPHIC: Self = Self {
         // The larger scale necessitates a larger resolution to reduce artifacts:
         max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
-        scale: Vec2::new(6.0, 0.8),
+        scale: Vec2::new(4.0, 1.0),
         ..Self::NATURAL
     };
 
