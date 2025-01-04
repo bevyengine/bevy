@@ -759,28 +759,42 @@ pub mod __macro_exports {
         #[cfg(target_family = "wasm")]
         mod __automatic_type_registration_impl {
             use super::*;
+            use alloc::vec::Vec;
+
+            #[cfg(feature = "std")]
+            use std::sync::RwLock;
+
+            #[cfg(not(feature = "std"))]
+            use spin::rwlock::RwLock;
+
             pub use wasm_init::wasm_init as auto_register_function;
 
-            static AUTOMATIC_REFLECT_REGISTRATIONS: std::sync::RwLock<Vec<fn(&mut TypeRegistry)>> =
-                std::sync::RwLock::new(Vec::new());
+            static AUTOMATIC_REFLECT_REGISTRATIONS: RwLock<Vec<fn(&mut TypeRegistry)>> =
+                RwLock::new(Vec::new());
 
             impl AutomaticReflectRegistrations {
                 pub fn add(func: fn(&mut TypeRegistry)) {
-                    AUTOMATIC_REFLECT_REGISTRATIONS
+                    #[cfg(feature = "std")]
+                    let mut registrations = AUTOMATIC_REFLECT_REGISTRATIONS
                         .write()
-                        .expect("Failed to get write lock for automatic reflect type registration")
-                        .push(func);
+                        .expect("Failed to get write lock for automatic reflect type registration");
+                    #[cfg(not(feature = "std"))]
+                    let mut registrations = AUTOMATIC_REFLECT_REGISTRATIONS.write();
+                    registrations.push(func);
                 }
                 pub fn register(registry: &mut TypeRegistry) {
                     // wasm_init must be called at least once to run all init code.
                     // Calling it multiple times is ok and doesn't do anything.
                     wasm_init::wasm_init();
 
-                    for registration_fn in AUTOMATIC_REFLECT_REGISTRATIONS
+                    #[cfg(feature = "std")]
+                    let registrations = AUTOMATIC_REFLECT_REGISTRATIONS
                         .read()
-                        .expect("Failed to get read lock for automatic reflect type registration")
-                        .iter()
-                    {
+                        .expect("Failed to get read lock for automatic reflect type registration");
+                    #[cfg(not(feature = "std"))]
+                    let registrations = AUTOMATIC_REFLECT_REGISTRATIONS.read();
+
+                    for registration_fn in registrations.iter() {
                         registration_fn(registry);
                     }
                 }
