@@ -1,6 +1,12 @@
 //! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
 
-use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
+use crate::{
+    self as bevy_ecs,
+    component::Component,
+    entity::Entity,
+    query::{QueryData, QueryFilter},
+    system::Query,
+};
 
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -139,6 +145,36 @@ pub struct NameOrEntity {
     pub name: Option<&'static Name>,
     /// The unique identifier of the entity as a fallback.
     pub entity: Entity,
+}
+
+impl NameOrEntity {
+    /// Get a [`NameOrEntity`] from a [`Query`].
+    /// This is a convenience wrapper around [`Query::get`],
+    /// which uses the fact that a [`NameOrEntity`] can always be obtained,
+    /// even if the entity does not have a [`Name`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)] pub struct Score(f32);
+    /// fn print_score(scores: Query<&Score>, names: Query<NameOrEntity>, every_entity: Query<Entity>) {
+    ///     for entity in &every_entity {
+    ///         let name_or_entity = NameOrEntity::get_from_query(&names, entity);
+    ///         match scores.get(entity) {
+    ///             Ok(score) => println!("Score for {name_or_entity} is {}", score.0),
+    ///             Err(_) => println!("No score for {name_or_entity}"),
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn get_from_query<'a, F: QueryFilter>(
+        query: &'a Query<NameOrEntity, F>,
+        entity: Entity,
+    ) -> NameOrEntityItem<'a> {
+        query
+            .get(entity)
+            .unwrap_or(NameOrEntityItem { name: None, entity })
+    }
 }
 
 impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
