@@ -7,9 +7,9 @@ use atomicow::CowArc;
 use bevy_ecs::system::Resource;
 use bevy_utils::{
     tracing::{error, warn},
-    Duration, HashMap,
+    HashMap,
 };
-use core::{fmt::Display, hash::Hash};
+use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};

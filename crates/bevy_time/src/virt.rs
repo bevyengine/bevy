@@ -1,6 +1,7 @@
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{tracing::debug, Duration};
+use bevy_utils::tracing::debug;
+use core::time::Duration;
 
 use crate::{real::Real, time::Time};
 
