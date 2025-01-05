@@ -36,9 +36,9 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_utils::tracing::warn;
 use bevy_window::PrimaryWindow;
 use thiserror::Error;
+use tracing::warn;
 
 use crate::{FocusedInput, InputFocus, InputFocusVisible};
 
