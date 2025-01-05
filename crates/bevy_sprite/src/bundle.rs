@@ -1,4 +1,4 @@
-#![expect(deprecated)]
+#![expect(deprecated, reason = "All items in this module are deprecated.")]
 use crate::Sprite;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
