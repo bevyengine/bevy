@@ -142,11 +142,15 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`].
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused in this default implementation; however, putting understores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(
-        _descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayoutRef,
-        _key: Material2dKey<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayoutRef,
+        key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
