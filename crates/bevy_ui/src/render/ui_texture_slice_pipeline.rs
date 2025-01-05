@@ -339,6 +339,7 @@ pub fn extract_ui_texture_slices(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn queue_ui_slices(
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
