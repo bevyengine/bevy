@@ -552,11 +552,7 @@ impl ContainerAttributes {
     }
 
     /// Returns true if the `no_auto_register` attribute was found on this type.
-    // This is not feature-gated because derive macro shouldn't break if auto_register feature is disabled.
-    #[allow(
-        dead_code,
-        reason = "This is flagged as dead code if auto_register feature is not enabled."
-    )]
+    #[cfg(feature = "auto_register")]
     pub fn no_auto_register(&self) -> bool {
         self.no_auto_register
     }
