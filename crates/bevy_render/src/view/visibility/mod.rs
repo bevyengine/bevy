@@ -349,6 +349,8 @@ pub enum VisibilitySystems {
     /// the order of systems within this set is irrelevant, as [`check_visibility`]
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
+    /// Label for systems which do their own custom visibility checking.
+    CustomCheckVisibility,
 }
 
 pub struct VisibilityPlugin;
@@ -360,9 +362,14 @@ impl Plugin for VisibilityPlugin {
         app.register_type::<VisibilityClass>()
             .configure_sets(
                 PostUpdate,
-                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
-                    .before(CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                (
+                    (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                        .before(CheckVisibility)
+                        .after(TransformSystem::TransformPropagate),
+                    CustomCheckVisibility
+                        .in_set(CheckVisibility)
+                        .after(check_visibility),
+                ),
             )
             .init_resource::<PreviousVisibleEntities>()
             .add_systems(
@@ -487,7 +494,7 @@ pub struct PreviousVisibleEntities(EntityHashSet);
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
 fn reset_view_visibility(
-    mut query: Query<(Entity, &ViewVisibility)>,
+    mut query: Query<(Entity, &ViewVisibility), Without<CustomVisibilityCheck>>,
     mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
 ) {
     previous_visible_entities.clear();
@@ -499,6 +506,10 @@ fn reset_view_visibility(
         }
     });
 }
+
+/// Entities with this marker won't get their visibility checked and if they aren't using custom checking/rendering then won't be rendered.
+#[derive(Debug, Component)]
+pub struct CustomVisibilityCheck;
 
 /// System updating the visibility of entities each frame.
 ///
@@ -518,17 +529,20 @@ pub fn check_visibility(
         &Camera,
         Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<(
-        Entity,
-        &InheritedVisibility,
-        &mut ViewVisibility,
-        &VisibilityClass,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        &GlobalTransform,
-        Has<NoFrustumCulling>,
-        Has<VisibilityRange>,
-    )>,
+    mut visible_aabb_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            &VisibilityClass,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            &GlobalTransform,
+            Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
+        ),
+        Without<CustomVisibilityCheck>,
+    >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
 ) {
