@@ -171,11 +171,16 @@ pub fn pointer_debug_visibility(
     }
 }
 
-#[allow(missing_docs)]
+/// Storage for per-pointer debug information.
 #[derive(Debug, Component, Clone, Default)]
 pub struct PointerDebug {
+    /// The pointer location.
     pub location: Option<Location>,
+
+    /// Representation of the different pointer button states.
     pub press: PointerPress,
+
+    /// List of hit elements to be displayed.
     pub hits: Vec<(DebugName, HitData)>,
 }
 
@@ -239,10 +244,13 @@ pub fn update_debug_data(
     }
 }
 
-#[allow(missing_docs)]
+/// Enum representing either a named or unnamed entity.
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub enum DebugName {
+    /// A named entity.
     Name(Name, Entity),
+
+    /// An unnamed entity.
     Entity(Entity),
 }
 
