@@ -62,6 +62,7 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.7.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

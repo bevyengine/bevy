@@ -18,9 +18,9 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform},
     Render, RenderApp, RenderSet,
 };
-#[cfg(not(feature = "tonemapping_luts"))]
-use bevy_utils::tracing::error;
 use bitflags::bitflags;
+#[cfg(not(feature = "tonemapping_luts"))]
+use tracing::error;
 
 mod node;
 

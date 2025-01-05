@@ -72,7 +72,7 @@ macro_rules! feature_gate {
     ($feature: tt, $value: ident) => {{
         #[cfg(not(feature = $feature))]
         {
-            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            tracing::warn!("feature \"{}\" is not enabled", $feature);
             return None;
         }
         #[cfg(feature = $feature)]

@@ -13,10 +13,10 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::tracing::error;
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
+use tracing::error;
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time

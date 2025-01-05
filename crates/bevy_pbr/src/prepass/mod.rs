@@ -36,7 +36,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::tracing::error;
+use tracing::error;
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{

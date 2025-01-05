@@ -2,11 +2,12 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
 use bevy_ecs::entity::EntityHashMap;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::HashMap;
 use bevy_window::{
     CursorGrabMode, MonitorSelection, Window, WindowMode, WindowPosition, WindowResolution,
     WindowWrapper,
 };
+use tracing::warn;
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
@@ -375,7 +376,7 @@ pub(crate) fn attempt_grab(
             CursorGrabMode::None => "ungrab",
         };
 
-        bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
+        tracing::error!("Unable to {} cursor: {}", err_desc, err);
         Err(err)
     } else {
         Ok(())

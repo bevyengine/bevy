@@ -35,10 +35,11 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_utils::{tracing::warn, Instant};
+use bevy_utils::Instant;
 use core::time::Duration;
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
+use tracing::warn;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]

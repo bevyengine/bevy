@@ -5,15 +5,13 @@ use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_utils::{
-    tracing::{debug, error, warn},
-    HashMap,
-};
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
 use thiserror::Error;
+use tracing::{debug, error, warn};
 
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 

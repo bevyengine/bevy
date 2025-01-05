@@ -44,6 +44,7 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 serde = { version = "1", features = ["derive"], optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

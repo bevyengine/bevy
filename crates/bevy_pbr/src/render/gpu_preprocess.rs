@@ -36,9 +36,9 @@ use bevy_render::{
     view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
+use tracing::warn;
 
 use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,

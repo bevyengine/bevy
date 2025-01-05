@@ -5,11 +5,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_utils::{
-    default,
-    tracing::{debug, warn},
-    HashSet,
-};
+use bevy_utils::{default, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -17,6 +13,7 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
+use tracing::{debug, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
@@ -269,7 +266,7 @@ pub fn prepare_windows(
             }
             #[cfg(target_os = "linux")]
             Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                bevy_utils::tracing::trace!(
+                tracing::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );

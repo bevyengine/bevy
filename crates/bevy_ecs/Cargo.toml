@@ -32,7 +32,7 @@ reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing", "bevy_utils/tracing"]
+trace = ["std", "dep:tracing"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]

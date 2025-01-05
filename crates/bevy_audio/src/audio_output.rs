@@ -7,8 +7,8 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use tracing::warn;
 
 use crate::{AudioSink, AudioSinkPlayback};
 

@@ -31,7 +31,9 @@ bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_gizmos_macros = { path = "macros", version = "0.15.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 
+# other
 bytemuck = "1.0"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

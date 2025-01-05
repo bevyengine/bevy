@@ -21,8 +21,9 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-use bevy_utils::{default, tracing::error, HashMap};
+use bevy_utils::{default, HashMap};
 use core::{any, iter, marker::PhantomData, num::NonZero};
+use tracing::error;
 
 /// An object that creates and stores bind groups for a single material type.
 ///

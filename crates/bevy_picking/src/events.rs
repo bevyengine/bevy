@@ -44,8 +44,9 @@ use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::{tracing::debug, HashMap, Instant};
+use bevy_utils::{HashMap, Instant};
 use bevy_window::Window;
+use tracing::debug;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},

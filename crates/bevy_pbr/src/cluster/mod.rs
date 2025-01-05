@@ -23,7 +23,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{tracing::warn, HashSet};
+use bevy_utils::HashSet;
+use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;

@@ -2,8 +2,8 @@
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{Res, ResMut, Resource, StaticSystemParam};
-use bevy_utils::tracing::error;
 use smallvec::{smallvec, SmallVec};
+use tracing::error;
 use wgpu::BindingResource;
 
 use crate::{

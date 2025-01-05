@@ -19,7 +19,6 @@ use bevy_ui::{
     widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
 };
-use bevy_utils::default;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -74,7 +73,7 @@ impl Default for FpsOverlayConfig {
             text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                ..default()
+                ..Default::default()
             },
             text_color: Color::WHITE,
             enabled: true,
@@ -91,7 +90,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             Node {
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
-                ..default()
+                ..Default::default()
             },
             // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),

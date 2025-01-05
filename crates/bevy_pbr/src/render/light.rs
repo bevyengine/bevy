@@ -35,14 +35,11 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    default,
-    tracing::{error, warn},
-    HashMap,
-};
+use bevy_utils::{default, HashMap};
 use core::{hash::Hash, ops::Range};
+#[cfg(feature = "trace")]
+use tracing::info_span;
+use tracing::{error, warn};
 
 #[derive(Component)]
 pub struct ExtractedPointLight {

@@ -16,15 +16,13 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashSet, Instant,
-};
+use bevy_utils::{HashSet, Instant};
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
 };
+use tracing::{trace, warn};
 
 use crate::core_3d::{
     graph::{Core3d, Node3d},
