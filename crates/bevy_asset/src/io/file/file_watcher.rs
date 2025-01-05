@@ -2,7 +2,7 @@ use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
 };
-use bevy_utils::Duration;
+use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,

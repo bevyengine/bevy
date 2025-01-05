@@ -35,7 +35,8 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_utils::{Duration, Instant};
+use bevy_utils::Instant;
+use core::time::Duration;
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
 use tracing::warn;
@@ -162,8 +163,8 @@ mod tests {
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
         system::{Local, Res, ResMut, Resource},
     };
-    use bevy_utils::Duration;
     use core::error::Error;
+    use core::time::Duration;
 
     #[derive(Event)]
     struct TestEvent<T: Default> {
