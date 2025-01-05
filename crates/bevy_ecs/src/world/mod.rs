@@ -1282,7 +1282,11 @@ impl World {
                 return Err(EntityFetchError::AliasedMutability(entity))
             }
             Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
+                return Err(EntityFetchError::NoSuchEntity(
+                    entity,
+                    self.entities()
+                        .entity_does_not_exist_error_details_message(entity),
+                ))
             }
         };
 
