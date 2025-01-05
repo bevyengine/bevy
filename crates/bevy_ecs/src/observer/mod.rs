@@ -173,68 +173,68 @@ impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
 /// will run.
 pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_;
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
 
     /// The entities the trigger should target.
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_;
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_;
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         [].into_iter()
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         core::iter::once(*self)
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         core::iter::once(*self)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         [].into_iter()
     }
 }
 
 impl<T: TriggerTargets> TriggerTargets for Vec<T> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         self.iter().flat_map(T::entities)
     }
 }
 
 impl<T: TriggerTargets> TriggerTargets for &Vec<T> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         self.iter().flat_map(T::entities)
     }
 }
 
 impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         self.iter().flat_map(T::entities)
     }
 }
 
 impl<T: TriggerTargets> TriggerTargets for &[T] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
         self.iter().flat_map(T::entities)
     }
 }
@@ -245,7 +245,7 @@ macro_rules! impl_trigger_targets_tuples {
         $(#[$meta])*
         impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
         {
-            fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone + '_ {
+            fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
                 let iter = [].into_iter();
                 let ($($trigger_targets,)*) = self;
                 $(
@@ -254,7 +254,7 @@ macro_rules! impl_trigger_targets_tuples {
                 iter.collect::<Vec<_>>().into_iter()
             }
 
-            fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone + '_ {
+            fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
                 let iter = [].into_iter();
                 let ($($trigger_targets,)*) = self;
                 $(
