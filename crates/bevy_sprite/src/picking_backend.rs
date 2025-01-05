@@ -83,7 +83,7 @@ fn sprite_picking(
             }
         })
         .collect();
-    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
+    sorted_sprites.sort_by_key(|(_, _, transform, _)| Reverse(FloatOrd(transform.translation().z)));
 
     let primary_window = primary_window.get_single().ok();
 
