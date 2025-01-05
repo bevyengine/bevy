@@ -118,9 +118,6 @@ pub struct Bloom {
     pub uv_offset: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `Bloom`")]
-pub type BloomSettings = Bloom;
-
 impl Bloom {
     const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
     const DEFAULT_UV_OFFSET: f32 = 0.004;
@@ -202,9 +199,6 @@ pub struct BloomPrefilter {
     /// Values outside of the range [0.0, 1.0] will be clamped.
     pub threshold_softness: f32,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `BloomPrefilter`")]
-pub type BloomPrefilterSettings = BloomPrefilter;
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
 pub enum BloomCompositeMode {

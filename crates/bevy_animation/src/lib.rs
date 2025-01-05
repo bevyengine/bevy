@@ -1,5 +1,6 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -937,13 +938,6 @@ impl AnimationPlayer {
     /// If the animation isn't currently active, returns `None`.
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
-    }
-
-    #[deprecated = "Use `is_playing_animation` instead"]
-    /// Returns true if the animation is currently playing or paused, or false
-    /// if the animation is stopped.
-    pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
-        self.active_animations.contains_key(&animation)
     }
 }
 

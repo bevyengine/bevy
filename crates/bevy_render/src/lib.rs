@@ -40,7 +40,6 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
-mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
@@ -50,7 +49,6 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -64,9 +62,8 @@ pub mod prelude {
             Mesh3d,
         },
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
         texture::ImagePlugin,
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
     };
 }

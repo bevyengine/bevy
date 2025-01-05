@@ -547,6 +547,8 @@ pub(crate) use impl_type_methods;
 /// For example, [`i32`] cannot be broken down any further, so it is represented by an [`OpaqueInfo`].
 /// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as an [`OpaqueInfo`].
+///
+/// [`String`]: alloc::string::String
 #[derive(Debug, Clone)]
 pub struct OpaqueInfo {
     ty: Type,
@@ -585,6 +587,7 @@ impl OpaqueInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn should_return_error_on_invalid_cast() {

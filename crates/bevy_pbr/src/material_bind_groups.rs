@@ -19,7 +19,6 @@ use bevy_render::{
         UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
@@ -795,10 +794,7 @@ pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,
 {
-    M::bindless_slot_count().is_some()
-        && render_device
-            .features()
-            .contains(WgpuFeatures::BUFFER_BINDING_ARRAY | WgpuFeatures::TEXTURE_BINDING_ARRAY)
+    M::bindless_slot_count().is_some() && M::bindless_supported(render_device)
 }
 
 impl FromWorld for FallbackBindlessResources {

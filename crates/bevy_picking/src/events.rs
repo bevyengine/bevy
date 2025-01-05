@@ -37,14 +37,14 @@
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
 //! general metadata about the pointer event.
 
-use core::fmt::Debug;
+use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::{tracing::debug, Duration, HashMap, Instant};
+use bevy_utils::{tracing::debug, HashMap, Instant};
 use bevy_window::Window;
 
 use crate::{
@@ -393,7 +393,7 @@ pub struct PickingEventWriters<'w> {
 /// Both [`Click`] and [`Released`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
 /// on the frame they are released. The end effect is that these two events can
-/// be received sequentally after an [`Out`] event (but always on the same frame
+/// be received sequentially after an [`Out`] event (but always on the same frame
 /// as the [`Out`] event).
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain

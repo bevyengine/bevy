@@ -213,7 +213,6 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
-  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -226,7 +225,6 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
-  "bevy_ui_picking_backend",
 ]
 
 # Windowing layer
@@ -455,7 +453,7 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 bevy_state = ["bevy_internal/bevy_state"]
 
 # Enables source location tracking for change detection and spawning/despawning, which can assist with debugging
-track_change_detection = ["bevy_internal/track_change_detection"]
+track_location = ["bevy_internal/track_location"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
@@ -1236,7 +1234,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1853,7 +1851,7 @@ wasm = false
 name = "change_detection"
 path = "examples/ecs/change_detection.rs"
 doc-scrape-examples = true
-required-features = ["track_change_detection"]
+required-features = ["track_location"]
 
 [package.metadata.example.change_detection]
 name = "Change Detection"
@@ -3574,6 +3572,17 @@ doc-scrape-examples = true
 [package.metadata.example.2d_top_down_camera]
 name = "2D top-down camera"
 description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "custom_projection"
+path = "examples/camera/custom_projection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_projection]
+name = "Custom Projection"
+description = "Shows how to create custom camera projections."
 category = "Camera"
 wasm = true
 

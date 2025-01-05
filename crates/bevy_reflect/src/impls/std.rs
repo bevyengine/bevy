@@ -1,5 +1,7 @@
-// Temporary workaround for impl_reflect!(Option/Result false-positive
-#![allow(unused_qualifications)]
+#![expect(
+    unused_qualifications,
+    reason = "Temporary workaround for impl_reflect!(Option/Result false-positive"
+)]
 
 use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
@@ -116,7 +118,7 @@ impl_reflect_opaque!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeFull());
 impl_reflect_opaque!(::core::ops::Bound<T: Clone + Send + Sync>());
-impl_reflect_opaque!(::bevy_utils::Duration(
+impl_reflect_opaque!(::core::time::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -236,7 +238,6 @@ macro_rules! impl_reflect_for_atomic {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
-            #[allow(unused_mut)]
             impl GetTypeRegistration for $ty
             where
                 $ty: Any + Send + Sync,
@@ -2428,9 +2429,12 @@ mod tests {
         self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
-    use alloc::collections::BTreeMap;
-    use bevy_utils::{Duration, HashMap, Instant};
-    use core::f32::consts::{PI, TAU};
+    use alloc::{collections::BTreeMap, string::String, vec};
+    use bevy_utils::{HashMap, Instant};
+    use core::{
+        f32::consts::{PI, TAU},
+        time::Duration,
+    };
     use static_assertions::assert_impl_all;
     use std::path::Path;
 
