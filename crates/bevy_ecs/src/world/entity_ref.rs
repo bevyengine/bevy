@@ -592,7 +592,9 @@ impl<'w> EntityMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
+        // SAFETY:
+        // - &mut self implies exclusive access for duration of returned value
+        // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable() }
     }
 
@@ -613,7 +615,9 @@ impl<'w> EntityMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
+        // SAFETY:
+        // - Consuming `self` implies exclusive access
+        // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable() }
     }
 
