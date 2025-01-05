@@ -693,7 +693,7 @@ pub mod __macro_exports {
     pub trait RegisterForReflection {
         #[expect(
             unused_variables,
-            reason = "The parameters here are intentionally unused by the default implementation; however, putting understores here will result in the underscores being copied by rust-analyzer's tab completion."
+            reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
         )]
         fn __register(registry: &mut TypeRegistry) {}
     }
