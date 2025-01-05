@@ -1,7 +1,5 @@
 //! Screen space reflections implemented via raymarching.
 
-#![expect(deprecated)]
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -14,7 +12,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
     component::{require, Component},
     entity::Entity,
     query::{Has, QueryItem, With},
@@ -57,22 +54,6 @@ const RAYMARCH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8517409683
 ///
 /// Screen-space reflections are currently only supported with deferred rendering.
 pub struct ScreenSpaceReflectionsPlugin;
-
-/// A convenient bundle to add screen space reflections to a camera, along with
-/// the depth and deferred prepasses required to enable them.
-#[derive(Bundle, Default)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `ScreenSpaceReflections` components instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct ScreenSpaceReflectionsBundle {
-    /// The component that enables SSR.
-    pub settings: ScreenSpaceReflections,
-    /// The depth prepass, needed for SSR.
-    pub depth_prepass: DepthPrepass,
-    /// The deferred prepass, needed for SSR.
-    pub deferred_prepass: DeferredPrepass,
-}
 
 /// Add this component to a camera to enable *screen-space reflections* (SSR).
 ///
@@ -141,9 +122,6 @@ pub struct ScreenSpaceReflections {
     /// gradient.
     pub use_secant: bool,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceReflections`")]
-pub type ScreenSpaceReflectionsSettings = ScreenSpaceReflections;
 
 /// A version of [`ScreenSpaceReflections`] for upload to the GPU.
 ///
