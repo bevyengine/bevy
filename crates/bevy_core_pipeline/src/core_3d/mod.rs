@@ -68,6 +68,7 @@ use core::ops::Range;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     mesh::allocator::SlabId,
+    render_phase::PhaseItemBatchSetKey,
     view::NoIndirectDrawing,
 };
 pub use camera_3d::*;
@@ -269,6 +270,12 @@ pub struct Opaque3dBatchSetKey {
     pub lightmap_slab: Option<NonMaxU32>,
 }
 
+impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
 /// Data that must be identical in order to *batch* phase items together.
 ///
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
@@ -430,6 +437,9 @@ pub struct Transmissive3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transmissive3d {
@@ -493,6 +503,11 @@ impl SortedPhaseItem for Transmissive3d {
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transmissive3d {
@@ -509,6 +524,9 @@ pub struct Transparent3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transparent3d {
@@ -559,6 +577,11 @@ impl SortedPhaseItem for Transparent3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
+    }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
     }
 }
 

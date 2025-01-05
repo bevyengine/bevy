@@ -1730,6 +1730,12 @@ pub struct ShadowBatchSetKey {
     pub index_slab: Option<SlabId>,
 }
 
+impl PhaseItemBatchSetKey for ShadowBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
 /// Data used to bin each object in the shadow map phase.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {

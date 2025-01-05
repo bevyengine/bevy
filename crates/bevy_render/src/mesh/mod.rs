@@ -130,6 +130,12 @@ impl RenderMesh {
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.key_bits.primitive_topology()
     }
+
+    /// Returns true if this mesh uses an index buffer or false otherwise.
+    #[inline]
+    pub fn indexed(&self) -> bool {
+        matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
+    }
 }
 
 /// The index/vertex buffer info of a [`RenderMesh`].
