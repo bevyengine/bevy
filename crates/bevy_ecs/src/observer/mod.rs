@@ -179,6 +179,16 @@ pub trait TriggerTargets {
     fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_;
 }
 
+impl<T: TriggerTargets + ?Sized> TriggerTargets for &T {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
+        (**self).components()
+    }
+
+    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
+        (**self).entities()
+    }
+}
+
 impl TriggerTargets for Entity {
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         [].into_iter()
@@ -209,16 +219,6 @@ impl<T: TriggerTargets> TriggerTargets for Vec<T> {
     }
 }
 
-impl<T: TriggerTargets> TriggerTargets for &Vec<T> {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.iter().flat_map(T::components)
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        self.iter().flat_map(T::entities)
-    }
-}
-
 impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
@@ -229,7 +229,7 @@ impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
     }
 }
 
-impl<T: TriggerTargets> TriggerTargets for &[T] {
+impl<T: TriggerTargets> TriggerTargets for [T] {
     fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.iter().flat_map(T::components)
     }
@@ -251,7 +251,7 @@ macro_rules! impl_trigger_targets_tuples {
                 $(
                     let iter = iter.chain($trigger_targets.components());
                 )*
-                iter.collect::<Vec<_>>().into_iter()
+                iter
             }
 
             fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
@@ -260,7 +260,7 @@ macro_rules! impl_trigger_targets_tuples {
                 $(
                     let iter = iter.chain($trigger_targets.entities());
                 )*
-                iter.collect::<Vec<_>>().into_iter()
+                iter
             }
         }
     }
