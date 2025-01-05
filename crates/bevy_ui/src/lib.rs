@@ -11,7 +11,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
-pub mod node_bundles;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -49,16 +48,12 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::widget::TextBundle;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
-            node_bundles::*,
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label},

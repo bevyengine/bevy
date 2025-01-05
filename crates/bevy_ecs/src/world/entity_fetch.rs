@@ -23,8 +23,6 @@ use crate::{
 ///
 /// - The slice and array implementations perform an aliased mutability check
 ///   in [`WorldEntityFetch::fetch_mut`] that is `O(N^2)`.
-/// - The [`EntityHashSet`] implementation performs no such check as the type
-///   itself guarantees no duplicates.
 /// - The single [`Entity`] implementation performs no such check as only one
 ///   reference is returned.
 ///

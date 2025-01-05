@@ -119,9 +119,6 @@ pub struct DepthOfField {
     pub max_depth: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `DepthOfField`")]
-pub type DepthOfFieldSettings = DepthOfField;
-
 /// Controls the appearance of the effect.
 #[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]

@@ -612,8 +612,6 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Panics
     ///
@@ -877,49 +875,6 @@ impl World {
         archetype
             .components()
             .filter_map(|id| self.components().get_info(id))
-    }
-
-    /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [`None`] if the `entity` exists with a different generation.
-    ///
-    /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
-    #[inline]
-    #[deprecated(since = "0.15.0", note = "use `World::spawn` instead")]
-    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.get_or_spawn_with_caller(
-            entity,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
-    }
-
-    #[inline]
-    pub(crate) fn get_or_spawn_with_caller(
-        &mut self,
-        entity: Entity,
-        #[cfg(feature = "track_location")] caller: &'static Location,
-    ) -> Option<EntityWorldMut> {
-        self.flush();
-        match self.entities.alloc_at_without_replacement(entity) {
-            AllocAtWithoutReplacement::Exists(location) => {
-                // SAFETY: `entity` exists and `location` is that entity's location
-                Some(unsafe { EntityWorldMut::new(self, entity, location) })
-            }
-            AllocAtWithoutReplacement::DidNotExist => {
-                // SAFETY: entity was just allocated
-                Some(unsafe {
-                    self.spawn_at_empty_internal(
-                        entity,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    )
-                })
-            }
-            AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
-        }
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given

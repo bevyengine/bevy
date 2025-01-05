@@ -101,9 +101,6 @@ pub struct Smaa {
     pub preset: SmaaPreset,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `Smaa`")]
-pub type SmaaSettings = Smaa;
-
 /// A preset quality level for SMAA.
 ///
 /// Higher values are slower but result in a higher-quality image.

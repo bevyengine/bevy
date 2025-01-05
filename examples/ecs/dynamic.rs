@@ -148,9 +148,7 @@ fn main() {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
-
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
-                    #[allow(deprecated)]
                     let terms = filtered_entity
                         .access()
                         .component_reads_and_writes()

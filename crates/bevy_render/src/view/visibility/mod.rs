@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 mod range;
 mod render_layers;
 
@@ -198,28 +196,6 @@ impl ViewVisibility {
     pub fn set(&mut self) {
         self.0 = true;
     }
-}
-
-/// A [`Bundle`] of the [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
-/// [`Component`]s, which describe the visibility of an entity.
-///
-/// * To show or hide an entity, you should set its [`Visibility`].
-/// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
-/// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
-///   * ~~You may use the [`VisibilityBundle`] to guarantee this.~~ [`VisibilityBundle`] is now deprecated.
-///     [`InheritedVisibility`] and [`ViewVisibility`] are automatically inserted whenever [`Visibility`] is inserted.
-#[derive(Bundle, Debug, Clone, Default)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `Visibility` component instead. Inserting it will now also insert `InheritedVisibility` and `ViewVisibility` automatically."
-)]
-pub struct VisibilityBundle {
-    /// The visibility of the entity.
-    pub visibility: Visibility,
-    // The inherited visibility of the entity.
-    pub inherited_visibility: InheritedVisibility,
-    // The computed visibility of the entity.
-    pub view_visibility: ViewVisibility,
 }
 
 /// Use this component to opt-out of built-in frustum culling for entities, see

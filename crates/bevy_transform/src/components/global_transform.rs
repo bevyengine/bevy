@@ -23,8 +23,6 @@ use {
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
 ///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
