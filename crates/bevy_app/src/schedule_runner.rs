@@ -10,7 +10,7 @@ use bevy_utils::Instant;
 
 #[cfg(target_arch = "wasm32")]
 use {
-    alloc::rc::Rc,
+    alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
     wasm_bindgen::{prelude::*, JsCast},
 };

@@ -22,7 +22,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
 use super::NoCpuCulling;
-use crate::sync_world::MainEntity;
+use crate::{camera::Projection, sync_world::MainEntity};
 use crate::{
     camera::{Camera, CameraProjection},
     mesh::{Mesh, Mesh3d, MeshAabb},
@@ -398,10 +398,10 @@ pub fn calculate_bounds(
 /// Updates [`Frustum`].
 ///
 /// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
-pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
+pub fn update_frusta(
     mut views: Query<
-        (&GlobalTransform, &T, &mut Frustum),
-        Or<(Changed<GlobalTransform>, Changed<T>)>,
+        (&GlobalTransform, &Projection, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<Projection>)>,
     >,
 ) {
     for (transform, projection, mut frustum) in &mut views {
@@ -412,7 +412,10 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 fn visibility_propagate_system(
     changed: Query<
         (Entity, &Visibility, Option<&Parent>, Option<&Children>),
-        (With<InheritedVisibility>, Changed<Visibility>),
+        (
+            With<InheritedVisibility>,
+            Or<(Changed<Visibility>, Changed<Parent>)>,
+        ),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
@@ -754,6 +757,58 @@ mod test {
         assert!(
             !is_visible(root2_child2_grandchild1),
             "child's invisibility propagates down to grandchild"
+        );
+    }
+
+    #[test]
+    fn test_visibility_propagation_on_parent_change() {
+        // Setup the world and schedule
+        let mut app = App::new();
+
+        app.add_systems(Update, visibility_propagate_system);
+
+        // Create entities with visibility and hierarchy
+        let parent1 = app.world_mut().spawn((Visibility::Hidden,)).id();
+        let parent2 = app.world_mut().spawn((Visibility::Visible,)).id();
+        let child1 = app.world_mut().spawn((Visibility::Inherited,)).id();
+        let child2 = app.world_mut().spawn((Visibility::Inherited,)).id();
+
+        // Build hierarchy
+        app.world_mut()
+            .entity_mut(parent1)
+            .add_children(&[child1, child2]);
+
+        // Run the system initially to set up visibility
+        app.update();
+
+        // Change parent visibility to Hidden
+        app.world_mut()
+            .entity_mut(parent2)
+            .insert(Visibility::Visible);
+        // Simulate a change in the parent component
+        app.world_mut().entity_mut(child2).set_parent(parent2); // example of changing parent
+
+        // Run the system again to propagate changes
+        app.update();
+
+        let is_visible = |e: Entity| {
+            app.world()
+                .entity(e)
+                .get::<InheritedVisibility>()
+                .unwrap()
+                .get()
+        };
+
+        // Retrieve and assert visibility
+
+        assert!(
+            !is_visible(child1),
+            "Child1 should inherit visibility from parent"
+        );
+
+        assert!(
+            is_visible(child2),
+            "Child2 should inherit visibility from parent"
         );
     }
 
