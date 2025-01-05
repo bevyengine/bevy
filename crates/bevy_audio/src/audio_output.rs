@@ -47,11 +47,11 @@ impl Default for AudioOutput {
 }
 
 /// Marker for internal use, to despawn entities when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackDespawnMarker;
 
 /// Marker for internal use, to remove audio components when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]

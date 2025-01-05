@@ -1379,7 +1379,7 @@ impl Default for EnabledButtons {
 
 /// Marker component for a [`Window`] that has been requested to close and
 /// is in the process of closing (on the next frame).
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct ClosingWindow;
 
 #[cfg(test)]

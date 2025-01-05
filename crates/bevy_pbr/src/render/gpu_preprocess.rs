@@ -119,7 +119,7 @@ pub struct PreprocessBindGroup(BindGroup);
 
 /// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
 /// useful to avoid duplicating effort if the bind group is shared between views
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {
