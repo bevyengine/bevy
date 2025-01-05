@@ -18,7 +18,8 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    batching::gpu_preprocessing::GpuPreprocessingSupport, view::RenderVisibleEntities,
+    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    view::RenderVisibleEntities,
 };
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
@@ -484,7 +485,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
     ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
@@ -568,6 +568,17 @@ pub fn queue_material2d_meshes<M: Material2d>(
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
+            // We don't support multidraw yet for 2D meshes, so we use this
+            // custom logic to generate the `BinnedRenderPhaseType` instead of
+            // `BinnedRenderPhaseType::mesh`, which can return
+            // `BinnedRenderPhaseType::MultidrawableMesh` if the hardware
+            // supports multidraw.
+            let binned_render_phase_type = if mesh_instance.automatic_batching {
+                BinnedRenderPhaseType::BatchableMesh
+            } else {
+                BinnedRenderPhaseType::UnbatchableMesh
+            };
+
             match material_2d.properties.alpha_mode {
                 AlphaMode2d::Opaque => {
                     let bin_key = Opaque2dBinKey {
@@ -580,10 +591,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         (),
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(
-                            mesh_instance.automatic_batching,
-                            &gpu_preprocessing_support,
-                        ),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Mask(_) => {
@@ -597,10 +605,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         (),
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(
-                            mesh_instance.automatic_batching,
-                            &gpu_preprocessing_support,
-                        ),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Blend => {
