@@ -48,7 +48,6 @@ bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 
-
 # other
 bitflags = "2.3"
 fixedbitset = "0.5"
@@ -70,6 +69,7 @@ radsort = "0.1"
 smallvec = "1.6"
 nonmax = "0.5"
 static_assertions = "1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

@@ -39,9 +39,9 @@ use bevy_render::{
 };
 use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
+use tracing::error;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level

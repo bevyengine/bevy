@@ -61,17 +61,15 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "trace")]
 use bevy_tasks::ConditionalSendFuture;
 use bevy_tasks::IoTaskPool;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, instrument::Instrument};
-use bevy_utils::{
-    tracing::{debug, error, trace, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::{debug, error, trace, warn};
+#[cfg(feature = "trace")]
+use tracing::{info_span, instrument::Instrument};
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].

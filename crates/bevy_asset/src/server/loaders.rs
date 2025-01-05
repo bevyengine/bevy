@@ -7,11 +7,12 @@ use async_broadcast::RecvError;
 #[cfg(feature = "trace")]
 use bevy_tasks::ConditionalSendFuture;
 use bevy_tasks::IoTaskPool;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, instrument::Instrument};
-use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
+use bevy_utils::{HashMap, TypeIdMap};
 use core::any::TypeId;
 use thiserror::Error;
+use tracing::warn;
+#[cfg(feature = "trace")]
+use tracing::{info_span, instrument::Instrument};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {

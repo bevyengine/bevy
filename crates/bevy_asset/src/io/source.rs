@@ -5,12 +5,10 @@ use crate::{
 use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_utils::{
-    tracing::{error, warn},
-    Duration, HashMap,
-};
+use bevy_utils::{Duration, HashMap};
 use core::{fmt::Display, hash::Hash};
 use thiserror::Error;
+use tracing::{error, warn};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 

@@ -4,7 +4,7 @@ use crate::io::{
     AssetSourceEvent, AssetWatcher,
 };
 use alloc::sync::Arc;
-use bevy_utils::{tracing::warn, Duration, HashMap};
+use bevy_utils::{Duration, HashMap};
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
 use std::{
@@ -12,6 +12,7 @@ use std::{
     io::{BufReader, Read},
     path::{Path, PathBuf},
 };
+use tracing::warn;
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose
 /// bytes have been embedded into the Rust binary using the [`embedded_asset`](crate::embedded_asset) macro.

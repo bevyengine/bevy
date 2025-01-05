@@ -63,6 +63,7 @@ pub use hashbrown;
 pub use parallel_queue::*;
 pub use time::*;
 #[cfg(feature = "tracing")]
+#[doc(hidden)]
 pub use tracing;
 
 #[cfg(feature = "alloc")]

@@ -11,12 +11,10 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_render_macros::ExtractResource;
-use bevy_utils::{
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use core::marker::PhantomData;
 use thiserror::Error;
+use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
