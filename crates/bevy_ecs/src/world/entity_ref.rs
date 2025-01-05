@@ -306,7 +306,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
     fn from(entity: &'a EntityWorldMut<'_>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&value` ensures no mutable accesses are active.
+        // - `&entity` ensures no mutable accesses are active.
         unsafe { EntityRef::new(entity.as_unsafe_entity_cell_readonly()) }
     }
 }
@@ -323,7 +323,7 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     fn from(entity: &'a EntityMut<'_>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        // - `&value` ensures there are no mutable accesses.
+        // - `&entity` ensures there are no mutable accesses.
         unsafe { EntityRef::new(entity.cell) }
     }
 }
