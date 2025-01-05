@@ -594,7 +594,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
                     ) &&
                     render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
-                        render_device.limits().max_samplers_per_shader_stage > #samplers_needed
+                        render_device.limits().max_samplers_per_shader_stage >= #samplers_needed
                 }
             },
             quote! {
