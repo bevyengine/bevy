@@ -4,7 +4,8 @@ use crate::io::{
     AssetSourceEvent, AssetWatcher,
 };
 use alloc::sync::Arc;
-use bevy_utils::{tracing::warn, Duration, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
+use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use parking_lot::RwLock;
 use std::{

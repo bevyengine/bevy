@@ -8,8 +8,9 @@ use bevy_time::{Real, Time};
 use bevy_utils::{
     synccell::SyncCell,
     tracing::{debug, warn},
-    Duration, HashMap,
+    HashMap,
 };
+use core::time::Duration;
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,

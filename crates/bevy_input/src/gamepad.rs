@@ -1,6 +1,6 @@
 //! The gamepad input functionality.
 
-use core::ops::RangeInclusive;
+use core::{ops::RangeInclusive, time::Duration};
 
 use crate::{Axis, ButtonInput, ButtonState};
 use alloc::string::String;
@@ -21,7 +21,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{Duration, HashMap};
+use bevy_utils::HashMap;
 use derive_more::derive::From;
 use log::{info, warn};
 use thiserror::Error;
@@ -1693,7 +1693,7 @@ impl GamepadRumbleIntensity {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_ecs::prelude::{EventWriter, Res, Query, Entity, With};
-/// # use bevy_utils::Duration;
+/// # use core::time::Duration;
 /// fn rumble_gamepad_system(
 ///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ///     gamepads: Query<Entity, With<Gamepad>>,

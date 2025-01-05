@@ -3,7 +3,7 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_utils::Duration;
+use core::time::Duration;
 
 #[cfg(any(target_arch = "wasm32", feature = "std"))]
 use bevy_utils::Instant;
