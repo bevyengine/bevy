@@ -199,7 +199,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
 
-        debug_assert!(!state.component_access.access().has_any_resource_write(), "Mutable resource access in queries is not allowed");
+        debug_assert!(
+            !state.component_access.access().has_any_resource_write(),
+            "Mutable resource access in queries is not allowed"
+        );
 
         state
     }
