@@ -19,7 +19,6 @@ use bevy_render::{
         UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::FallbackImage,
 };
 use bevy_utils::{default, tracing::error, HashMap};
