@@ -3561,6 +3561,12 @@ doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [[example]]
+name = "picking_debug"
+path = "examples/dev_tools/picking_debug.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
 doc-scrape-examples = true
