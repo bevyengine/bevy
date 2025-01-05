@@ -1025,7 +1025,7 @@ impl ComponentCloneHandler {
 }
 
 /// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentCloneHandlers {
     handlers: Vec<Option<ComponentCloneFn>>,
     default_handler: ComponentCloneFn,
@@ -1089,7 +1089,7 @@ impl Default for ComponentCloneHandlers {
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Components {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,

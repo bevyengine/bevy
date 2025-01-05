@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
-use core::{any::TypeId, ptr::NonNull};
+use core::{any::TypeId, panic::Location, ptr::NonNull};
 
 use bevy_utils::{HashMap, HashSet};
 
@@ -280,13 +280,26 @@ pub struct EntityCloner {
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     pub fn clone_entity(&mut self, world: &mut World) {
+        // SAFETY: target_world is None
+        unsafe {
+            self.clone_entity_impl(world, None);
+        }
+    }
+
+    /// # Safety
+    /// - If `target_world` is not `None`, caller must ensure that it contains the same [`Components`] as `source_world`
+    unsafe fn clone_entity_impl(
+        &mut self,
+        source_world: &mut World,
+        target_world: Option<&mut World>,
+    ) {
         // SAFETY:
         // - `source_entity` is read-only.
         // - `type_registry` is read-only.
         // - `components` is read-only.
         // - `deferred_world` disallows structural ecs changes, which means all read-only resources above a not affected.
         let (type_registry, source_entity, components, mut deferred_world) = unsafe {
-            let world = world.as_unsafe_world_cell();
+            let world = source_world.as_unsafe_world_cell();
             let source_entity = world
                 .get_entity(self.source)
                 .expect("Source entity must exist");
@@ -350,26 +363,30 @@ impl EntityCloner {
             }
         }
 
-        world.flush();
+        source_world.flush();
 
-        if !world.entities.contains(self.target) {
+        let target_world = target_world.unwrap_or(source_world);
+
+        if !target_world.entities.contains(self.target) {
             panic!("Target entity does not exist");
         }
 
         debug_assert_eq!(component_data_ptrs.len(), component_ids.len());
 
         // SAFETY:
-        // - All `component_ids` are from the same world as `target` entity
+        // - All `component_ids` are from `source_world`, and caller ensures that `target_world` has same `Components` as `source_world`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
-            world.entity_mut(self.target).insert_by_ids(
+            target_world.entity_mut(self.target).insert_by_ids(
                 &component_ids,
                 component_data_ptrs.into_iter().map(|ptr| ptr.promote()),
             );
         }
 
         if self.move_components {
-            world.entity_mut(self.source).remove_by_ids(&component_ids);
+            target_world
+                .entity_mut(self.source)
+                .remove_by_ids(&component_ids);
         }
     }
 
@@ -456,6 +473,35 @@ pub struct EntityCloneBuilder<'w> {
     clone_handlers_overrides: HashMap<ComponentId, ComponentCloneHandler>,
     attach_required_components: bool,
     move_components: bool,
+}
+
+fn clone_world(source_world: &mut World, target_world: &mut World) {
+    target_world.components = source_world.components.clone();
+    target_world.entities.reserve(source_world.entities.len());
+
+    for entity in source_world
+        .iter_entities()
+        .map(|e| e.id())
+        .collect::<Vec<_>>()
+    {
+        if target_world
+            .get_or_spawn_with_caller(entity, Location::caller())
+            .is_none()
+        {
+            continue;
+        };
+        unsafe {
+            EntityCloner {
+                source: entity,
+                target: entity,
+                filter_allows_components: false,
+                filter: Arc::new(Default::default()),
+                clone_handlers_overrides: Arc::new(Default::default()),
+                move_components: false,
+            }
+            .clone_entity_impl(source_world, Some(target_world))
+        };
+    }
 }
 
 impl<'w> EntityCloneBuilder<'w> {
@@ -668,7 +714,8 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::{Component, ComponentCloneHandler, ComponentDescriptor, StorageType},
-        entity::EntityCloneBuilder,
+        entity::{clone_entities::clone_world, EntityCloneBuilder},
+        system::Resource,
         world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
@@ -1113,5 +1160,74 @@ mod tests {
                 core::slice::from_raw_parts(clone_ptr.as_ptr(), COMPONENT_SIZE),
             );
         }
+    }
+
+    #[test]
+    fn clone_world_works() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        struct A {
+            field: usize,
+        }
+
+        let mut source_world = World::default();
+
+        let c1 = A { field: 5 };
+        let c2 = A { field: 6 };
+
+        let e1 = source_world.spawn(c1.clone()).id();
+        let e2 = source_world.spawn(c2.clone()).id();
+
+        let mut target_world = World::default();
+
+        clone_world(&mut source_world, &mut target_world);
+
+        assert_eq!(target_world.get::<A>(e1), Some(&c1));
+        assert_eq!(target_world.get::<A>(e2), Some(&c2));
+    }
+
+    #[test]
+    fn clone_world_with_commands_in_clone_handler_works() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        struct A {
+            field: usize,
+        }
+
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct R {
+            field: usize,
+        }
+
+        let mut source_world = World::default();
+        let c_id = source_world.register_component::<A>();
+        source_world
+            .get_component_clone_handlers_mut()
+            .set_component_handler(
+                c_id,
+                ComponentCloneHandler::custom_handler(|world, ctx| {
+                    let a = ctx.read_source_component::<A>().unwrap().clone();
+                    ctx.write_target_component(a);
+                    world.commands().queue(|world: &mut World| {
+                        if let Some(mut res) = world.get_resource_mut::<R>() {
+                            res.field += 1;
+                        } else {
+                            world.insert_resource(R { field: 10 });
+                        }
+                    });
+                }),
+            );
+
+        let c1 = A { field: 5 };
+        let c2 = A { field: 6 };
+
+        let e1 = source_world.spawn(c1.clone()).id();
+        let e2 = source_world.spawn(c2.clone()).id();
+
+        let mut target_world = World::default();
+
+        clone_world(&mut source_world, &mut target_world);
+
+        assert_eq!(target_world.get::<A>(e1), Some(&c1));
+        assert_eq!(target_world.get::<A>(e2), Some(&c2));
+        assert_eq!(target_world.get_resource::<R>(), Some(&R { field: 11 }));
     }
 }
