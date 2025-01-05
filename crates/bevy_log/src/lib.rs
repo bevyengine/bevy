@@ -22,6 +22,7 @@ use core::error::Error;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
+mod once;
 
 #[cfg(feature = "trace_tracy_memory")]
 #[global_allocator]
@@ -38,10 +39,13 @@ pub mod prelude {
     };
 
     #[doc(hidden)]
-    pub use bevy_utils::{debug_once, error_once, info_once, once, trace_once, warn_once};
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
+
+    #[doc(hidden)]
+    pub use bevy_utils::once;
 }
 
-pub use bevy_utils::{debug_once, error_once, info_once, once, trace_once, warn_once};
+pub use bevy_utils::once;
 pub use tracing::{
     self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
     warn_span, Level,

@@ -419,8 +419,9 @@ fn extract_gizmo_data(
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    use bevy_utils::warn_once;
+    use bevy_utils::once;
     use config::GizmoLineStyle;
+    use tracing::warn;
 
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
@@ -447,10 +448,10 @@ fn extract_gizmo_data(
         } = config.line.style
         {
             if gap_scale <= 0.0 {
-                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero.");
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero."));
             }
             if line_scale <= 0.0 {
-                warn_once!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero.");
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero."));
             }
             (gap_scale, line_scale)
         } else {

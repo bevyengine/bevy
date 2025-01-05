@@ -42,8 +42,9 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_utils::{hashbrown::hash_map::Entry, tracing::error};
+use bevy_utils::hashbrown::hash_map::Entry;
 use core::{hash::Hash, marker::PhantomData};
+use tracing::error;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level

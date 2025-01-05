@@ -11,16 +11,12 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_tasks::Task;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::EntryRef,
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
+use tracing::{debug, error};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
