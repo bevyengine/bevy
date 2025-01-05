@@ -62,7 +62,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 #[cfg(feature = "portable-atomic")]
 use portable_atomic::{AtomicU32, Ordering};
 
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
 
 use core::panic::Location;
@@ -891,7 +891,7 @@ impl World {
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
         self.get_or_spawn_with_caller(
             entity,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -900,7 +900,7 @@ impl World {
     pub(crate) fn get_or_spawn_with_caller(
         &mut self,
         entity: Entity,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> Option<EntityWorldMut> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
@@ -913,7 +913,7 @@ impl World {
                 Some(unsafe {
                     self.spawn_at_empty_internal(
                         entity,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     )
                 })
@@ -1083,7 +1083,7 @@ impl World {
         unsafe {
             self.spawn_at_empty_internal(
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 Location::caller(),
             )
         }
@@ -1161,13 +1161,13 @@ impl World {
                 bundle_spawner.spawn_non_existent(
                     entity,
                     bundle,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     Location::caller(),
                 )
             }
         };
 
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.entities
             .set_spawned_or_despawned_by(entity.index(), Location::caller());
 
@@ -1180,7 +1180,7 @@ impl World {
     unsafe fn spawn_at_empty_internal(
         &mut self,
         entity: Entity,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
@@ -1190,7 +1190,7 @@ impl World {
         let location = unsafe { archetype.allocate(entity, table_row) };
         self.entities.set(entity.index(), location);
 
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         self.entities
             .set_spawned_or_despawned_by(entity.index(), caller);
 
@@ -1228,7 +1228,7 @@ impl World {
         SpawnBatchIter::new(
             self,
             iter.into_iter(),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -1327,7 +1327,11 @@ impl World {
                 return Err(EntityFetchError::AliasedMutability(entity))
             }
             Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(entity, self.into()))
+                return Err(EntityFetchError::NoSuchEntity(
+                    entity,
+                    self.entities()
+                        .entity_does_not_exist_error_details_message(entity),
+                ))
             }
         };
 
@@ -1383,7 +1387,7 @@ impl World {
         self.flush();
         if let Ok(entity) = self.get_entity_mut(entity) {
             entity.despawn_with_caller(
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             true
@@ -1656,14 +1660,14 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let component_id = self.components.register_resource::<R>();
         if self
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -1672,7 +1676,7 @@ impl World {
                     self.insert_resource_by_id(
                         component_id,
                         ptr,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1691,7 +1695,7 @@ impl World {
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         self.insert_resource_with_caller(
             value,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
@@ -1702,7 +1706,7 @@ impl World {
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
         value: R,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         let component_id = self.components.register_resource::<R>();
         OwningPtr::make(value, |ptr| {
@@ -1711,7 +1715,7 @@ impl World {
                 self.insert_resource_by_id(
                     component_id,
                     ptr,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1732,14 +1736,14 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let component_id = self.components.register_non_send::<R>();
         if self
             .storages
             .non_send_resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -1748,7 +1752,7 @@ impl World {
                     self.insert_non_send_by_id(
                         component_id,
                         ptr,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1769,7 +1773,7 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let component_id = self.components.register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
@@ -1778,7 +1782,7 @@ impl World {
                 self.insert_non_send_by_id(
                     component_id,
                     ptr,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1877,12 +1881,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_added(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Returns `true` if a resource of type `R` exists and was modified since the world's
@@ -1895,8 +1898,7 @@ impl World {
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_changed_by_id(component_id))
-            .unwrap_or(false)
+            .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
@@ -1910,12 +1912,11 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| {
-                resource
-                    .get_ticks()
-                    .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
+            .is_some_and(|resource| {
+                resource.get_ticks().is_some_and(|ticks| {
+                    ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+                })
             })
-            .unwrap_or(false)
     }
 
     /// Retrieves the change ticks for the given resource.
@@ -2058,7 +2059,7 @@ impl World {
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
@@ -2072,7 +2073,7 @@ impl World {
                     data.insert(
                         ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -2122,7 +2123,7 @@ impl World {
     /// ```
     #[track_caller]
     pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
@@ -2132,7 +2133,7 @@ impl World {
             .storages
             .resources
             .get(component_id)
-            .map_or(true, |data| !data.is_present())
+            .is_none_or(|data| !data.is_present())
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
@@ -2141,7 +2142,7 @@ impl World {
                     self.insert_resource_by_id(
                         component_id,
                         ptr,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -2272,7 +2273,7 @@ impl World {
     {
         self.insert_or_spawn_batch_with_caller(
             iter,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -2283,7 +2284,7 @@ impl World {
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,
         iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
@@ -2333,7 +2334,7 @@ impl World {
                                     location,
                                     bundle,
                                     InsertMode::Replace,
-                                    #[cfg(feature = "track_change_detection")]
+                                    #[cfg(feature = "track_location")]
                                     caller,
                                 )
                             };
@@ -2355,7 +2356,7 @@ impl World {
                                     location,
                                     bundle,
                                     InsertMode::Replace,
-                                    #[cfg(feature = "track_change_detection")]
+                                    #[cfg(feature = "track_location")]
                                     caller,
                                 )
                             };
@@ -2371,7 +2372,7 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                #[cfg(feature = "track_change_detection")]
+                                #[cfg(feature = "track_location")]
                                 caller,
                             )
                         };
@@ -2384,7 +2385,7 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                #[cfg(feature = "track_change_detection")]
+                                #[cfg(feature = "track_location")]
                                 caller,
                             )
                         };
@@ -2429,7 +2430,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
@@ -2459,7 +2460,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
@@ -2476,7 +2477,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2518,7 +2519,7 @@ impl World {
                         first_location,
                         first_bundle,
                         insert_mode,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     )
                 };
@@ -2546,7 +2547,7 @@ impl World {
                                 location,
                                 bundle,
                                 insert_mode,
-                                #[cfg(feature = "track_change_detection")]
+                                #[cfg(feature = "track_location")]
                                 caller,
                             )
                         };
@@ -2583,7 +2584,7 @@ impl World {
         self.try_insert_batch_with_caller(
             batch,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
@@ -2610,7 +2611,7 @@ impl World {
         self.try_insert_batch_with_caller(
             batch,
             InsertMode::Keep,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
@@ -2627,7 +2628,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2669,7 +2670,7 @@ impl World {
                         first_location,
                         first_bundle,
                         insert_mode,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     )
                 };
@@ -2697,7 +2698,7 @@ impl World {
                                 location,
                                 bundle,
                                 insert_mode,
-                                #[cfg(feature = "track_change_detection")]
+                                #[cfg(feature = "track_location")]
                                 caller,
                             )
                         };
@@ -2769,7 +2770,7 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: &mut _caller,
         };
         let result = f(self, value_mut);
@@ -2785,7 +2786,7 @@ impl World {
                     info.insert_with_ticks(
                         ptr,
                         ticks,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         _caller,
                     );
                 })
@@ -2842,7 +2843,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
@@ -2852,7 +2853,7 @@ impl World {
             resource.insert(
                 value,
                 change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -2876,7 +2877,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
@@ -2886,7 +2887,7 @@ impl World {
             resource.insert(
                 value,
                 change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -3465,7 +3466,7 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     // SAFETY:
                     // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
@@ -3769,7 +3770,13 @@ mod tests {
         system::Resource,
         world::error::EntityFetchError,
     };
-    use alloc::sync::Arc;
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::Component;
     use bevy_utils::{HashMap, HashSet};
     use core::{
@@ -3777,7 +3784,7 @@ mod tests {
         panic,
         sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
-    use std::sync::Mutex;
+    use std::{println, sync::Mutex};
 
     // For bevy_ecs_macros
     use crate as bevy_ecs;
@@ -4020,7 +4027,7 @@ mod tests {
                 world.insert_resource_by_id(
                     component_id,
                     ptr,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     panic::Location::caller(),
                 );
             }
@@ -4068,7 +4075,7 @@ mod tests {
                 world.insert_resource_by_id(
                     component_id,
                     ptr,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     panic::Location::caller(),
                 );
             }

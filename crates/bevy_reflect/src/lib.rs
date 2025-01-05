@@ -1,4 +1,9 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -557,7 +562,10 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -683,8 +691,7 @@ pub mod __macro_exports {
         note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
     )]
     pub trait RegisterForReflection {
-        #[allow(unused_variables)]
-        fn __register(registry: &mut TypeRegistry) {}
+        fn __register(_registry: &mut TypeRegistry) {}
     }
 
     impl<T: GetTypeRegistration> RegisterForReflection for T {
@@ -709,10 +716,20 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use alloc::borrow::Cow;
+    use alloc::{
+        borrow::Cow,
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bevy_utils::HashMap;
     use core::{
         any::TypeId,
@@ -866,7 +883,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -2138,7 +2154,7 @@ mod tests {
             enum_struct: SomeEnum,
             custom: CustomDebug,
             #[reflect(ignore)]
-            #[allow(dead_code)]
+            #[expect(dead_code, reason = "This value is intended to not be reflected.")]
             ignored: isize,
         }
 
@@ -2556,6 +2572,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2631,6 +2649,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_value_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Clone, Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2714,6 +2734,8 @@ bevy_reflect::tests::Test {
             // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
             // ```
             pub mod external_crate {
+                use alloc::string::String;
+
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -2735,6 +2757,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_enum() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, PartialEq, Eq)]
             pub enum TheirType {
                 Unit,
@@ -2899,6 +2923,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
@@ -2931,6 +2957,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_try_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,

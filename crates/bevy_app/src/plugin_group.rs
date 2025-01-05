@@ -254,8 +254,7 @@ impl PluginGroupBuilder {
     pub fn enabled<T: Plugin>(&self) -> bool {
         self.plugins
             .get(&TypeId::of::<T>())
-            .map(|e| e.enabled)
-            .unwrap_or(false)
+            .is_some_and(|e| e.enabled)
     }
 
     /// Finds the index of a target [`Plugin`].
@@ -555,6 +554,7 @@ impl PluginGroup for NoopPluginGroup {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use core::{any::TypeId, fmt::Debug};
 
     use super::PluginGroupBuilder;
