@@ -69,12 +69,12 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::vec::Vec;
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
 #[cfg(feature = "track_location")]
-use {alloc::format, core::panic::Location};
+use core::panic::Location;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -991,19 +991,38 @@ impl Entities {
     }
 
     /// Constructs a message explaining why an entity does not exists, if known.
-    pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
+    pub(crate) fn entity_does_not_exist_error_details_message(
+        &self,
+        _entity: Entity,
+    ) -> EntityDoesNotExistDetails {
+        EntityDoesNotExistDetails {
+            #[cfg(feature = "track_location")]
+            location: self.entity_get_spawned_or_despawned_by(_entity),
+        }
+    }
+}
+
+/// Helper struct that, when printed, will write the appropriate details
+/// regarding an entity that did not exist.
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct EntityDoesNotExistDetails {
+    #[cfg(feature = "track_location")]
+    location: Option<&'static Location<'static>>,
+}
+
+impl fmt::Display for EntityDoesNotExistDetails {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[cfg(feature = "track_location")]
-        {
-            if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
-                format!("was despawned by {location}",)
-            } else {
-                "was never spawned".to_owned()
-            }
+        if let Some(location) = self.location {
+            write!(f, "was despawned by {}", location)
+        } else {
+            write!(f, "was never spawned")
         }
         #[cfg(not(feature = "track_location"))]
-        {
-            "does not exist (enable `track_location` feature for more details)".to_owned()
-        }
+        write!(
+            f,
+            "does not exist (enable `track_location` feature for more details)"
+        )
     }
 }
 
