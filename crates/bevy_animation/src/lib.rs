@@ -44,13 +44,11 @@ use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
-};
+use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 /// The animation prelude.

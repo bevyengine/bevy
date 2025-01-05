@@ -34,11 +34,9 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    prelude::default,
-    tracing::{error, warn},
-};
+use bevy_utils::prelude::default;
 use core::mem;
+use tracing::{error, warn};
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);

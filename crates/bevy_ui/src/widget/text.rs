@@ -24,8 +24,9 @@ use bevy_text::{
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::{tracing::error, Entry};
+use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
+use tracing::error;
 
 /// UI text system flags.
 ///
