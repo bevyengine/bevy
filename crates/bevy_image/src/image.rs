@@ -5,7 +5,7 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use bevy_asset::{Asset, RenderAssetUsages};
+use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use bevy_reflect::std_traits::ReflectDefault;
@@ -281,6 +281,14 @@ impl ImageFormat {
         })
     }
 }
+
+/// A handle to a 1 x 1 transparent white image.
+///
+/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
+pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
+    Handle::weak_from_u128(154728948001857810431816125397303024160);
 
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(opaque)]
