@@ -88,7 +88,7 @@ where
     /// A list of `BatchSetKey`s for batchable, multidrawable items.
     ///
     /// These are accumulated in `queue_material_meshes` and then sorted in
-    /// `batch_and_prepare_binned_render_phase`.
+    /// `batching::sort_binned_render_phase`.
     pub multidrawable_mesh_keys: Vec<BPI::BatchSetKey>,
 
     /// The multidrawable bins themselves.
