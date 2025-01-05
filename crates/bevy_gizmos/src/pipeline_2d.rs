@@ -140,8 +140,8 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::Always,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -241,8 +241,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::Always,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
