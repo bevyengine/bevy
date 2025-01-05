@@ -18,7 +18,7 @@ Requires at least Rust 1.76.0.
 
 Demonstrates generating tangents for a cube with 4 triangular faces per side.
 
-```sh
+```bash
 cargo run --example generate
 ```
 
@@ -26,14 +26,14 @@ cargo run --example generate
 
 Licensed under either of
 
-* Apache License, Version 2.0
+- Apache License, Version 2.0
   ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
-* MIT license
+- MIT license
   ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
 
 at your option. AND parts of the code are licensed under:
 
-* Zlib license
+- Zlib license
   [https://opensource.org/licenses/Zlib](https://opensource.org/licenses/Zlib)
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
