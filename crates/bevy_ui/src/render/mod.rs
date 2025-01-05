@@ -269,7 +269,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         let Some(mut render_views) = world.try_query::<&DefaultCameraView>() else {
             return Ok(());
         };
-        let Some(default_camera_view) = render_views.iter(world).next() else {
+        let Ok(default_camera_view) = render_views.get(world, graph.view_entity()) else {
             return Ok(());
         };
 
