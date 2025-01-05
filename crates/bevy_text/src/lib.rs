@@ -43,6 +43,8 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
+#[cfg(feature = "bevy_text2d_picking_backend")]
+mod text2d_picking_backend;
 mod text_access;
 
 pub use bounds::*;
@@ -89,8 +91,20 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
-#[derive(Default)]
-pub struct TextPlugin;
+pub struct TextPlugin {
+    /// Whether to add the Text2d picking backend to the app.
+    #[cfg(feature = "bevy_text2d_picking_backend")]
+    pub add_picking: bool,
+}
+
+impl Default for TextPlugin {
+    fn default() -> Self {
+        Self {
+            #[cfg(feature = "bevy_text2d_picking_backend")]
+            add_picking: true,
+        }
+    }
+}
 
 /// Text is rendered for two different view projections;
 /// 2-dimensional text ([`Text2d`]) is rendered in "world space" with a `BottomToTop` Y-axis,
@@ -143,6 +157,11 @@ impl Plugin for TextPlugin {
                     .after(Animation),
             )
             .add_systems(Last, trim_cosmic_cache);
+
+        #[cfg(feature = "bevy_text2d_picking_backend")]
+        if self.add_picking {
+            app.add_plugins(text2d_picking_backend::Text2dPickingPlugin);
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
