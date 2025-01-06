@@ -1,7 +1,7 @@
 //! Example usage of the `http` asset source to load assets from the web.
-//! 
-//! Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827) 
-//! secure `https` requests are disabled by default in non-wasm builds. 
+//!
+//! Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827)
+//! secure `https` requests are disabled by default in non-wasm builds.
 //! To enable add this to your dependencies in Cargo.toml:
 //! ```toml
 //! ureq = { version = "*", features = ["tls"] }
