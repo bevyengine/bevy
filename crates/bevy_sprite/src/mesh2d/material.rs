@@ -37,14 +37,13 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility},
+    view::{ExtractedView, Msaa, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
-use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
+use tracing::error;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -703,7 +702,6 @@ pub struct MaterialMesh2dBundle<M: Material2d> {
     pub view_visibility: ViewVisibility,
 }
 
-#[expect(deprecated, reason = "This is an impl for a deprecated item.")]
 impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
     fn default() -> Self {
         Self {

@@ -61,9 +61,8 @@ pub use foldhash::fast::{FixedState, FoldHasher as DefaultHasher, RandomState};
 pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
+#[cfg(any(feature = "std", target_arch = "wasm32"))]
 pub use time::*;
-#[cfg(feature = "tracing")]
-pub use tracing;
 
 #[cfg(feature = "alloc")]
 use core::any::TypeId;
@@ -373,17 +372,6 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
-    }
-}
-
-/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
-#[cfg(feature = "tracing")]
-#[macro_export]
-macro_rules! detailed_trace {
-    ($($tts:tt)*) => {
-        if cfg!(feature = "detailed_trace") {
-            $crate::tracing::trace!($($tts)*);
-        }
     }
 }
 

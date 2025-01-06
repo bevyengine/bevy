@@ -22,6 +22,7 @@ use core::error::Error;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
+mod once;
 
 #[cfg(feature = "trace_tracy_memory")]
 #[global_allocator]
@@ -33,21 +34,21 @@ static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use bevy_utils::tracing::{
+    pub use tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
 
     #[doc(hidden)]
-    pub use bevy_utils::{debug_once, error_once, info_once, once, trace_once, warn_once};
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
+
+    #[doc(hidden)]
+    pub use bevy_utils::once;
 }
 
-pub use bevy_utils::{
-    debug_once, error_once, info_once, once, trace_once,
-    tracing::{
-        debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
-        Level,
-    },
-    warn_once,
+pub use bevy_utils::once;
+pub use tracing::{
+    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    warn_span, Level,
 };
 pub use tracing_subscriber;
 
@@ -89,7 +90,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
-/// # use bevy_utils::tracing::Level;
+/// # use tracing::Level;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
@@ -232,7 +233,7 @@ pub struct LogPlugin {
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
     /// Access to [`App`] is also provided to allow for communication between the
-    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
+    /// [`Subscriber`](tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
@@ -364,7 +365,7 @@ impl Plugin for LogPlugin {
 
         let logger_already_set = LogTracer::init().is_err();
         let subscriber_already_set =
-            bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
+            tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(

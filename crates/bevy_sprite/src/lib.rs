@@ -15,7 +15,6 @@
 
 extern crate alloc;
 
-mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
@@ -36,15 +35,13 @@ mod texture_slice;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::SpriteBundle,
         sprite::{Sprite, SpriteImageMode},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
+        ColorMaterial, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
-pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
