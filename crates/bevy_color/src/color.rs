@@ -84,12 +84,6 @@ impl Color {
         (*self).into()
     }
 
-    #[deprecated = "Use `Color::srgba` instead"]
-    /// Creates a new [`Color`] object storing a [`Srgba`] color.
-    pub const fn rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::srgba(red, green, blue, alpha)
-    }
-
     /// Creates a new [`Color`] object storing a [`Srgba`] color.
     pub const fn srgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::Srgba(Srgba {
@@ -98,12 +92,6 @@ impl Color {
             blue,
             alpha,
         })
-    }
-
-    #[deprecated = "Use `Color::srgb` instead"]
-    /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
-        Self::srgb(red, green, blue)
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
@@ -116,12 +104,6 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgb_from_array` instead"]
-    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub fn rgb_from_array([r, g, b]: [f32; 3]) -> Self {
-        Self::Srgba(Srgba::rgb(r, g, b))
-    }
-
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
     pub const fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::Srgba(Srgba {
@@ -130,14 +112,6 @@ impl Color {
             blue: array[2],
             alpha: 1.0,
         })
-    }
-
-    #[deprecated = "Use `Color::srgba_u8` instead"]
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
-    ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn rgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
-        Self::srgba_u8(red, green, blue, alpha)
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
@@ -152,14 +126,6 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use `Color::srgb_u8` instead"]
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
-    ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
-        Self::srgb_u8(red, green, blue)
-    }
-
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
     ///
     /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
@@ -172,12 +138,6 @@ impl Color {
         })
     }
 
-    #[deprecated = "Use Color::linear_rgba instead."]
-    /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
-    pub const fn rbga_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::linear_rgba(red, green, blue, alpha)
-    }
-
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
     pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::LinearRgba(LinearRgba {
@@ -186,12 +146,6 @@ impl Color {
             blue,
             alpha,
         })
-    }
-
-    #[deprecated = "Use Color::linear_rgb instead."]
-    /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
-    pub const fn rgb_linear(red: f32, green: f32, blue: f32) -> Self {
-        Self::linear_rgb(red, green, blue)
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
