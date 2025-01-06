@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 /// Any asset path that begins with `http` or `https` will be loaded from the web
 /// via `fetch`(wasm) or `ureq`(native).
 ///
-/// Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827) 
-/// secure `https` requests are disabled by default in non-wasm builds. 
+/// Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827)
+/// secure `https` requests are disabled by default in non-wasm builds.
 /// To enable add this to your dependencies in Cargo.toml:
 /// ```toml
 /// ureq = { version = "*", features = ["tls"] }
@@ -66,7 +66,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use std::io;
+    use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -82,10 +82,34 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     if let Some(data) = http_asset_cache::try_load_from_cache(str_path)? {
         return Ok(Box::new(VecReader::new(data)));
     }
+    use once_cell::sync::Lazy;
+    use ureq::Agent;
 
-    match ureq::get(str_path).call() {
-        Ok(response) => {
-            let mut reader = response.into_reader();
+    static AGENT: Lazy<Agent> = Lazy::new(|| {
+        use std::sync::Arc;
+        use ureq::{
+            tls::{TlsConfig, TlsProvider},
+            Agent,
+        };
+
+        let crypto = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        Agent::config_builder()
+            .tls_config(
+                TlsConfig::builder()
+                    .provider(TlsProvider::Rustls)
+                    // requires rustls or rustls-no-provider feature
+                    .unversioned_rustls_crypto_provider(crypto)
+                    .build(),
+            )
+            .build()
+            .new_agent()
+    });
+
+    match AGENT.get(str_path).call() {
+        Ok(mut response) => {
+            // let mut reader = response.into_reader();
+            let mut reader = BufReader::new(response.body_mut().with_config().reader());
+
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
 
@@ -95,14 +119,14 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             Ok(Box::new(VecReader::new(buffer)))
         }
         // ureq considers all >=400 status codes as errors
-        Err(ureq::Error::Status(code, _response)) => {
+        Err(ureq::Error::StatusCode(code)) => {
             if code == 404 {
                 Err(AssetReaderError::NotFound(path))
             } else {
                 Err(AssetReaderError::HttpError(code))
             }
         }
-        Err(ureq::Error::Transport(err)) => Err(AssetReaderError::Io(
+        Err(err) => Err(AssetReaderError::Io(
             io::Error::new(
                 io::ErrorKind::Other,
                 format!(

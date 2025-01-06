@@ -14,7 +14,7 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
-http_source = ["ureq"]
+http_source = ["ureq", "rustls", "once_cell"]
 http_source_cache = []
 asset_processor = []
 watch = []
@@ -65,10 +65,18 @@ js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.4.0", optional = true }
-ureq = { version = "2.10", optional = true, default-features = false, features = [
-  "brotli",
+ureq = { git = "https://github.com/algesten/ureq", rev = "fd82f2bef3c2b2a8eaeaac9aae7ea06ffe7449d3", optional = true, default-features = false, features = [
+  # "rustls", # compiles ok
+  "rustls-no-provider", # breaks compilation
   "gzip",
-  # we should add tls feature when ring gets a cleaner license https://github.com/briansmith/ring/issues/1827
+  "json",
+] }
+once_cell = { version = "1.20", optional = true }
+rustls = { version = "0.23", optional = true, default-features = false, features = [
+  "aws_lc_rs",
+  "logging",
+  "std",
+  "tls12",
 ] }
 
 [dev-dependencies]
