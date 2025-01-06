@@ -1,3 +1,4 @@
+#![cfg(test)]
 //! Demonstrates simple integration testing of Bevy applications.
 //!
 //! By substituting [`DefaultPlugins`] with [`MinimalPlugins`], Bevy can run completely headless.
