@@ -891,7 +891,7 @@ impl<T: SparseSetIndex> UniversalAccess<T> {
 
     /// returns true if there are no overlapping world access, or all overlapping world's accesses abide by the supplied relationship.
     ///
-    /// `f` is dirrectional. (the first param is always from self, and the seccond is always from other).
+    /// `f` is dirrectional. (the first param is always from self, and the second is always from other).
     pub fn is_true_of_overlapping_world_access(
         &self,
         other: &Self,

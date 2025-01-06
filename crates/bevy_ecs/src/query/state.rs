@@ -480,7 +480,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// returns the world id this querry expects to be on
+    /// returns the world id this query expects to be on
     #[inline]
     pub fn world_id(&self) -> WorldId {
         self.world_id

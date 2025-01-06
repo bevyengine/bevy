@@ -1,4 +1,4 @@
-//! This modules defins and implements links between worlds.
+//! This modules defines and implements links between worlds.
 //! This allows a system to have [`SystemParam`]s that link to other worlds besides the world the system lives in.
 
 use core::{
@@ -31,12 +31,12 @@ mod wrapper {
     use crate as bevy_ecs;
     use bevy_ecs_macros::Resource;
 
-    /// This resouce links one world to another via a [`WorldLink`].
+    /// This resource links one world to another via a [`WorldLink`].
     ///
     /// # Safety
     ///
     /// This resource is private to this file. Hence, there can be no conflicts outside of this file. To prevent conflicts in the file,
-    /// access should be purely read-only, unless exclusive access to the world is garenteed. Note: These rules would break if nested exclusive acces were posible
+    /// access should be purely read-only, unless exclusive access to the world is guaranteed. Note: These rules would break if nested exclusive access were possible
     /// (exclusive access is what allows you to edit a link, which may effect [`SystemParam::update_meta`](super::SystemParam::update_meta)),
     /// but since `&mut World` does not implement `SystemParam`, this is not possible. To get nested exclusive access, you need exclusive access to the root world.
     /// This prevents these conflicts.
@@ -100,10 +100,10 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         };
         // Safety: See [`Link`].
         let link = unsafe { link.0.get_unsafe_world() };
-        // prevents undefined behavior. If this ever fails, the safety of this system param is comprimised.
+        // prevents undefined behavior. If this ever fails, the safety of this system param is compromised.
         assert_eq!(state.1, link.id());
 
-        // IMPORTANT: We use the link's change tick to keep it fully seperate from the base world. This is what is really relevant.
+        // IMPORTANT: We use the link's change tick to keep it fully separate from the base world. This is what is really relevant.
         let item = P::get_param(&mut state.0, system_meta, link, link.change_tick());
         Linked {
             item,
@@ -124,7 +124,7 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         };
         // Safety: See [`Link`].
         let link = unsafe { link.0.get_unsafe_world() };
-        // prevents undefined behavior. If this ever fails, the safety of this system param is comprimised.
+        // prevents undefined behavior. If this ever fails, the safety of this system param is compromised.
         assert_eq!(state.1, link.id());
 
         let archetypes = link.archetypes();
@@ -155,8 +155,8 @@ unsafe impl<L: WorldLink, P: SystemParam> SystemParam for Linked<'_, '_, L, P> {
         // Safety: See [`Link`].
         let link = unsafe { link.0.get_unsafe_world() };
         // Safety: `link` has not been used to get any mutably references
-        let link_defered = unsafe { link.into_deferred() };
-        P::queue(&mut state.0, system_meta, link_defered);
+        let link_deferred = unsafe { link.into_deferred() };
+        P::queue(&mut state.0, system_meta, link_deferred);
     }
 
     unsafe fn validate_param(

@@ -1090,7 +1090,7 @@ mod tests {
             let ambiguities: Vec<_> = schedule
                 .graph()
                 .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
-                .map(|(a, b, conflicts, _origional)| (a, b, conflicts))
+                .map(|(a, b, conflicts, _original)| (a, b, conflicts))
                 .collect();
 
             let expected = &[
@@ -1140,7 +1140,7 @@ mod tests {
             let ambiguities: Vec<_> = schedule
                 .graph()
                 .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
-                .map(|(a, b, conflicts, _origional)| (a, b, conflicts))
+                .map(|(a, b, conflicts, _original)| (a, b, conflicts))
                 .collect();
 
             assert_eq!(

@@ -637,7 +637,7 @@ pub enum ConflictingSystemRecord {
         common_world: WorldId,
     },
     /// one or both of the systems require exclusive world access
-    ConflicingExclusivity {
+    ConflictingExclusivity {
         /// one of the system's nodes
         node_a: NodeId,
         /// the other system's node
@@ -649,7 +649,7 @@ impl ConflictingSystemRecord {
     /// provides the nodes that conflict
     fn nodes(&self) -> (NodeId, NodeId) {
         match self {
-            ConflictingSystemRecord::ConflicingExclusivity { node_a, node_b }
+            ConflictingSystemRecord::ConflictingExclusivity { node_a, node_b }
             | ConflictingSystemRecord::ConflictingAccess {
                 node_a,
                 node_b,
@@ -1399,7 +1399,7 @@ impl ScheduleGraph {
             let system_a = self.systems[a.index()].get().unwrap();
             let system_b = self.systems[b.index()].get().unwrap();
             if system_a.is_exclusive() || system_b.is_exclusive() {
-                conflicting_systems.push(ConflictingSystemRecord::ConflicingExclusivity {
+                conflicting_systems.push(ConflictingSystemRecord::ConflictingExclusivity {
                     node_a: a,
                     node_b: b,
                 });
@@ -1952,7 +1952,7 @@ impl ScheduleGraph {
                         writeln!(message, "    conflict over a common world with id {common_world:?} on: {components:?}").unwrap();
                     }
                 }
-                ConflictingSystemRecord::ConflicingExclusivity {
+                ConflictingSystemRecord::ConflictingExclusivity {
                     node_a: _,
                     node_b: _,
                 } => {
@@ -1989,7 +1989,7 @@ impl ScheduleGraph {
                     .iter()
                     .map(|id| components.get_name(*id).unwrap())
                     .collect(),
-                ConflictingSystemRecord::ConflicingExclusivity {
+                ConflictingSystemRecord::ConflictingExclusivity {
                     node_a: _,
                     node_b: _,
                 } => Vec::new(),

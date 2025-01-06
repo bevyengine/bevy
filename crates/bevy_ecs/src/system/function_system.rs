@@ -581,7 +581,7 @@ impl<Param: SystemParam> SystemState<Param> {
             unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
         }
 
-        // Safety: garenteed by the assertion above
+        // Safety: guaranteed by the assertion above
         unsafe {
             Param::update_meta(&mut self.param_state, world, &mut self.meta);
         }
