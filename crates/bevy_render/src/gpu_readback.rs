@@ -23,10 +23,11 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::HashMap;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
+use tracing::warn;
 use wgpu::CommandEncoder;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.

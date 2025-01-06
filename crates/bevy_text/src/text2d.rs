@@ -31,18 +31,6 @@ use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
-/// [`Text2dBundle`] was removed in favor of required components.
-/// The core component is now [`Text2d`] which can contain a single text segment.
-/// Indexed access to segments can be done with the new [`Text2dReader`] and [`Text2dWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
-/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
-/// while sprite-related configuration uses [`TextBounds`] and [`Anchor`] components.
-#[deprecated(
-    since = "0.15.0",
-    note = "Text2dBundle has been migrated to required components. Follow the documentation for more information."
-)]
-pub struct Text2dBundle {}
-
 /// The top-level 2D text component.
 ///
 /// Adding `Text2d` to an entity will pull in required components for setting up 2d text.

@@ -3,10 +3,7 @@ mod settings;
 mod upsampling_pipeline;
 
 use bevy_color::{Gray, LinearRgba};
-#[allow(deprecated)]
-pub use settings::{
-    Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
-};
+pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
     core_2d::graph::{Core2d, Node2d},

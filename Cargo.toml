@@ -213,7 +213,6 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
-  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -226,7 +225,6 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
-  "bevy_ui_picking_backend",
 ]
 
 # Windowing layer

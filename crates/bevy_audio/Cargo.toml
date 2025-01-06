@@ -20,10 +20,10 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
 ] }
 bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 rodio = { version = "0.20", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 cpal = { version = "0.15", optional = true }
