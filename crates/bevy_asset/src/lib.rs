@@ -215,8 +215,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::{tracing::error, HashSet};
+use bevy_utils::HashSet;
 use core::any::TypeId;
+use tracing::error;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
@@ -641,7 +642,8 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use bevy_utils::HashMap;
+    use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
     use thiserror::Error;
