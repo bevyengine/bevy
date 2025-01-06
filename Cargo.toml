@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -213,7 +213,6 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
-  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -226,7 +225,6 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
-  "bevy_ui_picking_backend",
 ]
 
 # Windowing layer
@@ -467,11 +465,11 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.16.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -481,7 +479,7 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytemuck = "1.7"
-bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.13"
@@ -1290,6 +1288,28 @@ doc-scrape-examples = true
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "animated_fox_control"
+path = "examples/animation/animated_fox_control.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_fox_control]
+name = "Animated Fox Control"
+description = "Plays an animation from a skinned glTF with keyboard controls"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "animated_fox_events"
+path = "examples/animation/animated_fox_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_fox_events]
+name = "Animated Fox Events"
+description = "Plays an animation from a skinned glTF with events"
 category = "Animation"
 wasm = true
 

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -72,13 +72,13 @@ portable-atomic = [
 
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
 
 # other
 downcast-rs = { version = "1.2.0", default-features = false, optional = true }
@@ -93,7 +93,7 @@ portable-atomic-util = { version = "0.2.4", features = [
   "alloc",
 ], optional = true }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -16,7 +16,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ExtractedView, &'static UiViewTarget)>,

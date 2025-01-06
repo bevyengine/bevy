@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,28 +9,19 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "serde", "tracing"]
+default = ["std", "serde"]
 
 # Functionality
 
 ## Adds serialization support through `serde`.
 serde = ["hashbrown/serde"]
 
-# Debugging Features
-
-## Enables `tracing` integration, allowing spans and other metrics to be reported
-## through that framework.
-tracing = ["dep:tracing"]
-
-## Enables more detailed reporting via `tracing`.
-detailed_trace = ["tracing"]
-
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = ["alloc", "tracing?/std", "foldhash/std", "dep:thread_local"]
+std = ["alloc", "foldhash/std", "dep:thread_local"]
 
 ## Allows access to the `alloc` crate.
 alloc = ["hashbrown"]
@@ -45,7 +36,6 @@ portable-atomic = ["dep:portable-atomic"]
 
 [dependencies]
 foldhash = { version = "0.1.3", default-features = false }
-tracing = { version = "0.1", default-features = false, optional = true }
 hashbrown = { version = "0.15.1", features = [
   "equivalent",
   "raw-entry",

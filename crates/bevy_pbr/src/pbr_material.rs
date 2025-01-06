@@ -1238,7 +1238,9 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         }
 
         key.insert(StandardMaterialKey::from_bits_retain(
-            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+            // Casting to i32 first to ensure the full i32 range is preserved.
+            // (wgpu expects the depth_bias as an i32 when this is extracted in a later step)
+            (material.depth_bias as i32 as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
         key
     }

@@ -32,13 +32,14 @@ use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.

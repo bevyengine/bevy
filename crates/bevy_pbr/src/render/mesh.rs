@@ -43,14 +43,10 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::Entry,
-    tracing::{error, warn},
-    HashMap, Parallel,
-};
+use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap, Parallel};
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
+use tracing::{error, warn};
 
 use crate::{
     render::{
@@ -961,7 +957,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform = current_input_buffer.get(current_uniform_index);
+                let previous_mesh_input_uniform =
+                    current_input_buffer.get_unchecked(current_uniform_index);
                 let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
                 mesh_input_uniform.previous_input_index = previous_input_index;
 
