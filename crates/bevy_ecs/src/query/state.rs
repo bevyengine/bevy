@@ -199,13 +199,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
 
-        if state.component_access.access().has_write_all_resources() {
-            access.write_all_resources();
-        } else {
-            for component_id in state.component_access.access().resource_writes() {
-                access.add_resource_write(world.initialize_resource_internal(component_id).id());
-            }
-        }
+        debug_assert!(
+            !state.component_access.access().has_any_resource_write(),
+            "Mutable resource access in queries is not allowed"
+        );
 
         state
     }

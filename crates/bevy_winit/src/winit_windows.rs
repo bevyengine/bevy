@@ -147,6 +147,8 @@ impl WinitWindows {
             use winit::platform::ios::WindowAttributesExtIOS;
             winit_window_attributes = winit_window_attributes
                 .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
         }
 
         let display_info = DisplayInfo {
