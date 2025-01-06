@@ -75,10 +75,10 @@ use bevy_ptr::OwningPtr;
 /// }
 /// ```
 ///
-/// # Implementation
+/// # Note on Generic
 ///
 /// The `Marker` generic is necessary to allow multiple blanket implementations
-/// of `EntityCommand` for closures, like so (simplified):
+/// of `EntityCommand` for closures, like so:
 /// ```ignore (This would conflict with the real implementations)
 /// impl EntityCommand for FnOnce(Entity, &mut World)
 /// impl EntityCommand<World> for FnOnce(EntityWorldMut)
@@ -91,11 +91,11 @@ use bevy_ptr::OwningPtr;
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`] and
     /// returns a [`Result`] for error handling.
-    fn apply(self, entity: Entity, world: &mut World) -> Result<(), CommandError>;
+    fn apply(self, entity: Entity, world: &mut World) -> Result;
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
-    /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`].
+    /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`](crate::system::Commands).
     /// You can override the provided implementation if you can return a `Command` with a smaller memory
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
@@ -106,7 +106,10 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     {
         move |world: &mut World| -> Result<(), CommandError> {
             if world.entities().contains(entity) {
-                self.apply(entity, world)
+                match self.apply(entity, world) {
+                    Ok(_) => Ok(()),
+                    Err(error) => Err(CommandError::CommandFailed(error)),
+                }
             } else {
                 Err(CommandError::NoSuchEntity(
                     entity,
@@ -123,7 +126,7 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+    fn apply(self, id: Entity, world: &mut World) -> Result {
         self(id, world);
         Ok(())
     }
@@ -133,11 +136,8 @@ impl<F> EntityCommand<Result> for F
 where
     F: FnOnce(Entity, &mut World) -> Result + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        match self(id, world) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(CommandError::CommandFailed(error)),
-        }
+    fn apply(self, id: Entity, world: &mut World) -> Result {
+        self(id, world)
     }
 }
 
@@ -145,7 +145,7 @@ impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
+    fn apply(self, id: Entity, world: &mut World) -> Result {
         self(world.entity_mut(id));
         Ok(())
     }
@@ -155,11 +155,8 @@ impl<F> EntityCommand<(World, Result)> for F
 where
     F: FnOnce(EntityWorldMut) -> Result + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) -> Result<(), CommandError> {
-        match self(world.entity_mut(id)) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(CommandError::CommandFailed(error)),
-        }
+    fn apply(self, id: Entity, world: &mut World) -> Result {
+        self(world.entity_mut(id))
     }
 }
 

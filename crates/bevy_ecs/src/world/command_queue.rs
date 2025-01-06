@@ -355,11 +355,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        self as bevy_ecs,
-        result::Result,
-        system::{CommandError, Resource},
-    };
+    use crate::{self as bevy_ecs, result::Result, system::Resource};
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -385,7 +381,7 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn apply(self, _: &mut World) -> Result<(), CommandError> {
+        fn apply(self, _: &mut World) -> Result {
             Ok(())
         }
     }
@@ -434,7 +430,7 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
-        fn apply(self, world: &mut World) -> Result<(), CommandError> {
+        fn apply(self, world: &mut World) -> Result {
             world.spawn_empty();
             Ok(())
         }
@@ -464,7 +460,7 @@ mod test {
     #[allow(dead_code)]
     struct PanicCommand(String);
     impl Command for PanicCommand {
-        fn apply(self, _: &mut World) -> Result<(), CommandError> {
+        fn apply(self, _: &mut World) -> Result {
             panic!("command is panicking");
         }
     }
@@ -540,7 +536,7 @@ mod test {
     #[allow(dead_code)]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn apply(self, _: &mut World) -> Result<(), CommandError> {
+        fn apply(self, _: &mut World) -> Result {
             Ok(())
         }
     }

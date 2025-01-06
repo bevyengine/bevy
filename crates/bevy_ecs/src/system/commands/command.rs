@@ -4,6 +4,9 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
+#[cfg(feature = "track_location")]
+use core::panic::Location;
+
 use crate::{
     bundle::{Bundle, InsertMode},
     entity::Entity,
@@ -15,18 +18,14 @@ use crate::{
     world::{FromWorld, SpawnBatchIter, World},
 };
 
-#[cfg(feature = "track_location")]
-use core::panic::Location;
-
 /// A [`World`] mutation.
 ///
-/// Should be used with [`Commands::queue`].
+/// Should be used with [`Commands::queue`](crate::system::Commands::queue).
 ///
 /// # Usage
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::error::CommandError;
 /// // Our world resource
 /// #[derive(Resource, Default)]
 /// struct Counter(u64);
@@ -35,7 +34,7 @@ use core::panic::Location;
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) -> Result<(), CommandError> {
+///     fn apply(self, world: &mut World) -> Result {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
 ///         Ok(())
@@ -47,10 +46,10 @@ use core::panic::Location;
 /// }
 /// ```
 ///
-/// ## Implementation
+/// # Note on Generic
 ///
 /// The `Marker` generic is necessary to allow multiple blanket implementations
-/// of `Command` for closures, like so (simplified):
+/// of `Command` for closures, like so:
 /// ```ignore (This would conflict with the real implementations)
 /// impl Command for FnOnce(&mut World)
 /// impl Command<Result> for FnOnce(&mut World) -> Result
@@ -64,7 +63,21 @@ pub trait Command<Marker = ()>: Send + 'static {
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> Result<(), CommandError>;
+    fn apply(self, world: &mut World) -> Result;
+
+    /// Applies this command and converts any resulting error into a [`CommandError`].
+    ///
+    /// Overwriting this method allows an implementor to return a `CommandError` directly
+    /// and avoid erasing the error's type.
+    fn apply_internal(self, world: &mut World) -> Result<(), CommandError>
+    where
+        Self: Sized,
+    {
+        match self.apply(world) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(CommandError::CommandFailed(error)),
+        }
+    }
 
     /// Returns a new [`Command`] that, when applied, will apply the original command
     /// and pass any resulting error to the provided `error_handler`.
@@ -76,7 +89,7 @@ pub trait Command<Marker = ()>: Send + 'static {
         Self: Sized,
     {
         move |world: &mut World| {
-            if let Err(error) = self.apply(world) {
+            if let Err(error) = self.apply_internal(world) {
                 // TODO: Pass the error to the global error handler if `error_handler` is `None`.
                 let error_handler = error_handler.unwrap_or(|_, error| panic!("{error}"));
                 error_handler(world, error);
@@ -89,7 +102,7 @@ impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result<(), CommandError> {
+    fn apply(self, world: &mut World) -> Result {
         self(world);
         Ok(())
     }
@@ -99,11 +112,8 @@ impl<F> Command<Result> for F
 where
     F: FnOnce(&mut World) -> Result + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result<(), CommandError> {
-        match self(world) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(CommandError::CommandFailed(error)),
-        }
+    fn apply(self, world: &mut World) -> Result {
+        self(world)
     }
 }
 
@@ -113,7 +123,12 @@ impl<F> Command<(Result, CommandError)> for F
 where
     F: FnOnce(&mut World) -> Result<(), CommandError> + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result<(), CommandError> {
+    fn apply(self, world: &mut World) -> Result {
+        self(world)?;
+        Ok(())
+    }
+
+    fn apply_internal(self, world: &mut World) -> Result<(), CommandError> {
         self(world)
     }
 }
