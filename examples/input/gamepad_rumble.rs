@@ -4,8 +4,8 @@
 use bevy::{
     input::gamepad::{Gamepad, GamepadRumbleIntensity, GamepadRumbleRequest},
     prelude::*,
-    utils::Duration,
 };
+use core::time::Duration;
 
 fn main() {
     App::new()

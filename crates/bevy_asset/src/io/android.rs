@@ -1,7 +1,7 @@
 use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
-use bevy_utils::tracing::error;
 use futures_lite::stream;
 use std::{ffi::CString, path::Path};
+use tracing::error;
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///

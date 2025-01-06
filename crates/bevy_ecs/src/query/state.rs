@@ -13,11 +13,11 @@ use crate::{
 };
 
 use alloc::vec::Vec;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use core::{fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
+#[cfg(feature = "trace")]
+use tracing::Span;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -566,7 +566,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) {
         // As a fast path, we can iterate directly over the components involved
         // if the `access` isn't inverted.
-        #[allow(deprecated)]
         let (component_reads_and_writes, component_reads_and_writes_inverted) =
             self.component_access.access.component_reads_and_writes();
         let (component_writes, component_writes_inverted) =
@@ -1020,7 +1019,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let location = world
             .entities()
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity(entity, world))?;
+            .ok_or(QueryEntityError::NoSuchEntity(
+                entity,
+                world
+                    .entities()
+                    .entity_does_not_exist_error_details_message(entity),
+            ))?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())

@@ -2,6 +2,7 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
+use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
@@ -14,7 +15,6 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
-    utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

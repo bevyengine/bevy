@@ -28,7 +28,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::HashMap;
+use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
