@@ -94,7 +94,7 @@ impl<'a> Iterator for TupleFieldIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
+impl ExactSizeIterator for TupleFieldIter<'_> {}
 
 /// A convenience trait which combines fetching and downcasting of tuple
 /// fields.

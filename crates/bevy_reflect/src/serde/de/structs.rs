@@ -20,7 +20,7 @@ pub(super) struct StructVisitor<'a, P> {
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVisitor<'_, P> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected struct value")
     }
 

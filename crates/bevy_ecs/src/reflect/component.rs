@@ -118,7 +118,8 @@ pub struct ReflectComponentFns {
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        for<'w> unsafe fn(UnsafeEntityCell<'w>) -> Option<Mut<'w, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
@@ -178,12 +179,12 @@ impl ReflectComponent {
     }
 
     /// Returns whether entity contains this [`Component`]
-    pub fn contains<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> bool {
+    pub fn contains<'w>(&self, entity: impl Into<FilteredEntityRef<'w>>) -> bool {
         (self.0.contains)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'w>(&self, entity: impl Into<FilteredEntityRef<'w>>) -> Option<&'w dyn Reflect> {
         (self.0.reflect)(entity.into())
     }
 
@@ -192,10 +193,10 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub fn reflect_mut<'a>(
+    pub fn reflect_mut<'w>(
         &self,
-        entity: impl Into<FilteredEntityMut<'a>>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+        entity: impl Into<FilteredEntityMut<'w>>,
+    ) -> Option<Mut<'w, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -208,10 +209,10 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub unsafe fn reflect_unchecked_mut<'a>(
+    pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
-        entity: UnsafeEntityCell<'a>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+        entity: UnsafeEntityCell<'w>,
+    ) -> Option<Mut<'w, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
         unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }

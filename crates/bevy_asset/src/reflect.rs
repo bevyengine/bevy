@@ -21,12 +21,13 @@ pub struct ReflectAsset {
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
-    len: fn(&World) -> usize,
+    get_unchecked_mut:
+        for<'w> unsafe fn(UnsafeWorldCell<'w>, UntypedHandle) -> Option<&'w mut dyn Reflect>,
+    add: for<'w, 'a> fn(&'w mut World, &'a dyn PartialReflect) -> UntypedHandle,
+    insert: for<'w, 'a> fn(&'w mut World, UntypedHandle, &'a dyn PartialReflect),
+    len: for<'w> fn(&'w World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
-    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
+    remove: for<'w> fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectAsset {

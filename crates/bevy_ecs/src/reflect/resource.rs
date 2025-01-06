@@ -57,7 +57,8 @@ pub struct ReflectResourceFns {
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant resource.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        for<'w> unsafe fn(UnsafeWorldCell<'w>) -> Option<Mut<'w, dyn Reflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::register_resource()`].
@@ -111,12 +112,12 @@ impl ReflectResource {
     }
 
     /// Gets the value of this [`Resource`] type from the world as a reflected reference.
-    pub fn reflect<'a>(&self, world: &'a World) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'w>(&self, world: &'w World) -> Option<&'w dyn Reflect> {
         (self.0.reflect)(world)
     }
 
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
-    pub fn reflect_mut<'a>(&self, world: &'a mut World) -> Option<Mut<'a, dyn Reflect>> {
+    pub fn reflect_mut<'w>(&self, world: &'w mut World) -> Option<Mut<'w, dyn Reflect>> {
         // SAFETY: unique world access
         unsafe { (self.0.reflect_unchecked_mut)(world.as_unsafe_world_cell()) }
     }

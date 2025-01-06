@@ -115,7 +115,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     }
     /// }
     /// ```
-    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+    pub fn remaining_mut(&mut self) -> QueryIter<'w, 's, D, F> {
         QueryIter {
             world: self.world,
             tables: self.tables,
@@ -1110,32 +1110,38 @@ impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, Entity, F> {}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityRef<'_>, F> {}
-
-// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, EntityMut<'_>, F> {}
-
-// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
-    for QueryIter<'w, 's, FilteredEntityRef<'_>, F>
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, EntityRef<'w2>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator
-    for QueryIter<'w, 's, FilteredEntityMut<'_>, F>
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, EntityMut<'w2>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
-    for QueryIter<'w, 's, EntityRefExcept<'_, B>, F>
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, FilteredEntityRef<'w2>, F>
 {
 }
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, B: Bundle> EntitySetIterator
-    for QueryIter<'w, 's, EntityMutExcept<'_, B>, F>
+unsafe impl<'w, 'w2, 's, F: QueryFilter> EntitySetIterator
+    for QueryIter<'w, 's, FilteredEntityMut<'w2>, F>
+{
+}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 'w2, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+    for QueryIter<'w, 's, EntityRefExcept<'w2, B>, F>
+{
+}
+
+// SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
+unsafe impl<'w, 'w2, 's, F: QueryFilter, B: Bundle> EntitySetIterator
+    for QueryIter<'w, 's, EntityMutExcept<'w2, B>, F>
 {
 }
 
@@ -1494,7 +1500,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     ///     // We need to collect the internal iterator before iterating mutably
     ///     let mut parent_query_iter = query.iter_many_mut(entity_list)
     ///         .sort::<Entity>();
-    ///     
+    ///
     ///     let mut scratch_value = 0;
     ///     while let Some(mut part_value) = parent_query_iter.fetch_next_back()
     ///     {
@@ -2685,7 +2691,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     current_row: usize,
 }
 
-impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'w, 's, D, F> {
     fn clone(&self) -> Self {
         Self {
             is_dense: self.is_dense,
@@ -2739,7 +2745,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         }
     }
 
-    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+    fn reborrow(&mut self) -> QueryIterationCursor<'w, 's, D, F> {
         QueryIterationCursor {
             is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),

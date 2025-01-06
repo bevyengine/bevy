@@ -369,8 +369,8 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+impl<'w, 's, D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'w, 's, D, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
             .field("state", &self.state)
@@ -548,7 +548,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn iter_combinations<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, D::ReadOnly, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D::ReadOnly, F, K> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -947,7 +947,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter_mut`]: Self::par_iter_mut
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter(&self) -> QueryParIter<'_, '_, D::ReadOnly, F> {
+    pub fn par_iter<'world, 'state>(&self) -> QueryParIter<'world, 'state, D::ReadOnly, F>
+    where
+        'w: 'world,
+        's: 'state,
+    {
         QueryParIter {
             world: self.world,
             state: self.state.as_readonly(),
@@ -988,7 +992,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, '_, D, F> {
+    pub fn par_iter_mut<'world, 'state>(&mut self) -> QueryParIter<'world, 'state, D, F>
+    where
+        'w: 'world,
+        's: 'state,
+    {
         QueryParIter {
             world: self.world,
             state: self.state,
@@ -1910,7 +1918,7 @@ impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
+impl<D: QueryData, F: QueryFilter> DerefMut for Single<'_, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
@@ -1945,7 +1953,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> DerefMut for Populated<'_, '_, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for Populated<'w, 's, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

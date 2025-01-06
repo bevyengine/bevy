@@ -38,14 +38,14 @@ use derive_more::derive::{AsRef, Display, Into};
 #[as_ref(str)]
 pub struct SystemName<'s>(&'s str);
 
-impl<'s> SystemName<'s> {
+impl SystemName<'_> {
     /// Gets the name of the system.
     pub fn name(&self) -> &str {
         self.0
     }
 }
 
-impl<'s> Deref for SystemName<'s> {
+impl Deref for SystemName<'_> {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         self.name()
@@ -73,7 +73,7 @@ unsafe impl SystemParam for SystemName<'_> {
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
+unsafe impl ReadOnlySystemParam for SystemName<'_> {}
 
 impl ExclusiveSystemParam for SystemName<'_> {
     type State = Cow<'static, str>;

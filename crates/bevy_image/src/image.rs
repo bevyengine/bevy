@@ -1440,7 +1440,7 @@ pub enum ImageType<'a> {
     Format(ImageFormat),
 }
 
-impl<'a> ImageType<'a> {
+impl ImageType<'_> {
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
         match self {
             ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)

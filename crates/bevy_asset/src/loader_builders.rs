@@ -160,7 +160,7 @@ pub struct Immediate<'builder, 'reader> {
     reader: Option<&'builder mut (dyn Reader + 'reader)>,
 }
 
-impl sealed::Mode for Immediate<'_, '_> {}
+impl<'builder, 'reader> sealed::Mode for Immediate<'builder, 'reader> {}
 
 // common to all states
 
@@ -290,7 +290,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 
 // deferred loading logic
 
-impl NestedLoader<'_, '_, StaticTyped, Deferred> {
+impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, StaticTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
@@ -318,7 +318,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     }
 }
 
-impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
+impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, DynamicTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
@@ -351,7 +351,7 @@ impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
     }
 }
 
-impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
+impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, UnknownTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
@@ -374,7 +374,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
 
 // immediate loading logic
 
-impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>> {
+impl<'builder, 'reader, 'ctx, T> NestedLoader<'ctx, 'builder, T, Immediate<'builder, 'reader>> {
     /// Specify the reader to use to read the asset data.
     #[must_use]
     pub fn with_reader(mut self, reader: &'builder mut (dyn Reader + 'reader)) -> Self {
@@ -434,7 +434,9 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
     }
 }
 
-impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
+impl<'builder, 'reader, 'ctx>
+    NestedLoader<'ctx, 'builder, StaticTyped, Immediate<'builder, 'reader>>
+{
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This requires you to know the type of asset statically.
@@ -466,7 +468,9 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, DynamicTyped, Immediate<'_, '_>> {
+impl<'builder, 'reader, 'ctx>
+    NestedLoader<'ctx, 'builder, DynamicTyped, Immediate<'builder, 'reader>>
+{
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This requires you to pass in the asset type ID into
@@ -485,7 +489,9 @@ impl NestedLoader<'_, '_, DynamicTyped, Immediate<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, UnknownTyped, Immediate<'_, '_>> {
+impl<'builder, 'reader, 'ctx>
+    NestedLoader<'ctx, 'builder, UnknownTyped, Immediate<'builder, 'reader>>
+{
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This will infer the asset type from metadata.

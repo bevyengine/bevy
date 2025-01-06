@@ -491,7 +491,7 @@ impl<'a> DynParamBuilder<'a> {
 // SAFETY: `DynSystemParam::get_param` will call `get_param` on the boxed `DynSystemParamState`,
 // and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
 // The resulting `DynSystemParam` can only perform access by downcasting to that param type.
-unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
+unsafe impl<'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'_> {
     fn build(
         self,
         world: &mut World,

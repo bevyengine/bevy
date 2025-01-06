@@ -278,10 +278,10 @@ mod tests {
                     registry: &'a TypeRegistry,
                 }
 
-                impl<'a, 'de> Visitor<'de> for EnemyListVisitor<'a> {
+                impl<'de> Visitor<'de> for EnemyListVisitor<'_> {
                     type Value = Vec<Arc<dyn Enemy>>;
 
-                    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+                    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
                         write!(formatter, "a list of enemies")
                     }
 

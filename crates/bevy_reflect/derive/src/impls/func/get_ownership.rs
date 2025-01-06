@@ -18,13 +18,13 @@ pub(crate) fn impl_get_ownership(
             }
         }
 
-        impl #impl_generics #bevy_reflect::func::args::GetOwnership for &'_ #type_path #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect::func::args::GetOwnership for &#type_path #ty_generics #where_reflect_clause {
             fn ownership() -> #bevy_reflect::func::args::Ownership {
                 #bevy_reflect::func::args::Ownership::Ref
             }
         }
 
-        impl #impl_generics #bevy_reflect::func::args::GetOwnership for &'_ mut #type_path #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect::func::args::GetOwnership for &mut #type_path #ty_generics #where_reflect_clause {
             fn ownership() -> #bevy_reflect::func::args::Ownership {
                 #bevy_reflect::func::args::Ownership::Mut
             }

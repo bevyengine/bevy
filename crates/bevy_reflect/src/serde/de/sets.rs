@@ -19,7 +19,7 @@ pub(super) struct SetVisitor<'a, P> {
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
     type Value = DynamicSet;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected set value")
     }
 

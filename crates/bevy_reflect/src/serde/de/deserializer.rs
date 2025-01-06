@@ -154,7 +154,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
         {
             type Value = Box<dyn PartialReflect>;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
                 formatter
                     .write_str("map containing `type` and `value` entries for the reflected value")
             }

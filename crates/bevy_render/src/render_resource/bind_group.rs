@@ -357,11 +357,11 @@ pub trait AsBindGroup {
     }
 
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
-    fn as_bind_group(
+    fn as_bind_group<'w, 's>(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        param: &mut SystemParamItem<'_, '_, Self::Param>,
+        param: &mut SystemParamItem<'w, 's, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
