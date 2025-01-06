@@ -583,7 +583,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{world::{Command}, prelude::*};
+    /// # use bevy_ecs::prelude::*;
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
