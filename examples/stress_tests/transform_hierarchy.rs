@@ -258,7 +258,7 @@ struct UpdateValue(f32);
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
-        u.0 += time.delta_seconds() * 0.1;
+        u.0 += time.delta_secs() * 0.1;
         set_translation(&mut t.translation, u.0);
     }
 }
@@ -272,10 +272,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut cam = Camera2dBundle::default();
-
-    cam.transform.translation.z = 100.0;
-    commands.spawn(cam);
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -431,9 +428,7 @@ fn spawn_tree(
             cmd.id()
         };
 
-        commands
-            .get_or_spawn(ents[parent_idx])
-            .add_child(child_entity);
+        commands.entity(ents[parent_idx]).add_child(child_entity);
 
         ents.push(child_entity);
     }

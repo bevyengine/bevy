@@ -3,22 +3,9 @@ extend-exclude = [
   "*.pbxproj", # metadata file
   "*.patch",   # Automatically generated files that should not be manually modified.
   "*.bin",     # Binary files
+  ".git/",     # Version control files
 ]
-
-# Corrections take the form of a key/value pair. The key is the incorrect word
-# and the value is the correct word. If the key and value are the same, the
-# word is treated as always correct. If the value is an empty string, the word
-# is treated as always incorrect.
-
-# Match Whole Word - Case Sensitive
-[default.extend-identifiers]
-iy = "iy"       # Variable name used in bevy_gizmos. Probably stands for "y-axis index", as it's being used in loops.
-ser = "ser"     # ron::ser - Serializer
-SME = "SME"     # Subject Matter Expert
-Sur = "Sur"     # macOS Big Sur - South
-Masia = "Masia" # The surname of one of the authors of SMAA
-Ba = "Ba"       # Bitangent for Anisotropy
-ba = "ba"       # Part of an accessor in WGSL - color.ba
+ignore-hidden = false
 
 # Match Inside a Word - Case Insensitive
 [default.extend-words]
@@ -26,10 +13,21 @@ LOD = "LOD" # Level of detail
 TOI = "TOI" # Time of impact
 
 [default]
+locale = "en-us"
+# Ignored typos regexes
 extend-ignore-identifiers-re = [
-  "NDK",        # NDK - Native  Development Kit
-  "inventario", # Inventory in Portuguese
-  "PNG",        # PNG - Portable Network Graphics file format
+  "Ba",                   # Bitangent for Anisotropy
+  "ba",                   # Part of an accessor in WGSL - color.ba
+  "ser",                  # ron::ser - Serializer
+  "SME",                  # Subject Matter Expert
+  "Sur",                  # macOS Big Sur - South
+  "NDK",                  # NDK - Native  Development Kit
+  "PNG",                  # PNG - Portable Network Graphics file format
+  "Masia",                # The surname of one of the authors of SMAA
+  "metalness",            # Rendering term (metallicity)
+  "inventario",           # Inventory in Portuguese
+  "[Rr]eparametrize",     # Mathematical term in curve context (reparameterize)
+  "[Rr]eparametrization",
   # Used in bevy_mikktspace
   "iFO",
   "vOt",

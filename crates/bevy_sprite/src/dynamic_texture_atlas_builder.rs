@@ -1,9 +1,7 @@
 use crate::TextureAtlasLayout;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_math::{URect, UVec2};
-use bevy_render::{
-    render_asset::{RenderAsset, RenderAssetUsages},
-    texture::{GpuImage, Image, TextureFormatPixelInfo},
-};
+use bevy_render::render_asset::RenderAssetUsages;
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
 /// Helper utility to update [`TextureAtlasLayout`] on the fly.
@@ -37,7 +35,7 @@ impl DynamicTextureAtlasBuilder {
     ///
     /// # Arguments
     ///
-    /// * `altas_layout` - The atlas layout to add the texture to.
+    /// * `atlas_layout` - The atlas layout to add the texture to.
     /// * `texture` - The source texture to add to the atlas.
     /// * `atlas_texture` - The destination atlas texture to copy the source texture to.
     pub fn add_texture(
@@ -52,9 +50,8 @@ impl DynamicTextureAtlasBuilder {
         ));
         if let Some(allocation) = allocation {
             assert!(
-                <GpuImage as RenderAsset>::asset_usage(atlas_texture)
-                    .contains(RenderAssetUsages::MAIN_WORLD),
-                "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
+                atlas_texture.asset_usage.contains(RenderAssetUsages::MAIN_WORLD),
+                "The atlas_texture image must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );
 
             self.place_texture(atlas_texture, allocation, texture);

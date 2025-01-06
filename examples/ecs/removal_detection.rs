@@ -17,7 +17,7 @@ fn main() {
         // This system will remove a component after two seconds.
         .add_systems(Update, remove_component)
         // This observer will react to the removal of the component.
-        .observe(react_on_removal)
+        .add_observer(react_on_removal)
         .run();
 }
 
@@ -27,12 +27,9 @@ fn main() {
 struct MyComponent;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
         // Add the `Component`.
         MyComponent,
     ));
@@ -44,7 +41,7 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.elapsed_seconds() > 2.0 {
+    if time.elapsed_secs() > 2.0 {
         if let Some(entity) = query.iter().next() {
             commands.entity(entity).remove::<MyComponent>();
         }
@@ -53,7 +50,7 @@ fn remove_component(
 
 fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
     // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
-    let entity = trigger.entity();
+    let entity = trigger.target();
     if let Ok(mut sprite) = query.get_mut(entity) {
         sprite.color = Color::srgb(0.5, 1., 1.);
     }

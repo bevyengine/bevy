@@ -5,15 +5,18 @@ plugin_group! {
     pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
         bevy_log:::LogPlugin,
-        bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
-        bevy_core:::FrameCountPlugin,
+        bevy_app:::TaskPoolPlugin,
+        bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
         bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        #[custom(cfg(not(feature = "bevy_window")))]
+        bevy_app:::ScheduleRunnerPlugin,
+        #[cfg(feature = "bevy_window")]
         bevy_window:::WindowPlugin,
+        #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
         #[custom(cfg(not(target_arch = "wasm32")))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
@@ -56,12 +59,13 @@ plugin_group! {
         bevy_gizmos:::GizmoPlugin,
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
-        #[cfg(feature = "bevy_picking")]
-        bevy_picking:::DefaultPickingPlugins,
         #[cfg(feature = "bevy_dev_tools")]
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[plugin_group]
+        #[cfg(feature = "bevy_picking")]
+        bevy_picking:::DefaultPickingPlugins,
         #[doc(hidden)]
         :IgnoreAmbiguitiesPlugin,
     }
@@ -71,55 +75,6 @@ plugin_group! {
     ///
     /// [`DefaultPlugins`] contains all the plugins typically required to build
     /// a *Bevy* application which includes a *window* and presentation components.
-    /// For *headless* cases – without a *window* or presentation, see [`HeadlessPlugins`].
-    /// For the absolute minimum number of plugins needed to run a Bevy application, see [`MinimalPlugins`].
-}
-
-plugin_group! {
-    /// This plugin group will add all the default plugins for a headless (no *window* or rendering) *Bevy* application:
-    pub struct HeadlessPlugins {
-        bevy_app:::PanicHandlerPlugin,
-        bevy_log:::LogPlugin,
-        bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
-        bevy_core:::FrameCountPlugin,
-        bevy_time:::TimePlugin,
-        bevy_transform:::TransformPlugin,
-        bevy_hierarchy:::HierarchyPlugin,
-        bevy_diagnostic:::DiagnosticsPlugin,
-        bevy_app:::ScheduleRunnerPlugin,
-        #[custom(cfg(not(target_arch = "wasm32")))]
-        bevy_app:::TerminalCtrlCHandlerPlugin,
-        #[cfg(feature = "bevy_asset")]
-        bevy_asset:::AssetPlugin,
-        #[cfg(feature = "bevy_scene")]
-        bevy_scene:::ScenePlugin,
-        #[cfg(feature = "bevy_animation")]
-        bevy_animation:::AnimationPlugin,
-        #[cfg(feature = "bevy_state")]
-        bevy_state::app:::StatesPlugin,
-        #[cfg(feature = "bevy_ci_testing")]
-        bevy_dev_tools::ci_testing:::CiTestingPlugin,
-        #[doc(hidden)]
-        :IgnoreAmbiguitiesPlugin,
-    }
-    /// This group of plugins is intended for use for *headless* programs, for example: dedicated game servers.
-    /// See the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
-    ///
-    /// [`HeadlessPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
-    /// by disabling `default-features` in their `Cargo.toml` and enabling only those features
-    /// that they wish to use.
-    ///
-    /// [`HeadlessPlugins`] contains all the plugins typically required to build
-    /// a *Bevy* application. In contrast with [`DefaultPlugins`], it leaves out *window* and presentation components.
-    /// This allows applications built using this plugin group to run on devices that do not have a screen or rendering
-    /// capabilities.
-    /// It includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
-    /// to provide functionality that would otherwise be driven by a windowed application's
-    /// *event loop* or *message loop*.
-    ///
-    /// Windowed applications that wish to use a reduced set of plugins should consider the
-    /// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
     /// For the absolute minimum number of plugins needed to run a Bevy application, see [`MinimalPlugins`].
 }
 
@@ -151,9 +106,8 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 plugin_group! {
     /// This plugin group will add the minimal plugins for a *Bevy* application:
     pub struct MinimalPlugins {
-        bevy_core:::TaskPoolPlugin,
-        bevy_core:::TypeRegistrationPlugin,
-        bevy_core:::FrameCountPlugin,
+        bevy_app:::TaskPoolPlugin,
+        bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_ci_testing")]
@@ -161,8 +115,6 @@ plugin_group! {
     }
     /// This plugin group represents the absolute minimum, bare-bones, bevy application.
     /// Use this if you want to have absolute control over the plugins used.
-    /// If you are looking to make a *headless* application - without a *window* or rendering,
-    /// it is usually best to use [`HeadlessPlugins`].
     ///
     /// It includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
     /// to provide functionality that would otherwise be driven by a windowed application's

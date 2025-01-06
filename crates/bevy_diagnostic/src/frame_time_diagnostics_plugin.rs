@@ -1,6 +1,5 @@
-use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
+use crate::{Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic};
 use bevy_app::prelude::*;
-use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time};
 
@@ -33,7 +32,7 @@ impl FrameTimeDiagnosticsPlugin {
     ) {
         diagnostics.add_measurement(&Self::FRAME_COUNT, || frame_count.0 as f64);
 
-        let delta_seconds = time.delta_seconds_f64();
+        let delta_seconds = time.delta_secs_f64();
         if delta_seconds == 0.0 {
             return;
         }

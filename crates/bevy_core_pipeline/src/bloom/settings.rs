@@ -118,9 +118,6 @@ pub struct Bloom {
     pub uv_offset: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `Bloom`")]
-pub type BloomSettings = Bloom;
-
 impl Bloom {
     const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
     const DEFAULT_UV_OFFSET: f32 = 0.004;
@@ -203,9 +200,6 @@ pub struct BloomPrefilter {
     pub threshold_softness: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `BloomPrefilter`")]
-pub type BloomPrefilterSettings = BloomPrefilter;
-
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
 pub enum BloomCompositeMode {
     EnergyConserving,
@@ -226,7 +220,9 @@ impl ExtractComponent for Bloom {
             camera.is_active,
             camera.hdr,
         ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true)
+                if size.x != 0 && size.y != 0 =>
+            {
                 let threshold = bloom.prefilter.threshold;
                 let threshold_softness = bloom.prefilter.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);

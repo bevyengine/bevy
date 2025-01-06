@@ -32,10 +32,10 @@ fn setup(
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Add a light source so we can see clearly.
     commands.spawn((
@@ -48,8 +48,8 @@ fn setup(
 fn rotate_cube(mut cubes: Query<(&mut Transform, &Rotatable)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
         // The speed is first multiplied by TAU which is a full rotation (360deg) in radians,
-        // and then multiplied by delta_seconds which is the time that passed last frame.
+        // and then multiplied by delta_secs which is the time that passed last frame.
         // In other words. Speed is equal to the amount of rotations per second.
-        transform.rotate_y(cube.speed * TAU * timer.delta_seconds());
+        transform.rotate_y(cube.speed * TAU * timer.delta_secs());
     }
 }

@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract,
 };
 use bevy_utils::{Entry, HashMap};
@@ -27,13 +27,13 @@ pub(super) struct ExtractedStateBuffers {
 
 pub(super) fn extract_buffers(
     mut commands: Commands,
-    changed: Extract<Query<(&RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
+    changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
     mut removed: Extract<RemovedComponents<AutoExposure>>,
 ) {
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
-            .map(|(entity, settings)| (entity.id(), settings.clone()))
+            .map(|(entity, settings)| (entity, settings.clone()))
             .collect(),
         removed: removed.read().collect(),
     });

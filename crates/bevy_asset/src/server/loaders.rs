@@ -4,18 +4,15 @@ use crate::{
 };
 use alloc::sync::Arc;
 use async_broadcast::RecvError;
-use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{error, warn},
-    HashMap, TypeIdMap,
-};
 #[cfg(feature = "trace")]
-use bevy_utils::{
-    tracing::{info_span, instrument::Instrument},
-    ConditionalSendFuture,
-};
+use bevy_tasks::ConditionalSendFuture;
+use bevy_tasks::IoTaskPool;
+use bevy_utils::{HashMap, TypeIdMap};
 use core::any::TypeId;
 use thiserror::Error;
+use tracing::warn;
+#[cfg(feature = "trace")]
+use tracing::{info_span, instrument::Instrument};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {

@@ -1,19 +1,17 @@
 use bevy_asset::AssetId;
+use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_utils::{
-    tracing::{debug, error, warn},
-    HashMap,
-};
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
 use thiserror::Error;
+use tracing::{debug, error, warn};
 
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
@@ -155,16 +153,6 @@ impl<'a> TextureAtlasBuilder<'a> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
-    )]
-    pub fn finish(
-        &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
-        self.build()
-    }
-
     /// Consumes the builder, and returns the newly created texture atlas and
     /// the associated atlas layout.
     ///
@@ -179,6 +167,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
     /// # use bevy_render::prelude::*;
+    /// # use bevy_image::Image;
     ///
     /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
@@ -190,10 +179,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
-    ///     commands.spawn((
-    ///         SpriteBundle { texture, ..Default::default() },
-    ///         TextureAtlas::from(layout),
-    ///     ));
+    ///     commands.spawn(Sprite::from_atlas_image(texture, TextureAtlas::from(layout)));
     /// }
     /// ```
     ///
@@ -273,7 +259,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_ids = HashMap::default();
+        let mut texture_ids = <HashMap<_, _>>::default();
         // We iterate through the textures to place to respect the insertion order for the texture indices
         for (index, (image_id, texture)) in self.textures_to_place.iter().enumerate() {
             let (_, packed_location) = rect_placements.packed_locations().get(&index).unwrap();

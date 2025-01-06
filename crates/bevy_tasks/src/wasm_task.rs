@@ -1,9 +1,10 @@
+use alloc::boxed::Box;
 use core::{
     any::Any,
     future::{Future, IntoFuture},
     panic::{AssertUnwindSafe, UnwindSafe},
     pin::Pin,
-    task::Poll,
+    task::{Context, Poll},
 };
 
 use futures_channel::oneshot;
@@ -53,16 +54,18 @@ impl<T: 'static> Task<T> {
 
 impl<T> Future for Task<T> {
     type Output = T;
-    fn poll(
-        mut self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match Pin::new(&mut self.0).poll(cx) {
             Poll::Ready(Ok(Ok(value))) => Poll::Ready(value),
             // NOTE: Propagating the panic here sorta has parity with the async_executor behavior.
             // For those tasks, polling them after a panic returns a `None` which gets `unwrap`ed, so
             // using `resume_unwind` here is essentially keeping the same behavior while adding more information.
+            #[cfg(feature = "std")]
             Poll::Ready(Ok(Err(panic))) => std::panic::resume_unwind(panic),
+            #[cfg(not(feature = "std"))]
+            Poll::Ready(Ok(Err(_panic))) => {
+                unreachable!("catching a panic is only possible with std")
+            }
             Poll::Ready(Err(_)) => panic!("Polled a task after it was cancelled"),
             Poll::Pending => Poll::Pending,
         }
@@ -76,7 +79,15 @@ struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
-    fn poll(self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context) -> Poll<Self::Output> {
-        std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx)))?.map(Ok)
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let f = AssertUnwindSafe(|| self.project().0.poll(cx));
+
+        #[cfg(feature = "std")]
+        let result = std::panic::catch_unwind(f)?;
+
+        #[cfg(not(feature = "std"))]
+        let result = f();
+
+        result.map(Ok)
     }
 }

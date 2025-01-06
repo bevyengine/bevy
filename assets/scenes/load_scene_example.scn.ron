@@ -1,36 +1,28 @@
 (
   resources: {
     "scene::ResourceA": (
-      score: 2,
+      score: 1,
     ),
   },
   entities: {
     4294967296: (
       components: {
-        "bevy_transform::components::transform::Transform": (
-          translation: (
-            x: 0.0,
-            y: 0.0,
-            z: 0.0
-          ),
-          rotation: (
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            w: 1.0,
-          ),
-          scale: (
-            x: 1.0,
-            y: 1.0,
-            z: 1.0
-          ),
+        "bevy_ecs::name::Name": (
+          hash: 17588334858059901562,
+          name: "joe",
         ),
-        "scene::ComponentB": (
-          value: "hello",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (0.0, 0.0, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
         ),
         "scene::ComponentA": (
           x: 1.0,
           y: 2.0,
+        ),
+        "scene::ComponentB": (
+          value: "hello",
         ),
       },
     ),
@@ -42,5 +34,5 @@
         ),
       },
     ),
-  }
+  },
 )

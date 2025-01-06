@@ -1,3 +1,5 @@
+#![no_std]
+
 //! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //!
 //! This module provides 3 distinct types of state, all of which implement the [`States`](state::States) trait:
@@ -17,7 +19,7 @@
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or
 //! determining whether to run certain systems, though they can be used more directly as well. This
-//! makes it easier to transition between menus, add loading screens, pause games, and the more.
+//! makes it easier to transition between menus, add loading screens, pause games, and more.
 //!
 //! Specifically, Bevy provides the following utilities:
 //!
@@ -27,9 +29,19 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
 
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods

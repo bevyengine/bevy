@@ -1,13 +1,19 @@
 use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
+use crate::{
+    ops::{self, FloatPow},
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;
+
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, vec::Vec};
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -61,7 +67,7 @@ impl Sphere {
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
     }
@@ -220,7 +226,8 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
-    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
+        let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
     }
 
@@ -228,7 +235,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
-    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
 
@@ -439,14 +446,18 @@ impl<const N: usize> Polyline3d<N> {
 /// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
 }
+
+#[cfg(feature = "alloc")]
 impl Primitive3d for BoxedPolyline3d {}
 
+#[cfg(feature = "alloc")]
 impl FromIterator<Vec3> for BoxedPolyline3d {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
         let vertices: Vec<Vec3> = iter.into_iter().collect();
@@ -456,6 +467,7 @@ impl FromIterator<Vec3> for BoxedPolyline3d {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoxedPolyline3d {
     /// Create a new `BoxedPolyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
@@ -1245,7 +1257,7 @@ impl Measured3d for Tetrahedron {
     /// Get the volume of the tetrahedron.
     #[inline(always)]
     fn volume(&self) -> f32 {
-        self.signed_volume().abs()
+        ops::abs(self.signed_volume())
     }
 }
 
@@ -1374,36 +1386,36 @@ mod tests {
 
         let point_in_plane = Vec3::X + Vec3::Z;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
+            plane.signed_distance(origin, point_in_plane),
             0.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
+            plane.project_point(origin, point_in_plane),
             point_in_plane,
             "incorrect point"
         );
 
         let point_outside = Vec3::Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             -1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
 
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
@@ -1572,7 +1584,7 @@ mod tests {
         assert_eq!(default_triangle.area(), 0.5, "incorrect area");
         assert_relative_eq!(
             default_triangle.perimeter(),
-            1.0 + 2.0 * 1.25_f32.sqrt(),
+            1.0 + 2.0 * ops::sqrt(1.25_f32),
             epsilon = 10e-9
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");

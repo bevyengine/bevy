@@ -7,7 +7,7 @@ use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_utils::{tracing, Instant};
+use bevy_utils::Instant;
 use std::sync::Mutex;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
@@ -474,14 +474,14 @@ impl FrameData {
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
             .chunks(8)
-            .map(|v| u64::from_ne_bytes(v.try_into().unwrap()))
+            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
             .collect::<Vec<u64>>();
 
         let start = self.pipeline_statistics_buffer_offset as usize;
         let len = (self.num_pipeline_statistics as usize) * 40;
         let pipeline_statistics = data[start..start + len]
             .chunks(8)
-            .map(|v| u64::from_ne_bytes(v.try_into().unwrap()))
+            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
             .collect::<Vec<u64>>();
 
         let mut diagnostics = Vec::new();

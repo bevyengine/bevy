@@ -1,4 +1,5 @@
 use super::ShaderDefVal;
+use crate::mesh::VertexBufferLayout;
 use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
@@ -9,8 +10,7 @@ use alloc::sync::Arc;
 use bevy_asset::Handle;
 use core::ops::Deref;
 use wgpu::{
-    BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
+    ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
 
 define_atomic_id!(RenderPipelineId);
@@ -108,6 +108,9 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
+    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
+    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    pub zero_initialize_workgroup_memory: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -120,54 +123,6 @@ pub struct VertexState {
     pub entry_point: Cow<'static, str>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
-}
-
-/// Describes how the vertex buffer is interpreted.
-#[derive(Default, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct VertexBufferLayout {
-    /// The stride, in bytes, between elements of this buffer.
-    pub array_stride: BufferAddress,
-    /// How often this vertex buffer is "stepped" forward.
-    pub step_mode: VertexStepMode,
-    /// The list of attributes which comprise a single vertex.
-    pub attributes: Vec<VertexAttribute>,
-}
-
-impl VertexBufferLayout {
-    /// Creates a new densely packed [`VertexBufferLayout`] from an iterator of vertex formats.
-    /// Iteration order determines the `shader_location` and `offset` of the [`VertexAttributes`](VertexAttribute).
-    /// The first iterated item will have a `shader_location` and `offset` of zero.
-    /// The `array_stride` is the sum of the size of the iterated [`VertexFormats`](VertexFormat) (in bytes).
-    pub fn from_vertex_formats<T: IntoIterator<Item = VertexFormat>>(
-        step_mode: VertexStepMode,
-        vertex_formats: T,
-    ) -> Self {
-        let mut offset = 0;
-        let mut attributes = Vec::new();
-        for (shader_location, format) in vertex_formats.into_iter().enumerate() {
-            attributes.push(VertexAttribute {
-                format,
-                offset,
-                shader_location: shader_location as u32,
-            });
-            offset += format.size();
-        }
-
-        VertexBufferLayout {
-            array_stride: offset,
-            step_mode,
-            attributes,
-        }
-    }
-
-    /// Returns a [`VertexBufferLayout`] with the shader location of every attribute offset by
-    /// `location`.
-    pub fn offset_locations_by(mut self, location: u32) -> Self {
-        self.attributes.iter_mut().for_each(|attr| {
-            attr.shader_location += location;
-        });
-        self
-    }
 }
 
 /// Describes the fragment process in a render pipeline.
@@ -195,4 +150,7 @@ pub struct ComputePipelineDescriptor {
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
+    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
+    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    pub zero_initialize_workgroup_memory: bool,
 }

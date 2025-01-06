@@ -3,7 +3,10 @@ pub mod node;
 
 use core::ops::Range;
 
+use crate::core_3d::Opaque3dBinKey;
+use crate::prepass::OpaqueNoLightmap3dBinKey;
 use bevy_ecs::prelude::*;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
@@ -11,8 +14,6 @@ use bevy_render::{
     },
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-
-use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
@@ -25,8 +26,8 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 /// Used to render all 3D meshes with materials that have no transparency.
 #[derive(PartialEq, Eq, Hash)]
 pub struct Opaque3dDeferred {
-    pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub key: Opaque3dBinKey,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -34,12 +35,16 @@ pub struct Opaque3dDeferred {
 impl PhaseItem for Opaque3dDeferred {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -54,7 +59,7 @@ impl PhaseItem for Opaque3dDeferred {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -64,12 +69,12 @@ impl PhaseItem for Opaque3dDeferred {
 }
 
 impl BinnedPhaseItem for Opaque3dDeferred {
-    type BinKey = OpaqueNoLightmap3dBinKey;
+    type BinKey = Opaque3dBinKey;
 
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -85,7 +90,7 @@ impl BinnedPhaseItem for Opaque3dDeferred {
 impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }
 
@@ -96,7 +101,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dDeferred {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -104,12 +109,17 @@ pub struct AlphaMask3dDeferred {
 impl PhaseItem for AlphaMask3dDeferred {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.key.batch_set_key.draw_function
     }
 
     #[inline]
@@ -124,7 +134,7 @@ impl PhaseItem for AlphaMask3dDeferred {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -138,7 +148,7 @@ impl BinnedPhaseItem for AlphaMask3dDeferred {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -154,6 +164,6 @@ impl BinnedPhaseItem for AlphaMask3dDeferred {
 impl CachedRenderPipelinePhaseItem for AlphaMask3dDeferred {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.key.batch_set_key.pipeline
     }
 }

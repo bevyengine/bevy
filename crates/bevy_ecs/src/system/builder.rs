@@ -1,4 +1,6 @@
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_utils::synccell::SyncCell;
+use variadics_please::all_tuples;
 
 use crate::{
     prelude::QueryBuilder,
@@ -574,7 +576,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
+            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -637,7 +639,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
-            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
+            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002");
         }
 
         if access.has_read_all_resources() {
@@ -685,6 +687,7 @@ mod tests {
         reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
+    use alloc::vec;
 
     use super::*;
 

@@ -302,25 +302,23 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
-            color_grading: ColorGrading {
-                global: ColorGradingGlobal {
-                    post_saturation: 1.2,
-                    ..default()
-                },
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            exposure: Exposure { ev100: 6.0 },
-            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ColorGrading {
+            global: ColorGradingGlobal {
+                post_saturation: 1.2,
+                ..default()
+            },
+            ..default()
+        },
+        Tonemapping::TonyMcMapface,
+        Exposure { ev100: 6.0 },
+        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        Msaa::Off,
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {
@@ -333,15 +331,14 @@ fn setup(
     ));
 
     // Controls Text
-    let text_style = TextStyle::default();
-
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -388,7 +385,7 @@ fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<
+    camera: Single<
         (
             Entity,
             &mut Camera,
@@ -399,45 +396,45 @@ fn example_control_system(
         ),
         With<Camera3d>,
     >,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Digit2) {
-        state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
+        state.diffuse_transmission = (state.diffuse_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::Digit1) {
-        state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
+        state.diffuse_transmission = (state.diffuse_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyW) {
-        state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
+        state.specular_transmission = (state.specular_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyQ) {
-        state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
+        state.specular_transmission = (state.specular_transmission - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyS) {
-        state.thickness = (state.thickness + time.delta_seconds()).min(5.0);
+        state.thickness = (state.thickness + time.delta_secs()).min(5.0);
     } else if input.pressed(KeyCode::KeyA) {
-        state.thickness = (state.thickness - time.delta_seconds()).max(0.0);
+        state.thickness = (state.thickness - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyX) {
-        state.ior = (state.ior + time.delta_seconds()).min(3.0);
+        state.ior = (state.ior + time.delta_secs()).min(3.0);
     } else if input.pressed(KeyCode::KeyZ) {
-        state.ior = (state.ior - time.delta_seconds()).max(1.0);
+        state.ior = (state.ior - time.delta_secs()).max(1.0);
     }
 
     if input.pressed(KeyCode::KeyI) {
-        state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
+        state.reflectance = (state.reflectance + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyU) {
-        state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
+        state.reflectance = (state.reflectance - time.delta_secs()).max(0.0);
     }
 
     if input.pressed(KeyCode::KeyR) {
-        state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
+        state.perceptual_roughness = (state.perceptual_roughness + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::KeyE) {
-        state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
+        state.perceptual_roughness = (state.perceptual_roughness - time.delta_secs()).max(0.0);
     }
 
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
@@ -469,7 +466,7 @@ fn example_control_system(
         mut camera_transform,
         depth_prepass,
         temporal_jitter,
-    ) = camera.single_mut();
+    ) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
@@ -525,21 +522,21 @@ fn example_control_system(
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
         state.auto_camera = false;
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowLeft) {
         state.auto_camera = false;
-        -time.delta_seconds()
+        -time.delta_secs()
     } else if state.auto_camera {
-        time.delta_seconds() * 0.25
+        time.delta_secs() * 0.25
     } else {
         0.0
     };
 
     let distance_change =
         if input.pressed(KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
-            time.delta_seconds()
+            time.delta_secs()
         } else if input.pressed(KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
-            -time.delta_seconds()
+            -time.delta_secs()
         } else {
             0.0
         };
@@ -551,8 +548,7 @@ fn example_control_system(
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    display.0 = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
@@ -603,20 +599,19 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Query<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
-    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
+    mut flame: Single<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
+    light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
-    let s = time.elapsed_seconds();
+    let s = time.elapsed_secs();
     let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
     let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
     let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;
-    let (mut light, mut light_transform) = light.single_mut();
-    let mut flame_transform = flame.single_mut();
+    let (mut light, mut light_transform) = light.into_inner();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);
-    flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
-    flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
-    flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
+    flame.translation = Vec3::new(-1.0, 1.23, 0.0);
+    flame.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
+    flame.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
     light_transform.translation = Vec3::new(-1.0 - c, 1.7, 0.0 - a);
-    flame_transform.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
+    flame.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
 }

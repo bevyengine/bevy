@@ -1,9 +1,11 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
 };
 use bevy_hierarchy::{BuildChildren, Parent};
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;
@@ -71,7 +73,7 @@ impl<const N: usize> Event for TestEvent<N> {
     const AUTO_PROPAGATE: bool = true;
 }
 
-fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &Vec<Entity>) {
+fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
     let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
@@ -100,21 +102,21 @@ fn spawn_listener_hierarchy(world: &mut World) -> (Vec<Entity>, Vec<Entity>, Vec
 }
 
 fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
-    roots: &Vec<Entity>,
-    leaves: &Vec<Entity>,
-    nodes: &Vec<Entity>,
+    roots: &[Entity],
+    leaves: &[Entity],
+    nodes: &[Entity],
     world: &mut World,
 ) {
     for e in roots.iter() {
-        world.entity_mut(*e).observe_entity(empty_listener::<N>);
+        world.entity_mut(*e).observe(empty_listener::<N>);
     }
     for e in leaves.iter() {
-        world.entity_mut(*e).observe_entity(empty_listener::<N>);
+        world.entity_mut(*e).observe(empty_listener::<N>);
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
         if rng.gen_bool(DENSITY as f64 / 100.0) {
-            world.entity_mut(*e).observe_entity(empty_listener::<N>);
+            world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }
 }

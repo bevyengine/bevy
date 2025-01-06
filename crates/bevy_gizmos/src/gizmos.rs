@@ -1,6 +1,11 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use core::{iter, marker::PhantomData, mem};
+use core::{
+    iter,
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -9,6 +14,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -135,11 +141,32 @@ where
     Clear: 'static + Send + Sync,
 {
     buffer: Deferred<'s, GizmoBuffer<Config, Clear>>,
-    pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
     pub config_ext: &'w Config,
+}
+
+impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Target = GizmoBuffer<Config, Clear>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
+impl<'w, 's, Config, Clear> DerefMut for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer
+    }
 }
 
 type GizmosState<Config, Clear> = (
@@ -204,7 +231,7 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        let (f0, f1) = unsafe {
+        let (mut f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -212,13 +239,15 @@ where
                 change_tick,
             )
         };
-        // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
-        // Implementing SystemParam manually allows us to do it to here
-        // Having config available allows for early returns when gizmos are disabled
+
+        // Accessing the GizmoConfigStore in every API call reduces performance significantly.
+        // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
+        // Having this available allows for cheap early returns when gizmos are disabled.
         let (config, config_ext) = f1.into_inner().config::<Config>();
+        f0.enabled = config.enabled;
+
         Gizmos {
             buffer: f0,
-            enabled: config.enabled,
             config,
             config_ext,
         }
@@ -236,16 +265,20 @@ where
 {
 }
 
-struct GizmoBuffer<Config, Clear>
+/// Buffer for gizmo vertex data.
+#[derive(Debug, Clone, Reflect)]
+pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    list_positions: Vec<Vec3>,
-    list_colors: Vec<LinearRgba>,
-    strip_positions: Vec<Vec3>,
-    strip_colors: Vec<LinearRgba>,
-    marker: PhantomData<(Config, Clear)>,
+    pub(crate) enabled: bool,
+    pub(crate) list_positions: Vec<Vec3>,
+    pub(crate) list_colors: Vec<LinearRgba>,
+    pub(crate) strip_positions: Vec<Vec3>,
+    pub(crate) strip_colors: Vec<LinearRgba>,
+    #[reflect(ignore)]
+    pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 
 impl<Config, Clear> Default for GizmoBuffer<Config, Clear>
@@ -254,14 +287,27 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
-        Self {
-            list_positions: default(),
-            list_colors: default(),
-            strip_positions: default(),
-            strip_colors: default(),
+        GizmoBuffer {
+            enabled: true,
+            list_positions: Vec::new(),
+            list_colors: Vec::new(),
+            strip_positions: Vec::new(),
+            strip_colors: Vec::new(),
             marker: PhantomData,
         }
     }
+}
+
+/// Read-only view into [`GizmoBuffer`] data.
+pub struct GizmoBufferView<'a> {
+    /// Vertex positions for line-list topology.
+    pub list_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-list topology.
+    pub list_colors: &'a Vec<LinearRgba>,
+    /// Vertex positions for line-strip topology.
+    pub strip_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-strip topology.
+    pub strip_colors: &'a Vec<LinearRgba>,
 }
 
 impl<Config, Clear> SystemBuffer for GizmoBuffer<Config, Clear>
@@ -278,11 +324,35 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Clear all data.
+    pub fn clear(&mut self) {
+        self.list_positions.clear();
+        self.list_colors.clear();
+        self.strip_positions.clear();
+        self.strip_colors.clear();
+    }
+
+    /// Read-only view into the buffers data.
+    pub fn buffer(&self) -> GizmoBufferView {
+        let GizmoBuffer {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+            ..
+        } = self;
+        GizmoBufferView {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+        }
+    }
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -409,10 +479,10 @@ where
             return;
         }
         self.extend_strip_positions(positions);
-        let len = self.buffer.strip_positions.len();
+        let len = self.strip_positions.len();
         let linear_color = LinearRgba::from(color.into());
-        self.buffer.strip_colors.resize(len - 1, linear_color);
-        self.buffer.strip_colors.push(LinearRgba::NAN);
+        self.strip_colors.resize(len - 1, linear_color);
+        self.strip_colors.push(LinearRgba::NAN);
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
@@ -447,7 +517,7 @@ where
             strip_positions,
             strip_colors,
             ..
-        } = &mut *self.buffer;
+        } = self;
 
         let (min, _) = points.size_hint();
         strip_positions.reserve(min);
@@ -482,10 +552,11 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, isometry: Isometry3d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: impl Into<Isometry3d>, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
@@ -709,22 +780,28 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, isometry: Isometry2d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        size: Vec2,
+        color: impl Into<Color>,
+    ) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.list_positions.extend(positions);
+        self.list_positions.extend(positions);
     }
 
     #[inline]
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = impl Into<Color>>) {
-        self.buffer.list_colors.extend(
+        self.list_colors.extend(
             colors
                 .into_iter()
                 .map(|color| LinearRgba::from(color.into())),
@@ -736,15 +813,14 @@ where
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
-        self.buffer
-            .list_colors
+        self.list_colors
             .extend(iter::repeat(linear_color).take(count));
     }
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(positions);
-        self.buffer.strip_positions.push(Vec3::NAN);
+        self.strip_positions.extend(positions);
+        self.strip_positions.push(Vec3::NAN);
     }
 }
 

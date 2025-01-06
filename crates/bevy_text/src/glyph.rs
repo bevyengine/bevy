@@ -1,9 +1,9 @@
 //! This module exports types related to rendering glyphs.
 
 use bevy_asset::Handle;
+use bevy_image::Image;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 
 /// A glyph of a font, typically representing a single character, positioned in screen space.
@@ -13,14 +13,14 @@ use bevy_sprite::TextureAtlasLayout;
 /// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
-    /// The position of the glyph in the [`Text`](crate::Text)'s bounding box.
+    /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
     /// The width and height of the glyph in logical pixels.
     pub size: Vec2,
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
-    /// The index of the glyph in the [`Text`](crate::Text)'s sections.
-    pub section_index: usize,
+    /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
+    pub span_index: usize,
     /// TODO: In order to do text editing, we need access to the size of glyphs and their index in the associated String.
     /// For example, to figure out where to place the cursor in an input box from the mouse's position.
     /// Without this, it's only possible in texts where each glyph is one byte. Cosmic text has methods for this
@@ -30,17 +30,12 @@ pub struct PositionedGlyph {
 
 impl PositionedGlyph {
     /// Creates a new [`PositionedGlyph`]
-    pub fn new(
-        position: Vec2,
-        size: Vec2,
-        atlas_info: GlyphAtlasInfo,
-        section_index: usize,
-    ) -> Self {
+    pub fn new(position: Vec2, size: Vec2, atlas_info: GlyphAtlasInfo, span_index: usize) -> Self {
         Self {
             position,
             size,
             atlas_info,
-            section_index,
+            span_index,
             byte_index: 0,
         }
     }

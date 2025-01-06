@@ -18,8 +18,8 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
-        OutputColorAttachment, TextureCache,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
+        TextureCache,
     },
     Render, RenderApp, RenderSet,
 };
@@ -28,6 +28,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
@@ -146,14 +147,14 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+/// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
+/// for a [`Camera`](crate::camera::Camera).
 ///
-/// The number of samples to run for Multi-Sample Anti-Aliasing for a given camera. Higher numbers
-/// result in smoother edges.
+/// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
-/// Defaults to 4 samples. Some advanced rendering features may require that MSAA be disabled.
+/// Some advanced rendering features may require that MSAA is disabled.
 ///
-/// Note that web currently only supports 1 or 4 samples.
+/// Note that the web currently only supports 1 or 4 samples.
 #[derive(
     Component,
     Default,
@@ -185,6 +186,35 @@ impl Msaa {
 
 #[derive(Component)]
 pub struct ExtractedView {
+    /// Typically a right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```text
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0     0   0 ⎤
+    /// ⎢          0  f     0   0 ⎥
+    /// ⎢          0  0     0  -1 ⎥
+    /// ⎣          0  0  near   0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```text
+    /// w = right - left
+    /// h = top - bottom
+    /// d = near - far
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡  2 / w       0         0  0 ⎤
+    /// ⎢      0   2 / h         0  0 ⎥
+    /// ⎢      0       0     1 / d  0 ⎥
+    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub world_from_view: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
@@ -422,12 +452,44 @@ pub struct ViewUniform {
     pub world_from_clip: Mat4,
     pub world_from_view: Mat4,
     pub view_from_world: Mat4,
+    /// Typically a right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```text
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0     0   0 ⎤
+    /// ⎢          0  f     0   0 ⎥
+    /// ⎢          0  0     0  -1 ⎥
+    /// ⎣          0  0  near   0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```text
+    /// w = right - left
+    /// h = top - bottom
+    /// d = near - far
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡  2 / w       0         0  0 ⎤
+    /// ⎢      0   2 / h         0  0 ⎥
+    /// ⎢      0       0     1 / d  0 ⎥
+    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
     pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     pub viewport: Vec4,
+    /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
+    /// The normal vectors point towards the interior of the frustum.
+    /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
@@ -558,10 +620,21 @@ impl From<ColorGrading> for ColorGradingUniform {
     }
 }
 
-#[derive(Component)]
-pub struct GpuCulling;
+/// Add this component to a camera to disable *indirect mode*.
+///
+/// Indirect mode, automatically enabled on supported hardware, allows Bevy to
+/// offload transform and cull operations to the GPU, reducing CPU overhead.
+/// Doing this, however, reduces the amount of control that your app has over
+/// instancing decisions. In certain circumstances, you may want to disable
+/// indirect drawing so that your app can manually instance meshes as it sees
+/// fit. See the `custom_shader_instancing` example.
+///
+/// The vast majority of applications will not need to use this component, as it
+/// generally reduces rendering performance.
+#[derive(Component, Default)]
+pub struct NoIndirectDrawing;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoCpuCulling;
 
 impl ViewTarget {
@@ -861,7 +934,7 @@ pub fn prepare_view_targets(
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {

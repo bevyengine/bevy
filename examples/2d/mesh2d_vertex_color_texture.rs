@@ -33,7 +33,7 @@ fn setup(
     let mesh_handle = meshes.add(mesh);
 
     // Spawn camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn the quad with vertex colors
     commands.spawn((

@@ -4,6 +4,7 @@ use crate::{
     Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Type, TypeInfo, TypePath,
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
 use core::{
     any::Any,
@@ -73,6 +74,11 @@ pub trait Array: PartialReflect {
             represented_type: self.get_represented_type_info(),
             values: self.iter().map(PartialReflect::clone_value).collect(),
         }
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+        self.get_represented_type_info()?.as_array().ok()
     }
 }
 
@@ -167,11 +173,6 @@ impl DynamicArray {
             represented_type: None,
             values,
         }
-    }
-
-    #[deprecated(since = "0.15.0", note = "use from_iter")]
-    pub fn from_vec<T: PartialReflect>(values: Vec<T>) -> Self {
-        Self::from_iter(values)
     }
 
     /// Sets the [type] to be represented by this `DynamicArray`.
@@ -507,6 +508,8 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> core::fmt::R
 #[cfg(test)]
 mod tests {
     use crate::Reflect;
+    use alloc::boxed::Box;
+
     #[test]
     fn next_index_increment() {
         const SIZE: usize = if cfg!(debug_assertions) {

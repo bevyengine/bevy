@@ -1,12 +1,13 @@
 use core::ops::Range;
 
-use super::{UiBatch, UiImageBindGroups, UiMeta};
+use super::{ImageNodeBindGroups, UiBatch, UiMeta};
 use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -15,7 +16,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
@@ -91,7 +92,7 @@ impl Node for UiPassNode {
 
 pub struct TransparentUi {
     pub sort_key: (FloatOrd, u32),
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -101,7 +102,11 @@ pub struct TransparentUi {
 impl PhaseItem for TransparentUi {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -121,7 +126,7 @@ impl PhaseItem for TransparentUi {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -180,7 +185,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<UiImageBindGroups>;
+    type Param = SRes<ImageNodeBindGroups>;
     type ViewQuery = ();
     type ItemQuery = Read<UiBatch>;
 
@@ -201,6 +206,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
         RenderCommandResult::Success
     }
 }
+
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;

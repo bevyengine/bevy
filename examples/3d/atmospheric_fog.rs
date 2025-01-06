@@ -25,11 +25,8 @@ fn main() {
 
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.0, 0.1, 1.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-1.0, 0.1, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         DistanceFog {
             color: Color::srgba(0.35, 0.48, 0.66, 1.0),
             directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
@@ -88,23 +85,17 @@ fn setup_terrain_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 }
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
-    let mut fog = fog.single_mut();
-
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {
     if keycode.just_pressed(KeyCode::Space) {
         let a = fog.color.alpha();
         fog.color.set_alpha(1.0 - a);

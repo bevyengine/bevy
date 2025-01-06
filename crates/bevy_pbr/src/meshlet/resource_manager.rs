@@ -122,6 +122,7 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
                     ),
                 ),
             ),
@@ -130,6 +131,7 @@ impl ResourceManager {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
                     (
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -185,7 +187,6 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
@@ -222,6 +223,7 @@ impl ResourceManager {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
@@ -245,6 +247,7 @@ impl ResourceManager {
 
 #[derive(Component)]
 pub struct MeshletViewResources {
+    pub scene_instance_count: u32,
     pub scene_cluster_count: u32,
     pub second_pass_candidates_buffer: Buffer,
     instance_visibility: Buffer,
@@ -329,7 +332,7 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_queue,
     );
     upload_storage_buffer(
-        &mut instance_manager.instance_meshlet_counts_prefix_sum,
+        &mut instance_manager.instance_meshlet_counts,
         &render_device,
         &render_queue,
     );
@@ -338,9 +341,6 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_device,
         &render_queue,
     );
-
-    // Early submission for GPU data uploads to start while the render graph records commands
-    render_queue.submit([]);
 
     let needed_buffer_size = 4 * instance_manager.scene_cluster_count as u64;
     match &mut resource_manager.cluster_instance_ids {
@@ -552,6 +552,7 @@ pub fn prepare_meshlet_per_frame_resources(
         };
 
         commands.entity(view_entity).insert(MeshletViewResources {
+            scene_instance_count: instance_manager.scene_instance_count,
             scene_cluster_count: instance_manager.scene_cluster_count,
             second_pass_candidates_buffer,
             instance_visibility,
@@ -601,19 +602,25 @@ pub fn prepare_meshlet_view_bind_groups(
 
     let first_node = Arc::new(AtomicBool::new(true));
 
+    let fill_cluster_buffers_global_cluster_count =
+        render_device.create_buffer(&BufferDescriptor {
+            label: Some("meshlet_fill_cluster_buffers_global_cluster_count"),
+            size: 4,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
     // TODO: Some of these bind groups can be reused across multiple views
     for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
-            instance_manager
-                .instance_meshlet_counts_prefix_sum
-                .binding()
-                .unwrap(),
+            instance_manager.instance_meshlet_counts.binding().unwrap(),
             instance_manager
                 .instance_meshlet_slice_starts
                 .binding()
                 .unwrap(),
             cluster_instance_ids.as_entire_binding(),
             cluster_meshlet_ids.as_entire_binding(),
+            fill_cluster_buffers_global_cluster_count.as_entire_binding(),
         ));
         let fill_cluster_buffers = render_device.create_bind_group(
             "meshlet_fill_cluster_buffers",
@@ -624,6 +631,7 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             cluster_meshlet_ids.as_entire_binding(),
             meshlet_mesh_manager.meshlet_bounding_spheres.binding(),
+            meshlet_mesh_manager.meshlet_simplification_errors.binding(),
             cluster_instance_ids.as_entire_binding(),
             instance_manager.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
@@ -652,6 +660,7 @@ pub fn prepare_meshlet_view_bind_groups(
         let entries = BindGroupEntries::sequential((
             cluster_meshlet_ids.as_entire_binding(),
             meshlet_mesh_manager.meshlet_bounding_spheres.binding(),
+            meshlet_mesh_manager.meshlet_simplification_errors.binding(),
             cluster_instance_ids.as_entire_binding(),
             instance_manager.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
@@ -702,8 +711,7 @@ pub fn prepare_meshlet_view_bind_groups(
             cluster_meshlet_ids.as_entire_binding(),
             meshlet_mesh_manager.meshlets.binding(),
             meshlet_mesh_manager.indices.binding(),
-            meshlet_mesh_manager.vertex_ids.binding(),
-            meshlet_mesh_manager.vertex_data.binding(),
+            meshlet_mesh_manager.vertex_positions.binding(),
             cluster_instance_ids.as_entire_binding(),
             instance_manager.instance_uniforms.binding().unwrap(),
             resource_manager
@@ -746,8 +754,9 @@ pub fn prepare_meshlet_view_bind_groups(
                 cluster_meshlet_ids.as_entire_binding(),
                 meshlet_mesh_manager.meshlets.binding(),
                 meshlet_mesh_manager.indices.binding(),
-                meshlet_mesh_manager.vertex_ids.binding(),
-                meshlet_mesh_manager.vertex_data.binding(),
+                meshlet_mesh_manager.vertex_positions.binding(),
+                meshlet_mesh_manager.vertex_normals.binding(),
+                meshlet_mesh_manager.vertex_uvs.binding(),
                 cluster_instance_ids.as_entire_binding(),
                 instance_manager.instance_uniforms.binding().unwrap(),
             ));

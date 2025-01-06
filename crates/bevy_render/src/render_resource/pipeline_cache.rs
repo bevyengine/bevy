@@ -11,16 +11,12 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_tasks::Task;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::EntryRef,
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
+use tracing::{debug, error};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
@@ -264,7 +260,7 @@ impl ShaderCache {
                 ));
 
                 debug!(
-                    "processing shader {:?}, with shader defs {:?}",
+                    "processing shader {}, with shader defs {:?}",
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
@@ -329,7 +325,7 @@ impl ShaderCache {
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_utils::futures::now_or_never(error)
+                    bevy_tasks::futures::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
@@ -669,6 +665,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -731,11 +728,10 @@ impl PipelineCache {
                     )
                 });
 
-                // TODO: Expose this somehow
+                // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &std::collections::HashMap::new(),
-                    zero_initialize_workgroup_memory: false,
-                    vertex_pulling_transform: Default::default(),
+                    constants: &default(),
+                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
@@ -747,7 +743,7 @@ impl PipelineCache {
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
                         buffers: &vertex_buffer_layouts,
-                        entry_point: descriptor.vertex.entry_point.deref(),
+                        entry_point: Some(descriptor.vertex.entry_point.deref()),
                         module: &vertex_module,
                         // TODO: Should this be the same as the fragment compilation options?
                         compilation_options: compilation_options.clone(),
@@ -755,7 +751,7 @@ impl PipelineCache {
                     fragment: fragment_data
                         .as_ref()
                         .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point,
+                            entry_point: Some(entry_point),
                             module,
                             targets,
                             // TODO: Should this be the same as the vertex compilation options?
@@ -780,6 +776,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -812,12 +809,12 @@ impl PipelineCache {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
-                    entry_point: &descriptor.entry_point,
-                    // TODO: Expose this somehow
+                    entry_point: Some(&descriptor.entry_point),
+                    // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &std::collections::HashMap::new(),
-                        zero_initialize_workgroup_memory: false,
-                        vertex_pulling_transform: Default::default(),
+                        constants: &default(),
+                        zero_initialize_workgroup_memory: descriptor
+                            .zero_initialize_workgroup_memory,
                     },
                     cache: None,
                 };
@@ -873,7 +870,7 @@ impl PipelineCache {
             }
 
             CachedPipelineState::Creating(ref mut task) => {
-                match bevy_utils::futures::check_ready(task) {
+                match bevy_tasks::futures::check_ready(task) {
                     Some(Ok(pipeline)) => {
                         cached_pipeline.state = CachedPipelineState::Ok(pipeline);
                         return;

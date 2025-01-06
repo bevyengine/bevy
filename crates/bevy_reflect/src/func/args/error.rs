@@ -29,3 +29,8 @@ pub enum ArgError {
     #[error("expected an argument but received none")]
     EmptyArgList,
 }
+
+/// The given argument count is out of bounds.
+#[derive(Debug, Error, PartialEq)]
+#[error("argument count out of bounds: {0}")]
+pub struct ArgCountOutOfBoundsError(pub usize);

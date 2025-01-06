@@ -38,20 +38,20 @@ fn setup(
     ));
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(10.0, 10., -5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             // renders after / on top of the main camera
             order: 1,
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(10.0, 10., -5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

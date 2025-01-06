@@ -1,5 +1,6 @@
 //! This example illustrates loading scenes from files.
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool};
+use core::time::Duration;
 use std::{fs::File, io::Write};
 
 fn main() {
@@ -145,18 +146,16 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
-            "Nothing to see in this window! Check the console output!",
-            TextStyle {
-                font_size: 42.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Text::new("Nothing to see in this window! Check the console output!"),
+        TextFont {
+            font_size: 42.0,
+            ..default()
+        },
+        Node {
             align_self: AlignSelf::FlexEnd,
             ..default()
-        }),
-    );
+        },
+    ));
 }

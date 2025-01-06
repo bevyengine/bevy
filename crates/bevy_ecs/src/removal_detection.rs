@@ -11,6 +11,10 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
+use derive_more::derive::Into;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use core::{
     fmt::Debug,
     iter,
@@ -21,14 +25,10 @@ use core::{
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, Debug, Clone)]
+#[derive(Event, Debug, Clone, Into)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct RemovedComponentEntity(Entity);
-
-impl From<RemovedComponentEntity> for Entity {
-    fn from(value: RemovedComponentEntity) -> Self {
-        value.0
-    }
-}
 
 /// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
@@ -134,7 +134,7 @@ impl RemovedComponentEvents {
 /// # #[derive(Component)]
 /// # struct MyComponent;
 /// fn react_on_removal(mut removed: RemovedComponents<MyComponent>) {
-///     removed.read().for_each(|removed_entity| println!("{:?}", removed_entity));
+///     removed.read().for_each(|removed_entity| println!("{}", removed_entity));
 /// }
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
@@ -233,8 +233,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Returns `true` if there are no events available to read.
     pub fn is_empty(&self) -> bool {
         self.events()
-            .map(|events| self.reader.is_empty(events))
-            .unwrap_or(true)
+            .is_none_or(|events| self.reader.is_empty(events))
     }
 
     /// Consumes all available events.

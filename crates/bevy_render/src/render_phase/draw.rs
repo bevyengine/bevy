@@ -6,10 +6,11 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
+use variadics_please::all_tuples;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -320,7 +321,7 @@ where
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::NoSuchEntity(_, _) => return Err(DrawError::ViewEntityNotFound),
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

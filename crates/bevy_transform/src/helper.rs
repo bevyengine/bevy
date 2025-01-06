@@ -52,7 +52,7 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity) => {
+        QueryEntityError::NoSuchEntity(entity, _) => {
             if ancestor {
                 MalformedHierarchy(entity)
             } else {
@@ -80,6 +80,7 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use core::f32::consts::TAU;
 
     use bevy_app::App;

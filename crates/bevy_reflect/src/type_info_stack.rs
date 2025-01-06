@@ -1,4 +1,5 @@
 use crate::TypeInfo;
+use alloc::vec::Vec;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,

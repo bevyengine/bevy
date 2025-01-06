@@ -9,6 +9,7 @@ use core::{
     hash::Hash,
     marker::PhantomData,
 };
+use derive_more::derive::From;
 use thiserror::Error;
 
 /// A unique runtime-only identifier for an [`Asset`]. This is cheap to [`Copy`]/[`Clone`] and is not directly tied to the
@@ -17,7 +18,7 @@ use thiserror::Error;
 /// For an identifier tied to the lifetime of an asset, see [`Handle`](`crate::Handle`).
 ///
 /// For an "untyped" / "generic-less" id, see [`UntypedAssetId`].
-#[derive(Reflect, Serialize, Deserialize)]
+#[derive(Reflect, Serialize, Deserialize, From)]
 pub enum AssetId<A: Asset> {
     /// A small / efficient runtime identifier that can be used to efficiently look up an asset stored in [`Assets`]. This is
     /// the "default" identifier used for assets. The alternative(s) (ex: [`AssetId::Uuid`]) will only be used if assets are
@@ -151,13 +152,6 @@ impl<A: Asset> From<AssetIndex> for AssetId<A> {
             index: value,
             marker: PhantomData,
         }
-    }
-}
-
-impl<A: Asset> From<Uuid> for AssetId<A> {
-    #[inline]
-    fn from(value: Uuid) -> Self {
-        Self::Uuid { uuid: value }
     }
 }
 
@@ -310,7 +304,7 @@ impl PartialOrd for UntypedAssetId {
 /// Do not _ever_ use this across asset types for comparison.
 /// [`InternalAssetId`] contains no type information and will happily collide
 /// with indices across types.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, From)]
 pub(crate) enum InternalAssetId {
     Index(AssetIndex),
     Uuid(Uuid),
@@ -334,18 +328,6 @@ impl InternalAssetId {
             InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
             InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
         }
-    }
-}
-
-impl From<AssetIndex> for InternalAssetId {
-    fn from(value: AssetIndex) -> Self {
-        Self::Index(value)
-    }
-}
-
-impl From<Uuid> for InternalAssetId {
-    fn from(value: Uuid) -> Self {
-        Self::Uuid(value)
     }
 }
 
@@ -436,11 +418,9 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        use core::hash::Hasher;
+        use core::hash::BuildHasher;
 
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        bevy_utils::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves
