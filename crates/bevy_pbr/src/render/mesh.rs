@@ -692,7 +692,7 @@ impl RenderMeshMaterialIds {
     /// Meshes almost always have materials, but in very specific circumstances
     /// involving custom pipelines they won't. (See the
     /// `specialized_mesh_pipelines` example.)
-    fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
+    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
         self.mesh_to_material
             .get(&entity)
             .cloned()
