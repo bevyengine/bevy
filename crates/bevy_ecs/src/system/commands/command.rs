@@ -84,7 +84,7 @@ pub trait Command<Marker = ()>: Send + 'static {
     fn with_error_handling(
         self,
         error_handler: Option<fn(&mut World, CommandError)>,
-    ) -> impl FnOnce(&mut World) + Send + 'static
+    ) -> impl Command
     where
         Self: Sized,
     {
