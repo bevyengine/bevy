@@ -44,8 +44,7 @@ pub mod experimental {
             reason = "The deprecated items here (TemporalAntiAliasBundle and TemporalAntiAliasSettings) are made visible for use by consumers of this crate. They are not used by this crate."
         )]
         pub use crate::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings, TemporalAntiAliasing,
+            TemporalAntiAliasNode, TemporalAntiAliasPlugin, TemporalAntiAliasing,
         };
     }
 }
@@ -53,16 +52,9 @@ pub mod experimental {
 /// The core pipeline prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(
-    deprecated,
-    reason = "Items here are part of a prelude meant for consumers of this crate, not for us."
-)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        core_2d::{Camera2d, Camera2dBundle},
-        core_3d::{Camera3d, Camera3dBundle},
-    };
+    pub use crate::{core_2d::Camera2d, core_3d::Camera3d};
 }
 
 use crate::{

@@ -9,9 +9,10 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::{default, tracing::error};
+use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
+use tracing::error;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
