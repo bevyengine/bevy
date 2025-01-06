@@ -15,7 +15,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -32,7 +31,7 @@ use bevy_render::{
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewVisibility},
+    view::{ExtractedView, Msaa, RenderVisibleEntities, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
@@ -473,8 +472,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
+    (render_meshes, render_materials): (
+        Res<RenderAssets<RenderMesh>>,
+        Res<RenderAssets<PreparedMaterial2d<M>>>,
+    ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
@@ -560,6 +561,17 @@ pub fn queue_material2d_meshes<M: Material2d>(
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
+            // We don't support multidraw yet for 2D meshes, so we use this
+            // custom logic to generate the `BinnedRenderPhaseType` instead of
+            // `BinnedRenderPhaseType::mesh`, which can return
+            // `BinnedRenderPhaseType::MultidrawableMesh` if the hardware
+            // supports multidraw.
+            let binned_render_phase_type = if mesh_instance.automatic_batching {
+                BinnedRenderPhaseType::BatchableMesh
+            } else {
+                BinnedRenderPhaseType::UnbatchableMesh
+            };
+
             match material_2d.properties.alpha_mode {
                 AlphaMode2d::Opaque => {
                     let bin_key = Opaque2dBinKey {
@@ -569,9 +581,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     opaque_phase.add(
+                        (),
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Mask(_) => {
@@ -582,9 +595,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     alpha_mask_phase.add(
+                        (),
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Blend => {
