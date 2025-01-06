@@ -223,7 +223,10 @@ mod tests {
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.map_entity(Entity::from_raw(SECOND_IDX)).unwrap().index(),
+            mapper
+                .map_entity(Entity::from_raw(SECOND_IDX))
+                .unwrap()
+                .index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -242,7 +245,8 @@ mod tests {
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
             mapper.map_entity(Entity::from_raw(0))
-        }).unwrap();
+        })
+        .unwrap();
 
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
