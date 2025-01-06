@@ -36,9 +36,9 @@ use bevy_render::{
     view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
+use tracing::warn;
 
 use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
@@ -119,7 +119,7 @@ pub struct PreprocessBindGroup(BindGroup);
 
 /// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
 /// useful to avoid duplicating effort if the bind group is shared between views
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {

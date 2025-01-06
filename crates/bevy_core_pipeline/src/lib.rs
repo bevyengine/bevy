@@ -33,11 +33,9 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
-    #[expect(deprecated)]
     pub mod taa {
         pub use crate::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings, TemporalAntiAliasing,
+            TemporalAntiAliasNode, TemporalAntiAliasPlugin, TemporalAntiAliasing,
         };
     }
 }
@@ -45,13 +43,9 @@ pub mod experimental {
 /// The core pipeline prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        core_2d::{Camera2d, Camera2dBundle},
-        core_3d::{Camera3d, Camera3dBundle},
-    };
+    pub use crate::{core_2d::Camera2d, core_3d::Camera3d};
 }
 
 use crate::{
