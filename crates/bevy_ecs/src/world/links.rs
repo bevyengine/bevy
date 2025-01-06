@@ -1,5 +1,5 @@
 //! This modules defins and implements links between worlds.
-//! This allows a system to have [`SystemParam`](crate::system::SystemParam)s that link to other worlds besides the world the system lives in.
+//! This allows a system to have [`SystemParam`]s that link to other worlds besides the world the system lives in.
 
 use core::{
     marker::PhantomData,
@@ -36,23 +36,34 @@ mod wrapper {
     /// # Safety
     ///
     /// This resource is private to this file. Hence, there can be no conflicts outside of this file. To prevent conflicts in the file,
-    /// access should be purely read-only, unless exclusive access to the world is garenteed. Note: These rules would break if nested exclusive acces were posible,
+    /// access should be purely read-only, unless exclusive access to the world is garenteed. Note: These rules would break if nested exclusive acces were posible
+    /// (exclusive access is what allows you to edit a link, which may effect [`SystemParam::update_meta`](super::SystemParam::update_meta)),
     /// but since `&mut World` does not implement `SystemParam`, this is not possible. To get nested exclusive access, you need exclusive access to the root world.
     /// This prevents these conflicts.
     #[derive(Resource)]
     pub(super) struct Link<L: WorldLink>(pub L);
 }
-use derive_more::derive::{Deref, DerefMut};
 use wrapper::Link;
 
-/// A [`SystemParam`] that is sourced from a linked world via a [`Link`].
-#[derive(Deref, DerefMut)]
+/// A [`SystemParam`] that is sourced from a linked world via an internal link resource.
 pub struct Linked<'w, 's, L: WorldLink, P: SystemParam> {
     /// the parameter item requested
-    #[deref]
-    #[deref_mut]
     item: SystemParamItem<'w, 's, P>,
     marker: PhantomData<L>,
+}
+
+impl<'w, 's, L: WorldLink + DerefMut, P: SystemParam + DerefMut> DerefMut for Linked<'w, 's, L, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, 's, L: WorldLink + Deref, P: SystemParam + Deref> Deref for Linked<'w, 's, L, P> {
+    type Target = SystemParamItem<'w, 's, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
 }
 
 // SAFETY: This assumes the Link exists, pannicing otherwise. This assumes that the inner system parameter will report access properly.
