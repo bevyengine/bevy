@@ -351,18 +351,14 @@ mod tests {
 
     use super::*;
 
-    // The compiler notices these fields are never read and raises a dead_code lint which kill CI.
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct A(usize);
+    struct A;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct B(usize);
+    struct B;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath, Debug)]
-    struct C(usize);
+    struct C;
 
     struct Loader<A: Asset, const N: usize, const E: usize> {
         sender: Sender<()>,
