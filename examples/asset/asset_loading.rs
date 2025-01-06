@@ -20,20 +20,10 @@ fn setup(
     // where "ROOT" is the directory of the Application.
     //
     // This can be overridden by setting [`AssetPlugin.file_path`].
-    let cube_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            primitive: 0,
-        }
-        .from_asset("models/cube/cube.gltf"),
-    );
-    let sphere_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            primitive: 0,
-        }
-        .from_asset("models/sphere/sphere.gltf"),
-    );
+    let cube_handle =
+        asset_server.load(GltfAssetLabel::primitive("Cube", 0).from_asset("models/cube/cube.gltf"));
+    let sphere_handle = asset_server
+        .load(GltfAssetLabel::primitive("Sphere", 0).from_asset("models/sphere/sphere.gltf"));
 
     // All assets end up in their Assets<T> collection once they are done loading:
     if let Some(sphere) = meshes.get(&sphere_handle) {
@@ -58,13 +48,8 @@ fn setup(
     // It will _not_ be loaded a second time.
     // The LoadedFolder asset will ultimately also hold handles to the assets, but waiting for it to load
     // and finding the right handle is more work!
-    let torus_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            primitive: 0,
-        }
-        .from_asset("models/torus/torus.gltf"),
-    );
+    let torus_handle = asset_server
+        .load(GltfAssetLabel::primitive("Torus.005", 0).from_asset("models/torus/torus.gltf"));
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {

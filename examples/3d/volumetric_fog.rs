@@ -57,9 +57,12 @@ fn main() {
 /// Initializes the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
-    )));
+    commands.spawn(SceneRoot(
+        asset_server.load(
+            GltfAssetLabel::scene("Scene")
+                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+        ),
+    ));
 
     // Spawn the camera.
     commands

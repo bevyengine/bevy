@@ -42,6 +42,13 @@ impl Shape {
             Shape::Sphere => Shape::Cube,
         }
     }
+
+    fn get_mesh_name(&self) -> &'static str {
+        match self {
+            Shape::Cube => "Cube",
+            Shape::Sphere => "Sphere",
+        }
+    }
 }
 
 #[derive(Component, Debug)]
@@ -58,17 +65,8 @@ fn setup(
     // In normal use, you can call `asset_server.load`, however see below for an explanation of
     // `RenderAssetUsages`.
     let left_shape_model = asset_server.load_with_settings(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            // This field stores an index to this primitive in its parent mesh. In this case, we
-            // want the first one. You might also have seen the syntax:
-            //
-            //     models/cube/cube.gltf#Scene0
-            //
-            // which accomplishes the same thing.
-            primitive: 0,
-        }
-        .from_asset(left_shape.get_model_path()),
+        GltfAssetLabel::primitive(left_shape.get_mesh_name(), 0)
+            .from_asset(left_shape.get_model_path()),
         // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
         // It's helpful to know it exists, however.
         //
@@ -88,11 +86,8 @@ fn setup(
 
     // Here, we rely on the default loader settings to achieve a similar result to the above.
     let right_shape_model = asset_server.load(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            primitive: 0,
-        }
-        .from_asset(right_shape.get_model_path()),
+        GltfAssetLabel::primitive(right_shape.get_mesh_name(), 0)
+            .from_asset(right_shape.get_model_path()),
     );
 
     // Add a material asset directly to the materials storage
@@ -162,11 +157,7 @@ fn alter_handle(
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
     mesh.0 = asset_server.load(
-        GltfAssetLabel::Primitive {
-            mesh: 0,
-            primitive: 0,
-        }
-        .from_asset(shape.get_model_path()),
+        GltfAssetLabel::primitive(shape.get_mesh_name(), 0).from_asset(shape.get_model_path()),
     );
 }
 
