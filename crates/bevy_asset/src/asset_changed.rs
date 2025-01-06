@@ -148,7 +148,7 @@ pub struct AssetChangedState<A: AsAssetId> {
     _asset: PhantomData<fn(A)>,
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Item<'w> = ();
@@ -264,7 +264,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 /// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
