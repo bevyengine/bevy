@@ -133,7 +133,7 @@ where
     }
 }
 
-/// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
+/// A [`Command`] that consumes an iterator of [`Bundles`](Bundle) to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
 #[track_caller]
@@ -276,7 +276,7 @@ where
 }
 
 /// A [`Command`] that removes a system previously registered with
-/// [`Commands::register_system`](super::Commands::register_system) or
+/// [`Commands::register_system`](crate::system::Commands::register_system) or
 /// [`World::register_system`].
 pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
 where
