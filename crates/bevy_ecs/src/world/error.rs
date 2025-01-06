@@ -1,6 +1,5 @@
 //! Contains error types returned by bevy's schedule.
 
-use alloc::boxed::Box;
 use thiserror::Error;
 
 use crate::{
@@ -15,17 +14,6 @@ use crate::{
 #[derive(Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
-
-/// An error that occurs when executing a command.
-#[derive(Error, Debug)]
-pub enum CommandError {
-    /// The entity with the given ID does not exist.
-    #[error("Command failed because the entity with ID {0} does not exist.")]
-    NoSuchEntity(Entity),
-    /// The command returned an error.
-    #[error("Command returned an error: {0}")]
-    CommandFailed(Box<dyn core::error::Error + Send + Sync + 'static>),
-}
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]

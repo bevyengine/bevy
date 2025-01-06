@@ -3,8 +3,8 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     event::Events,
-    system::{Commands, EntityCommands},
-    world::{Command, EntityWorldMut, World},
+    system::{Command, Commands, EntityCommands},
+    world::{EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 

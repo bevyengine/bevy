@@ -3,8 +3,8 @@ use core::hint::black_box;
 use bevy_ecs::{
     component::Component,
     result::Result,
-    system::Commands,
-    world::{error::CommandError, Command, CommandQueue, World},
+    system::{Command, CommandError, Commands},
+    world::{CommandQueue, World},
 };
 use criterion::Criterion;
 
