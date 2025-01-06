@@ -38,7 +38,8 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{info_once, prelude::default};
+use bevy_utils::{once, prelude::default};
+use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
@@ -502,10 +503,10 @@ impl ExtractComponent for ScreenSpaceReflections {
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-            info_once!(
+            once!(info!(
                 "Disabling screen-space reflections on this platform because depth textures \
                 aren't supported correctly"
-            );
+            ));
             return None;
         }
 

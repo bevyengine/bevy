@@ -13,11 +13,11 @@ use crate::{
 };
 
 use alloc::vec::Vec;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use core::{fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
+#[cfg(feature = "trace")]
+use tracing::Span;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,

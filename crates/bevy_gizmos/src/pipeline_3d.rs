@@ -30,7 +30,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
