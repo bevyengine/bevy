@@ -213,6 +213,8 @@ pub fn ui_focus_system(
         })
         .collect();
 
+    let default_camera_entity = default_ui_camera.get();
+
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -239,7 +241,7 @@ pub fn ui_focus_system(
             let camera_entity = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())?;
+                .or(default_camera_entity)?;
 
             let node_rect = Rect::from_center_size(
                 node.global_transform.translation().truncate(),

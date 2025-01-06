@@ -268,10 +268,12 @@ pub fn measure_text_system(
 ) {
     scale_factors_buffer.clear();
 
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
