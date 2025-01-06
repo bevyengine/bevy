@@ -15,6 +15,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -31,12 +32,6 @@ use core::{
 };
 use disqualified::ShortName;
 use thiserror::Error;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 pub use bevy_ecs_macros::require;
 

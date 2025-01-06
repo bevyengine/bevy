@@ -8,7 +8,8 @@ use crate::{
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,

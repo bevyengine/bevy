@@ -13,11 +13,7 @@ use core::{
 
 use super::Entity;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
+use bevy_platform_support::sync::Arc;
 
 /// A trait for entity borrows.
 ///

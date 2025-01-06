@@ -1,52 +1,47 @@
 [package]
-name = "bevy_utils"
+name = "bevy_platform_support"
 version = "0.16.0-dev"
 edition = "2021"
-description = "A collection of utils for Bevy Engine"
+description = "Platform compatibility support for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "serde"]
-
-# Functionality
-
-## Adds serialization support through `serde`.
-serde = ["hashbrown/serde"]
+default = ["std"]
 
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = ["alloc", "foldhash/std", "dep:thread_local"]
+std = [
+  "alloc",
+  "critical-section?/std",
+  "portable-atomic?/std",
+  "portable-atomic-util?/std",
+]
 
-## Allows access to the `alloc` crate.
-alloc = ["hashbrown"]
+alloc = ["portable-atomic-util?/alloc"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
-critical-section = ["portable-atomic?/critical-section"]
+critical-section = ["dep:critical-section", "portable-atomic?/critical-section"]
 
 ## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = ["dep:portable-atomic"]
+## operations, even on targets without native support.
+portable-atomic = ["dep:portable-atomic", "dep:portable-atomic-util"]
 
 [dependencies]
-foldhash = { version = "0.1.3", default-features = false }
-hashbrown = { version = "0.15.1", features = [
-  "equivalent",
-  "raw-entry",
-], optional = true, default-features = false }
-thread_local = { version = "1.0", optional = true }
+critical-section = { version = "1.2.0", default-features = false, optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ], optional = true }
+portable-atomic-util = { version = "0.2.4", default-features = false, optional = true }
 
-[dev-dependencies]
-static_assertions = "1.1.0"
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = { version = "1.1", default-features = false }
 
 [lints]
 workspace = true

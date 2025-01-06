@@ -1,4 +1,5 @@
-use alloc::{borrow::Cow, boxed::Box, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box};
+use bevy_platform_support::sync::Arc;
 use core::fmt::{Debug, Formatter};
 
 use crate::func::{

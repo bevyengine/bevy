@@ -18,11 +18,11 @@ use bevy_input::{
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_platform_support::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 #[cfg(feature = "custom_cursor")]
 use bevy_utils::HashMap;
-use bevy_utils::Instant;
 use core::marker::PhantomData;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
