@@ -36,7 +36,9 @@ mod wrapper {
     /// # Safety
     ///
     /// This resource is private to this file. Hence, there can be no conflicts outside of this file. To prevent conflicts in the file,
-    /// access should be purely read-only, unless exclusive access is garenteed.
+    /// access should be purely read-only, unless exclusive access to the world is garenteed. Note: These rules would break if nested exclusive acces were posible,
+    /// but since `&mut World` does not implement `SystemParam`, this is not possible. To get nested exclusive access, you need exclusive access to the root world.
+    /// This prevents these conflicts.
     #[derive(Resource)]
     pub(super) struct Link<L: WorldLink>(pub L);
 }
