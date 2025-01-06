@@ -93,7 +93,7 @@ portable-atomic-util = { version = "0.2.4", features = [
   "alloc",
 ], optional = true }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
