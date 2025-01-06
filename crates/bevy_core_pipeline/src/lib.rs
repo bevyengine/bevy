@@ -39,10 +39,6 @@ pub use skybox::Skybox;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
-        #[expect(
-            deprecated,
-            reason = "The deprecated items here (TemporalAntiAliasBundle and TemporalAntiAliasSettings) are made visible for use by consumers of this crate. They are not used by this crate."
-        )]
         pub use crate::taa::{
             TemporalAntiAliasNode, TemporalAntiAliasPlugin, TemporalAntiAliasing,
         };
