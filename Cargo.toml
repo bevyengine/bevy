@@ -1298,6 +1298,28 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "animated_fox_control"
+path = "examples/animation/animated_fox_control.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_fox_control]
+name = "Animated Fox Control"
+description = "Plays an animation from a skinned glTF with keyboard controls"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "animated_fox_events"
+path = "examples/animation/animated_fox_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_fox_events]
+name = "Animated Fox Events"
+description = "Plays an animation from a skinned glTF with events"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
 doc-scrape-examples = true
