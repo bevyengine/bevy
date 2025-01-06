@@ -20,7 +20,7 @@ pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
 
 /// Add this component to mesh entities to disable automatic batching
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoAutomaticBatching;
 
 /// Data necessary to be equal for two draw commands to be mergeable
@@ -161,6 +161,7 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
+        phase.multidrawable_mesh_keys.sort_unstable();
         phase.batchable_mesh_keys.sort_unstable();
         phase.unbatchable_mesh_keys.sort_unstable();
     }

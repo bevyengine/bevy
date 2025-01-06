@@ -18,7 +18,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     entity::{Entity, EntityBorrow},
     event::EventReader,
     prelude::{require, With},
@@ -32,13 +32,14 @@ use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -883,13 +884,7 @@ impl NormalizedRenderTarget {
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
 /// The system detects window creation, resize, and scale factor change events to update the camera
-/// projection if needed. It also queries any [`CameraProjection`] component associated with the same
-/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
-///
-/// The system function is generic over the camera projection type, and only instances of
-/// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`].
-/// The system runs during [`PostUpdate`](bevy_app::PostUpdate).
+/// [`Projection`] if needed.
 ///
 /// ## World Resources
 ///
@@ -899,7 +894,7 @@ impl NormalizedRenderTarget {
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
-pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
+pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
@@ -908,7 +903,7 @@ pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut T)>,
+    mut cameras: Query<(&mut Camera, &mut Projection)>,
 ) {
     let primary_window = primary_window.iter().next();
 

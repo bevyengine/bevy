@@ -7,11 +7,11 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_input::keyboard::KeyboardFocusLost;
-use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
     WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
+use tracing::{error, info, warn};
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},

@@ -116,6 +116,8 @@
 //! - [`DynSystemParam`]
 //! - [`Vec<P>`] where `P: SystemParam`
 //! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
+//!
+//! [`Vec<P>`]: alloc::vec::Vec
 
 mod adapter_system;
 mod builder;
@@ -317,9 +319,11 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use bevy_utils::default;
     use core::any::TypeId;
     use smallvec::SmallVec;
+    use std::println;
 
     use crate::{
         self as bevy_ecs,

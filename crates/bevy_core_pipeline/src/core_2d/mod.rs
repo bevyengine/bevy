@@ -33,9 +33,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_render::{
-    batching::gpu_preprocessing::GpuPreprocessingMode, render_phase::PhaseItemBinKey,
-};
+use bevy_render::batching::gpu_preprocessing::GpuPreprocessingMode;
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -127,8 +125,13 @@ impl Plugin for Core2dPlugin {
 
 /// Opaque 2D [`BinnedPhaseItem`]s.
 pub struct Opaque2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: (),
     /// The key, which determines which can be batched.
-    pub key: Opaque2dBinKey,
+    pub bin_key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -155,14 +158,6 @@ pub struct Opaque2dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
-impl PhaseItemBinKey for Opaque2dBinKey {
-    type BatchSetKey = ();
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        None
-    }
-}
-
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
@@ -175,7 +170,7 @@ impl PhaseItem for Opaque2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -198,16 +193,22 @@ impl PhaseItem for Opaque2d {
 }
 
 impl BinnedPhaseItem for Opaque2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = ();
+
     type BinKey = Opaque2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -218,14 +219,19 @@ impl BinnedPhaseItem for Opaque2d {
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 
 /// Alpha mask 2D [`BinnedPhaseItem`]s.
 pub struct AlphaMask2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: (),
     /// The key, which determines which can be batched.
-    pub key: AlphaMask2dBinKey,
+    pub bin_key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -265,7 +271,7 @@ impl PhaseItem for AlphaMask2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -288,16 +294,22 @@ impl PhaseItem for AlphaMask2d {
 }
 
 impl BinnedPhaseItem for AlphaMask2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = ();
+
     type BinKey = AlphaMask2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         AlphaMask2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -305,18 +317,10 @@ impl BinnedPhaseItem for AlphaMask2d {
     }
 }
 
-impl PhaseItemBinKey for AlphaMask2dBinKey {
-    type BatchSetKey = ();
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        None
-    }
-}
-
 impl CachedRenderPipelinePhaseItem for AlphaMask2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 

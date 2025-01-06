@@ -1517,6 +1517,7 @@ mod tests {
         },
         world::World,
     };
+    use alloc::vec;
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 

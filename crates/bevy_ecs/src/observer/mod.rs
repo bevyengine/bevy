@@ -744,7 +744,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
 
     use bevy_ptr::OwningPtr;
     use bevy_utils::HashMap;
