@@ -233,11 +233,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
-        assert!(
-            !access.access().has_resource_write(state.resource_id),
-            "AssetChanged<{ty}> requires read-only access to AssetChanges<{ty}>",
-            ty = ShortName::of::<A>()
-        );
         access.add_resource_read(state.resource_id);
     }
 
