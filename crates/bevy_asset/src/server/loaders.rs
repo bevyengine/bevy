@@ -47,6 +47,7 @@ impl AssetLoaders {
             };
 
         if is_new {
+            let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
             let mut duplicate_extensions = Vec::new();
             for extension in AssetLoader::extensions(&*loader) {
                 let list = self
@@ -55,26 +56,29 @@ impl AssetLoaders {
                     .or_default();
 
                 if !list.is_empty() {
-                    duplicate_extensions.push(extension);
+                    if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                        if list
+                            .iter()
+                            .any(|index| existing_loaders_for_type_id.contains(index))
+                        {
+                            duplicate_extensions.push(extension);
+                        }
+                    }
                 }
 
                 list.push(loader_index);
             }
-
-            self.type_name_to_loader.insert(type_name, loader_index);
-
-            let list = self
-                .type_id_to_loaders
-                .entry(loader_asset_type)
-                .or_default();
-
-            let duplicate_asset_registration = !list.is_empty();
-            if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+            if !duplicate_extensions.is_empty() {
                 warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
                 Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
             }
 
-            list.push(loader_index);
+            self.type_name_to_loader.insert(type_name, loader_index);
+
+            self.type_id_to_loaders
+                .entry(loader_asset_type)
+                .or_default()
+                .push(loader_index);
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
@@ -108,6 +112,8 @@ impl AssetLoaders {
 
         self.preregistered_loaders.insert(type_name, loader_index);
         self.type_name_to_loader.insert(type_name, loader_index);
+
+        let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
         let mut duplicate_extensions = Vec::new();
         for extension in extensions {
             let list = self
@@ -116,24 +122,27 @@ impl AssetLoaders {
                 .or_default();
 
             if !list.is_empty() {
-                duplicate_extensions.push(extension);
+                if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
+                    if list
+                        .iter()
+                        .any(|index| existing_loaders_for_type_id.contains(index))
+                    {
+                        duplicate_extensions.push(extension);
+                    }
+                }
             }
 
             list.push(loader_index);
         }
-
-        let list = self
-            .type_id_to_loaders
-            .entry(loader_asset_type)
-            .or_default();
-
-        let duplicate_asset_registration = !list.is_empty();
-        if !duplicate_extensions.is_empty() && duplicate_asset_registration {
+        if !duplicate_extensions.is_empty() {
             warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
             Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
         }
 
-        list.push(loader_index);
+        self.type_id_to_loaders
+            .entry(loader_asset_type)
+            .or_default()
+            .push(loader_index);
 
         let (mut sender, receiver) = async_broadcast::broadcast(1);
         sender.set_overflow(true);
