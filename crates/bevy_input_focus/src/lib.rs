@@ -5,16 +5,18 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-//! Keyboard focus system for Bevy.
+//! A UI-centric focus system for Bevy.
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
+//! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
 
+pub mod directional_navigation;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,
@@ -29,7 +31,7 @@ use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mo
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
-/// Resource representing which entity has input focus, if any. Keyboard events will be
+/// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
 ///
 /// Changing the input focus is as easy as modifying this resource.

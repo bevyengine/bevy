@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 use core::iter::FusedIterator;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
@@ -18,7 +18,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     caller: &'static Location<'static>,
 }
 
@@ -32,7 +32,7 @@ where
     pub(crate) fn new(
         world: &'w mut World,
         iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
@@ -50,7 +50,7 @@ where
         Self {
             inner: iter,
             spawner,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         }
     }
@@ -83,7 +83,7 @@ where
         unsafe {
             Some(self.spawner.spawn(
                 bundle,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 self.caller,
             ))
         }

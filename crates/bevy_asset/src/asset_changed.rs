@@ -13,10 +13,10 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::tracing::error;
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
+use tracing::error;
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time
@@ -233,11 +233,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
-        assert!(
-            !access.access().has_resource_write(state.resource_id),
-            "AssetChanged<{ty}> requires read-only access to AssetChanges<{ty}>",
-            ty = ShortName::of::<A>()
-        );
         access.add_resource_read(state.resource_id);
     }
 
@@ -280,7 +275,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        fetch.inner.as_mut().map_or(false, |inner| {
+        fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
                 let handle = <&A>::fetch(inner, entity, table_row);

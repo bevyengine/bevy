@@ -503,7 +503,7 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &RenderVisibleEntities,
         &ExtractedView,
@@ -514,7 +514,7 @@ pub fn queue_sprites(
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -670,8 +670,7 @@ pub fn prepare_sprite_image_bind_groups(
                 continue;
             };
 
-            let batch_image_changed = batch_image_handle != extracted_sprite.image_handle_id;
-            if batch_image_changed {
+            if batch_image_handle != extracted_sprite.image_handle_id {
                 let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                     continue;
                 };
@@ -691,6 +690,15 @@ pub fn prepare_sprite_image_bind_groups(
                             )),
                         )
                     });
+
+                batch_item_index = item_index;
+                batches.push((
+                    item.entity(),
+                    SpriteBatch {
+                        image_handle_id: batch_image_handle,
+                        range: index..index,
+                    },
+                ));
             }
 
             // By default, the size of the quad is the size of the texture
@@ -741,18 +749,6 @@ pub fn prepare_sprite_image_bind_groups(
                     &extracted_sprite.color,
                     &uv_offset_scale,
                 ));
-
-            if batch_image_changed {
-                batch_item_index = item_index;
-
-                batches.push((
-                    item.entity(),
-                    SpriteBatch {
-                        image_handle_id: batch_image_handle,
-                        range: index..index,
-                    },
-                ));
-            }
 
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()

@@ -8,9 +8,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  bump:
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 

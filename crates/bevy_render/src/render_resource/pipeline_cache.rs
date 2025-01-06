@@ -11,16 +11,12 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_tasks::Task;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::EntryRef,
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
+use tracing::{debug, error};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
@@ -264,7 +260,7 @@ impl ShaderCache {
                 ));
 
                 debug!(
-                    "processing shader {:?}, with shader defs {:?}",
+                    "processing shader {}, with shader defs {:?}",
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
@@ -329,7 +325,7 @@ impl ShaderCache {
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_utils::futures::now_or_never(error)
+                    bevy_tasks::futures::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
@@ -874,7 +870,7 @@ impl PipelineCache {
             }
 
             CachedPipelineState::Creating(ref mut task) => {
-                match bevy_utils::futures::check_ready(task) {
+                match bevy_tasks::futures::check_ready(task) {
                     Some(Ok(pipeline)) => {
                         cached_pipeline.state = CachedPipelineState::Ok(pipeline);
                         return;

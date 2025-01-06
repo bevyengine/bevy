@@ -9,7 +9,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     alloc::Layout,
@@ -390,7 +390,7 @@ impl Table {
     }
 
     /// Fetches the calling locations that last changed the each component
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
@@ -433,7 +433,7 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
@@ -571,7 +571,7 @@ impl Table {
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             col.changed_by
                 .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
         }
@@ -743,6 +743,10 @@ impl Tables {
         component_ids: &[ComponentId],
         components: &Components,
     ) -> TableId {
+        if component_ids.is_empty() {
+            return TableId::empty();
+        }
+
         let tables = &mut self.tables;
         let (_key, value) = self
             .table_ids
@@ -816,13 +820,27 @@ mod tests {
         component::{Component, Components, Tick},
         entity::Entity,
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableRow},
+        storage::{Storages, TableBuilder, TableId, TableRow, Tables},
     };
-    #[cfg(feature = "track_change_detection")]
+    use alloc::vec::Vec;
+
+    #[cfg(feature = "track_location")]
     use core::panic::Location;
 
     #[derive(Component)]
     struct W<T>(T);
+
+    #[test]
+    fn only_one_empty_table() {
+        let components = Components::default();
+        let mut tables = Tables::default();
+
+        let component_ids = &[];
+        // SAFETY: component_ids is empty, so we know it cannot reference invalid component IDs
+        let table_id = unsafe { tables.get_id_or_insert(component_ids, &components) };
+
+        assert_eq!(table_id, TableId::empty());
+    }
 
     #[test]
     fn table() {
@@ -844,7 +862,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         Location::caller(),
                     );
                 });

@@ -44,7 +44,7 @@
  * Here you'll find instructions to get the shader up and running as fast as
  * possible.
  *
- * IMPORTANTE NOTICE: when updating, remember to update both this file and the
+ * IMPORTANT NOTICE: when updating, remember to update both this file and the
  * precomputed textures! They may change from version to version.
  *
  * The shader has three passes, chained together as follows:

@@ -270,6 +270,7 @@ Example | Description
 --- | ---
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
+[Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
@@ -471,6 +472,7 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
+[Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
 

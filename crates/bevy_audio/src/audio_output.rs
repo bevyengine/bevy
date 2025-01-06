@@ -7,8 +7,8 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use tracing::warn;
 
 use crate::{AudioSink, AudioSinkPlayback};
 
@@ -47,11 +47,11 @@ impl Default for AudioOutput {
 }
 
 /// Marker for internal use, to despawn entities when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackDespawnMarker;
 
 /// Marker for internal use, to remove audio components when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]
@@ -130,7 +130,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             // the user may have made a mistake.
             if ear_positions.multiple_listeners() {
                 warn!(
-                    "Multiple SpatialListeners found. Using {:?}.",
+                    "Multiple SpatialListeners found. Using {}.",
                     ear_positions.query.iter().next().unwrap().0
                 );
             }

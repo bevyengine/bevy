@@ -25,6 +25,12 @@ mod tests {
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bevy_utils::{HashMap, HashSet};
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
@@ -647,6 +653,7 @@ mod tests {
     mod functions {
         use super::*;
         use crate::func::{DynamicFunction, IntoFunction};
+        use alloc::string::ToString;
 
         #[test]
         fn should_not_serialize_function() {

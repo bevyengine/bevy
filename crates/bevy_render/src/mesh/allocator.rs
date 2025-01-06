@@ -15,8 +15,9 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_utils::{default, tracing::error, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use offset_allocator::{Allocation, Allocator};
+use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
@@ -785,7 +786,7 @@ impl MeshAllocator {
         slab_to_grow: SlabToReallocate,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
-            error!("Couldn't find slab {:?} to grow", slab_id);
+            error!("Couldn't find slab {} to grow", slab_id);
             return;
         };
 

@@ -8,7 +8,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -18,9 +18,9 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use thiserror::Error;
@@ -377,13 +377,13 @@ impl<'w> UnsafeWorldCell<'w> {
             unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick()) };
 
         // SAFETY: caller ensures that no mutable reference to the resource exists
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = unsafe { _caller.deref() };
 
         Some(Ref {
             value,
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: caller,
         })
     }
@@ -506,7 +506,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // - caller ensures that the resource is unaliased
             value: unsafe { ptr.assert_unique() },
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             // SAFETY:
             // - caller ensures that `self` has permission to access the resource
             // - caller ensures that the resource is unaliased
@@ -570,7 +570,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
             value: unsafe { ptr.assert_unique() },
             ticks,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             // SAFETY: This function has exclusive access to the world
             changed_by: unsafe { _caller.deref_mut() },
         })
@@ -784,7 +784,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
                 ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
         }
@@ -904,7 +904,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref_mut(),
             })
         }
@@ -1030,7 +1030,7 @@ impl<'w> UnsafeEntityCell<'w> {
                     self.world.last_change_tick(),
                     self.world.change_tick(),
                 ),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref_mut(),
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
@@ -1038,7 +1038,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(self) -> &'static Location<'static> {
         self.world()
             .entities()
@@ -1145,11 +1145,11 @@ unsafe fn get_component_and_ticks(
                         .get_changed_tick(component_id, location.table_row)
                         .debug_checked_unwrap(),
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 table
                     .get_changed_by(component_id, location.table_row)
                     .debug_checked_unwrap(),
-                #[cfg(not(feature = "track_change_detection"))]
+                #[cfg(not(feature = "track_location"))]
                 (),
             ))
         }
@@ -1181,5 +1181,11 @@ unsafe fn get_ticks(
             table.get_ticks_unchecked(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+    }
+}
+
+impl EntityBorrow for UnsafeEntityCell<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
     }
 }

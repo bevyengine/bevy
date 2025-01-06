@@ -10,12 +10,13 @@ use bevy_render::{
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::warn_once;
+use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
+use tracing::warn;
 
 /// Provides the computed size and layout properties of the node.
 ///
@@ -2550,6 +2551,28 @@ impl Default for ShadowStyle {
     }
 }
 
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Debug, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// This component can be added to any UI node to modify its layout behavior.
+pub struct LayoutConfig {
+    /// If set to true the coordinates for this node and its descendents will be rounded to the nearest physical pixel.
+    /// This can help prevent visual artifacts like blurry images or semi-transparent edges that can occur with sub-pixel positioning.
+    ///
+    /// Defaults to true.
+    pub use_rounding: bool,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self { use_rounding: true }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
@@ -2600,7 +2623,6 @@ impl TargetCamera {
     }
 }
 
-#[derive(Component)]
 /// Marker used to identify default cameras, they will have priority over the [`PrimaryWindow`] camera.
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
@@ -2634,6 +2656,7 @@ impl TargetCamera {
 ///     ));
 /// }
 /// ```
+#[derive(Component, Default)]
 pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
@@ -2648,7 +2671,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
         self.default_cameras.get_single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
-                warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");
+                once!(warn!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed."));
             }
             self.cameras
                 .iter()

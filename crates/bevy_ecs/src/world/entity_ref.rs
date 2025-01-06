@@ -3,7 +3,9 @@ use crate::{
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
-    entity::{Entities, Entity, EntityCloneBuilder, EntityLocation},
+    entity::{
+        Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
+    },
     event::Event,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
@@ -15,9 +17,15 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+use core::{
+    any::TypeId,
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    mem::MaybeUninit,
+};
 use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
@@ -277,7 +285,7 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.0.spawned_by()
     }
@@ -368,6 +376,44 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
         }
     }
 }
+
+impl PartialEq for EntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityRef<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for EntityRef<'_> {
+    /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for EntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityRef<'_> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -813,7 +859,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.0.spawned_by()
     }
@@ -869,6 +915,44 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     }
 }
 
+impl PartialEq for EntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityMut<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for EntityMut<'_> {
+    /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for EntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityMut<'_> {}
+
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
 /// This is essentially a performance-optimized `(Entity, &mut World)` tuple,
@@ -902,7 +986,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     #[track_caller]
-    fn assert_not_despawned(&self) {
+    pub(crate) fn assert_not_despawned(&self) {
         if self.location.archetype_id == ArchetypeId::INVALID {
             self.panic_despawned();
         }
@@ -1120,6 +1204,59 @@ impl<'w> EntityWorldMut<'w> {
         unsafe { self.get_mut_assume_mutable() }
     }
 
+    /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
+    /// provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](EntityWorldMut::get_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Foo(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.register_component::<Foo>();
+    /// #
+    /// # let entity = world.spawn(Foo(false)).id();
+    /// #
+    /// # let mut entity = world.entity_mut(entity);
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+    /// #
+    /// entity.modify_component(|foo: &mut Foo| {
+    ///     foo.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn modify_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+        self.assert_not_despawned();
+
+        let result = self
+            .world
+            .modify_component(self.entity, f)
+            .expect("entity access must be valid")?;
+
+        self.update_location();
+
+        Some(result)
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     ///
@@ -1324,7 +1461,7 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -1342,7 +1479,7 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_with_caller(
             bundle,
             InsertMode::Keep,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -1354,7 +1491,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1363,7 +1500,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
             unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_change_detection")] caller)
+                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_location")] caller)
             };
         self.world.flush();
         self.update_location();
@@ -1897,14 +2034,14 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn despawn(self) {
         self.despawn_with_caller(
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         );
     }
 
     pub(crate) fn despawn_with_caller(
         self,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         self.assert_not_despawned();
         let world = self.world;
@@ -1995,7 +2132,7 @@ impl<'w> EntityWorldMut<'w> {
         }
         world.flush();
 
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             // SAFETY: No structural changes
             unsafe {
@@ -2331,7 +2468,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the source code location from which this entity has last been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.world()
             .entities()
@@ -2873,7 +3010,7 @@ impl<'w> FilteredEntityRef<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.entity.spawned_by()
     }
@@ -2968,6 +3105,44 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
         }
     }
 }
+
+impl PartialEq for FilteredEntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityRef<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for FilteredEntityRef<'_> {
+    /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for FilteredEntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -3200,7 +3375,7 @@ impl<'w> FilteredEntityMut<'w> {
     }
 
     /// Returns the source code location from which this entity has last been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.entity.spawned_by()
     }
@@ -3258,6 +3433,44 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
+impl PartialEq for FilteredEntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityMut<'_> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl PartialOrd for FilteredEntityMut<'_> {
+    /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl Ord for FilteredEntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityMut<'_> {}
+
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
 /// ([`EntityRef`]/[`EntityMut`]).
@@ -3275,7 +3488,6 @@ pub enum TryFromFilteredError {
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
-#[derive(Clone)]
 pub struct EntityRefExcept<'w, B>
 where
     B: Bundle,
@@ -3344,7 +3556,7 @@ where
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.entity.spawned_by()
     }
@@ -3361,6 +3573,52 @@ where
     }
 }
 
+impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+
+impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+    /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityRefExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
+
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
 ///
@@ -3369,7 +3627,6 @@ where
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
-#[derive(Clone)]
 pub struct EntityMutExcept<'w, B>
 where
     B: Bundle,
@@ -3458,11 +3715,49 @@ where
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.entity.spawned_by()
     }
 }
+
+impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+
+#[expect(clippy::non_canonical_partial_ord_impl)]
+impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+    /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.entity().partial_cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
@@ -3519,7 +3814,7 @@ unsafe fn insert_dynamic_bundle<
             location,
             bundle,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -3820,11 +4115,13 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
-    #[cfg(feature = "track_change_detection")]
+
+    #[cfg(feature = "track_location")]
     use core::panic::Location;
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     use std::sync::OnceLock;
 
     use crate::{
@@ -5106,7 +5403,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     fn update_despawned_by_after_observers() {
         let mut world = World::new();
 
@@ -5154,5 +5451,88 @@ mod tests {
                 .entity_get_spawned_or_despawned_by(entity)
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn with_component_activates_hooks() {
+        use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        #[component(immutable)]
+        struct Foo(bool);
+
+        static EXPECTED_VALUE: AtomicBool = AtomicBool::new(false);
+
+        static ADD_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REMOVE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REPLACE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static INSERT_COUNT: AtomicU8 = AtomicU8::new(0);
+
+        let mut world = World::default();
+
+        world.register_component::<Foo>();
+        world
+            .register_component_hooks::<Foo>()
+            .on_add(|world, entity, _| {
+                ADD_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_remove(|world, entity, _| {
+                REMOVE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_replace(|world, entity, _| {
+                REPLACE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_insert(|world, entity, _| {
+                INSERT_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            });
+
+        let entity = world.spawn(Foo(false)).id();
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 1);
+
+        let mut entity = world.entity_mut(entity);
+
+        let archetype_pointer_before = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+
+        entity.modify_component(|foo: &mut Foo| {
+            foo.0 = true;
+            EXPECTED_VALUE.store(foo.0, Ordering::Relaxed);
+        });
+
+        let archetype_pointer_after = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
+
+        assert_eq!(archetype_pointer_before, archetype_pointer_after);
     }
 }

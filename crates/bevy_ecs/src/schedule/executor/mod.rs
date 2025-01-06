@@ -18,6 +18,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::{Access, FilteredAccessSet},
+    result::Result,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -158,7 +159,7 @@ pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = ();
+    type Out = Result<()>;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed("bevy_ecs::apply_deferred")
@@ -207,11 +208,13 @@ impl System for ApplyDeferred {
     ) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn apply_deferred(&mut self, _world: &mut World) {}
@@ -263,7 +266,7 @@ mod __rust_begin_short_backtrace {
 
     use crate::{
         result::Result,
-        system::{ReadOnlySystem, ScheduleSystem, System},
+        system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
@@ -312,7 +315,7 @@ mod tests {
         self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{Commands, Res, WithParamWarnPolicy},
         world::World,
     };
 
@@ -341,15 +344,11 @@ mod tests {
         schedule.set_executor_kind(executor);
         schedule.add_systems(
             (
-                // Combined systems get skipped together.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R1);
-                })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                },
+                })
+                .param_warn_once(),
             )
                 .chain(),
         );
@@ -372,18 +371,20 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).param_warn_once()));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
+            .param_warn_once()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
-            .run_if(|_: Res<R2>| true),
+            .param_warn_once()
+            .run_if((|_: Res<R2>| true).param_warn_once()),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());

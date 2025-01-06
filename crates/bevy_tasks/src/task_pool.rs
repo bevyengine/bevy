@@ -1,12 +1,16 @@
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{self, JoinHandle};
+use std::{
+    thread::{self, JoinHandle},
+    thread_local,
+};
 
 use crate::executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
 #[cfg(feature = "portable-atomic")]
-use {alloc::boxed::Box, portable_atomic_util::Arc};
+use portable_atomic_util::Arc;
 
 #[cfg(not(feature = "portable-atomic"))]
 use alloc::sync::Arc;
@@ -694,7 +698,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use core::sync::atomic::{AtomicBool, AtomicI32, Ordering};
