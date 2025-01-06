@@ -17,9 +17,9 @@ use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSets,
-        CachedRenderPipelinePhaseItem, PhaseItemBinKey as _, PhaseItemExtraIndex, SortedPhaseItem,
-        SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
+        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItemExtraIndex,
+        SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
     render_resource::{Buffer, BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
@@ -708,14 +708,88 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     no_indirect_drawing,
                 });
 
-        // Prepare batchables.
+        // Prepare multidrawables.
 
-        // If multi-draw is in use, as we step through the list of batchables,
-        // we gather adjacent batches that have the same *batch set* key into
-        // batch sets. This variable stores the last batch set key that we've
-        // seen. If our current batch set key is identical to this one, we can
-        // merge the current batch into the last batch set.
-        let mut maybe_last_multidraw_key = None;
+        for batch_set_key in &phase.multidrawable_mesh_keys {
+            let mut batch_set = None;
+            for (bin_key, bin) in &phase.multidrawable_mesh_values[batch_set_key] {
+                let first_output_index = data_buffer.len() as u32;
+                let mut batch: Option<BinnedRenderPhaseBatch> = None;
+
+                for &(entity, main_entity) in &bin.entities {
+                    let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
+                    else {
+                        continue;
+                    };
+                    let output_index = data_buffer.add() as u32;
+
+                    match batch {
+                        Some(ref mut batch) => {
+                            // Append to the current batch.
+                            batch.instance_range.end = output_index + 1;
+                            work_item_buffer.buffer.push(PreprocessWorkItem {
+                                input_index: input_index.into(),
+                                output_index: first_output_index,
+                                indirect_parameters_index: match batch.extra_index {
+                                    PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                                        range.start
+                                    }
+                                    PhaseItemExtraIndex::DynamicOffset(_)
+                                    | PhaseItemExtraIndex::None => 0,
+                                },
+                            });
+                        }
+
+                        None => {
+                            // Start a new batch, in indirect mode.
+                            let indirect_parameters_index = indirect_parameters_buffer.allocate(1);
+                            GFBD::write_batch_indirect_parameters(
+                                &system_param_item,
+                                &mut indirect_parameters_buffer,
+                                indirect_parameters_index,
+                                main_entity,
+                            );
+                            work_item_buffer.buffer.push(PreprocessWorkItem {
+                                input_index: input_index.into(),
+                                output_index: first_output_index,
+                                indirect_parameters_index,
+                            });
+                            batch = Some(BinnedRenderPhaseBatch {
+                                representative_entity: (entity, main_entity),
+                                instance_range: output_index..output_index + 1,
+                                extra_index: PhaseItemExtraIndex::maybe_indirect_parameters_index(
+                                    NonMaxU32::new(indirect_parameters_index),
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                if let Some(batch) = batch {
+                    match batch_set {
+                        None => {
+                            batch_set = Some(BinnedRenderPhaseBatchSet {
+                                batches: vec![batch],
+                                bin_key: bin_key.clone(),
+                            });
+                        }
+                        Some(ref mut batch_set) => {
+                            batch_set.batches.push(batch);
+                        }
+                    }
+                }
+            }
+
+            if let BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets) =
+                phase.batch_sets
+            {
+                if let Some(batch_set) = batch_set {
+                    batch_sets.push(batch_set);
+                }
+            }
+        }
+
+        // Prepare batchables.
 
         for key in &phase.batchable_mesh_keys {
             let first_output_index = data_buffer.len() as u32;
@@ -803,21 +877,15 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     BinnedRenderPhaseBatchSets::Direct(ref mut vec) => {
                         vec.push(batch);
                     }
-                    BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut batch_sets) => {
-                        // We're in multi-draw mode. Check to see whether our
-                        // batch set key is the same as the last one. If so,
-                        // merge this batch into the preceding batch set.
-                        match (&maybe_last_multidraw_key, key.get_batch_set_key()) {
-                            (Some(ref last_multidraw_key), Some(this_multidraw_key))
-                                if *last_multidraw_key == this_multidraw_key =>
-                            {
-                                batch_sets.last_mut().unwrap().push(batch);
-                            }
-                            (_, maybe_this_multidraw_key) => {
-                                maybe_last_multidraw_key = maybe_this_multidraw_key;
-                                batch_sets.push(vec![batch]);
-                            }
-                        }
+                    BinnedRenderPhaseBatchSets::MultidrawIndirect(ref mut vec) => {
+                        // The Bevy renderer will never mark a mesh as batchable
+                        // but not multidrawable if multidraw is in use.
+                        // However, custom render pipelines might do so, such as
+                        // the `specialized_mesh_pipeline` example.
+                        vec.push(BinnedRenderPhaseBatchSet {
+                            batches: vec![batch],
+                            bin_key: key.1.clone(),
+                        });
                     }
                 }
             }
