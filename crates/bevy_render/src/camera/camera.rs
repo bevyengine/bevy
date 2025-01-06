@@ -1,6 +1,6 @@
 #![expect(
     clippy::module_inception,
-    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component."
+    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
 )]
 use super::{ClearColorConfig, Projection};
 use crate::{
