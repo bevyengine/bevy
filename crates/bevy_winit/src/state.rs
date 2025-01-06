@@ -857,7 +857,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
-    let mut runner_state = WinitAppRunnerState::new(app);
+    let runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
     // The winit docs mention using `spawn` instead of `run` on Wasm.
@@ -867,6 +867,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
             event_loop.spawn_app(runner_state);
             AppExit::Success
         } else {
+            let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
                 error!("winit event loop returned an error: {err}");
             }
