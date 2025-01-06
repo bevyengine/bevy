@@ -1,12 +1,13 @@
+#![cfg(test)]
 //! Testing of serialization and deserialization of diverse scene components.
 
+use bevy::ecs::entity::EntityMap;
 use bevy::prelude::*;
-use bevy_internal::ecs::entity::EntityMap;
-use bevy_internal::scene::serde::{SceneDeserializer, SceneSerializer};
-use bevy_internal::scene::ScenePlugin;
+use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
+use bevy::reflect::erased_serde::__private::serde::Serialize;
+use bevy::scene::serde::{SceneDeserializer, SceneSerializer};
+use bevy::scene::ScenePlugin;
 use bincode::Options;
-use serde::de::DeserializeSeed;
-use serde::Serialize;
 use std::io::BufReader;
 
 #[test]

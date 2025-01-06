@@ -1,1 +1,2 @@
+#![cfg(test)]
 mod components;

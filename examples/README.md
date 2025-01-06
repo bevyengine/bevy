@@ -555,7 +555,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
+[How to Test Apps](../integration_tests/src/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 # Platform-Specific Examples
