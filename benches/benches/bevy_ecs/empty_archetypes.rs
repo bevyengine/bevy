@@ -1,9 +1,9 @@
-use bevy_ecs::{component::Component, prelude::*, world::World};
-use bevy_tasks::{ComputeTaskPool, TaskPool};
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use core::hint::black_box;
+
+use bevy_ecs::{component::Component, prelude::*, schedule::ExecutorKind, world::World};
+use criterion::{criterion_group, BenchmarkId, Criterion};
 
 criterion_group!(benches, empty_archetypes);
-criterion_main!(benches);
 
 #[derive(Component)]
 struct A<const N: u16>(f32);
@@ -47,13 +47,12 @@ fn for_each(
         &A<12>,
     )>,
 ) {
-    query.for_each(|comp| {
+    query.iter().for_each(|comp| {
         black_box(comp);
     });
 }
 
 fn par_for_each(
-    task_pool: Res<ComputeTaskPool>,
     query: Query<(
         &A<0>,
         &A<1>,
@@ -70,25 +69,29 @@ fn par_for_each(
         &A<12>,
     )>,
 ) {
-    query.par_for_each(&*task_pool, 64, |comp| {
+    query.par_iter().for_each(|comp| {
         black_box(comp);
     });
 }
 
 fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule) {
-    let mut world = World::new();
+    let world = World::new();
     let mut schedule = Schedule::default();
-    if parallel {
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
-    }
+
+    schedule.set_executor_kind(match parallel {
+        true => ExecutorKind::MultiThreaded,
+        false => ExecutorKind::SingleThreaded,
+    });
+
     setup(&mut schedule);
+
     (world, schedule)
 }
 
 /// create `count` entities with distinct archetypes
 fn add_archetypes(world: &mut World, count: u16) {
     for i in 0..count {
-        let mut e = world.spawn();
+        let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
         e.insert(A::<2>(1.0));
@@ -158,7 +161,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
-        let mut e = world.spawn();
+        let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
         e.insert(A::<2>(1.0));
@@ -179,7 +182,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }
@@ -189,7 +192,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
-        let mut e = world.spawn();
+        let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
         e.insert(A::<2>(1.0));
@@ -210,7 +213,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }
@@ -220,7 +223,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
-        let mut e = world.spawn();
+        let mut e = world.spawn_empty();
         e.insert(A::<0>(1.0));
         e.insert(A::<1>(1.0));
         e.insert(A::<2>(1.0));
@@ -241,7 +244,7 @@ fn empty_archetypes(criterion: &mut Criterion) {
             |bencher, &_| {
                 bencher.iter(|| {
                     schedule.run(&mut world);
-                })
+                });
             },
         );
     }

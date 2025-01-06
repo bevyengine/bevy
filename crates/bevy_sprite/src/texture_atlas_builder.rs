@@ -5,23 +5,21 @@ use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_utils::{
-    tracing::{debug, error, warn},
-    HashMap,
-};
-use derive_more::derive::{Display, Error};
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
+use thiserror::Error;
+use tracing::{debug, error, warn};
 
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {
-    #[display("could not pack textures into an atlas within the given bounds")]
+    #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
-    #[display("added a texture with the wrong format in an atlas")]
+    #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
 }
 
@@ -155,16 +153,6 @@ impl<'a> TextureAtlasBuilder<'a> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
-    )]
-    pub fn finish(
-        &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
-        self.build()
-    }
-
     /// Consumes the builder, and returns the newly created texture atlas and
     /// the associated atlas layout.
     ///
@@ -271,7 +259,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_ids = HashMap::default();
+        let mut texture_ids = <HashMap<_, _>>::default();
         // We iterate through the textures to place to respect the insertion order for the texture indices
         for (index, (image_id, texture)) in self.textures_to_place.iter().enumerate() {
             let (_, packed_location) = rect_placements.packed_locations().get(&index).unwrap();

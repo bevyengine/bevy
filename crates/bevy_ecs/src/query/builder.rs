@@ -78,7 +78,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             self.world()
                 .components()
                 .get_info(component_id)
-                .map_or(false, |info| info.storage_type() == StorageType::Table)
+                .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
         D::IS_DENSE
@@ -270,6 +270,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 mod tests {
     use crate as bevy_ecs;
     use crate::{prelude::*, world::FilteredEntityRef};
+    use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);

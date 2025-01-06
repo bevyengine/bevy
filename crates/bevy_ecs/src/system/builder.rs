@@ -1,4 +1,6 @@
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_utils::synccell::SyncCell;
+use variadics_please::all_tuples;
 
 use crate::{
     prelude::QueryBuilder,
@@ -682,6 +684,7 @@ mod tests {
         prelude::{Component, Query},
         system::{Local, RunSystemOnce},
     };
+    use alloc::vec;
 
     use super::*;
 

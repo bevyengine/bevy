@@ -1,20 +1,21 @@
 use bevy_transform::components::Transform;
-pub use wgpu::PrimitiveTopology;
+pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_normal, generate_tangents_for_mesh, scale_normal, FourIterators, GenerateTangentsError,
-    Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
-    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
-    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout, VertexFormatSize,
+    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
+    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
+    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
+    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    VertexFormatSize,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
-use bevy_utils::tracing::warn;
 use bytemuck::cast_slice;
-use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
+use tracing::warn;
+use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -698,7 +699,7 @@ impl Mesh {
             .chunks_exact(3)
             .for_each(|face| {
                 let [a, b, c] = [face[0], face[1], face[2]];
-                let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
+                let normal = Vec3::from(face_area_normal(positions[a], positions[b], positions[c]));
                 [a, b, c].iter().for_each(|pos| {
                     normals[*pos] += normal;
                 });
@@ -1210,11 +1211,11 @@ impl core::ops::Mul<Mesh> for Transform {
 mod tests {
     use super::Mesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
     use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
-    use wgpu::PrimitiveTopology;
 
     #[test]
     #[should_panic]
@@ -1398,6 +1399,41 @@ mod tests {
         assert_eq!([0., 0., 1.], normals[1]);
         // 2
         assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
+        // 3
+        assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn compute_smooth_normals_proportionate() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        //  z      y
+        //  |    /
+        //  3---2..
+        //  | /    \
+        //  0-------1---x
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+        mesh.compute_smooth_normals();
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        assert_eq!(4, normals.len());
+        // 0
+        assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[0]);
+        // 1
+        assert_eq!([0., 0., 1.], normals[1]);
+        // 2
+        assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[2]);
         // 3
         assert_eq!([1., 0., 0.], normals[3]);
     }

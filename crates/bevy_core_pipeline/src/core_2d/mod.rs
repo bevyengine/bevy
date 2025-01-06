@@ -33,6 +33,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+use bevy_render::batching::gpu_preprocessing::GpuPreprocessingMode;
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -42,7 +43,6 @@ use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -57,7 +57,7 @@ use bevy_render::{
         TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
-    sync_world::RenderEntity,
+    sync_world::{MainEntity, RenderEntity},
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -125,8 +125,13 @@ impl Plugin for Core2dPlugin {
 
 /// Opaque 2D [`BinnedPhaseItem`]s.
 pub struct Opaque2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: (),
     /// The key, which determines which can be batched.
-    pub key: Opaque2dBinKey,
+    pub bin_key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -165,7 +170,7 @@ impl PhaseItem for Opaque2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -179,7 +184,7 @@ impl PhaseItem for Opaque2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -188,16 +193,22 @@ impl PhaseItem for Opaque2d {
 }
 
 impl BinnedPhaseItem for Opaque2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = ();
+
     type BinKey = Opaque2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -208,14 +219,19 @@ impl BinnedPhaseItem for Opaque2d {
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 
 /// Alpha mask 2D [`BinnedPhaseItem`]s.
 pub struct AlphaMask2d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: (),
     /// The key, which determines which can be batched.
-    pub key: AlphaMask2dBinKey,
+    pub bin_key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -255,7 +271,7 @@ impl PhaseItem for AlphaMask2d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.draw_function
+        self.bin_key.draw_function
     }
 
     #[inline]
@@ -269,7 +285,7 @@ impl PhaseItem for AlphaMask2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -278,16 +294,22 @@ impl PhaseItem for AlphaMask2d {
 }
 
 impl BinnedPhaseItem for AlphaMask2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
+    type BatchSetKey = ();
+
     type BinKey = AlphaMask2dBinKey;
 
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         AlphaMask2d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -298,7 +320,7 @@ impl BinnedPhaseItem for AlphaMask2d {
 impl CachedRenderPipelinePhaseItem for AlphaMask2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.pipeline
+        self.bin_key.pipeline
     }
 }
 
@@ -340,7 +362,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -385,8 +407,8 @@ pub fn extract_core_2d_camera_phases(
             continue;
         }
         transparent_2d_phases.insert_or_clear(entity);
-        opaque_2d_phases.insert_or_clear(entity);
-        alpha_mask_2d_phases.insert_or_clear(entity);
+        opaque_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
 
         live_entities.insert(entity);
     }
@@ -405,7 +427,7 @@ pub fn prepare_core_2d_depth_textures(
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (view, camera, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
             continue;

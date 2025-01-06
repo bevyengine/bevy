@@ -8,10 +8,10 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    name::Name,
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
@@ -41,11 +41,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    tracing::{error, info_span, warn},
-    HashMap, HashSet,
-};
-use derive_more::derive::{Display, Error, From};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -60,6 +56,8 @@ use std::{
     io::Error,
     path::{Path, PathBuf},
 };
+use thiserror::Error;
+use tracing::{error, info_span, warn};
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -67,59 +65,56 @@ use {
 };
 
 /// An error that occurs when loading a glTF file.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum GltfError {
     /// Unsupported primitive mode.
-    #[display("unsupported primitive mode")]
+    #[error("unsupported primitive mode")]
     UnsupportedPrimitive {
         /// The primitive mode.
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[display("invalid glTF file: {_0}")]
-    Gltf(gltf::Error),
+    #[error("invalid glTF file: {0}")]
+    Gltf(#[from] gltf::Error),
     /// Binary blob is missing.
-    #[display("binary blob is missing")]
+    #[error("binary blob is missing")]
     MissingBlob,
     /// Decoding the base64 mesh data failed.
-    #[display("failed to decode base64 mesh data")]
-    Base64Decode(base64::DecodeError),
+    #[error("failed to decode base64 mesh data")]
+    Base64Decode(#[from] base64::DecodeError),
     /// Unsupported buffer format.
-    #[display("unsupported buffer format")]
+    #[error("unsupported buffer format")]
     BufferFormatUnsupported,
     /// Invalid image mime type.
-    #[display("invalid image mime type: {_0}")]
-    #[error(ignore)]
+    #[error("invalid image mime type: {0}")]
     #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[display("You may need to add the feature for the file format: {_0}")]
-    ImageError(TextureError),
+    #[error("You may need to add the feature for the file format: {0}")]
+    ImageError(#[from] TextureError),
     /// Failed to read bytes from an asset path.
-    #[display("failed to read bytes from an asset path: {_0}")]
-    ReadAssetBytesError(ReadAssetBytesError),
+    #[error("failed to read bytes from an asset path: {0}")]
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
-    #[display("failed to load asset from an asset path: {_0}")]
-    AssetLoadError(AssetLoadError),
+    #[error("failed to load asset from an asset path: {0}")]
+    AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
-    #[display("Missing sampler for animation {_0}")]
-    #[error(ignore)]
+    #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[display("failed to generate tangents: {_0}")]
-    GenerateTangentsError(bevy_render::mesh::GenerateTangentsError),
+    #[error("failed to generate tangents: {0}")]
+    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[display("failed to generate morph targets: {_0}")]
-    MorphTarget(bevy_render::mesh::morph::MorphBuildError),
+    #[error("failed to generate morph targets: {0}")]
+    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
     /// Circular children in Nodes
-    #[display("GLTF model must be a tree, found cycle instead at node indices: {_0:?}")]
-    #[error(ignore)]
+    #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[display("failed to load file: {_0}")]
-    Io(Error),
+    #[error("failed to load file: {0}")]
+    Io(#[from] Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -220,7 +215,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
 
-    let mut linear_textures = HashSet::default();
+    let mut linear_textures = <HashSet<_>>::default();
 
     for material in gltf.materials() {
         if let Some(texture) = material.normal_texture() {
@@ -262,11 +257,11 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
-                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::new());
+                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::default());
             }
         }
         paths
@@ -274,13 +269,15 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
-        use bevy_math::curve::{constant_curve, Interval, UnevenSampleAutoCurve};
-        use bevy_math::{Quat, Vec4};
+        use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
+        use bevy_math::{
+            curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
+            Quat, Vec4,
+        };
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
-        let mut named_animations = HashMap::default();
-        let mut animation_roots = HashSet::default();
+        let mut named_animations = <HashMap<_, _>>::default();
+        let mut animation_roots = <HashSet<_>>::default();
         for animation in gltf.animations() {
             let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
@@ -310,12 +307,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
+                            let translation_property = animated_field!(Transform::translation);
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, translations[0]))
-                                    .map(TranslationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    translation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, translations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -323,34 +321,47 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(translations),
                                         )
                                         .ok()
-                                        .map(TranslationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                translation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, translations)
                                             .ok()
-                                            .map(TranslationCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    translation_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Rotations(rots) => {
+                            let rotation_property = animated_field!(Transform::rotation);
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(Quat::from_array).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, rotations[0]))
-                                    .map(RotationCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    rotation_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, rotations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -358,16 +369,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(rotations),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicRotationCurve::new(
@@ -375,19 +394,24 @@ async fn load_gltf<'a, 'b, 'c>(
                                             rotations.into_iter().map(Vec4::from),
                                         )
                                         .ok()
-                                        .map(RotationCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                rotation_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                 }
                             }
                         }
                         ReadOutputs::Scales(scale) => {
+                            let scale_property = animated_field!(Transform::scale);
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, scales[0]))
-                                    .map(ScaleCurve)
-                                    .map(VariableCurve::new)
+                                Some(VariableCurve::new(AnimatableCurve::new(
+                                    scale_property,
+                                    ConstantCurve::new(Interval::EVERYWHERE, scales[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
@@ -395,22 +419,34 @@ async fn load_gltf<'a, 'b, 'c>(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         SteppedKeyframeCurve::new(
                                             keyframe_timestamps.into_iter().zip(scales),
                                         )
                                         .ok()
-                                        .map(ScaleCurve)
-                                        .map(VariableCurve::new)
+                                        .map(|curve| {
+                                            VariableCurve::new(AnimatableCurve::new(
+                                                scale_property,
+                                                curve,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         CubicKeyframeCurve::new(keyframe_timestamps, scales)
                                             .ok()
-                                            .map(ScaleCurve)
-                                            .map(VariableCurve::new)
+                                            .map(|curve| {
+                                                VariableCurve::new(AnimatableCurve::new(
+                                                    scale_property,
+                                                    curve,
+                                                ))
+                                            })
                                     }
                                 }
                             }
@@ -419,7 +455,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
                                 #[allow(clippy::unnecessary_map_on_constructor)]
-                                Some(constant_curve(Interval::EVERYWHERE, weights))
+                                Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
                             } else {
@@ -567,7 +603,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
 
     let mut materials = vec![];
-    let mut named_materials = HashMap::default();
+    let mut named_materials = <HashMap<_, _>>::default();
     // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
     if !settings.load_materials.is_empty() {
         // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
@@ -580,9 +616,9 @@ async fn load_gltf<'a, 'b, 'c>(
         }
     }
     let mut meshes = vec![];
-    let mut named_meshes = HashMap::default();
-    let mut meshes_on_skinned_nodes = HashSet::default();
-    let mut meshes_on_non_skinned_nodes = HashSet::default();
+    let mut named_meshes = <HashMap<_, _>>::default();
+    let mut meshes_on_skinned_nodes = <HashSet<_>>::default();
+    let mut meshes_on_non_skinned_nodes = <HashSet<_>>::default();
     for gltf_node in gltf.nodes() {
         if gltf_node.skin().is_some() {
             if let Some(mesh) = gltf_node.mesh() {
@@ -608,13 +644,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
                         primitive_label
                     );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -666,17 +702,15 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                bevy_utils::tracing::debug!(
-                    "Automatically calculating missing vertex normals for geometry."
-                );
+                tracing::debug!("Automatically calculating missing vertex normals for geometry.");
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();
                 mesh.compute_flat_normals();
                 let vertex_count_after = mesh.count_vertices();
                 if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_utils::tracing::debug!(
+                    tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -690,7 +724,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
+                tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
@@ -699,9 +733,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
                         warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                            err
+                        );
                     }
                 });
             }
@@ -747,10 +781,10 @@ async fn load_gltf<'a, 'b, 'c>(
         })
         .collect();
 
-    let mut nodes = HashMap::<usize, Handle<GltfNode>>::new();
-    let mut named_nodes = HashMap::new();
+    let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
+    let mut named_nodes = <HashMap<_, _>>::default();
     let mut skins = vec![];
-    let mut named_skins = HashMap::default();
+    let mut named_skins = <HashMap<_, _>>::default();
     for node in GltfTreeIterator::try_new(&gltf)? {
         let skin = node.skin().map(|skin| {
             let joints = skin
@@ -812,12 +846,12 @@ async fn load_gltf<'a, 'b, 'c>(
         .collect();
 
     let mut scenes = vec![];
-    let mut named_scenes = HashMap::default();
+    let mut named_scenes = <HashMap<_, _>>::default();
     let mut active_camera_found = false;
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let mut node_index_to_entity_map = HashMap::new();
+        let mut node_index_to_entity_map = <HashMap<_, _>>::default();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
 
@@ -885,7 +919,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
@@ -1868,13 +1902,13 @@ impl<'a> GltfTreeIterator<'a> {
             .collect::<HashMap<_, _>>();
 
         let mut nodes = Vec::new();
-        let mut warned_about_max_joints = HashSet::new();
+        let mut warned_about_max_joints = <HashSet<_>>::default();
         while let Some(index) = empty_children.pop_front() {
             if let Some(skin) = unprocessed_nodes.get(&index).unwrap().0.skin() {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
                 {
                     warn!(
-                        "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                        "The glTF skin {} has {} joints, but the maximum supported is {}",
                         skin.name()
                             .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),
@@ -2222,7 +2256,7 @@ mod test {
     use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
-    use bevy_app::App;
+    use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
@@ -2230,7 +2264,6 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_core::TaskPoolPlugin;
     use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};

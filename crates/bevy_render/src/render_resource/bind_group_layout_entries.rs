@@ -1,5 +1,5 @@
-use bevy_utils::all_tuples_with_size;
 use core::num::NonZero;
+use variadics_please::all_tuples_with_size;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
@@ -222,7 +222,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
 impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
-            bevy_utils::tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
+            tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
         }
         BindGroupLayoutEntryBuilder {
             ty: self.ty,
