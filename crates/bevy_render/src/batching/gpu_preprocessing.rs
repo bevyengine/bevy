@@ -217,11 +217,31 @@ where
     }
 
     /// Returns the piece of buffered data at the given index.
-    pub fn get(&self, uniform_index: u32) -> BDI {
+    ///
+    /// Returns [`None`] if the index is out of bounds or the data is removed.
+    pub fn get(&self, uniform_index: u32) -> Option<BDI> {
+        if (uniform_index as usize) >= self.buffer.len()
+            || self.free_uniform_indices.contains(&uniform_index)
+        {
+            None
+        } else {
+            Some(self.get_unchecked(uniform_index))
+        }
+    }
+
+    /// Returns the piece of buffered data at the given index.
+    /// Can return data that has previously been removed.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
+    pub fn get_unchecked(&self, uniform_index: u32) -> BDI {
         self.buffer.values()[uniform_index as usize]
     }
 
     /// Stores a piece of buffered data at the given index.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn set(&mut self, uniform_index: u32, element: BDI) {
         self.buffer.values_mut()[uniform_index as usize] = element;
     }
@@ -989,4 +1009,22 @@ pub fn write_indirect_parameters_buffer(
         .buffer
         .write_buffer(&render_device, &render_queue);
     indirect_parameters_buffer.buffer.clear();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn instance_buffer_correct_behavior() {
+        let mut instance_buffer = InstanceInputUniformBuffer::new();
+
+        let index = instance_buffer.add(2);
+        instance_buffer.remove(index);
+        assert_eq!(instance_buffer.get_unchecked(index), 2);
+        assert_eq!(instance_buffer.get(index), None);
+
+        instance_buffer.add(5);
+        assert_eq!(instance_buffer.buffer().len(), 1);
+    }
 }
