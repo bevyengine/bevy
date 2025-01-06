@@ -44,16 +44,11 @@ mod volume;
 /// The audio prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(
-    deprecated,
-    reason = "Items here are part of a prelude meant for consumers of this crate, not for us."
-)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AudioBundle, AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
-        Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink,
-        SpatialListener,
+        AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, Decodable, GlobalVolume, Pitch,
+        PlaybackSettings, SpatialAudioSink, SpatialListener,
     };
 }
 

@@ -1,8 +1,4 @@
-#[expect(
-    deprecated,
-    reason = "The deprecated item here (AudioSourceBundle) is only used by a type alias (which itself is deprecated)."
-)]
-use crate::{AudioSourceBundle, Decodable};
+use crate::Decodable;
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use rodio::{
@@ -37,14 +33,3 @@ impl Decodable for Pitch {
         SineWave::new(self.frequency).take_duration(self.duration)
     }
 }
-
-/// Bundle for playing a bevy note sound
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `AudioPlayer<Pitch>` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
-)]
-#[expect(
-    deprecated,
-    reason = "This is a deprecated alias for a deprecated item."
-)]
-pub type PitchBundle = AudioSourceBundle<Pitch>;

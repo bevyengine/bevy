@@ -2,6 +2,7 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
+use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
@@ -13,8 +14,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, SpritePlugin},
-    utils::Duration,
+    sprite::AlphaMode2d,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -132,21 +132,16 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "BevyMark".into(),
-                        resolution: WindowResolution::new(1920.0, 1080.0)
-                            .with_scale_factor_override(1.0),
-                        present_mode: PresentMode::AutoNoVsync,
-                        ..default()
-                    }),
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "BevyMark".into(),
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    present_mode: PresentMode::AutoNoVsync,
                     ..default()
-                })
-                .set(SpritePlugin {
-                    #[cfg(feature = "bevy_sprite_picking_backend")]
-                    add_picking: false,
                 }),
+                ..default()
+            }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
         ))

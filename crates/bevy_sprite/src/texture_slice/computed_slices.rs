@@ -28,7 +28,6 @@ impl ComputedTextureSlices {
         &'a self,
         transform: &'a GlobalTransform,
         original_entity: Entity,
-        render_entity: Entity,
         sprite: &'a Sprite,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
         let mut flip = Vec2::ONE;
@@ -54,7 +53,6 @@ impl ComputedTextureSlices {
                 flip_y,
                 image_handle_id: sprite.image.id(),
                 anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
-                render_entity,
             }
         })
     }

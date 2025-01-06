@@ -1,6 +1,4 @@
-#![expect(deprecated)]
-
-use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
+use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
@@ -157,10 +155,3 @@ impl Material2d for ColorMaterial {
         self.alpha_mode
     }
 }
-
-/// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
-)]
-pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;
