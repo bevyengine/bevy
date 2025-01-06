@@ -29,13 +29,8 @@ use bevy_image::Image;
 #[cfg(feature = "custom_cursor")]
 use bevy_math::{Rect, URect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-<<<<<<< HEAD
-=======
 #[cfg(feature = "custom_cursor")]
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
-#[cfg(feature = "custom_cursor")]
-use bevy_utils::tracing::warn;
->>>>>>> a175287b5 (Support texture atlases in CustomCursor::Image)
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
