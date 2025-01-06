@@ -39,7 +39,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
+    view::{visibility, ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
@@ -277,7 +277,8 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default())
             .add_systems(
                 PostUpdate,
-                mark_meshes_as_changed_if_their_materials_changed::<M>,
+                mark_meshes_as_changed_if_their_materials_changed::<M>
+                    .ambiguous_with(visibility::calculate_bounds),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
