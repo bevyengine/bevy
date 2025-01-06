@@ -1,6 +1,6 @@
 [package]
 name = "bevy_state"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Finite state machines for Bevy"
 homepage = "https://bevyengine.org"
@@ -58,12 +58,12 @@ portable-atomic = [
 
 [dependencies]
 # bevy
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
-bevy_state_macros = { path = "macros", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", default-features = false, optional = true }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev", default-features = false, optional = true }
 variadics_please = "1.1"
 
 # other
