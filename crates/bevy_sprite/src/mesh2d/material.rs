@@ -135,7 +135,10 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`].
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
@@ -464,7 +467,10 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn queue_material2d_meshes<M: Material2d>(
     opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,

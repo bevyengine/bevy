@@ -1,6 +1,11 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -64,6 +69,14 @@ pub struct SpritePlugin {
     pub add_picking: bool,
 }
 
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
 impl Default for SpritePlugin {
     fn default() -> Self {
         Self {
