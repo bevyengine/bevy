@@ -57,9 +57,10 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, tracing::error, HashSet};
+use bevy_utils::{default, HashSet};
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
+use tracing::error;
 
 use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
