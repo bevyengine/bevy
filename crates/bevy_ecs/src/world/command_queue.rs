@@ -356,7 +356,7 @@ impl SystemBuffer for CommandQueue {
 mod test {
     use super::*;
     use crate::{self as bevy_ecs, result::Result, system::Resource};
-    use alloc::{borrow::ToOwned, string::String, sync::Arc};
+    use alloc::{borrow::ToOwned as _, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},

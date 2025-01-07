@@ -9,7 +9,7 @@ use thiserror::Error;
 use tracing::{debug, error, warn};
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{Image, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo as _};
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
 #[derive(Debug, Error)]
