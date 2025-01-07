@@ -5,14 +5,14 @@ index 3e8082e23..624769443 100644
 @@ -7,7 +7,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
  use bevy_math::Vec3;
  use bevy_transform::prelude::GlobalTransform;
--use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+-use rodio::{OutputStream, OutputStreamHandle, Sink, Source as _, SpatialSink};
 +use rodio::{OutputStreamHandle, Sink, Source, SpatialSink};
  use tracing::warn;
- 
+
  use crate::{AudioSink, AudioSinkPlayback};
- 
+
 @@ -30,18 +30,10 @@ pub(crate) struct AudioOutput {
- 
+
  impl Default for AudioOutput {
      fn default() -> Self {
 -        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
@@ -29,4 +29,4 @@ index 3e8082e23..624769443 100644
 -        }
      }
  }
- 
+
