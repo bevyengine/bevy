@@ -5,8 +5,8 @@ use crate::{
     entity::{Entity, EntityBorrow, EntitySet},
     prelude::FromWorld,
     query::{
-        Access, DebugCheckedUnwrap as _, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
-        WorldQuery,
+        Access, DebugCheckedUnwrap as _, FilteredAccess, QueryCombinationIter, QueryIter,
+        QueryParIter, WorldQuery,
     },
     storage::{SparseSetIndex as _, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},

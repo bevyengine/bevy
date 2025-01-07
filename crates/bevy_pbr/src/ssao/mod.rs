@@ -20,7 +20,9 @@ use bevy_render::{
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
-    render_graph::{NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{
+        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+    },
     render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,

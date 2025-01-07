@@ -9,7 +9,9 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{layout::convert, LayoutContext, LayoutError, Measure as _, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    layout::convert, LayoutContext, LayoutError, Measure as _, MeasureArgs, Node, NodeMeasure,
+};
 use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

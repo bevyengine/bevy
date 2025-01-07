@@ -245,8 +245,8 @@ impl From<Xyza> for LinearRgba {
 mod tests {
     use super::*;
     use crate::{
-        color_difference::EuclideanDistance as _, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
+        color_difference::EuclideanDistance as _, test_colors::TEST_COLORS,
+        testing::assert_approx_eq, Srgba,
     };
 
     #[test]

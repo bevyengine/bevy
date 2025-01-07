@@ -1616,8 +1616,8 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use crate::{
         cubic_splines::{
-            CubicBSpline, CubicBezier, CubicGenerator as _, CubicNurbs, CubicSegment, RationalCurve,
-            RationalGenerator as _,
+            CubicBSpline, CubicBezier, CubicGenerator as _, CubicNurbs, CubicSegment,
+            RationalCurve, RationalGenerator as _,
         },
         ops::{self, FloatPow as _},
     };

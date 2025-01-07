@@ -21,9 +21,9 @@ use bevy_render::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
     render_phase::{
-        AddRenderCommand as _, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
-        RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        AddRenderCommand as _, BinnedRenderPhaseType, DrawFunctions, PhaseItem,
+        PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
+        TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, PipelineCache,

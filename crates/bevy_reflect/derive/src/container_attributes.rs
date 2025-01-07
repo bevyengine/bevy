@@ -13,8 +13,8 @@ use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{
-    ext::IdentExt as _, parenthesized, parse::ParseStream, spanned::Spanned as _, token, Expr, LitBool,
-    MetaList, MetaNameValue, Path, Token, WhereClause,
+    ext::IdentExt as _, parenthesized, parse::ParseStream, spanned::Spanned as _, token, Expr,
+    LitBool, MetaList, MetaNameValue, Path, Token, WhereClause,
 };
 
 mod kw {

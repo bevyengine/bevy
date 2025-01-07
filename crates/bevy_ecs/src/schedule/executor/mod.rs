@@ -309,7 +309,9 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        prelude::{IntoSystemConfigs as _, IntoSystemSetConfigs as _, Resource, Schedule, SystemSet},
+        prelude::{
+            IntoSystemConfigs as _, IntoSystemSetConfigs as _, Resource, Schedule, SystemSet,
+        },
         schedule::ExecutorKind,
         system::{Commands, Res, WithParamWarnPolicy as _},
         world::World,

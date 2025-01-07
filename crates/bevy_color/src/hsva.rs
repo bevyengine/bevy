@@ -275,7 +275,8 @@ impl From<Hsva> for Xyza {
 mod tests {
     use super::*;
     use crate::{
-        color_difference::EuclideanDistance as _, test_colors::TEST_COLORS, testing::assert_approx_eq,
+        color_difference::EuclideanDistance as _, test_colors::TEST_COLORS,
+        testing::assert_approx_eq,
     };
 
     #[test]
