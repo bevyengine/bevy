@@ -3,8 +3,8 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     event::Events,
-    system::{Commands, EntityCommands},
-    world::{Command, EntityWorldMut, World},
+    system::{Command, Commands, EntityCommands},
+    world::{EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 
@@ -471,8 +471,16 @@ impl ChildBuild for WorldChildBuilder<'_> {
     }
 
     fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
-        command.apply(self.world);
+        self.world.commands().queue(command);
         self
+    }
+}
+
+impl WorldChildBuilder<'_> {
+    /// Calls the world's [`World::flush`] to apply any commands
+    /// queued by [`Self::queue_command`].
+    pub fn flush_world(&mut self) {
+        self.world.flush();
     }
 }
 

@@ -24,6 +24,8 @@
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
 use bevy_app::{App, Plugin, Startup};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -36,6 +38,8 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::PrimaryWindow;
 use thiserror::Error;
 use tracing::warn;
@@ -47,10 +51,20 @@ use crate::{FocusedInput, InputFocus, InputFocusVisible};
 /// Note that you must also add the [`TabGroup`] component to the entity's ancestor in order
 /// for this component to have any effect.
 #[derive(Debug, Default, Component, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component, PartialEq)
+)]
 pub struct TabIndex(pub i32);
 
 /// A component used to mark a tree of entities as containing tabbable elements.
 #[derive(Debug, Default, Component, Copy, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component)
+)]
 pub struct TabGroup {
     /// The order of the tab group relative to other tab groups.
     pub order: i32,
@@ -287,6 +301,9 @@ pub struct TabNavigationPlugin;
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<TabIndex>().register_type::<TabGroup>();
     }
 }
 
