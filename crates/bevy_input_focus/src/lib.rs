@@ -28,6 +28,8 @@ use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
@@ -69,6 +71,11 @@ use core::fmt::Debug;
 /// }
 /// ```
 #[derive(Clone, Debug, Default, Resource)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Resource)
+)]
 pub struct InputFocus(pub Option<Entity>);
 
 impl InputFocus {
@@ -108,6 +115,7 @@ impl InputFocus {
 ///
 /// To easily access information about whether focus indicators should be shown for a given entity, use the [`IsFocused`] trait.
 #[derive(Clone, Debug, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
 pub struct InputFocusVisible(pub bool);
 
 /// A bubble-able user input event that starts at the currently focused entity.
@@ -118,6 +126,7 @@ pub struct InputFocusVisible(pub bool);
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
     pub input: E,
@@ -176,6 +185,11 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSet::Dispatch),
             );
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<AutoFocus>()
+            .register_type::<InputFocus>()
+            .register_type::<InputFocusVisible>();
     }
 }
 
