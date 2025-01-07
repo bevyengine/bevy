@@ -2,10 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    prelude::*,
-    render::{camera::RenderTarget, view::RenderLayers},
-};
+use bevy::{prelude::*, render::view::RenderLayers};
 
 fn main() {
     App::new()
