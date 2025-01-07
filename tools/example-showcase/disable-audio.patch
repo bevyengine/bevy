@@ -9,7 +9,7 @@ index 3e8082e23..624769443 100644
 +use rodio::{OutputStreamHandle, Sink, Source, SpatialSink};
  use tracing::warn;
 
- use crate::{AudioSink, AudioSinkPlayback};
+ use crate::{AudioSink, AudioSinkPlayback as _};
 
 @@ -30,18 +30,10 @@ pub(crate) struct AudioOutput {
 
