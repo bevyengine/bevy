@@ -176,7 +176,7 @@ impl VertexFormatSize for VertexFormat {
             | VertexFormat::Sint8x2
             | VertexFormat::Unorm8x2
             | VertexFormat::Snorm8x2 => 2,
-            
+
             VertexFormat::Uint8x4
             | VertexFormat::Sint8x4
             | VertexFormat::Unorm8x4
@@ -190,7 +190,7 @@ impl VertexFormatSize for VertexFormat {
             | VertexFormat::Float32
             | VertexFormat::Uint32
             | VertexFormat::Sint32 => 4,
-            
+
             VertexFormat::Uint16x4
             | VertexFormat::Sint16x4
             | VertexFormat::Unorm16x4
@@ -200,18 +200,16 @@ impl VertexFormatSize for VertexFormat {
             | VertexFormat::Uint32x2
             | VertexFormat::Sint32x2
             | VertexFormat::Float64 => 8,
-            
-            VertexFormat::Float32x3
-            | VertexFormat::Uint32x3
-            | VertexFormat::Sint32x3 => 12,
-            
+
+            VertexFormat::Float32x3 | VertexFormat::Uint32x3 | VertexFormat::Sint32x3 => 12,
+
             VertexFormat::Float32x4
             | VertexFormat::Uint32x4
             | VertexFormat::Sint32x4
             | VertexFormat::Float64x2 => 16,
-            
+
             VertexFormat::Float64x3 => 24,
-            
+
             VertexFormat::Float64x4 => 32,
         }
     }
