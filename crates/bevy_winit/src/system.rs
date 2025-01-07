@@ -77,9 +77,11 @@ pub fn create_windows<F: QueryFilter + 'static>(
             window.window_theme = Some(convert_winit_theme(theme));
         }
 
-        window
-            .resolution
-            .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
+        if window.resolution.scale_factor_override().is_none() {
+            window
+                .resolution
+                .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
+        }
 
         commands.entity(entity).insert(CachedWindow {
             window: window.clone(),
