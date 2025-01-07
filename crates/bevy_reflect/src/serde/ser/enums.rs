@@ -3,7 +3,7 @@ use crate::{
     Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::{
-    ser::{SerializeStructVariant, SerializeTupleVariant},
+    ser::{SerializeStructVariant as _, SerializeTupleVariant as _},
     Serialize,
 };
 

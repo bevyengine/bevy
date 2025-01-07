@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{InternedSystemSet, SystemSet},
+    schedule::{InternedSystemSet, SystemSet as _},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
         SystemParamItem,

@@ -1,5 +1,5 @@
 use crate::TextureAtlasLayout;
-use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_image::{Image, TextureFormatPixelInfo as _};
 use bevy_math::{URect, UVec2};
 use bevy_render::render_asset::RenderAssetUsages;
 use guillotiere::{size2, Allocation, AtlasAllocator};

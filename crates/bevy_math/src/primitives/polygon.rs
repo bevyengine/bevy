@@ -1,6 +1,6 @@
 #[cfg(feature = "alloc")]
 use {
-    super::{Measured2d, Triangle2d},
+    super::{Measured2d as _, Triangle2d},
     alloc::{collections::BTreeMap, vec::Vec},
 };
 

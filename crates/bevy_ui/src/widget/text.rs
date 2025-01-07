@@ -6,7 +6,7 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChanges as _,
     entity::{Entity, EntityHashMap},
     prelude::{require, Component},
     query::With,

@@ -2,7 +2,7 @@
 
 use core::f32::consts::PI;
 
-use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
+use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d as _};
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
@@ -14,7 +14,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Query, Res},
 };
 use bevy_math::{
@@ -29,7 +29,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
+    AppGizmoBuilder as _,
 };
 
 /// Draws a standard sphere for the radius and an axis sphere for the range.

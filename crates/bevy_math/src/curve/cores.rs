@@ -13,7 +13,7 @@ use core::fmt::Debug;
 use thiserror::Error;
 
 #[cfg(feature = "alloc")]
-use {alloc::vec::Vec, itertools::Itertools};
+use {alloc::vec::Vec, itertools::Itertools as _};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -698,7 +698,7 @@ mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
     use crate::curve::{cores::InterpolationDatum, interval};
     use alloc::vec;
-    use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use approx::{assert_abs_diff_eq, AbsDiffEq as _};
 
     fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool
     where

@@ -6,7 +6,7 @@ use crate::{
     DynamicEnum, DynamicTuple, EnumInfo, TypeRegistry, VariantInfo,
 };
 use core::{fmt, fmt::Formatter};
-use serde::de::{DeserializeSeed, Error, Visitor};
+use serde::de::{DeserializeSeed as _, Error, Visitor};
 
 use super::ReflectDeserializerProcessor;
 

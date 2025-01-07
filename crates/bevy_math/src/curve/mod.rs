@@ -312,7 +312,7 @@ use interval::InvalidIntervalError;
 use thiserror::Error;
 
 #[cfg(feature = "alloc")]
-use {crate::StableInterpolate, itertools::Itertools};
+use {crate::StableInterpolate, itertools::Itertools as _};
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -1006,7 +1006,7 @@ mod tests {
     use super::*;
     use crate::{ops, Quat};
     use alloc::vec::Vec;
-    use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use approx::{assert_abs_diff_eq, AbsDiffEq as _};
     use core::f32::consts::TAU;
     use glam::*;
 

@@ -4,7 +4,7 @@ use crate::{
     ReflectStruct,
 };
 use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQResult};
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens as _};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {

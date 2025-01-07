@@ -124,7 +124,7 @@ impl WinitWindows {
 
         #[cfg(target_os = "windows")]
         {
-            use winit::platform::windows::WindowAttributesExtWindows;
+            use winit::platform::windows::WindowAttributesExtWindows as _;
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }

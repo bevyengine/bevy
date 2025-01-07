@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{Entities, Entity, EntityBorrow, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{ArchetypeFilter, DebugCheckedUnwrap as _, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,

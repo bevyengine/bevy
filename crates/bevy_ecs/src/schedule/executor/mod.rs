@@ -16,7 +16,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    prelude::{IntoSystemSet, SystemSet},
+    prelude::{IntoSystemSet, SystemSet as _},
     query::Access,
     result::Result,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
@@ -309,9 +309,9 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
+        prelude::{IntoSystemConfigs as _, IntoSystemSetConfigs as _, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, Res, WithParamWarnPolicy},
+        system::{Commands, Res, WithParamWarnPolicy as _},
         world::World,
     };
 

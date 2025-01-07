@@ -682,7 +682,7 @@ mod tests {
     use crate::{
         entity::Entities,
         prelude::{Component, Query},
-        system::{Local, RunSystemOnce},
+        system::{Local, RunSystemOnce as _},
     };
     use alloc::vec;
 

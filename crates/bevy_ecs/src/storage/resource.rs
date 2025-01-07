@@ -5,7 +5,7 @@ use crate::{
     storage::{blob_vec::BlobVec, SparseSet},
 };
 use alloc::string::String;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref as _};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{cell::UnsafeCell, mem::ManuallyDrop};

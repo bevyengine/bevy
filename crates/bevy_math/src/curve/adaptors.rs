@@ -22,7 +22,7 @@ mod paths {
 }
 
 #[expect(unused, reason = "imported just for doc links")]
-use super::CurveExt;
+use super::CurveExt as _;
 
 // NOTE ON REFLECTION:
 //

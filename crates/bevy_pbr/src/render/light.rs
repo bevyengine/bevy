@@ -2,7 +2,7 @@ use self::assign::ClusterableObjectType;
 use crate::material_bind_groups::MaterialBindGroupAllocator;
 use crate::*;
 use bevy_asset::UntypedAssetId;
-use bevy_color::ColorToComponents;
+use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::lifetimeless::Read,
 };
-use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -18,7 +18,7 @@ use bevy_render::{
     view::NoIndirectDrawing,
 };
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,

@@ -9,7 +9,7 @@ use crate::{
     },
     DynamicStruct, NamedField, StructInfo, StructVariantInfo, TypeRegistration, TypeRegistry,
 };
-use alloc::string::ToString;
+use alloc::string::ToString as _;
 use core::slice::Iter;
 use serde::de::{Error, MapAccess, SeqAccess};
 

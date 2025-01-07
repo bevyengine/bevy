@@ -7,7 +7,7 @@ use alloc::string::String;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::DetectChangesMut as _,
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
@@ -1760,11 +1760,11 @@ mod tests {
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
-    use alloc::string::ToString;
+    use alloc::string::ToString as _;
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoSystemConfigs as _;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,

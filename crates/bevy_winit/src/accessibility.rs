@@ -16,11 +16,11 @@ use bevy_a11y::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChanges as _,
     entity::EntityHashMap,
     prelude::{Entity, EventReader, EventWriter},
     query::With,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};

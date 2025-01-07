@@ -8,7 +8,7 @@ use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
     Color,
 };
-use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles as _};
 use bevy_transform::TransformPoint;
 
 /// A builder returned by [`GizmoBuffer::arrow`] and [`GizmoBuffer::arrow_2d`]

@@ -16,7 +16,7 @@ use bevy_render::{
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderDefVal,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        ShaderStages, ShaderType as _, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,

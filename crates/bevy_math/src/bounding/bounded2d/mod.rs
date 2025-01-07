@@ -4,7 +4,7 @@ use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     ops,
     prelude::{Mat2, Rot2, Vec2},
-    FloatPow, Isometry2d,
+    FloatPow as _, Isometry2d,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -263,7 +263,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 mod aabb2d_tests {
     use super::Aabb2d;
     use crate::{
-        bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
+        bounding::{BoundingCircle, BoundingVolume as _, IntersectsVolume as _},
         ops, Vec2,
     };
 
@@ -614,7 +614,7 @@ impl IntersectsVolume<Aabb2d> for BoundingCircle {
 mod bounding_circle_tests {
     use super::BoundingCircle;
     use crate::{
-        bounding::{BoundingVolume, IntersectsVolume},
+        bounding::{BoundingVolume as _, IntersectsVolume as _},
         ops, Vec2,
     };
 

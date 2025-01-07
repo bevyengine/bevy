@@ -1,5 +1,5 @@
 use crate::{serde::TypedReflectSerializer, Set, TypeRegistry};
-use serde::{ser::SerializeSeq, Serialize};
+use serde::{ser::SerializeSeq as _, Serialize};
 
 use super::ReflectSerializerProcessor;
 

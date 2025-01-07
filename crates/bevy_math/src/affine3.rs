@@ -1,4 +1,4 @@
-use glam::{Affine3A, Mat3, Vec3, Vec3Swizzles, Vec4};
+use glam::{Affine3A, Mat3, Vec3, Vec3Swizzles as _, Vec4};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;

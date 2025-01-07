@@ -78,7 +78,7 @@ pub mod prelude {
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_ecs::{
-    schedule::{IntoSystemConfigs, SystemSet},
+    schedule::{IntoSystemConfigs as _, SystemSet},
     system::{Res, ResMut, Resource},
 };
 use bevy_math::{Vec3, Vec4};

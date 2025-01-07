@@ -1,6 +1,6 @@
-use core::fmt::Write;
+use core::fmt::Write as _;
 
-use taffy::{NodeId, TraversePartialTree};
+use taffy::{NodeId, TraversePartialTree as _};
 
 use bevy_ecs::prelude::Entity;
 use bevy_utils::HashMap;

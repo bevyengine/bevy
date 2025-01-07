@@ -377,7 +377,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use crate::func::{FunctionError, IntoReturn as _, SignatureInfo};
     use alloc::vec;
     use core::ops::Add;
 

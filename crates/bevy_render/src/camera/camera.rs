@@ -5,7 +5,7 @@
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
+    camera::{CameraProjection as _, ManualTextureViewHandle, ManualTextureViews},
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
@@ -21,9 +21,9 @@ use crate::{
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChanges as _,
     component::{Component, ComponentId},
-    entity::{Entity, EntityBorrow},
+    entity::{Entity, EntityBorrow as _},
     event::EventReader,
     prelude::{require, With},
     query::Has,

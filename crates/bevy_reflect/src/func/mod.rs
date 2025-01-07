@@ -195,7 +195,7 @@ mod tests {
     use crate::func::args::ArgCount;
     use crate::{
         func::args::{ArgError, ArgList, Ownership},
-        TypePath,
+        TypePath as _,
     };
 
     #[test]

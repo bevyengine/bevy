@@ -8,7 +8,7 @@ use crate::curve::{
         ChainCurve, ConstantCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
         LinearReparamCurve, PingPongCurve, RepeatCurve, ReverseCurve, ZipCurve,
     },
-    Curve,
+    Curve as _,
 };
 
 // -- ConstantCurve
@@ -452,8 +452,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     use super::*;
-    use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator};
-    use crate::curve::{Curve, CurveExt as _, Interval};
+    use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator as _};
+    use crate::curve::{Curve as _, CurveExt as _, Interval};
     use crate::{vec2, Vec2, Vec3};
 
     fn test_curve() -> CubicCurve<Vec2> {

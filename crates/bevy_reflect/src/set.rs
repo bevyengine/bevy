@@ -498,7 +498,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 #[cfg(test)]
 mod tests {
     use super::DynamicSet;
-    use alloc::string::{String, ToString};
+    use alloc::string::{String, ToString as _};
 
     #[test]
     fn test_into_iter() {

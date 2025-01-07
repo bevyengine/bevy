@@ -346,7 +346,7 @@ pub fn handle_tab_navigation(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
+    use bevy_hierarchy::BuildChildren as _;
 
     use super::*;
 

@@ -1,5 +1,5 @@
 use bevy_asset::Asset;
-use bevy_color::{Alpha, ColorToComponents};
+use bevy_color::{Alpha as _, ColorToComponents as _};
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{

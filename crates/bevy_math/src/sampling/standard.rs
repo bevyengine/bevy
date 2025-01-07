@@ -25,7 +25,7 @@ use core::f32::consts::TAU;
 
 use crate::{
     primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
+    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample as _, Vec3A,
 };
 use rand::{
     distributions::{Distribution, Standard},

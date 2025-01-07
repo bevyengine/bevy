@@ -5,10 +5,10 @@
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
-use bevy_color::Alpha;
+use bevy_color::Alpha as _;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{prelude::*, FloatExt};
+use bevy_math::{prelude::*, FloatExt as _};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;

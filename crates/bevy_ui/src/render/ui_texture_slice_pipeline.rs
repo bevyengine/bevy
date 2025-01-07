@@ -2,7 +2,7 @@ use core::{hash::Hash, ops::Range};
 
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha as _, ColorToComponents as _, LinearRgba};
 use bevy_ecs::{
     prelude::Component,
     storage::SparseSet,
@@ -11,8 +11,8 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_image::{BevyDefault as _, Image};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles as _};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,

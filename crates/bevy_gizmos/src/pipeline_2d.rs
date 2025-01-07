@@ -9,7 +9,7 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::{IntoSystemConfigs as _, IntoSystemSetConfigs as _},
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -19,7 +19,7 @@ use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+        AddRenderCommand as _, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
         ViewSortedRenderPhases,
     },
     render_resource::*,

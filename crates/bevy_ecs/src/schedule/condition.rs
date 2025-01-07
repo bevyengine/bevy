@@ -395,11 +395,11 @@ mod sealed {
 pub mod common_conditions {
     use super::{Condition, NotSystem};
     use crate::{
-        change_detection::DetectChanges,
+        change_detection::DetectChanges as _,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
+        system::{In, IntoSystem, Local, Res, Resource, System as _, SystemInput},
     };
     use alloc::format;
 
@@ -1254,12 +1254,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{common_conditions::*, Condition};
+    use super::{common_conditions::*, Condition as _};
     use crate as bevy_ecs;
     use crate::{
         change_detection::ResMut,
         component::Component,
-        schedule::{IntoSystemConfigs, Schedule},
+        schedule::{IntoSystemConfigs as _, Schedule},
         system::Local,
         world::World,
     };

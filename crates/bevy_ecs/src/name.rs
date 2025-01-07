@@ -3,18 +3,18 @@
 use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
 
 use alloc::{
-    borrow::{Cow, ToOwned},
+    borrow::{Cow, ToOwned as _},
     string::String,
 };
 use bevy_utils::FixedHasher;
 use core::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher as _, Hash, Hasher},
     ops::Deref,
 };
 
 #[cfg(feature = "serialize")]
 use {
-    alloc::string::ToString,
+    alloc::string::ToString as _,
     serde::{
         de::{Error, Visitor},
         Deserialize, Deserializer, Serialize, Serializer,
@@ -264,7 +264,7 @@ impl<'de> Visitor<'de> for NameVisitor {
 mod tests {
     use super::*;
     use crate::world::World;
-    use alloc::string::ToString;
+    use alloc::string::ToString as _;
 
     #[test]
     fn test_display_of_debug_name() {

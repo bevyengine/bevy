@@ -3,14 +3,14 @@
 #[cfg(feature = "curve")]
 mod curve_impls;
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Vec2, VectorSpace,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use thiserror::Error;
 #[cfg(feature = "alloc")]
-use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
+use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools as _};
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -1616,10 +1616,10 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use crate::{
         cubic_splines::{
-            CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-            RationalGenerator,
+            CubicBSpline, CubicBezier, CubicGenerator as _, CubicNurbs, CubicSegment, RationalCurve,
+            RationalGenerator as _,
         },
-        ops::{self, FloatPow},
+        ops::{self, FloatPow as _},
     };
     use alloc::vec::Vec;
     use glam::{vec2, Vec2};

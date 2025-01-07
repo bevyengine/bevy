@@ -57,7 +57,7 @@ mod tests {
         self as bevy_ecs,
         event::Event,
         observer::Trigger,
-        system::{In, IntoSystem},
+        system::{In, IntoSystem as _},
         world::World,
     };
 

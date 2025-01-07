@@ -449,8 +449,8 @@ mod tests {
     use glam::Vec2;
 
     use crate::{
-        bounding::Bounded2d,
-        ops::{self, FloatPow},
+        bounding::Bounded2d as _,
+        ops::{self, FloatPow as _},
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,

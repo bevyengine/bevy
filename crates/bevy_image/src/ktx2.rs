@@ -1,5 +1,5 @@
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
-use std::io::Read;
+use std::io::Read as _;
 
 #[cfg(feature = "basis-universal")]
 use basis_universal::{

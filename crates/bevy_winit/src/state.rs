@@ -3,12 +3,12 @@ use bevy_app::{App, AppExit, PluginsState};
 #[cfg(feature = "custom_cursor")]
 use bevy_asset::AssetId;
 use bevy_ecs::{
-    change_detection::{DetectChanges, NonSendMut, Res},
+    change_detection::{DetectChanges as _, NonSendMut, Res},
     entity::Entity,
     event::{EventCursor, EventWriter},
     prelude::*,
     system::SystemState,
-    world::FromWorld,
+    world::FromWorld as _,
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::Image;
@@ -48,7 +48,7 @@ use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
     system::{create_monitors, CachedWindow},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
+    AppSendEvent as _, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
     RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
 

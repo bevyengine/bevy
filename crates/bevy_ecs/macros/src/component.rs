@@ -1,13 +1,13 @@
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens as _};
 use std::collections::HashSet;
 use syn::{
     parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
-    spanned::Spanned,
+    spanned::Spanned as _,
     token::{Comma, Paren},
     DeriveInput, ExprClosure, ExprPath, Ident, LitStr, Path, Result,
 };

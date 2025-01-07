@@ -22,8 +22,8 @@ use smallvec::SmallVec;
 use super::NoCpuCulling;
 use crate::{camera::Projection, sync_world::MainEntity};
 use crate::{
-    camera::{Camera, CameraProjection},
-    mesh::{Mesh, Mesh3d, MeshAabb},
+    camera::{Camera, CameraProjection as _},
+    mesh::{Mesh, Mesh3d, MeshAabb as _},
     primitives::{Aabb, Frustum, Sphere},
 };
 
@@ -645,7 +645,7 @@ where
 mod test {
     use super::*;
     use bevy_app::prelude::*;
-    use bevy_hierarchy::BuildChildren;
+    use bevy_hierarchy::BuildChildren as _;
 
     #[test]
     fn visibility_propagation() {

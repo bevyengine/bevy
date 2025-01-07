@@ -5,7 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection, Projection},
+    camera::{Camera, CameraProjection as _, CameraRenderGraph, OrthographicProjection, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
 };

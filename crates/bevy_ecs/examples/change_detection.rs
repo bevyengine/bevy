@@ -9,8 +9,8 @@
 #![expect(clippy::std_instead_of_core)]
 
 use bevy_ecs::prelude::*;
-use rand::Rng;
-use std::ops::Deref;
+use rand::Rng as _;
+use std::ops::Deref as _;
 
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources

@@ -48,8 +48,8 @@ use bevy_math::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::{Mesh, Meshable},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    mesh::{Mesh, Meshable as _},
+    render_graph::{RenderGraphApp as _, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
     view::Visibility,

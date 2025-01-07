@@ -360,7 +360,7 @@ impl UnitVariantInfo {
 mod tests {
     use super::*;
     use crate as bevy_reflect;
-    use crate::{Reflect, Typed};
+    use crate::{Reflect, Typed as _};
 
     #[test]
     fn should_return_error_on_invalid_cast() {

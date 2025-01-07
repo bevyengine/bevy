@@ -13,7 +13,7 @@ use crate::{
     TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use core::{fmt, fmt::Formatter};
-use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
+use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess as _, Visitor};
 
 use super::ReflectDeserializerProcessor;
 

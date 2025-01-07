@@ -4,14 +4,14 @@ use crate::{
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{Access, DebugCheckedUnwrap as _, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref as _};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;

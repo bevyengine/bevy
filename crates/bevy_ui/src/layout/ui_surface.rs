@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{layout::convert, LayoutContext, LayoutError, Measure as _, MeasureArgs, Node, NodeMeasure};
 use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -330,7 +330,7 @@ mod tests {
     use super::*;
     use crate::{ContentSize, FixedMeasure};
     use bevy_math::Vec2;
-    use taffy::TraversePartialTree;
+    use taffy::TraversePartialTree as _;
 
     /// Checks if the parent of the `user_root_node` in a `RootNodePair`
     /// is correctly assigned as the `implicit_viewport_node`.

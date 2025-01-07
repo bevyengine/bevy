@@ -230,7 +230,7 @@ pub enum DirectionalNavigationError {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::system::RunSystemOnce;
+    use bevy_ecs::system::RunSystemOnce as _;
 
     use super::*;
 

@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 use bevy_utils::{DefaultHasher, FixedHasher, NoOpHash, TypeIdMap};
 use core::{
     any::{Any, TypeId},
-    hash::BuildHasher,
+    hash::BuildHasher as _,
 };
 
 #[cfg(feature = "std")]

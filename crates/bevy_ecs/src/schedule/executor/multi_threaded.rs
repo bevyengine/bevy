@@ -801,7 +801,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         prelude::Resource,
-        schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
+        schedule::{ExecutorKind, IntoSystemConfigs as _, Schedule},
         system::Commands,
         world::World,
     };

@@ -1,7 +1,7 @@
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},

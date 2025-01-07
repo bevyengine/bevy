@@ -2,7 +2,7 @@ use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::Ref,
-    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+    prelude::{Changed, DetectChanges as _, Entity, Query, With, Without},
     query::{Added, Or},
     removal_detection::RemovedComponents,
     system::{Local, ParamSet},
@@ -193,7 +193,7 @@ mod test {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
+    use bevy_hierarchy::{BuildChildren as _, ChildBuild as _};
 
     #[test]
     fn correct_parent_removed() {

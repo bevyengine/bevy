@@ -7,7 +7,7 @@ pub(crate) mod array {
     use core::marker::PhantomData;
     use serde::{
         de::{SeqAccess, Visitor},
-        ser::SerializeTuple,
+        ser::SerializeTuple as _,
         Deserialize, Deserializer, Serialize, Serializer,
     };
 

@@ -1,7 +1,7 @@
 use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_reflect::prelude::*;
 
 /// An axis-aligned bounding box, defined by:
@@ -356,7 +356,7 @@ mod tests {
     use bevy_math::{ops, Quat};
     use bevy_transform::components::GlobalTransform;
 
-    use crate::camera::{CameraProjection, PerspectiveProjection};
+    use crate::camera::{CameraProjection as _, PerspectiveProjection};
 
     use super::*;
 

@@ -310,7 +310,7 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoSystemConfigs as _, IntoSystemSetConfigs as _, ScheduleLabel, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };

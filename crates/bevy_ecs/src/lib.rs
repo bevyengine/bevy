@@ -124,7 +124,7 @@ mod tests {
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::{
-        string::{String, ToString},
+        string::{String, ToString as _},
         sync::Arc,
         vec,
         vec::Vec,

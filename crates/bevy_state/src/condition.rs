@@ -1,5 +1,5 @@
 use crate::state::{State, States};
-use bevy_ecs::{change_detection::DetectChanges, system::Res};
+use bevy_ecs::{change_detection::DetectChanges as _, system::Res};
 
 /// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
 /// if the state machine exists.
@@ -173,7 +173,7 @@ pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 mod tests {
     use crate as bevy_state;
 
-    use bevy_ecs::schedule::{Condition, IntoSystemConfigs, Schedule};
+    use bevy_ecs::schedule::{Condition as _, IntoSystemConfigs as _, Schedule};
 
     use crate::prelude::*;
     use bevy_state_macros::States;

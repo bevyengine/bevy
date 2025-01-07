@@ -41,7 +41,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    query::{DebugCheckedUnwrap as _, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -3702,7 +3702,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
-        change_detection::DetectChangesMut,
+        change_detection::DetectChangesMut as _,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
         ptr::OwningPtr,
@@ -3710,8 +3710,8 @@ mod tests {
         world::error::EntityFetchError,
     };
     use alloc::{
-        borrow::ToOwned,
-        string::{String, ToString},
+        borrow::ToOwned as _,
+        string::{String, ToString as _},
         sync::Arc,
         vec,
         vec::Vec,

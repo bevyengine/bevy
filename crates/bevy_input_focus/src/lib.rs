@@ -338,9 +338,9 @@ mod tests {
     use super::*;
 
     use bevy_ecs::{
-        component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        component::ComponentId, observer::Trigger, system::RunSystemOnce as _, world::DeferredWorld,
     };
-    use bevy_hierarchy::BuildChildren;
+    use bevy_hierarchy::BuildChildren as _;
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,

@@ -54,9 +54,9 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
-    mesh::{Mesh, Mesh2d, MeshAabb},
+    mesh::{Mesh, Mesh2d, MeshAabb as _},
     primitives::Aabb,
-    render_phase::AddRenderCommand,
+    render_phase::AddRenderCommand as _,
     render_resource::{Shader, SpecializedRenderPipelines},
     view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,

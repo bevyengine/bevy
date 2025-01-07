@@ -369,7 +369,7 @@ mod tests {
     //! - 'static closures
     //! - function pointers
     use super::{SampleCurve, UnevenSampleCurve};
-    use crate::{curve::Interval, VectorSpace};
+    use crate::{curve::Interval, VectorSpace as _};
     use alloc::boxed::Box;
     use bevy_reflect::Reflect;
 

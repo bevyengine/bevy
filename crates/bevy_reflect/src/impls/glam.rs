@@ -386,13 +386,13 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use serde::de::DeserializeSeed;
+    use serde::de::DeserializeSeed as _;
     use static_assertions::assert_impl_all;
 
     use crate::{
         prelude::*,
         serde::{ReflectDeserializer, ReflectSerializer},
-        Enum, GetTypeRegistration, TypeRegistry,
+        Enum, GetTypeRegistration as _, TypeRegistry,
     };
 
     use super::*;

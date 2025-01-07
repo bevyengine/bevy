@@ -15,7 +15,7 @@ use bevy_asset::{Assets, Handle};
 #[cfg(feature = "custom_cursor")]
 use bevy_ecs::system::Res;
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChanges as _,
     component::Component,
     entity::Entity,
     observer::Trigger,

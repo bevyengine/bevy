@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Dir2, Vec2,
 };
 

@@ -6,7 +6,7 @@ use crate::{
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
     entity::{ComponentCloneCtx, Entity},
-    query::DebugCheckedUnwrap,
+    query::DebugCheckedUnwrap as _,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
@@ -15,7 +15,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, UnsafeCellDeref as _};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};

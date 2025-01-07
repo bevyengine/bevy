@@ -4,8 +4,8 @@ use crate::{
     OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
 };
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
+    change_detection::{DetectChanges as _, DetectChangesMut as _},
+    entity::{Entity, EntityBorrow as _, EntityHashMap, EntityHashSet},
     event::EventReader,
     query::With,
     removal_detection::RemovedComponents,
@@ -470,7 +470,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
 #[cfg(test)]
 mod tests {
-    use taffy::TraversePartialTree;
+    use taffy::TraversePartialTree as _;
 
     use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2d;
@@ -479,12 +479,12 @@ mod tests {
         event::Events,
         prelude::{Commands, Component, In, Query, With},
         query::Without,
-        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
-        system::RunSystemOnce,
+        schedule::{ApplyDeferred, IntoSystemConfigs as _, Schedule},
+        system::RunSystemOnce as _,
         world::World,
     };
     use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
+        despawn_with_children_recursive, BuildChildren as _, ChildBuild as _, Children, Parent,
     };
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};

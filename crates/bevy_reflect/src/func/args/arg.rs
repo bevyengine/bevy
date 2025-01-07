@@ -2,7 +2,7 @@ use crate::{
     func::args::{ArgError, FromArg, Ownership},
     PartialReflect, Reflect, TypePath,
 };
-use alloc::{boxed::Box, string::ToString};
+use alloc::{boxed::Box, string::ToString as _};
 use core::ops::Deref;
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].

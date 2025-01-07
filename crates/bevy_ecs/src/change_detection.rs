@@ -6,7 +6,7 @@ use crate::{
     system::Resource,
 };
 use alloc::borrow::ToOwned;
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, UnsafeCellDeref as _};
 use core::{
     mem,
     ops::{Deref, DerefMut},
@@ -1256,11 +1256,11 @@ mod tests {
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        system::{IntoSystem, Single, System},
+        system::{IntoSystem, Single, System as _},
         world::World,
     };
 
-    use super::{DetectChanges, DetectChangesMut, MutUntyped};
+    use super::{DetectChanges as _, DetectChangesMut as _, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;

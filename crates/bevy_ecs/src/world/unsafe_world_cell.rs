@@ -11,7 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, ReadOnlyQueryData},
+    query::{DebugCheckedUnwrap as _, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::Resource,

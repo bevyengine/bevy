@@ -1,7 +1,7 @@
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entities;
 
-use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
+use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic as _};
 
 /// Adds "entity count" diagnostic to an App.
 ///

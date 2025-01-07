@@ -1,7 +1,7 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle},
+    bounding::{Bounded2d as _, BoundingCircle},
     ops,
     primitives::{
         Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
@@ -381,11 +381,11 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bounding::BoundingVolume, ops, Isometry3d};
+    use crate::{bounding::BoundingVolume as _, ops, Isometry3d};
     use glam::{Quat, Vec3, Vec3A};
 
     use crate::{
-        bounding::Bounded3d,
+        bounding::Bounded3d as _,
         primitives::{
             Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
             Segment3d, Sphere, Torus, Triangle3d,

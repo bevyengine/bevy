@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
+use bevy_color::{Color, ColorToComponents as _, Gray as _, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;

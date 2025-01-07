@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
-use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
+use bevy_ecs::schedule::{IntoSystemConfigs as _, IntoSystemSetConfigs as _, SystemSet};
 use bevy_hierarchy::ValidParentCheckPlugin;
 
 use crate::{

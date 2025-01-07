@@ -15,7 +15,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault as _, ImageSampler, TextureFormatPixelInfo as _};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{

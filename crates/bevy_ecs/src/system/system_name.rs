@@ -91,10 +91,10 @@ impl ExclusiveSystemParam for SystemName<'_> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        system::{IntoSystem, RunSystemOnce, SystemName},
+        system::{IntoSystem, RunSystemOnce as _, SystemName},
         world::World,
     };
-    use alloc::{borrow::ToOwned, string::String};
+    use alloc::{borrow::ToOwned as _, string::String};
 
     #[test]
     fn test_system_name_regular_param() {

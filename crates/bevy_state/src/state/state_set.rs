@@ -1,7 +1,7 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
-    system::{Commands, IntoSystem, Res, ResMut},
+    schedule::{IntoSystemConfigs as _, IntoSystemSetConfigs as _, Schedule},
+    system::{Commands, IntoSystem as _, Res, ResMut},
 };
 use variadics_please::all_tuples;
 

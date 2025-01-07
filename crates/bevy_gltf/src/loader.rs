@@ -14,7 +14,7 @@ use bevy_ecs::{
     name::Name,
     world::World,
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_hierarchy::{BuildChildren as _, ChildBuild as _, WorldChildBuilder};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,

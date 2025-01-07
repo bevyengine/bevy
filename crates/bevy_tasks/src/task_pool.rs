@@ -7,7 +7,7 @@ use std::{
 
 use crate::executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::FutureExt;
+use futures_lite::FutureExt as _;
 
 #[cfg(feature = "portable-atomic")]
 use portable_atomic_util::Arc;

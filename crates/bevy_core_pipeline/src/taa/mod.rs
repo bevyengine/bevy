@@ -10,7 +10,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,

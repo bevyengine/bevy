@@ -18,7 +18,7 @@
 
 extern crate alloc;
 
-use core::error::Error;
+use core::error::Error as _;
 
 #[cfg(target_os = "android")]
 mod android_tracing;

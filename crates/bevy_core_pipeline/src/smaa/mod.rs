@@ -49,7 +49,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::{BevyDefault as _, Image};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{

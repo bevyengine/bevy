@@ -280,7 +280,7 @@ all_tuples!(
 #[cfg(test)]
 mod tests {
     use crate::{
-        system::{In, InMut, InRef, IntoSystem, System},
+        system::{In, InMut, InRef, IntoSystem, System as _},
         world::World,
     };
 

@@ -3,10 +3,10 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::{BevyDefault as _, Image};
 use bevy_math::{Mat4, Quat};
 use bevy_render::{
     camera::Exposure,

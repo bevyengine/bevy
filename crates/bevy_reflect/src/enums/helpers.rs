@@ -1,7 +1,7 @@
 use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
 use core::{
     fmt::Debug,
-    hash::{Hash, Hasher},
+    hash::{Hash as _, Hasher as _},
 };
 
 /// Returns the `u64` hash of the given [enum](Enum).

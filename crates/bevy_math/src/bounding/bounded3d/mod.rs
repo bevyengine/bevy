@@ -5,7 +5,7 @@ use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Isometry3d, Quat, Vec3A,
 };
 
@@ -267,7 +267,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
-        bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
+        bounding::{BoundingSphere, BoundingVolume as _, IntersectsVolume as _},
         ops, Quat, Vec3, Vec3A,
     };
 
@@ -646,7 +646,7 @@ mod bounding_sphere_tests {
 
     use super::BoundingSphere;
     use crate::{
-        bounding::{BoundingVolume, IntersectsVolume},
+        bounding::{BoundingVolume as _, IntersectsVolume as _},
         ops, Quat, Vec3, Vec3A,
     };
 

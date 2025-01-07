@@ -2,11 +2,11 @@ use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap as _, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref as _};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
 

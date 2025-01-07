@@ -9,7 +9,7 @@ use crate::{
         IntoFunctionMut,
     },
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath,
+    ReflectRef, TypeInfo, TypePath as _,
 };
 use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
@@ -468,7 +468,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 mod tests {
     use super::*;
     use crate::func::signature::ArgumentSignature;
-    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use crate::func::{FunctionError, IntoReturn as _, SignatureInfo};
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
     use bevy_utils::HashSet;

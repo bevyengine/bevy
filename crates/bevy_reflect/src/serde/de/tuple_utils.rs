@@ -6,7 +6,7 @@ use crate::{
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
     UnnamedField,
 };
-use alloc::string::ToString;
+use alloc::string::ToString as _;
 use serde::de::{Error, SeqAccess};
 
 use super::ReflectDeserializerProcessor;

@@ -1,6 +1,6 @@
 use crate::{
     components::{Children, Parent},
-    BuildChildren,
+    BuildChildren as _,
 };
 use bevy_ecs::{
     component::ComponentCloneHandler,
@@ -247,7 +247,7 @@ fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx
 
 #[cfg(test)]
 mod tests {
-    use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
+    use alloc::{borrow::ToOwned as _, string::String, vec, vec::Vec};
     use bevy_ecs::{
         component::Component,
         system::Commands,
@@ -256,7 +256,7 @@ mod tests {
 
     use super::DespawnRecursiveExt as _;
     use crate::{
-        child_builder::{BuildChildren, ChildBuild},
+        child_builder::{BuildChildren as _, ChildBuild as _},
         components::Children,
         CloneEntityHierarchyExt as _,
     };

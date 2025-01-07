@@ -41,6 +41,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+unused_trait_names = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"

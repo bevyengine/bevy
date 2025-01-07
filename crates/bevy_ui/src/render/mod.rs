@@ -14,14 +14,14 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha as _, ColorToComponents as _, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles as _, Vec4Swizzles as _};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
@@ -29,14 +29,14 @@ use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_phase::{sort_phase_system, AddRenderCommand as _, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
 use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
+    render_phase::{PhaseItem as _, PhaseItemExtraIndex},
     sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
     view::ViewVisibility,

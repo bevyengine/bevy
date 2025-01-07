@@ -2,7 +2,7 @@ use crate::{App, Plugin};
 use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
+        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs as _, Schedule, ScheduleLabel,
         SystemSet,
     },
     system::{Local, Resource},

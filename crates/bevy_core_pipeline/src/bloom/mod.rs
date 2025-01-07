@@ -2,7 +2,7 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use bevy_color::{Gray, LinearRgba};
+use bevy_color::{Gray as _, LinearRgba};
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
@@ -15,11 +15,11 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},

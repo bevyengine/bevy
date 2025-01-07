@@ -1,4 +1,4 @@
-use crate::{Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic};
+use crate::{Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic as _};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_time::{Real, Time};

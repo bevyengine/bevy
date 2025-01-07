@@ -575,7 +575,7 @@ impl<P: Primitive2d + Measured2d + ShapeSample<Output = Vec2>> ShapeSample for E
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
+    use rand::SeedableRng as _;
     use rand_chacha::ChaCha8Rng;
 
     #[test]

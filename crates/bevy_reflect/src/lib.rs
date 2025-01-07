@@ -725,12 +725,12 @@ pub mod __macro_exports {
     reason = "We don't need the exact value of Pi here."
 )]
 mod tests {
-    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
+    use ::serde::{de::DeserializeSeed as _, Deserialize, Serialize};
     use alloc::{
         borrow::Cow,
         boxed::Box,
         format,
-        string::{String, ToString},
+        string::{String, ToString as _},
         vec,
         vec::Vec,
     };

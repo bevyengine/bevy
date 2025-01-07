@@ -40,7 +40,7 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };

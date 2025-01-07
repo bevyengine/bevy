@@ -2,7 +2,7 @@ use crate::core_2d::Opaque2d;
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},

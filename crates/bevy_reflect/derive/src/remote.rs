@@ -13,7 +13,7 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
-    spanned::Spanned,
+    spanned::Spanned as _,
     token::PathSep,
     DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
 };

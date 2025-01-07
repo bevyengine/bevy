@@ -5,14 +5,14 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::DetectChangesMut as _,
     component::Component,
     entity::Entity,
     query::With,
-    schedule::{common_conditions::resource_changed, IntoSystemConfigs},
+    schedule::{common_conditions::resource_changed, IntoSystemConfigs as _},
     system::{Commands, Query, Res, Resource},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
+use bevy_hierarchy::{BuildChildren as _, ChildBuild as _};
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{

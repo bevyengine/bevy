@@ -1,4 +1,4 @@
-use crate::{Image, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
@@ -217,7 +217,7 @@ pub enum IntoDynamicImageError {
 
 #[cfg(test)]
 mod test {
-    use image::{GenericImage, Rgba};
+    use image::{GenericImage as _, Rgba};
 
     use super::*;
 

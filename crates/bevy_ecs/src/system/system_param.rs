@@ -16,9 +16,9 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{borrow::ToOwned as _, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::{Resource, SystemParam};
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::UnsafeCellDeref as _;
 use bevy_utils::synccell::SyncCell;
 #[cfg(feature = "track_location")]
 use core::panic::Location;

@@ -8,7 +8,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphApp as _, ViewNodeRunner},
     render_resource::{
         BufferUsages, BufferVec, DynamicUniformBuffer, Shader, ShaderType, TextureUsages,
     },

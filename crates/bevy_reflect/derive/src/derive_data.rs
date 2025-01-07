@@ -17,7 +17,7 @@ use syn::token::Comma;
 
 use crate::generics::generate_generics;
 use syn::{
-    parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
+    parse_str, punctuated::Punctuated, spanned::Spanned as _, Data, DeriveInput, Field, Fields,
     GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 

@@ -107,7 +107,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
         #[cfg(target_os = "windows")]
         {
-            use winit::platform::windows::EventLoopBuilderExtWindows;
+            use winit::platform::windows::EventLoopBuilderExtWindows as _;
             event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 

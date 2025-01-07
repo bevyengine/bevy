@@ -254,7 +254,7 @@ mod tests {
     use crate::{
         // For bevy_ecs_macros
         self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
+        prelude::{AppTypeRegistry, Component, DetectChanges as _, World},
     };
 
     #[derive(Component, Reflect)]

@@ -1,7 +1,7 @@
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp as _, Assets, Handle};
-use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha as _, Color, ColorToComponents as _, LinearRgba};
 use bevy_image::Image;
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;

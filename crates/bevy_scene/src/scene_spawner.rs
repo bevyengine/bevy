@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt as _, Parent};
+use bevy_hierarchy::{BuildChildren as _, DespawnRecursiveExt as _, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -522,7 +522,7 @@ mod tests {
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
-        system::{Commands, Query, Res, ResMut, RunSystemOnce},
+        system::{Commands, Query, Res, ResMut, RunSystemOnce as _},
     };
     use bevy_reflect::Reflect;
 

@@ -1,8 +1,8 @@
 use bevy_ecs::{
     event::EventWriter,
     prelude::Schedule,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Commands, IntoSystem, ResMut},
+    schedule::{IntoSystemConfigs as _, IntoSystemSetConfigs as _},
+    system::{Commands, IntoSystem as _, ResMut},
 };
 
 use super::{states::States, take_next_state, transitions::*, NextState, State};

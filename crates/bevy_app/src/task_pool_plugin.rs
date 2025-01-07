@@ -8,7 +8,7 @@
 
 use crate::{App, Plugin};
 
-use alloc::string::ToString;
+use alloc::string::ToString as _;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;

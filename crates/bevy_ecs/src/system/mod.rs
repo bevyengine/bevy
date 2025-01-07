@@ -328,7 +328,7 @@ mod tests {
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
-        change_detection::DetectChanges,
+        change_detection::DetectChanges as _,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
@@ -336,12 +336,12 @@ mod tests {
         removal_detection::RemovedComponents,
         result::Result,
         schedule::{
-            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
+            common_conditions::resource_exists, ApplyDeferred, Condition as _, IntoSystemConfigs,
             Schedule,
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, Single, StaticSystemParam, System, SystemState,
+            Resource, Single, StaticSystemParam, System as _, SystemState,
         },
         world::{EntityMut, FromWorld, World},
     };
@@ -1620,7 +1620,7 @@ mod tests {
 
     #[test]
     fn assert_systems() {
-        use core::str::FromStr;
+        use core::str::FromStr as _;
 
         use crate::{prelude::*, system::assert_is_system};
 

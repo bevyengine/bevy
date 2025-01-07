@@ -1,6 +1,6 @@
 use core::f32::consts::TAU;
 
-use glam::FloatExt;
+use glam::FloatExt as _;
 
 use crate::{
     ops,

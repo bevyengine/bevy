@@ -3,7 +3,7 @@ use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use rodio::{
     source::{SineWave, TakeDuration},
-    Source,
+    Source as _,
 };
 
 /// A source of sine wave sound

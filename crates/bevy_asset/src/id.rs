@@ -418,7 +418,7 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        use core::hash::BuildHasher;
+        use core::hash::BuildHasher as _;
 
         bevy_utils::FixedHasher.hash_one(data)
     }

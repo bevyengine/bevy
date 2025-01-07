@@ -1,4 +1,4 @@
-use crate::{Image, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::DynamicImage;

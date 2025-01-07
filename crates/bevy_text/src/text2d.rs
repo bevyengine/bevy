@@ -9,7 +9,7 @@ use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
-    change_detection::{DetectChanges, Ref},
+    change_detection::{DetectChanges as _, Ref},
     component::{require, Component},
     entity::Entity,
     prelude::{ReflectComponent, With},
@@ -347,7 +347,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoSystemConfigs as _;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 

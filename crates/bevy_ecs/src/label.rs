@@ -186,7 +186,7 @@ macro_rules! define_label {
             }
 
             fn ref_hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
-                use ::core::{hash::Hash, ptr};
+                use ::core::{hash::Hash as _, ptr};
 
                 // Hash the type id...
                 self.as_dyn_eq().type_id().hash(state);

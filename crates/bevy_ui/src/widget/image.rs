@@ -8,7 +8,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 use bevy_window::{PrimaryWindow, Window};
-use taffy::{MaybeMath, MaybeResolve};
+use taffy::{MaybeMath as _, MaybeResolve as _};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]

@@ -26,7 +26,7 @@ use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use core::{
     any::Any,
     fmt,
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher as _},
     panic::Location,
 };
 

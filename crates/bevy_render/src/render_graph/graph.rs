@@ -671,7 +671,7 @@ impl Node for GraphInputNode {
 mod tests {
     use crate::{
         render_graph::{
-            node::IntoRenderNodeArray, Edge, InternedRenderLabel, Node, NodeRunError, RenderGraph,
+            node::IntoRenderNodeArray as _, Edge, InternedRenderLabel, Node, NodeRunError, RenderGraph,
             RenderGraphContext, RenderGraphError, RenderLabel, SlotInfo, SlotType,
         },
         renderer::RenderContext,

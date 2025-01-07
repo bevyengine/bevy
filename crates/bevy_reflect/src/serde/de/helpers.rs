@@ -1,5 +1,5 @@
 use alloc::{
-    string::{String, ToString},
+    string::{String, ToString as _},
     vec::Vec,
 };
 use core::{

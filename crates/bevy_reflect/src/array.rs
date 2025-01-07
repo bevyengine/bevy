@@ -9,7 +9,7 @@ use bevy_reflect_derive::impl_type_path;
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
+    hash::{Hash as _, Hasher as _},
 };
 
 /// A trait used to power [array-like] operations via [reflection].
@@ -507,7 +507,7 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> core::fmt::R
 }
 #[cfg(test)]
 mod tests {
-    use crate::Reflect;
+    use crate::Reflect as _;
     use alloc::boxed::Box;
 
     #[test]

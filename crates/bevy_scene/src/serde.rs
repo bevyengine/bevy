@@ -13,7 +13,7 @@ use bevy_utils::HashSet;
 use core::fmt::Formatter;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
-    ser::{SerializeMap, SerializeStruct},
+    ser::{SerializeMap as _, SerializeStruct as _},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
@@ -522,8 +522,8 @@ mod tests {
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-    use bincode::Options;
-    use serde::{de::DeserializeSeed, Deserialize, Serialize};
+    use bincode::Options as _;
+    use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
     use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]

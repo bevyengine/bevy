@@ -2,7 +2,7 @@ use crate::{
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     ArrayInfo, DynamicArray, TypeRegistry,
 };
-use alloc::{string::ToString, vec::Vec};
+use alloc::{string::ToString as _, vec::Vec};
 use core::{fmt, fmt::Formatter};
 use serde::de::{Error, SeqAccess, Visitor};
 

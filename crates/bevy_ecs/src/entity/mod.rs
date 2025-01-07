@@ -413,7 +413,7 @@ impl<'de> Deserialize<'de> for Entity {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
+        use serde::de::Error as _;
         let id: u64 = Deserialize::deserialize(deserializer)?;
         Entity::try_from_bits(id).map_err(D::Error::custom)
     }
@@ -1238,7 +1238,7 @@ mod tests {
     // part of the best-case performance changes in PR#9903.
     #[test]
     fn entity_hash_keeps_similar_ids_together() {
-        use core::hash::BuildHasher;
+        use core::hash::BuildHasher as _;
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
@@ -1253,7 +1253,7 @@ mod tests {
 
     #[test]
     fn entity_hash_id_bitflip_affects_high_7_bits() {
-        use core::hash::BuildHasher;
+        use core::hash::BuildHasher as _;
 
         let hash = EntityHash;
 

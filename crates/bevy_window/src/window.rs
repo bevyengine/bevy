@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, string::String};
+use alloc::{borrow::ToOwned as _, string::String};
 use core::num::NonZero;
 
 use bevy_ecs::{

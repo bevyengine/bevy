@@ -9,7 +9,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
 use bevy_image::Image;

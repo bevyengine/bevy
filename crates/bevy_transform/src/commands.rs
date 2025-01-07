@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::EntityCommands,
     world::{EntityWorldMut, World},
 };
-use bevy_hierarchy::BuildChildren;
+use bevy_hierarchy::BuildChildren as _;
 
 /// Collection of methods similar to [`BuildChildren`], but preserving each
 /// entity's [`GlobalTransform`].

@@ -42,7 +42,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{ArgList, IntoFunction};
+    use crate::func::{ArgList, IntoFunction as _};
 
     #[test]
     fn should_create_dynamic_function_mut_from_closure() {

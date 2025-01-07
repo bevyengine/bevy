@@ -9,7 +9,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -22,7 +22,7 @@ use bevy_transform::{
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
+    AppGizmoBuilder as _,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.

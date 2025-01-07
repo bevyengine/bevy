@@ -1,9 +1,9 @@
 use core::f32::consts::FRAC_PI_2;
 
-use glam::{Vec2, Vec3A, Vec3Swizzles};
+use glam::{Vec2, Vec3A, Vec3Swizzles as _};
 
 use crate::{
-    bounding::{BoundingCircle, BoundingVolume},
+    bounding::{BoundingCircle, BoundingVolume as _},
     ops,
     primitives::{
         Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Primitive2d,
@@ -270,7 +270,7 @@ mod tests {
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
-        bounding::{Bounded3d, BoundingVolume},
+        bounding::{Bounded3d as _, BoundingVolume as _},
         ops,
         primitives::{
             Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,

@@ -206,7 +206,7 @@ mod tests {
         system::Resource,
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, Parent};
+    use bevy_hierarchy::{BuildChildren as _, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;

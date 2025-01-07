@@ -327,7 +327,7 @@ pub enum EaseFunction {
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
-    use crate::{ops, FloatPow};
+    use crate::{ops, FloatPow as _};
 
     #[inline]
     pub(crate) fn linear(t: f32) -> f32 {

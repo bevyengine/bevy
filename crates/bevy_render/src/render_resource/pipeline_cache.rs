@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_tasks::Task;
 use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
-use core::{future::Future, hash::Hash, mem, ops::Deref};
+use core::{future::Future, hash::Hash, mem, ops::Deref as _};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;

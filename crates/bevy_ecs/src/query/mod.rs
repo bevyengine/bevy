@@ -112,9 +112,9 @@ mod tests {
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
             ReadOnlyQueryData, WorldQuery,
         },
-        schedule::{IntoSystemConfigs, Schedule},
+        schedule::{IntoSystemConfigs as _, Schedule},
         storage::{Table, TableRow},
-        system::{assert_is_system, IntoSystem, Query, System, SystemState},
+        system::{assert_is_system, IntoSystem, Query, System as _, SystemState},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};

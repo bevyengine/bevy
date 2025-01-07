@@ -70,7 +70,7 @@ pub trait Function: PartialReflect + Debug {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::IntoFunction;
+    use crate::func::IntoFunction as _;
     use alloc::boxed::Box;
 
     #[test]

@@ -7,9 +7,9 @@ use crate::{
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    prelude::{DetectChanges, Entity},
+    prelude::{DetectChanges as _, Entity},
     query::{Changed, Without},
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Commands, Query},
     world::Ref,
 };

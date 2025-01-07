@@ -15,7 +15,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned as _, token::Comma,
     ConstParam, DeriveInput, GenericParam, Index, TypeParam,
 };
 

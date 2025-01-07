@@ -4,7 +4,7 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     fmt::{Debug, Display},
     hash::Hash,
-    ops::Deref,
+    ops::Deref as _,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};

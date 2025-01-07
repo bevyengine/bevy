@@ -60,7 +60,7 @@
 use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
-    component::{ComponentId, ComponentMutability},
+    component::{ComponentId, ComponentMutability as _},
     entity::Entity,
     prelude::Component,
     world::{

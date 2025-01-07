@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned as _, vec::Vec};
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
@@ -18,7 +18,7 @@ use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
-    query::DebugCheckedUnwrap,
+    query::DebugCheckedUnwrap as _,
     world::World,
 };
 

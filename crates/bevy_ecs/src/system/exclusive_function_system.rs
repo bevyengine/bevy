@@ -2,7 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
-    schedule::{InternedSystemSet, SystemSet},
+    schedule::{InternedSystemSet, SystemSet as _},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
         System, SystemIn, SystemInput, SystemMeta,

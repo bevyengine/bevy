@@ -5,7 +5,7 @@ use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
+    prelude::{Commands, EventReader, IntoSystemConfigs as _, ResMut, Resource},
     schedule::{SystemConfigs, SystemSet},
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},

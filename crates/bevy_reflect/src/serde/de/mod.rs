@@ -26,13 +26,13 @@ mod tuples;
 mod tests {
     use alloc::{
         boxed::Box,
-        string::{String, ToString},
+        string::{String, ToString as _},
         vec,
         vec::Vec,
     };
-    use bincode::Options;
+    use bincode::Options as _;
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
-    use serde::{de::DeserializeSeed, Deserialize};
+    use serde::{de::DeserializeSeed as _, Deserialize};
     use serde::{de::IgnoredAny, Deserializer};
 
     use bevy_utils::{HashMap, HashSet};

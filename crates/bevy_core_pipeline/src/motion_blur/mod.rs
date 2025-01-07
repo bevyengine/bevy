@@ -12,13 +12,13 @@ use bevy_ecs::{
     component::{require, Component},
     query::With,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_graph::{RenderGraphApp as _, ViewNodeRunner},
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderSet,
 };

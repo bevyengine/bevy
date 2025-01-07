@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
+    hash::{Hash as _, Hasher as _},
 };
 
 use bevy_reflect_derive::impl_type_path;
@@ -534,7 +534,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::Reflect;
+    use crate::Reflect as _;
     use alloc::{boxed::Box, vec};
     use core::assert_eq;
 

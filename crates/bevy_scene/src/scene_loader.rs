@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypeRegistryArc;
 #[cfg(feature = "serialize")]
-use serde::de::DeserializeSeed;
+use serde::de::DeserializeSeed as _;
 use thiserror::Error;
 
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).

@@ -2,7 +2,7 @@ use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
     Struct, TypeInfo, TypeRegistry,
 };
-use serde::{ser::SerializeStruct, Serialize};
+use serde::{ser::SerializeStruct as _, Serialize};
 
 use super::ReflectSerializerProcessor;
 

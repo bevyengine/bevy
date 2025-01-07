@@ -2,7 +2,7 @@
 
 use crate::{
     primitives::{Measured2d, Triangle3d},
-    ShapeSample, Vec3,
+    ShapeSample as _, Vec3,
 };
 use alloc::vec::Vec;
 use rand::Rng;

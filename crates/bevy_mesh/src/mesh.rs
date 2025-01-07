@@ -6,7 +6,7 @@ use super::{
     GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
-    VertexFormatSize,
+    VertexFormatSize as _,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};

@@ -1,7 +1,7 @@
 use crate::{App, AppError, Plugin};
 use alloc::{
     boxed::Box,
-    string::{String, ToString},
+    string::{String, ToString as _},
     vec::Vec,
 };
 use bevy_utils::{hashbrown::hash_map::Entry, TypeIdMap};

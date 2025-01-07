@@ -5,7 +5,7 @@ use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, Mutable, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
-    query::DebugCheckedUnwrap,
+    query::DebugCheckedUnwrap as _,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };

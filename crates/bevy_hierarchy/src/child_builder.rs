@@ -604,7 +604,7 @@ impl BuildChildren for EntityWorldMut<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildChildren, ChildBuild};
+    use super::{BuildChildren as _, ChildBuild as _};
     use crate::{
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},

@@ -3,8 +3,8 @@ use crate::io::{
     PathStream, Reader, Writer,
 };
 use async_fs::{read_dir, File};
-use futures_io::AsyncSeek;
-use futures_lite::StreamExt;
+use futures_io::AsyncSeek as _;
+use futures_lite::StreamExt as _;
 
 use core::{pin::Pin, task, task::Poll};
 use std::path::Path;

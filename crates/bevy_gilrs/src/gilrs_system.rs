@@ -11,7 +11,7 @@ use bevy_input::gamepad::{
     GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter as _};
 
 pub fn gilrs_event_startup_system(
     mut commands: Commands,

@@ -3,8 +3,8 @@ use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::serde::ReflectSerializeWithRegistry;
 use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
-use core::borrow::Borrow;
-use serde::{Serialize, Serializer};
+use core::borrow::Borrow as _;
+use serde::{Serialize as _, Serializer};
 
 /// Attempts to serialize a [`PartialReflect`] value with custom [`ReflectSerialize`]
 /// or [`ReflectSerializeWithRegistry`] type data.

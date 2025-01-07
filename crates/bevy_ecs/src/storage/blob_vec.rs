@@ -502,7 +502,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
     use alloc::{
         rc::Rc,
-        string::{String, ToString},
+        string::{String, ToString as _},
     };
     use core::{alloc::Layout, cell::RefCell};
 

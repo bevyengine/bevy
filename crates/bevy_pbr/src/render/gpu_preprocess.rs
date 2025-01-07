@@ -29,7 +29,7 @@ use bevy_render::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, BufferBinding,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, Shader, ShaderStages, ShaderType,
+        DynamicBindGroupLayoutEntries, PipelineCache, Shader, ShaderStages, ShaderType as _,
         SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},

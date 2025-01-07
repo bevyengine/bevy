@@ -1056,7 +1056,7 @@ mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
     use bevy_utils::HashSet;
 
-    use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+    use crate::{Mesh, MeshBuilder as _, Meshable as _, VertexAttributeValues};
 
     fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
         let mut map = <HashSet<_>>::default();

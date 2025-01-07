@@ -8,7 +8,7 @@ use crate::{
     attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
     REFLECT_ATTRIBUTE_NAME,
 };
-use quote::ToTokens;
+use quote::ToTokens as _;
 use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
 
 mod kw {

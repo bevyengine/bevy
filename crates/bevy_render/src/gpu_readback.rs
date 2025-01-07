@@ -12,7 +12,7 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::schedule::IntoSystemConfigs as _;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
@@ -20,7 +20,7 @@ use bevy_ecs::{
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
-use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_image::{Image, TextureFormatPixelInfo as _};
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
 use bevy_utils::HashMap;

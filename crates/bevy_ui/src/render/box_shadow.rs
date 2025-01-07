@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha as _, ColorToComponents as _, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -19,7 +19,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::BevyDefault as _;
-use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles as _, Vec4Swizzles as _};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{

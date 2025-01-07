@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_convert_from() {
-        use sh::TaffyZero;
+        use sh::TaffyZero as _;
         use taffy::style_helpers as sh;
 
         let node = Node {

@@ -7,10 +7,10 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::DespawnRecursiveExt as _;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use rodio::{OutputStream, OutputStreamHandle, Sink, Source as _, SpatialSink};
 use tracing::warn;
 
-use crate::{AudioSink, AudioSinkPlayback};
+use crate::{AudioSink, AudioSinkPlayback as _};
 
 /// Used internally to play audio on the current "audio device"
 ///

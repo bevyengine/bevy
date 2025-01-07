@@ -202,7 +202,7 @@ mod tests {
 
     use super::*;
     use alloc::vec::Vec;
-    use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use approx::{assert_abs_diff_eq, AbsDiffEq as _};
 
     #[test]
     fn make_intervals() {

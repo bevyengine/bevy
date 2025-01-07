@@ -698,7 +698,7 @@ macro_rules! impl_type_path_tuple {
         $(#[$meta])*
         impl <$param: TypePath> TypePath for ($param,) {
             fn type_path() -> &'static str {
-                use $crate::__macro_exports::alloc_utils::ToOwned;
+                use $crate::__macro_exports::alloc_utils::ToOwned as _;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() + $param::type_path() + ",)"
@@ -706,7 +706,7 @@ macro_rules! impl_type_path_tuple {
             }
 
             fn short_type_path() -> &'static str {
-                use $crate::__macro_exports::alloc_utils::ToOwned;
+                use $crate::__macro_exports::alloc_utils::ToOwned as _;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() + $param::short_type_path() + ",)"
@@ -719,7 +719,7 @@ macro_rules! impl_type_path_tuple {
         $(#[$meta])*
         impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
             fn type_path() -> &'static str {
-                use $crate::__macro_exports::alloc_utils::ToOwned;
+                use $crate::__macro_exports::alloc_utils::ToOwned as _;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
@@ -727,7 +727,7 @@ macro_rules! impl_type_path_tuple {
             }
 
             fn short_type_path() -> &'static str {
-                use $crate::__macro_exports::alloc_utils::ToOwned;
+                use $crate::__macro_exports::alloc_utils::ToOwned as _;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"
@@ -796,7 +796,7 @@ const _: () = {
 
 #[cfg(test)]
 mod tests {
-    use super::Tuple;
+    use super::Tuple as _;
 
     #[test]
     fn next_index_increment() {

@@ -516,7 +516,7 @@ pub enum UntypedAssetConversionError {
 mod tests {
     use bevy_reflect::PartialReflect;
     use bevy_utils::FixedHasher;
-    use core::hash::BuildHasher;
+    use core::hash::BuildHasher as _;
 
     use super::*;
 

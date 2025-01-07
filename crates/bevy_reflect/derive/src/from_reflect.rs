@@ -1,7 +1,7 @@
 use crate::{
     container_attributes::REFLECT_DEFAULT,
     derive_data::ReflectEnum,
-    enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
+    enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder as _},
     field_attributes::DefaultBehavior,
     ident::ident_or_index,
     where_clause_options::WhereClauseOptions,
@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens as _};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct

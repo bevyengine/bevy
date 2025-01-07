@@ -58,7 +58,7 @@ impl VisitEntitiesMut for Entity {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        entity::{EntityHashMap, MapEntities, SceneEntityMapper},
+        entity::{EntityHashMap, MapEntities as _, SceneEntityMapper},
         world::World,
     };
     use alloc::{string::String, vec, vec::Vec};

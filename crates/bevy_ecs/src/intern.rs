@@ -4,7 +4,7 @@
 //! speed up code by shrinking the stack size of large types,
 //! and make comparisons for any type as fast as integers.
 
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::{borrow::ToOwned as _, boxed::Box};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
 
 #[cfg(feature = "std")]
@@ -180,9 +180,9 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{boxed::Box, string::ToString};
+    use alloc::{boxed::Box, string::ToString as _};
     use bevy_utils::FixedHasher;
-    use core::hash::{BuildHasher, Hash, Hasher};
+    use core::hash::{BuildHasher as _, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};
 

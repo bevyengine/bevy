@@ -2,7 +2,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
 };
 

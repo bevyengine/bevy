@@ -2,12 +2,12 @@ use alloc::{
     boxed::Box,
     collections::BTreeSet,
     format,
-    string::{String, ToString},
+    string::{String, ToString as _},
     vec,
     vec::Vec,
 };
 use bevy_utils::{default, HashMap, HashSet};
-use core::fmt::{Debug, Write};
+use core::fmt::{Debug, Write as _};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -25,7 +25,7 @@ use crate::{
     world::World,
 };
 
-use crate::{query::AccessConflicts, storage::SparseSetIndex};
+use crate::{query::AccessConflicts, storage::SparseSetIndex as _};
 pub use stepping::Stepping;
 use Direction::{Incoming, Outgoing};
 
@@ -2056,7 +2056,7 @@ mod tests {
         self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
-            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
+            tests::ResMut, IntoSystemConfigs as _, IntoSystemSetConfigs as _, Schedule,
             ScheduleBuildSettings, SystemSet,
         },
         system::Commands,

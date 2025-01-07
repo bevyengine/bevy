@@ -3,7 +3,7 @@ use crate::{
     DynamicTupleStruct, TupleStructInfo, TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
+use serde::de::{DeserializeSeed as _, SeqAccess, Visitor};
 
 use super::{registration_utils::try_get_registration, TypedReflectDeserializer};
 

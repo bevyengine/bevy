@@ -5,10 +5,10 @@ use crate::{
     entity::{Entity, EntityBorrow, EntitySet},
     prelude::FromWorld,
     query::{
-        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
+        Access, DebugCheckedUnwrap as _, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
         WorldQuery,
     },
-    storage::{SparseSetIndex, TableId},
+    storage::{SparseSetIndex as _, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 

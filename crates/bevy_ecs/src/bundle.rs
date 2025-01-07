@@ -16,7 +16,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
-    query::DebugCheckedUnwrap,
+    query::DebugCheckedUnwrap as _,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };

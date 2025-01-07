@@ -23,11 +23,11 @@ mod tests {
     use crate::{
         self as bevy_reflect,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
-        PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
+        PartialReflect, Reflect, ReflectSerialize, Struct as _, TypeRegistry,
     };
     use alloc::{
         boxed::Box,
-        string::{String, ToString},
+        string::{String, ToString as _},
         vec,
         vec::Vec,
     };
@@ -652,8 +652,8 @@ mod tests {
     #[cfg(feature = "functions")]
     mod functions {
         use super::*;
-        use crate::func::{DynamicFunction, IntoFunction};
-        use alloc::string::ToString;
+        use crate::func::{DynamicFunction, IntoFunction as _};
+        use alloc::string::ToString as _;
 
         #[test]
         fn should_not_serialize_function() {

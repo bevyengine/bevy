@@ -1,6 +1,6 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Dir3A, Ray3d, Vec3A,
 };
 

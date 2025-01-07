@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoSystemConfigs as _,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -20,7 +20,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,

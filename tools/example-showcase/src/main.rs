@@ -2,20 +2,20 @@
 
 use core::{
     fmt::Display,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher as _},
     time::Duration,
 };
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fs::{self, File},
-    io::Write,
+    io::Write as _,
     path::{Path, PathBuf},
     process::exit,
     thread,
     time::Instant,
 };
 
-use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
+use clap::{error::ErrorKind, CommandFactory as _, Parser, ValueEnum};
 use pbr::ProgressBar;
 use regex::Regex;
 use toml_edit::{DocumentMut, Item};

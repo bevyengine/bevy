@@ -630,10 +630,10 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
 
 #[cfg(test)]
 mod tests {
-    use super::{DynamicMap, Map};
+    use super::{DynamicMap, Map as _};
     use alloc::{
-        borrow::ToOwned,
-        string::{String, ToString},
+        borrow::ToOwned as _,
+        string::{String, ToString as _},
     };
 
     #[test]

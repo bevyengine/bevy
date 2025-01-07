@@ -1,6 +1,6 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
 use crate::{
-    ops::{self, FloatPow},
+    ops::{self, FloatPow as _},
     Dir2, Ray2d, Vec2,
 };
 

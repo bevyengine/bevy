@@ -1,4 +1,4 @@
-use crate::query::DebugCheckedUnwrap;
+use crate::query::DebugCheckedUnwrap as _;
 use alloc::{
     alloc::{alloc, handle_alloc_error, realloc},
     boxed::Box,

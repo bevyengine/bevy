@@ -187,7 +187,7 @@ impl From<Cone> for Mesh {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+    use crate::{Mesh, MeshBuilder as _, Meshable as _, VertexAttributeValues};
     use bevy_math::{primitives::Cone, Vec2};
 
     /// Rounds floats to handle floating point error in tests.

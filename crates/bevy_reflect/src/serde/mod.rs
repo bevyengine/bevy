@@ -11,9 +11,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
-        FromReflect, PartialReflect, Reflect, Struct,
+        FromReflect, PartialReflect as _, Reflect, Struct as _,
     };
-    use serde::de::DeserializeSeed;
+    use serde::de::DeserializeSeed as _;
 
     #[test]
     fn test_serialization_struct() {
@@ -194,7 +194,7 @@ mod tests {
         use core::any::TypeId;
         use core::fmt::{Debug, Formatter};
         use serde::de::{SeqAccess, Visitor};
-        use serde::ser::SerializeSeq;
+        use serde::ser::SerializeSeq as _;
         use serde::{Deserializer, Serialize, Serializer};
 
         #[reflect_trait]

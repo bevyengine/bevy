@@ -9,7 +9,7 @@ use crate::io::{
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
-    io::{Read, Seek, Write},
+    io::{Read as _, Seek as _, Write as _},
     path::{Path, PathBuf},
 };
 

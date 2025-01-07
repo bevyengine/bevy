@@ -1,6 +1,6 @@
 //! Tool used to build Bevy examples for wasm.
 
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write as _};
 
 use clap::{Parser, ValueEnum};
 use xshell::{cmd, Shell};

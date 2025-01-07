@@ -15,7 +15,7 @@ use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
     hash::Hash,
-    ops::{Deref, DerefMut},
+    ops::{Deref as _, DerefMut as _},
     panic,
 };
 

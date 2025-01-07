@@ -2,8 +2,8 @@ use crate::{
     CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
 };
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
-    entity::{Entity, EntityBorrow},
+    change_detection::DetectChangesMut as _,
+    entity::{Entity, EntityBorrow as _},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,

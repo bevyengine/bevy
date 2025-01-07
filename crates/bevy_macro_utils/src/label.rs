@@ -1,7 +1,7 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use std::collections::HashSet;
-use syn::{spanned::Spanned, Ident};
+use syn::{spanned::Spanned as _, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.
 ///

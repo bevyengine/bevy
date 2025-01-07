@@ -355,7 +355,7 @@ impl FunctionRegistryArc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{ArgList, IntoFunction};
+    use crate::func::{ArgList, IntoFunction as _};
     use alloc::format;
 
     #[test]

@@ -203,7 +203,7 @@ impl From<&ArgList<'_>> for ArgumentSignature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::TypedFunction;
+    use crate::func::TypedFunction as _;
     use alloc::{format, string::String, vec};
 
     #[test]

@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{
     boxed::Box,
-    string::{String, ToString},
+    string::{String, ToString as _},
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -1415,13 +1415,13 @@ mod tests {
     use std::sync::Mutex;
 
     use bevy_ecs::{
-        change_detection::{DetectChanges, ResMut},
+        change_detection::{DetectChanges as _, ResMut},
         component::Component,
         entity::Entity,
         event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
-        schedule::{IntoSystemConfigs, ScheduleLabel},
+        schedule::{IntoSystemConfigs as _, ScheduleLabel},
         system::{Commands, Query, Resource},
         world::{FromWorld, World},
     };

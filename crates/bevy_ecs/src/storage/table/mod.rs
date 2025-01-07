@@ -2,11 +2,11 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
-    query::DebugCheckedUnwrap,
+    query::DebugCheckedUnwrap as _,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref as _};
 use bevy_utils::HashMap;
 pub use column::*;
 #[cfg(feature = "track_location")]

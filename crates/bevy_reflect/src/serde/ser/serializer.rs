@@ -9,7 +9,7 @@ use crate::{
     },
     PartialReflect, ReflectRef, TypeRegistry,
 };
-use serde::{ser::SerializeMap, Serialize, Serializer};
+use serde::{ser::SerializeMap as _, Serialize, Serializer};
 
 use super::ReflectSerializerProcessor;
 

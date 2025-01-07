@@ -2,7 +2,7 @@ use crate::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
