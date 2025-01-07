@@ -86,7 +86,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use ureq::Agent;
 
     static AGENT: Lazy<Agent> = Lazy::new(|| {
-        use std::sync::Arc;
+        use alloc::sync::Arc;
         use ureq::{
             tls::{TlsConfig, TlsProvider},
             Agent,
