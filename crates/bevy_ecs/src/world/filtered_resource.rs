@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_location")]
+#[expect(unsafe_removed_from_name)]
 use bevy_ptr::UnsafeCellDeref as _;
 
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].

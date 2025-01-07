@@ -15,6 +15,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+#[expect(unsafe_removed_from_name)]
 use bevy_ptr::{OwningPtr, UnsafeCellDeref as _};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -2190,7 +2191,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
-///   
+///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.

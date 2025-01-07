@@ -18,6 +18,7 @@ use crate::{
 };
 use alloc::{borrow::ToOwned as _, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::{Resource, SystemParam};
+#[expect(unsafe_removed_from_name)]
 use bevy_ptr::UnsafeCellDeref as _;
 use bevy_utils::synccell::SyncCell;
 #[cfg(feature = "track_location")]

@@ -11,6 +11,7 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
+#[expect(unsafe_removed_from_name)]
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref as _};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;

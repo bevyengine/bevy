@@ -64,6 +64,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use portable_atomic::{AtomicU32, Ordering};
 
 #[cfg(feature = "track_location")]
+#[expect(unsafe_removed_from_name)]
 use bevy_ptr::UnsafeCellDeref as _;
 
 use core::panic::Location;
