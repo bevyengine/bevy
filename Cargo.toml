@@ -3877,7 +3877,7 @@ path = "examples/picking/debug_picking.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
-[package.metadata.example.picking_debug]
+[package.metadata.example.debug_picking]
 name = "Picking Debug Tools"
 description = "Demonstrates picking debug overlay"
 category = "Picking"
