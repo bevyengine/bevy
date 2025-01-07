@@ -47,16 +47,3 @@ pub use texture_atlas_builder::*;
 
 pub(crate) mod image_texture_conversion;
 pub use image_texture_conversion::IntoDynamicImageError;
-
-use bevy_app::prelude::*;
-use bevy_asset::AssetApp as _;
-/// Adds support for texture atlases.
-pub struct TextureAtlasPlugin;
-
-impl Plugin for TextureAtlasPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<TextureAtlasLayout>()
-            .register_asset_reflect::<TextureAtlasLayout>()
-            .register_type::<TextureAtlas>();
-    }
-}
