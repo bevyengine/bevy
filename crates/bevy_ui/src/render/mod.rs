@@ -564,9 +564,9 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 /// The ID of the subview associated with a camera on which UI is to be drawn.
 ///
-/// When UI is present, 3D cameras extract to two views: a 3D one and a UI one.
-/// The main 3D camera gets subview 0, and the corresponding UI camera gets this
-/// subview, 1.
+/// When UI is present, cameras extract to two views: the main 2D/3D one and a
+/// UI one. The main 2D or 3D camera gets subview 0, and the corresponding UI
+/// camera gets this subview, 1.
 const UI_CAMERA_SUBVIEW: u32 = 1;
 
 /// A render-world component that lives on the main render target view and
