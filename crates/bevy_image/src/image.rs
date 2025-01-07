@@ -843,9 +843,11 @@ impl Image {
         Image::new(size, dimension, data, format, asset_usage)
     }
 
-    /// Create a new zero-filled image with a given size, which can be rendered to.
-    /// This is primarily for use as a render target for a [`Camera`](`bevy_render::camera::Camera`).
-    /// See [`RenderTarget::Image`](`bevy_render::camera::RenderTarget::Image`).
+  /// Create a new zero-filled image with a given size, which can be rendered to. This is primarily
+  /// for use as a render target for a [`Camera`]. See [`RenderTarget::Image`].
+  ///
+  /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
+  /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
     pub fn new_target_texture(width: u32, height: u32) -> Self {
         let mut image = Self::default();
 
