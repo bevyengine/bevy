@@ -3581,12 +3581,6 @@ doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [[example]]
-name = "picking_debug"
-path = "examples/dev_tools/picking_debug.rs"
-doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
-
-[[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
 doc-scrape-examples = true
@@ -3876,6 +3870,18 @@ description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
 required-features = ["bevy_sprite_picking_backend"]
+
+[[example]]
+name = "debug_picking"
+path = "examples/picking/debug_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.picking_debug]
+name = "Picking Debug Tools"
+description = "Demonstrates picking debug overlay"
+category = "Picking"
+wasm = true
 
 [[example]]
 name = "animation_masks"
