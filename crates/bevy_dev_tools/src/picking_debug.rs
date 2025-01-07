@@ -16,7 +16,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
-use bevy_utils::tracing::{debug, trace};
+use tracing::{debug, trace};
 
 /// This resource determines the runtime behavior of the debug plugin.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, Resource)]
