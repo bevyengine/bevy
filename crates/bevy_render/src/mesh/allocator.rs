@@ -15,8 +15,9 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_utils::{default, tracing::error, HashMap, HashSet};
+use bevy_utils::{default, HashMap, HashSet};
 use offset_allocator::{Allocation, Allocator};
+use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
@@ -155,7 +156,6 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
-#[allow(clippy::large_enum_variant)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -526,7 +526,10 @@ impl MeshAllocator {
     }
 
     /// A generic function that copies either vertex or index data into a slab.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+    )]
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,

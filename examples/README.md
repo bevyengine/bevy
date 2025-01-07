@@ -195,6 +195,8 @@ Example | Description
 Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
+[Animated Fox Control](../examples/animation/animated_fox_control.rs) | Plays an animation from a skinned glTF with keyboard controls
+[Animated Fox Events](../examples/animation/animated_fox_events.rs) | Plays an animation from a skinned glTF with events
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
@@ -381,6 +383,7 @@ Example | Description
 Example | Description
 --- | ---
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
+[Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 [Sprite Picking](../examples/picking/sprite_picking.rs) | Demonstrates picking sprites and sprite atlases
 

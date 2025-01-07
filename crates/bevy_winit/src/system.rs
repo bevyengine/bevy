@@ -7,11 +7,11 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_input::keyboard::KeyboardFocusLost;
-use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
     WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
+use tracing::{error, info, warn};
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
@@ -550,8 +550,15 @@ pub(crate) fn changed_windows(
                     _ => winit_window.recognize_pan_gesture(false, 0, 0),
                 }
             }
-        }
 
+            if window.prefers_home_indicator_hidden != cache.window.prefers_home_indicator_hidden {
+                winit_window
+                    .set_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+            }
+            if window.prefers_status_bar_hidden != cache.window.prefers_status_bar_hidden {
+                winit_window.set_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
+            }
+        }
         cache.window = window.clone();
     }
 }

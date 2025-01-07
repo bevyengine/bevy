@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input_focus"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Keyboard focus management"
 homepage = "https://bevyengine.org"
@@ -10,14 +10,17 @@ keywords = ["bevy"]
 rust-version = "1.83.0"
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.15.0-dev", default-features = false }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
-bevy_window = { path = "../bevy_window", version = "0.15.0-dev", default-features = false }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
+bevy_window = { path = "../bevy_window", version = "0.16.0-dev", default-features = false }
 
+# other
 thiserror = { version = "2", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 smol_str = "0.2"

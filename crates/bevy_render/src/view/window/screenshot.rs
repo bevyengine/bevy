@@ -26,11 +26,7 @@ use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::{
-    default,
-    tracing::{error, info, warn},
-    HashSet,
-};
+use bevy_utils::{default, HashSet};
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::ops::Deref;
 use std::{
@@ -40,6 +36,7 @@ use std::{
         Mutex,
     },
 };
+use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
@@ -254,7 +251,10 @@ fn extract_screenshots(
     system_state.apply(&mut main_world);
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 fn prepare_screenshots(
     targets: Res<RenderScreenshotTargets>,
     mut prepared: ResMut<RenderScreenshotsPrepared>,
@@ -579,7 +579,10 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 fn render_screenshot(
     encoder: &mut CommandEncoder,
     prepared: &RenderScreenshotsPrepared,
@@ -628,7 +631,7 @@ fn render_screenshot(
 
 pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("collect_screenshots").entered();
+    let _span = tracing::info_span!("collect_screenshots").entered();
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();

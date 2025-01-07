@@ -2,15 +2,13 @@
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
-use core::cmp::Reverse;
-
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{prelude::*, FloatExt, FloatOrd};
+use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
@@ -56,7 +54,10 @@ impl Plugin for SpritePickingPlugin {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection)>,
@@ -83,7 +84,11 @@ fn sprite_picking(
             }
         })
         .collect();
-    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
+
+    // radsort is a stable radix sort that performed better than `slice::sort_by_key`
+    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _)| {
+        -transform.translation().z
+    });
 
     let primary_window = primary_window.get_single().ok();
 

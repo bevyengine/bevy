@@ -72,6 +72,8 @@ pub fn ui_picking(
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
 
+    let default_camera_entity = default_ui_camera.get();
+
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
             Some(*pointer).zip(pointer_location.location().cloned())
@@ -133,7 +135,7 @@ pub fn ui_picking(
         let Some(camera_entity) = node
             .target_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -189,7 +191,7 @@ pub fn ui_picking(
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
+                .or(default_camera_entity)
             else {
                 continue;
             };

@@ -342,6 +342,15 @@ pub trait AsBindGroup {
         None
     }
 
+    /// True if the hardware *actually* supports bindless textures for this
+    /// type, taking the device and driver capabilities into account.
+    ///
+    /// If this type doesn't use bindless textures, then the return value from
+    /// this function is meaningless.
+    fn bindless_supported(_: &RenderDevice) -> bool {
+        true
+    }
+
     /// label
     fn label() -> Option<&'static str> {
         None
