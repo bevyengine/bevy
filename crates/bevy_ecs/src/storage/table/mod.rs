@@ -6,7 +6,7 @@ use crate::{
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
-#[expect(unsafe_removed_from_name)]
+#[expect(clippy::unsafe_removed_from_name)]
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref as _};
 use bevy_utils::HashMap;
 pub use column::*;

@@ -5,7 +5,7 @@ use crate::{
     storage::{blob_vec::BlobVec, SparseSet},
 };
 use alloc::string::String;
-#[expect(unsafe_removed_from_name)]
+#[expect(clippy::unsafe_removed_from_name)]
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref as _};
 #[cfg(feature = "track_location")]
 use core::panic::Location;

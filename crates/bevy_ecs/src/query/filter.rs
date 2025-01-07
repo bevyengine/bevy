@@ -6,7 +6,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-#[expect(unsafe_removed_from_name)]
+#[expect(clippy::unsafe_removed_from_name)]
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref as _};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;

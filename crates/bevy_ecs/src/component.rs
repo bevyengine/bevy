@@ -15,7 +15,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
-#[expect(unsafe_removed_from_name)]
+#[expect(clippy::unsafe_removed_from_name)]
 use bevy_ptr::{OwningPtr, UnsafeCellDeref as _};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;

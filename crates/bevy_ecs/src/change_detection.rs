@@ -6,7 +6,7 @@ use crate::{
     system::Resource,
 };
 use alloc::borrow::ToOwned;
-#[expect(unsafe_removed_from_name)]
+#[expect(clippy::unsafe_removed_from_name)]
 use bevy_ptr::{Ptr, UnsafeCellDeref as _};
 use core::{
     mem,
