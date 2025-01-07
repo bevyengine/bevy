@@ -182,6 +182,8 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Uint16x4 | VertexFormat::Unorm16x4 => size_of::<u16>() * 4,
             VertexFormat::Sint16x2 | VertexFormat::Snorm16x2 => size_of::<i16>() * 2,
             VertexFormat::Sint16x4 | VertexFormat::Snorm16x4 => size_of::<i16>() * 4,
+            // NOTE: As of the time of writing this code, `f16` is not a stabilized primitive, so we
+            // can't use `size_of::<f16>()` here.
             VertexFormat::Float16x2 => 2 * 2,
             VertexFormat::Float16x4 => 2 * 4,
             VertexFormat::Float32 => size_of::<f32>(),
