@@ -89,10 +89,10 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 serialize = [
   "bevy_color?/serialize",
   "bevy_ecs/serialize",
+  "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
   "bevy_scene?/serialize",
-  "bevy_sprite?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",

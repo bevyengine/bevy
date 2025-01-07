@@ -1,8 +1,6 @@
 use core::ops::Range;
 
-use crate::{
-    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
-};
+use crate::{ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -17,7 +15,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;

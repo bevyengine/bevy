@@ -16,7 +16,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
@@ -26,7 +26,7 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};

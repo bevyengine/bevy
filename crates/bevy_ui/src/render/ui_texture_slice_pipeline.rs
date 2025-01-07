@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};

@@ -3,14 +3,13 @@ use bevy_ecs::{
     event::EventReader,
     system::{ResMut, Resource},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};

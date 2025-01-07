@@ -20,7 +20,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -42,7 +42,6 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
