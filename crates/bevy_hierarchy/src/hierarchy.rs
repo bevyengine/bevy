@@ -68,31 +68,37 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let warn = true;
-        self.queue(move |entity: Entity, world: &mut World| {
+        self.queue(move |mut entity: EntityWorldMut| {
+            let id = entity.id();
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!(
                 "command",
                 name = "DespawnRecursive",
-                entity = tracing::field::debug(entity),
+                entity = tracing::field::debug(id),
                 warn = tracing::field::debug(warn)
             )
             .entered();
-            despawn_with_children_recursive(world, entity, warn);
+            entity.world_scope(|world| {
+                despawn_with_children_recursive(world, id, warn);
+            });
         });
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
         let warn = true;
-        self.queue(move |entity: Entity, world: &mut World| {
+        self.queue(move |mut entity: EntityWorldMut| {
+            let id = entity.id();
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!(
                 "command",
                 name = "DespawnChildrenRecursive",
-                entity = tracing::field::debug(entity),
+                entity = tracing::field::debug(id),
                 warn = tracing::field::debug(warn)
             )
             .entered();
-            despawn_children_recursive(world, entity, warn);
+            entity.world_scope(|world| {
+                despawn_children_recursive(world, id, warn);
+            });
         });
         self
     }
@@ -101,31 +107,37 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     /// This will never emit warnings.
     fn try_despawn_recursive(mut self) {
         let warn = false;
-        self.queue(move |entity: Entity, world: &mut World| {
+        self.queue(move |mut entity: EntityWorldMut| {
+            let id = entity.id();
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!(
                 "command",
                 name = "TryDespawnRecursive",
-                entity = tracing::field::debug(entity),
+                entity = tracing::field::debug(id),
                 warn = tracing::field::debug(warn)
             )
             .entered();
-            despawn_with_children_recursive(world, entity, warn);
+            entity.world_scope(|world| {
+                despawn_with_children_recursive(world, id, warn);
+            });
         });
     }
 
     fn try_despawn_descendants(&mut self) -> &mut Self {
         let warn = false;
-        self.queue(move |entity: Entity, world: &mut World| {
+        self.queue(move |mut entity: EntityWorldMut| {
+            let id = entity.id();
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!(
                 "command",
                 name = "TryDespawnChildrenRecursive",
-                entity = tracing::field::debug(entity),
+                entity = tracing::field::debug(id),
                 warn = tracing::field::debug(warn)
             )
             .entered();
-            despawn_children_recursive(world, entity, warn);
+            entity.world_scope(|world| {
+                despawn_children_recursive(world, id, warn);
+            });
         });
         self
     }
@@ -250,7 +262,7 @@ mod tests {
     use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
     use bevy_ecs::{
         component::Component,
-        system::{error_handler, Commands},
+        system::Commands,
         world::{CommandQueue, World},
     };
 
@@ -310,7 +322,6 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.override_error_handler(error_handler::silent());
             commands.entity(parent_entity).despawn_recursive();
             // despawning the same entity twice should not panic
             commands.entity(parent_entity).despawn_recursive();

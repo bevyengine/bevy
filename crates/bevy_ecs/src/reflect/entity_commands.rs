@@ -169,10 +169,8 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect(component);
         })
     }
 
@@ -180,19 +178,15 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect_with_registry::<T>(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect_with_registry::<T>(component);
         })
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect(component_type_path);
         })
     }
 
@@ -201,10 +195,8 @@ impl ReflectCommandExt for EntityCommands<'_> {
         component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect_with_registry::<T>(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect_with_registry::<T>(component_type_path);
         })
     }
 }

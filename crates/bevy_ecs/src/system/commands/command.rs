@@ -12,9 +12,9 @@ use crate::{
     entity::Entity,
     event::{Event, Events},
     observer::TriggerTargets,
-    result::Result,
+    result::{Error, Result},
     schedule::ScheduleLabel,
-    system::{CommandError, IntoSystem, Resource, SystemId, SystemInput},
+    system::{error_handler, IntoSystem, Resource, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -45,91 +45,57 @@ use crate::{
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-///
-/// # Note on Generic
-///
-/// The `Marker` generic is necessary to allow multiple blanket implementations
-/// of `Command` for closures, like so:
-/// ```ignore (This would conflict with the real implementations)
-/// impl Command for FnOnce(&mut World)
-/// impl Command<Result> for FnOnce(&mut World) -> Result
-/// ```
-/// Without the generic, Rust would consider the two implementations to be conflicting.
-///
-/// The type used for `Marker` has no connection to anything else in the implementation.
-pub trait Command<Marker = ()>: Send + 'static {
+pub trait Command<T = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> Result;
-
-    /// Applies this command and converts any resulting error into a [`CommandError`].
-    ///
-    /// Overwriting this method allows an implementor to return a `CommandError` directly
-    /// and avoid erasing the error's type.
-    fn apply_internal(self, world: &mut World) -> Result<(), CommandError>
-    where
-        Self: Sized,
-    {
-        match self.apply(world) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(CommandError::CommandFailed(error)),
-        }
-    }
-
-    /// Returns a new [`Command`] that, when applied, will apply the original command
-    /// and pass any resulting error to the provided `error_handler`.
-    fn with_error_handling(
-        self,
-        error_handler: Option<fn(&mut World, CommandError)>,
-    ) -> impl Command
-    where
-        Self: Sized,
-    {
-        move |world: &mut World| {
-            if let Err(error) = self.apply_internal(world) {
-                // TODO: Pass the error to the global error handler if `error_handler` is `None`.
-                let error_handler = error_handler.unwrap_or(|_, error| panic!("{error}"));
-                error_handler(world, error);
-            }
-        }
-    }
+    fn apply(self, world: &mut World) -> T;
 }
 
-impl<F> Command for F
+impl<F, T> Command<T> for F
 where
-    F: FnOnce(&mut World) + Send + 'static,
+    F: FnOnce(&mut World) -> T + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> Result {
-        self(world);
-        Ok(())
-    }
-}
-
-impl<F> Command<Result> for F
-where
-    F: FnOnce(&mut World) -> Result + Send + 'static,
-{
-    fn apply(self, world: &mut World) -> Result {
+    fn apply(self, world: &mut World) -> T {
         self(world)
     }
 }
 
-/// Necessary to avoid erasing the type of the `CommandError` in
-/// [`EntityCommand::with_entity`](crate::system::EntityCommand::with_entity).
-impl<F> Command<(Result, CommandError)> for F
-where
-    F: FnOnce(&mut World) -> Result<(), CommandError> + Send + 'static,
-{
-    fn apply(self, world: &mut World) -> Result {
-        self(world)?;
-        Ok(())
+/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+/// a [`Command`] that internally handles an error if it occurs and returns `()`.
+pub trait HandleError {
+    /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command;
+    /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
+    /// a [`Command`] that internally handles an error if it occurs and returns `()`.
+    fn handle_error(self) -> impl Command
+    where
+        Self: Sized,
+    {
+        self.handle_error_with(error_handler::default())
     }
+}
 
-    fn apply_internal(self, world: &mut World) -> Result<(), CommandError> {
-        self(world)
+impl<C: Command<Result>> HandleError for C {
+    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command {
+        move |world: &mut World| match self.apply(world) {
+            Ok(_) => {}
+            Err(err) => (error_handler)(world, err),
+        }
+    }
+}
+
+/// Takes a [`Command`] that returns a [`Result`] with an error that can be converted into the [`Error`] type
+/// and returns a [`Command`] that internally converts that error to [`Error`] (if it occurs).
+pub fn map_command_err<T, E: Into<Error>>(
+    command: impl Command<Result<T, E>>,
+) -> impl Command<Result<T, Error>> {
+    move |world: &mut World| match command.apply(world) {
+        Ok(result) => Ok(result),
+        Err(err) => Err(err.into()),
     }
 }
 
