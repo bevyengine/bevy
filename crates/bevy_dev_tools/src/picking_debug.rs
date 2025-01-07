@@ -1,8 +1,5 @@
 //! Text and on-screen debugging tools
 
-use core::cmp::Ordering;
-use core::fmt::{Debug, Display, Formatter, Result};
-
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::prelude::*;
@@ -16,6 +13,8 @@ use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
+use core::cmp::Ordering;
+use core::fmt::{Debug, Display, Formatter, Result};
 use tracing::{debug, trace};
 
 /// This resource determines the runtime behavior of the debug plugin.
@@ -181,7 +180,7 @@ pub struct PointerDebug {
     pub press: PointerPress,
 
     /// List of hit elements to be displayed.
-    pub hits: Vec<(DebugName, HitData)>,
+    pub hits: Vec<(String, HitData)>,
 }
 
 fn bool_to_icon(f: &mut Formatter, prefix: &str, input: bool) -> Result {
@@ -213,7 +212,7 @@ impl Display for PointerDebug {
 /// Update typed debug data used to draw overlays
 pub fn update_debug_data(
     hover_map: Res<HoverMap>,
-    names: Query<&Name>,
+    entity_names: Query<NameOrEntity>,
     mut pointers: Query<(
         &PointerId,
         &pointer::PointerLocation,
@@ -221,7 +220,7 @@ pub fn update_debug_data(
         &mut PointerDebug,
     )>,
 ) {
-    for (id, location, press, mut debug) in pointers.iter_mut() {
+    for (id, location, press, mut debug) in &mut pointers {
         *debug = PointerDebug {
             location: location.location().cloned(),
             press: press.to_owned(),
@@ -229,37 +228,15 @@ pub fn update_debug_data(
                 .get(id)
                 .iter()
                 .flat_map(|h| h.iter())
-                .map(|(e, h)| {
-                    (
-                        if let Ok(name) = names.get(*e) {
-                            DebugName::Name(name.clone(), *e)
-                        } else {
-                            DebugName::Entity(*e)
-                        },
-                        h.to_owned(),
-                    )
+                .filter_map(|(e, h)| {
+                    if let Ok(entity_name) = entity_names.get(*e) {
+                        Some((entity_name.to_string(), h.to_owned()))
+                    } else {
+                        None
+                    }
                 })
                 .collect(),
         };
-    }
-}
-
-/// Enum representing either a named or unnamed entity.
-#[derive(Clone, PartialEq, PartialOrd, Ord, Eq)]
-pub enum DebugName {
-    /// A named entity.
-    Name(Name, Entity),
-
-    /// An unnamed entity.
-    Entity(Entity),
-}
-
-impl Debug for DebugName {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        match self {
-            Self::Name(name, entity) => write!(f, "{} ({:?})", name.as_str(), entity),
-            Self::Entity(entity) => write!(f, "{entity:?}"),
-        }
     }
 }
 
