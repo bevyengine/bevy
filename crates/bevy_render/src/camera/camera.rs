@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
+)]
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -893,7 +897,10 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
