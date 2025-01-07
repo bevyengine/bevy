@@ -14,10 +14,10 @@ default = ["bevy_reflect"]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
-    "dep:bevy_reflect",
-    "bevy_app/bevy_reflect",
-    "bevy_ecs/bevy_reflect",
-    "bevy_math/bevy_reflect",
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_math/bevy_reflect",
 ]
 
 [dependencies]
