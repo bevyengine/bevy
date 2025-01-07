@@ -323,6 +323,12 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
+
+    /// Returns this [`TextFont`] with the specified [`LineHeight`].
+    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
+        self.line_height = line_height;
+        self
+    }
 }
 
 impl Default for TextFont {
