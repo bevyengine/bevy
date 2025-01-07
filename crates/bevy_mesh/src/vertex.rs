@@ -171,47 +171,40 @@ pub trait VertexFormatSize {
 
 impl VertexFormatSize for VertexFormat {
     fn get_size(self) -> u64 {
-        match self {
-            VertexFormat::Uint8x2
-            | VertexFormat::Sint8x2
-            | VertexFormat::Unorm8x2
-            | VertexFormat::Snorm8x2 => 2,
+        use core::mem::size_of;
+        let size = match self {
+            VertexFormat::Uint8x2 | VertexFormat::Unorm8x2 => size_of::<u8>() * 2,
+            VertexFormat::Uint8x4 | VertexFormat::Unorm8x4 => size_of::<u8>() * 4,
+            VertexFormat::Sint8x2 | VertexFormat::Snorm8x2 => size_of::<i8>() * 2,
+            VertexFormat::Sint8x4 | VertexFormat::Snorm8x4 => size_of::<i8>() * 4,
+            VertexFormat::Unorm10_10_10_2 => 10 + 10 + 10 + 2,
+            VertexFormat::Uint16x2 | VertexFormat::Unorm16x2 => size_of::<u16>() * 2,
+            VertexFormat::Uint16x4 | VertexFormat::Unorm16x4 => size_of::<u16>() * 4,
+            VertexFormat::Sint16x2 | VertexFormat::Snorm16x2 => size_of::<i16>() * 2,
+            VertexFormat::Sint16x4 | VertexFormat::Snorm16x4 => size_of::<i16>() * 4,
+            VertexFormat::Float16x2 => 2 * 2,
+            VertexFormat::Float16x4 => 2 * 4,
+            VertexFormat::Float32 => size_of::<f32>(),
+            VertexFormat::Float32x2 => size_of::<f32>() * 2,
+            VertexFormat::Float32x3 => size_of::<f32>() * 3,
+            VertexFormat::Float32x4 => size_of::<f32>() * 4,
+            VertexFormat::Uint32 => size_of::<u32>(),
+            VertexFormat::Uint32x2 => size_of::<u32>() * 2,
+            VertexFormat::Uint32x3 => size_of::<u32>() * 3,
+            VertexFormat::Uint32x4 => size_of::<u32>() * 4,
+            VertexFormat::Sint32 => size_of::<i32>(),
+            VertexFormat::Sint32x2 => size_of::<i32>() * 2,
+            VertexFormat::Sint32x3 => size_of::<i32>() * 3,
+            VertexFormat::Sint32x4 => size_of::<i32>() * 4,
+            VertexFormat::Float64 => size_of::<f64>(),
+            VertexFormat::Float64x2 => size_of::<f64>() * 2,
+            VertexFormat::Float64x3 => size_of::<f64>() * 3,
+            VertexFormat::Float64x4 => size_of::<f64>() * 4,
+        };
 
-            VertexFormat::Uint8x4
-            | VertexFormat::Sint8x4
-            | VertexFormat::Unorm8x4
-            | VertexFormat::Snorm8x4
-            | VertexFormat::Unorm10_10_10_2
-            | VertexFormat::Uint16x2
-            | VertexFormat::Sint16x2
-            | VertexFormat::Unorm16x2
-            | VertexFormat::Snorm16x2
-            | VertexFormat::Float16x2
-            | VertexFormat::Float32
-            | VertexFormat::Uint32
-            | VertexFormat::Sint32 => 4,
-
-            VertexFormat::Uint16x4
-            | VertexFormat::Sint16x4
-            | VertexFormat::Unorm16x4
-            | VertexFormat::Snorm16x4
-            | VertexFormat::Float16x4
-            | VertexFormat::Float32x2
-            | VertexFormat::Uint32x2
-            | VertexFormat::Sint32x2
-            | VertexFormat::Float64 => 8,
-
-            VertexFormat::Float32x3 | VertexFormat::Uint32x3 | VertexFormat::Sint32x3 => 12,
-
-            VertexFormat::Float32x4
-            | VertexFormat::Uint32x4
-            | VertexFormat::Sint32x4
-            | VertexFormat::Float64x2 => 16,
-
-            VertexFormat::Float64x3 => 24,
-
-            VertexFormat::Float64x4 => 32,
-        }
+        // We can safely cast `size` (a `usize`) into a `u64`, as we don't even reach the limits of
+        // of a `u8`.
+        size.try_into().unwrap()
     }
 }
 
