@@ -61,7 +61,7 @@ pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp};
+use bevy_asset::{Asset, AssetApp as _};
 use bevy_ecs::prelude::*;
 use bevy_transform::TransformSystem;
 

@@ -13,7 +13,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetApp as _, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},

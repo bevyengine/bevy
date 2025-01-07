@@ -290,7 +290,7 @@ mod tests {
     use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
     use core::num::NonZero;
 
-    use crate::{AssetApp, Assets};
+    use crate::{AssetApp as _, Assets};
     use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::{

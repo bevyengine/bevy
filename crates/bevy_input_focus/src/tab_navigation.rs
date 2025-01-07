@@ -31,7 +31,7 @@ use bevy_ecs::{
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
+use bevy_hierarchy::{Children, HierarchyQueryExt as _, Parent};
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,

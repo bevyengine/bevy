@@ -5,7 +5,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_ecs::component::ComponentCloneHandler;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
-use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
+use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt as _};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{criterion_group, Bencher, Criterion, Throughput};

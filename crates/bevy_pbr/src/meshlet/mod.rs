@@ -59,7 +59,7 @@ use self::{
 use crate::graph::NodePbr;
 use crate::PreviousGlobalTransform;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
+use bevy_asset::{load_internal_asset, AssetApp as _, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},

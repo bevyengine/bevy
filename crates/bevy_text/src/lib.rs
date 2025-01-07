@@ -69,7 +69,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, Animation};
-use bevy_asset::AssetApp;
+use bevy_asset::AssetApp as _;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;

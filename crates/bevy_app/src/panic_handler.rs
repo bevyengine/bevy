@@ -15,7 +15,7 @@ use crate::{App, Plugin};
 /// * Other platforms are currently not setup.
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup, PanicHandlerPlugin};
+/// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup as _, PanicHandlerPlugin};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(MinimalPlugins)
@@ -27,7 +27,7 @@ use crate::{App, Plugin};
 /// If you want to setup your own panic handler, you should disable this
 /// plugin from `DefaultPlugins`:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, PanicHandlerPlugin};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, PanicHandlerPlugin};
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins.build().disable::<PanicHandlerPlugin>())

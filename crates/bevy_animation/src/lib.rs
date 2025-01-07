@@ -37,7 +37,7 @@ use crate::{
 };
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets};
+use bevy_asset::{Asset, AssetApp as _, Assets};
 use bevy_ecs::{
     entity::{VisitEntities, VisitEntitiesMut},
     prelude::*,
@@ -48,7 +48,7 @@ use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt as _, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;

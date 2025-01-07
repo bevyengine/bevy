@@ -101,7 +101,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, AssetApp as _, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;

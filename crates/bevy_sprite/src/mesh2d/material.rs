@@ -3,7 +3,7 @@ use crate::{
     SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
+use bevy_asset::{Asset, AssetApp as _, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},

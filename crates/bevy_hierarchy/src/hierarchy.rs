@@ -254,11 +254,11 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use super::DespawnRecursiveExt;
+    use super::DespawnRecursiveExt as _;
     use crate::{
         child_builder::{BuildChildren, ChildBuild},
         components::Children,
-        CloneEntityHierarchyExt,
+        CloneEntityHierarchyExt as _,
     };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]

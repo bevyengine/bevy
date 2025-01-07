@@ -1,5 +1,5 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, AssetApp as _, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,

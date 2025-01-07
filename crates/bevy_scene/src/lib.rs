@@ -48,7 +48,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AssetApp;
+use bevy_asset::AssetApp as _;
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]

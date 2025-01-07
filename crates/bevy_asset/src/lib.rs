@@ -635,7 +635,7 @@ mod tests {
             AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
+        Asset, AssetApp as _, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets,
     };
     use alloc::sync::Arc;

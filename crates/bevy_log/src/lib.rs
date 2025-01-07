@@ -88,7 +88,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///
 /// You can configure this plugin.
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _};
 /// # use bevy_log::LogPlugin;
 /// # use tracing::Level;
 /// fn main() {
@@ -114,7 +114,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// convention is documented at [no-color.org](https://no-color.org/).
 /// For example:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     std::env::set_var("NO_COLOR", "1");
@@ -127,7 +127,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins`:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
@@ -141,7 +141,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// log data, you can configure the plugin as shown below.
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _};
 /// # use bevy_log::*;
 /// App::new()
 ///     .add_plugins(DefaultPlugins.set(LogPlugin {
@@ -178,7 +178,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _};
 /// # use bevy_log::*;
 /// App::new()
 ///     .add_plugins(DefaultPlugins.set(LogPlugin {

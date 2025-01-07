@@ -26,7 +26,7 @@ pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
+use bevy_hierarchy::{HierarchyQueryExt as _, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_hierarchy::DespawnRecursiveExt as _;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};

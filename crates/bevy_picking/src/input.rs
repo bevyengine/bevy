@@ -13,7 +13,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_hierarchy::DespawnRecursiveExt as _;
 use bevy_input::{
     prelude::*,
     touch::{TouchInput, TouchPhase},

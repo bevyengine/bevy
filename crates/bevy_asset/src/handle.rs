@@ -627,7 +627,7 @@ mod tests {
     /// `Reflect::clone_value` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
+        use crate::{AssetApp as _, AssetPlugin, Assets, VisitAssetDependencies};
         use bevy_app::App;
         use bevy_reflect::FromReflect;
 

@@ -18,7 +18,7 @@ use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, Assets, Handle};
+use bevy_asset::{AssetApp as _, Assets, Handle};
 use bevy_ecs::prelude::*;
 
 /// A handle to a 1 x 1 transparent white image.

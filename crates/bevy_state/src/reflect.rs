@@ -100,7 +100,7 @@ impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMu
 mod tests {
     use crate as bevy_state;
     use crate::{
-        app::{AppExtStates, StatesPlugin},
+        app::{AppExtStates as _, StatesPlugin},
         reflect::{ReflectFreelyMutableState, ReflectState},
         state::State,
     };

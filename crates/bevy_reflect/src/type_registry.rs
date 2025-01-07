@@ -36,8 +36,7 @@ pub struct TypeRegistry {
     ambiguous_names: HashSet<&'static str>,
 }
 
-// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't
-// need a TypeRegistry ref
+// TODO: remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't need a TypeRegistry ref
 /// A synchronized wrapper around a [`TypeRegistry`].
 #[derive(Clone, Default)]
 pub struct TypeRegistryArc {

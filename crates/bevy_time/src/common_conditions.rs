@@ -6,7 +6,7 @@ use core::time::Duration;
 /// the timer. The timer ticks at the rate of [`Time::relative_speed`].
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_timer;
@@ -46,7 +46,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// The timer ticks are not scaled.
 ///
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_real_timer;
@@ -86,7 +86,7 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 /// The timer ticks at the rate of [`Time::relative_speed`].
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
@@ -116,7 +116,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 /// The timer ticks are not scaled.
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
@@ -146,7 +146,7 @@ pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) 
 /// The timer ticks at the rate of [`Time::relative_speed`].
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_delay;
@@ -176,7 +176,7 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
 /// The timer ticks are not scaled.
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::IntoSystemConfigs;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_real_delay;
@@ -208,7 +208,7 @@ pub fn repeating_after_real_delay(
 /// it's not paused.
 ///
 /// ```rust,no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, Update};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup as _, Update};
 /// # use bevy_ecs::schedule::{common_conditions::not, IntoSystemConfigs};
 /// # use bevy_time::common_conditions::paused;
 /// fn main() {

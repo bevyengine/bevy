@@ -4,7 +4,7 @@
 //! [easing functions]: EaseFunction
 
 use crate::{
-    curve::{Curve, CurveExt, FunctionCurve, Interval},
+    curve::{Curve, CurveExt as _, FunctionCurve, Interval},
     Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
 };
 

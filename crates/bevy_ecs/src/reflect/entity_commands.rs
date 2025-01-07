@@ -36,7 +36,7 @@ pub trait ReflectCommandExt {
     /// // or write to the TypeRegistry directly to register all your components
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
+    /// # use bevy_ecs::reflect::{ReflectCommandExt as _, ReflectBundle};
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
@@ -124,7 +124,7 @@ pub trait ReflectCommandExt {
     /// // or write to the TypeRegistry directly to register all your components and bundles
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
+    /// # use bevy_ecs::reflect::{ReflectCommandExt as _, ReflectBundle};
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     ///
     /// // A resource that can hold any component or bundle that implements reflect as a boxed reflect
@@ -399,7 +399,7 @@ mod tests {
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},
-        reflect::{ReflectBundle, ReflectCommandExt},
+        reflect::{ReflectBundle, ReflectCommandExt as _},
         system::{Commands, SystemState},
         world::World,
     };

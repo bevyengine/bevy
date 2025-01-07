@@ -5,7 +5,7 @@
 
 use bevy_color::Color;
 use bevy_math::{
-    curve::{Curve, CurveExt},
+    curve::{Curve, CurveExt as _},
     Vec2, Vec3,
 };
 

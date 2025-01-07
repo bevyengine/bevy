@@ -101,7 +101,7 @@ mod vertex_attributes;
 pub use loader::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
+use bevy_asset::{Asset, AssetApp as _, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_image::CompressedImageFormats;
 use bevy_pbr::StandardMaterial;

@@ -22,7 +22,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
-use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_hierarchy::DespawnRecursiveExt as _;
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;

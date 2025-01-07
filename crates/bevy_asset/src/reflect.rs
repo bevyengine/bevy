@@ -246,7 +246,7 @@ mod tests {
     use core::any::TypeId;
 
     use crate as bevy_asset;
-    use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};
+    use crate::{Asset, AssetApp as _, AssetPlugin, ReflectAsset, UntypedHandle};
     use bevy_app::App;
     use bevy_ecs::reflect::AppTypeRegistry;
     use bevy_reflect::Reflect;

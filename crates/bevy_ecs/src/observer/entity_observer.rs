@@ -115,7 +115,7 @@ mod tests {
         self as bevy_ecs,
         entity::EntityCloneBuilder,
         event::Event,
-        observer::{CloneEntityWithObserversExt, Trigger},
+        observer::{CloneEntityWithObserversExt as _, Trigger},
         system::{ResMut, Resource},
         world::World,
     };

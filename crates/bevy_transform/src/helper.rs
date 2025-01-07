@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::QueryEntityError,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
+use bevy_hierarchy::{HierarchyQueryExt as _, Parent};
 use thiserror::Error;
 
 use crate::components::{GlobalTransform, Transform};

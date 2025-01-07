@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt as _, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;

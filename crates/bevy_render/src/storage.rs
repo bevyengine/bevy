@@ -4,7 +4,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId};
+use bevy_asset::{Asset, AssetApp as _, AssetId};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;

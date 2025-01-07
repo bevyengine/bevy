@@ -2262,7 +2262,7 @@ mod test {
             memory::{Dir, MemoryAssetReader},
             AssetSource, AssetSourceId,
         },
-        AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp as _, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;

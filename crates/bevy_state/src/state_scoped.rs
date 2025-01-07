@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_hierarchy")]
-use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_hierarchy::DespawnRecursiveExt as _;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
