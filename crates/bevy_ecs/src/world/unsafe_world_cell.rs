@@ -19,7 +19,7 @@ use crate::{
 };
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_location")]
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::UnsafeCellDeref as _;
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
