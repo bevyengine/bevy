@@ -324,7 +324,7 @@ mod tests {
     use bevy_ecs::event::Events;
     use bevy_state_macros::States;
 
-    use super::AppExtStates as  _;
+    use super::AppExtStates as _;
 
     #[derive(States, Default, PartialEq, Eq, Hash, Debug, Clone)]
     enum TestState {
