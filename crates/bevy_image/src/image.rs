@@ -843,26 +843,41 @@ impl Image {
         Image::new(size, dimension, data, format, asset_usage)
     }
 
-  /// Create a new zero-filled image with a given size, which can be rendered to. This is primarily
-  /// for use as a render target for a [`Camera`]. See [`RenderTarget::Image`].
-  ///
-  /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
-  /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
+    /// Create a new zero-filled image with a given size, which can be rendered to. This is primarily
+    /// for use as a render target for a [`Camera`]. See [`RenderTarget::Image`].
+    ///
+    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
+    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
     pub fn new_target_texture(width: u32, height: u32) -> Self {
-        let mut image = Self::default();
-
-        image.resize(Extent3d {
+        let format = TextureFormat::bevy_default();
+        let size = Extent3d {
             width,
             height,
             ..Default::default()
-        });
-
+        };
         // You need to set these texture usage flags in order to use the image as a render target
-        image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
+        let usage = TextureUsages::TEXTURE_BINDING
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT;
+        // Fill with zeroes
+        let data = vec![0; format.pixel_size() * size.volume()];
 
-        image
+        Image {
+            data,
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+        }
     }
 
     /// Returns the width of a 2D image.
