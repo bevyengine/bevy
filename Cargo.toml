@@ -3890,6 +3890,18 @@ wasm = true
 required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
+name = "debug_picking"
+path = "examples/picking/debug_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.debug_picking]
+name = "Picking Debug Tools"
+description = "Demonstrates picking debug overlay"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
