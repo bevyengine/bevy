@@ -5,8 +5,8 @@ use bevy::{
     math::ops,
     prelude::*,
     reflect::TypePath,
-    utils::Duration,
 };
+use core::time::Duration;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.

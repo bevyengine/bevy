@@ -17,6 +17,7 @@ pub use self::graph::NodeId;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::{string::ToString, vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;

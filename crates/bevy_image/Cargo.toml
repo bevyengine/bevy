@@ -1,6 +1,6 @@
 [package]
 name = "bevy_image"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Provides image types for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -32,16 +32,16 @@ zlib = ["flate2"]
 zstd = ["ruzstd"]
 
 [dependencies]
-bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.15.0-dev", features = [
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
+bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
 ] }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
@@ -62,6 +62,7 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.7.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

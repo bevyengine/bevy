@@ -13,10 +13,10 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::tracing::error;
 use bevy_utils::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
+use tracing::error;
 
 /// A resource that stores the last tick an asset was changed. This is used by
 /// the [`AssetChanged`] filter to determine if an asset has changed since the last time
@@ -148,7 +148,7 @@ pub struct AssetChangedState<A: AsAssetId> {
     _asset: PhantomData<fn(A)>,
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Item<'w> = ();
@@ -233,11 +233,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
-        assert!(
-            !access.access().has_resource_write(state.resource_id),
-            "AssetChanged<{ty}> requires read-only access to AssetChanges<{ty}>",
-            ty = ShortName::of::<A>()
-        );
         access.add_resource_read(state.resource_id);
     }
 
@@ -269,7 +264,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 /// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;

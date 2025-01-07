@@ -357,8 +357,7 @@ impl dyn PartialReflect + Send + Sync {
     #[inline]
     pub fn represents<T: Reflect + Send + Sync + TypePath>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.

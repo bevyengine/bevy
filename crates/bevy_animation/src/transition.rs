@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 

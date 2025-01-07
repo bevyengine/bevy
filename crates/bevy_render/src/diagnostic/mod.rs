@@ -43,7 +43,6 @@ use super::{RenderDevice, RenderQueue};
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
 /// On other platforms (Metal, WebGPU, WebGL2) only CPU time will be recorded.
-#[allow(clippy::doc_markdown)]
 #[derive(Default)]
 pub struct RenderDiagnosticsPlugin;
 

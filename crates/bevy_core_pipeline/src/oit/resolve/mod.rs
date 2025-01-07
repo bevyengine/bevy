@@ -22,7 +22,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use tracing::warn;
 
 use super::OitBuffers;
 

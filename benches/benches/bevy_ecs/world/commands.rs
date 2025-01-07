@@ -1,9 +1,11 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::Component,
     system::Commands,
     world::{Command, CommandQueue, World},
 };
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 
 #[derive(Component)]
 struct A;

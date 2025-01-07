@@ -2950,6 +2950,9 @@ impl<T> Ord for NeutralOrd<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+    use std::println;
+
     #[allow(unused_imports)]
     use crate::component::Component;
     #[allow(unused_imports)]

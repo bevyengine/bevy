@@ -718,6 +718,10 @@ pub fn map_try_apply<M: Map>(
 #[cfg(test)]
 mod tests {
     use super::{DynamicMap, Map};
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+    };
 
     #[test]
     fn test_into_iter() {

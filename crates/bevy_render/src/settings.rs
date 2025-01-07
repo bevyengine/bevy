@@ -86,7 +86,11 @@ impl Default for WgpuSettings {
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            #[allow(unused_mut)]
+            #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+            #[allow(
+                unused_mut,
+                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
+            )]
             let mut limits = wgpu::Limits::default();
             #[cfg(feature = "ci_limits")]
             {

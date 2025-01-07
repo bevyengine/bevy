@@ -9,11 +9,11 @@ use bevy_ecs::system::Resource;
 use bevy_utils::{
     default,
     hashbrown::hash_map::{RawEntryMut, VacantEntry},
-    tracing::error,
     Entry, FixedHasher, HashMap,
 };
 use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
+use tracing::error;
 
 pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;

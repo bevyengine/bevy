@@ -18,7 +18,7 @@ plugin_group! {
         bevy_window:::WindowPlugin,
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
-        #[custom(cfg(not(target_arch = "wasm32")))]
+        #[custom(cfg(any(unix, windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,

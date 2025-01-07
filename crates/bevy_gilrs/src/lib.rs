@@ -18,10 +18,11 @@ use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_utils::{synccell::SyncCell, tracing::error, HashMap};
+use bevy_utils::{synccell::SyncCell, HashMap};
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
+use tracing::error;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Resource))]
 pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);

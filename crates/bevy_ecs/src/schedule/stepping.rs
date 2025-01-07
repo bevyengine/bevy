@@ -1,6 +1,6 @@
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource, System},
+    system::{IntoSystem, ResMut, Resource},
 };
 use alloc::vec::Vec;
 use bevy_utils::{HashMap, TypeIdMap};
@@ -823,6 +823,8 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     pub use crate as bevy_ecs;
 

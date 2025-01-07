@@ -10,9 +10,6 @@ use alloc::{
     collections::vec_deque::{Iter, VecDeque},
 };
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// # Example
@@ -308,6 +305,7 @@ impl<'a> ArgList<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::String;
 
     #[test]
     fn should_push_arguments_in_order() {

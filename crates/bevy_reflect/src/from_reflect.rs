@@ -111,12 +111,8 @@ impl ReflectFromReflect {
     /// Perform a [`FromReflect::from_reflect`] conversion on the given reflection object.
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
-    /// the value as `Box<dyn Reflect + Send + Sync>`.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(
-        &self,
-        reflect_value: &(dyn PartialReflect + Send + Sync),
-    ) -> Option<Box<dyn Reflect + Send + Sync>> {
+    /// the value as `Box<dyn Reflect>`.
+    pub fn from_reflect(&self, reflect_value: &(dyn PartialReflect + Send + Sync)) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.from_reflect)(reflect_value)
     }
 }

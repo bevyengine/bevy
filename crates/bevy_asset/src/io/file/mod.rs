@@ -6,9 +6,9 @@ mod file_asset;
 #[cfg(not(feature = "multi_threaded"))]
 mod sync_file_asset;
 
-use bevy_utils::tracing::{debug, error};
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
+use tracing::{debug, error};
 
 use std::{
     env,

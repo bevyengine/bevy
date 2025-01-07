@@ -21,10 +21,7 @@ use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{error, info},
-    HashSet,
-};
+use bevy_utils::HashSet;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
@@ -34,6 +31,7 @@ use loaders::*;
 use parking_lot::{RwLock, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::{error, info};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
 /// retrieve their current load states.

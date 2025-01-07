@@ -183,7 +183,10 @@ mod sealed {
             where
                 $($plugins: Plugins<$param>),*
             {
-                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[expect(
+                    clippy::allow_attributes,
+                    reason = "This is inside a macro, and as such, may not trigger in all cases."
+                )]
                 #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
                 #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]

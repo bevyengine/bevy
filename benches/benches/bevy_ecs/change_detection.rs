@@ -1,3 +1,5 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::{Component, Mutable},
     entity::Entity,
@@ -5,7 +7,7 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
-use criterion::{black_box, criterion_group, Criterion};
+use criterion::{criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

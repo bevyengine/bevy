@@ -1,5 +1,10 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -40,7 +45,6 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
-mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
@@ -50,7 +54,6 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -64,9 +67,8 @@ pub mod prelude {
             Mesh3d,
         },
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
         texture::ImagePlugin,
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
     };
 }
@@ -101,9 +103,9 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
+use tracing::debug;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -489,7 +491,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.set_extract(|main_world, render_world| {
         {
             #[cfg(feature = "trace")]
-            let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
+            let _stage_span = tracing::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 

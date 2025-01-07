@@ -106,7 +106,8 @@ pub(crate) fn extract_linegizmos(
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
-    use bevy_utils::warn_once;
+    use bevy_utils::once;
+    use tracing::warn;
 
     use crate::config::GizmoLineStyle;
 
@@ -124,10 +125,10 @@ pub(crate) fn extract_linegizmos(
         } = gizmo.line_config.style
         {
             if gap_scale <= 0.0 {
-                warn_once!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero");
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero"));
             }
             if line_scale <= 0.0 {
-                warn_once!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero");
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero"));
             }
             (gap_scale, line_scale)
         } else {

@@ -10,7 +10,8 @@
 //!
 //! And then enabling the features you need.
 //! See the full list: <https://docs.rs/bevy/latest/bevy/#cargo-features>
-use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*, utils::Duration};
+use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*};
+use core::time::Duration;
 
 fn main() {
     if cfg!(feature = "bevy_window") {

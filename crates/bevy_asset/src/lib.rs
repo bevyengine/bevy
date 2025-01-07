@@ -139,6 +139,11 @@
 //! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -215,8 +220,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::{tracing::error, HashSet};
+use bevy_utils::HashSet;
 use core::any::TypeId;
+use tracing::error;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
@@ -641,7 +647,8 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use bevy_utils::HashMap;
+    use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
     use thiserror::Error;
@@ -1765,8 +1772,11 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
+    #[expect(
+        dead_code,
+        reason = "This exists to ensure that `#[derive(Asset)]` works on enums. The inner variants are known not to be used."
+    )]
     pub enum EnumTestAsset {
         Unnamed(#[dependency] Handle<TestAsset>),
         Named {
@@ -1781,7 +1791,6 @@ mod tests {
         Empty,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1790,7 +1799,6 @@ mod tests {
         embedded: TestAsset,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

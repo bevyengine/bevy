@@ -7,11 +7,12 @@ use crate::{
 use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
-use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
 use thiserror::Error;
+use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {

@@ -18,6 +18,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
+    result::Result,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -158,7 +159,7 @@ pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = ();
+    type Out = Result<()>;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed("bevy_ecs::apply_deferred")
@@ -203,11 +204,13 @@ impl System for ApplyDeferred {
     ) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn apply_deferred(&mut self, _world: &mut World) {}
@@ -259,7 +262,7 @@ mod __rust_begin_short_backtrace {
 
     use crate::{
         result::Result,
-        system::{ReadOnlySystem, ScheduleSystem, System},
+        system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 

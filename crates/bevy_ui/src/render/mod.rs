@@ -226,7 +226,6 @@ pub enum ExtractedUiItem {
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
-        atlas_scaling: Vec2,
         /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
     },
@@ -268,11 +267,11 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -331,9 +330,9 @@ pub fn extract_uinode_images(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -424,7 +423,7 @@ pub fn extract_uinode_borders(
     ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
-
+    let default_camera_entity = default_ui_camera.get();
     for (
         entity,
         node,
@@ -438,7 +437,7 @@ pub fn extract_uinode_borders(
     {
         let Some(camera_entity) = maybe_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -702,14 +701,9 @@ pub fn extract_text_sections(
                 rect,
             });
 
-            if text_layout_info
-                .glyphs
-                .get(i + 1)
-                .map(|info| {
-                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-                })
-                .unwrap_or(true)
-            {
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
                 let id = commands.spawn(TemporaryRenderEntity).id();
 
                 extracted_uinodes.uinodes.insert(
@@ -721,10 +715,7 @@ pub fn extract_text_sections(
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
                         rect,
-                        item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::ONE,
-                            range: start..end,
-                        },
+                        item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                     },
                 );
@@ -805,13 +796,13 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, ui_anti_alias)) = views.get(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -1119,15 +1110,12 @@ pub fn prepare_uinodes(
                             vertices_index += 6;
                             indices_index += 4;
                         }
-                        ExtractedUiItem::Glyphs {
-                            atlas_scaling,
-                            range,
-                        } => {
+                        ExtractedUiItem::Glyphs { range } => {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2();
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {

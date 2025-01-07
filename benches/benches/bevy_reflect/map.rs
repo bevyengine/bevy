@@ -1,11 +1,11 @@
-use core::{fmt::Write, iter, time::Duration};
+use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
 use bevy_reflect::{DynamicMap, Map};
 use bevy_utils::HashMap;
 use criterion::{
-    black_box, criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup,
-    BenchmarkId, Criterion, PlotConfiguration, Throughput,
+    criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, PlotConfiguration, Throughput,
 };
 
 criterion_group!(

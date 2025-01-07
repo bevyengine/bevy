@@ -1,11 +1,9 @@
 use crate::TypeInfo;
+use alloc::vec::Vec;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
 };
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 /// Helper struct for managing a stack of [`TypeInfo`] instances.
 ///

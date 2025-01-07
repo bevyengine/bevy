@@ -62,7 +62,7 @@ impl Plugin for CiTestingPlugin {
 
         // The offending system does not exist in the wasm32 target.
         // As a result, we must conditionally order the two systems using a system set.
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(unix, windows))]
         app.configure_sets(
             Update,
             SendEvents.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),

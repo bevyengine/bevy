@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
     if windows.is_empty() {
-        bevy_utils::tracing::info!("No windows are open, exiting");
+        log::info!("No windows are open, exiting");
         app_exit_events.send(AppExit::Success);
     }
 }
@@ -27,7 +27,7 @@ pub fn exit_on_primary_closed(
     windows: Query<(), (With<Window>, With<PrimaryWindow>)>,
 ) {
     if windows.is_empty() {
-        bevy_utils::tracing::info!("Primary window was closed, exiting");
+        log::info!("Primary window was closed, exiting");
         app_exit_events.send(AppExit::Success);
     }
 }

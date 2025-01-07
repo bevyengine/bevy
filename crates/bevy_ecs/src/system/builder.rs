@@ -684,6 +684,7 @@ mod tests {
         prelude::{Component, Query},
         system::{Local, RunSystemOnce},
     };
+    use alloc::vec;
 
     use super::*;
 

@@ -20,7 +20,7 @@ use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     any::Any,
@@ -914,7 +914,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref(),
         }
     }
@@ -949,7 +949,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
     }
@@ -1027,7 +1027,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: value.changed_by,
         }
     }
@@ -1059,7 +1059,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: value.changed_by,
             })
     }
@@ -1448,7 +1448,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     changed_by: &'static Location<'static>,
 }
 
@@ -1476,7 +1476,7 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 
     /// The location that last caused this to change.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn changed_by(&self) -> &'static Location<'static> {
         self.changed_by
     }
@@ -1499,7 +1499,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             },
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: nsm.changed_by,
         }
     }
@@ -1575,7 +1575,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             ticks: ticks.read(),
             last_run: system_meta.last_run,
             this_run: change_tick,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref(),
         }
     }
@@ -1607,7 +1607,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
     }
@@ -1683,7 +1683,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             changed_by: _caller.deref_mut(),
         }
     }
@@ -1710,7 +1710,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             .map(|(ptr, ticks, _caller)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: _caller.deref_mut(),
             })
     }

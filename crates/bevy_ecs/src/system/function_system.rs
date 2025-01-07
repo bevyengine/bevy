@@ -18,7 +18,7 @@ use variadics_please::all_tuples;
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem, SystemParamBuilder};
+use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -396,7 +396,7 @@ macro_rules! impl_build_system {
                 Input: SystemInput,
                 Out: 'static,
                 Marker,
-                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
@@ -472,6 +472,12 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
+    }
+
+    /// Gets the metadata for this instance.
+    #[inline]
+    pub fn meta_mut(&mut self) -> &mut SystemMeta {
+        &mut self.meta
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -644,6 +650,25 @@ impl<Param: SystemParam> SystemState<Param> {
         self.meta.last_run = change_tick;
         param
     }
+
+    /// Returns a reference to the current system param states.
+    pub fn param_state(&self) -> &Param::State {
+        &self.param_state
+    }
+
+    /// Returns a mutable reference to the current system param states.
+    /// Marked as unsafe because modifying the system states may result in violation to certain
+    /// assumptions made by the [`SystemParam`]. Use with care.
+    ///
+    /// # Safety
+    /// Modifying the system param states may have unintended consequences.
+    /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
+    /// should respect any invariants as required by the [`SystemParam`].
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
+    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
+        &mut self.param_state
+    }
 }
 
 impl<Param: SystemParam> FromWorld for SystemState<Param> {
@@ -656,7 +681,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+/// becomes the functions first parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
 ///

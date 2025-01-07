@@ -2,7 +2,7 @@ use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
 };
-use bevy_utils::{tracing::error, Duration};
+use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
@@ -14,6 +14,7 @@ use notify_debouncer_full::{
     DebounceEventResult, Debouncer, RecommendedCache,
 };
 use std::path::{Path, PathBuf};
+use tracing::error;
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
 /// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
@@ -26,13 +27,13 @@ pub struct FileWatcher {
 
 impl FileWatcher {
     pub fn new(
-        root: PathBuf,
+        path: PathBuf,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(super::get_base_path().join(root).as_path());
+        let root = normalize_path(&path);
         let watcher = new_asset_event_debouncer(
-            root.clone(),
+            path.clone(),
             debounce_wait_time,
             FileEventHandler {
                 root,
@@ -54,10 +55,7 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, boo
             root.display()
         )
     });
-    let is_meta = relative_path
-        .extension()
-        .map(|e| e == "meta")
-        .unwrap_or(false);
+    let is_meta = relative_path.extension().is_some_and(|e| e == "meta");
     let asset_path = if is_meta {
         relative_path.with_extension("")
     } else {

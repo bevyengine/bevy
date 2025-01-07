@@ -4,7 +4,10 @@ use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -20,7 +23,7 @@ use crate::{
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{ScheduleSystem, System},
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 

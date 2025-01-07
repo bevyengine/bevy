@@ -99,6 +99,7 @@ impl SparseSetIndex for WorldId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn world_ids_unique() {
