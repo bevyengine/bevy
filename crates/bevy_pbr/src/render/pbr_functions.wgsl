@@ -33,9 +33,8 @@
 #endif
 
 
-// Biasing info needed to sample from a texture when calling `sample_texture`.
-// How this is done depends on whether we're rendering meshlets or regular
-// meshes.
+// Biasing info needed to sample from a texture. How this is done depends on
+// whether we're rendering meshlets or regular meshes.
 struct SampleBias {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     ddx_uv: vec2<f32>,
