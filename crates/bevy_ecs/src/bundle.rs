@@ -336,12 +336,12 @@ impl SparseSetIndex for BundleId {
     }
 }
 
-// What to do on insertion if component already exists
+/// What to do on insertion if a component already exists.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum InsertMode {
+pub enum InsertMode {
     /// Any existing components of a matching type will be overwritten.
     Replace,
-    /// Any existing components of a matching type will kept unchanged.
+    /// Any existing components of a matching type will be left unchanged.
     Keep,
 }
 

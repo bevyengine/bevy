@@ -2,6 +2,7 @@ use crate::system::{SystemBuffer, SystemMeta};
 
 use core::{
     fmt::Debug,
+    marker::PhantomData,
     mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
@@ -11,7 +12,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use log::warn;
 
-use crate::world::{Command, World};
+use crate::{system::Command, world::World};
 
 use super::DeferredWorld;
 
@@ -75,9 +76,10 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push<C>(&mut self, command: C)
+    pub fn push<C, M>(&mut self, command: C)
     where
-        C: Command,
+        C: Command<M>,
+        M: 'static,
     {
         // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
@@ -154,17 +156,23 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub unsafe fn push<C>(&mut self, command: C)
+    pub unsafe fn push<C, M>(&mut self, command: C)
     where
-        C: Command,
+        C: Command<M>,
+        M: 'static,
     {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
-        struct Packed<T: Command> {
+        struct Packed<C, M>
+        where
+            C: Command<M>,
+            M: 'static,
+        {
             meta: CommandMeta,
-            command: T,
+            command: C,
+            phantom: PhantomData<M>,
         }
 
         let meta = CommandMeta {
@@ -179,7 +187,7 @@ impl RawCommandQueue {
                     Some(mut world) => {
                         // SAFETY: Caller ensures pointer is not null
                         let world = unsafe { world.as_mut() };
-                        command.apply(world);
+                        _ = command.apply(world);
                         // The command may have queued up world commands, which we flush here to ensure they are also picked up.
                         // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
                         // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
@@ -197,7 +205,7 @@ impl RawCommandQueue {
         let old_len = bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        bytes.reserve(size_of::<Packed<C>>());
+        bytes.reserve(size_of::<Packed<C, M>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
@@ -209,15 +217,18 @@ impl RawCommandQueue {
         // The call to `reserve()` ensures that the buffer has enough space to fit a value of type `C`,
         // and it is valid to write any bit pattern since the underlying buffer is of type `MaybeUninit<u8>`.
         unsafe {
-            ptr.cast::<Packed<C>>()
-                .write_unaligned(Packed { meta, command });
+            ptr.cast::<Packed<C, M>>().write_unaligned(Packed {
+                meta,
+                command,
+                phantom: PhantomData,
+            });
         }
 
         // Extend the length of the buffer to include the data we just wrote.
         // SAFETY: The new length is guaranteed to fit in the vector's capacity,
         // due to the call to `.reserve()` above.
         unsafe {
-            bytes.set_len(old_len + size_of::<Packed<C>>());
+            bytes.set_len(old_len + size_of::<Packed<C, M>>());
         }
     }
 
@@ -344,8 +355,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_ecs;
-    use crate::system::Resource;
+    use crate::{self as bevy_ecs, result::Result, system::Resource};
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -371,7 +381,9 @@ mod test {
     }
 
     impl Command for DropCheck {
-        fn apply(self, _: &mut World) {}
+        fn apply(self, _: &mut World) -> Result {
+            Ok(())
+        }
     }
 
     #[test]
@@ -418,8 +430,9 @@ mod test {
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
-        fn apply(self, world: &mut World) {
+        fn apply(self, world: &mut World) -> Result {
             world.spawn_empty();
+            Ok(())
         }
     }
 
@@ -447,7 +460,7 @@ mod test {
     #[allow(dead_code)]
     struct PanicCommand(String);
     impl Command for PanicCommand {
-        fn apply(self, _: &mut World) {
+        fn apply(self, _: &mut World) -> Result {
             panic!("command is panicking");
         }
     }
@@ -523,7 +536,9 @@ mod test {
     #[allow(dead_code)]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
-        fn apply(self, _: &mut World) {}
+        fn apply(self, _: &mut World) -> Result {
+            Ok(())
+        }
     }
 
     #[cfg(miri)]
