@@ -847,7 +847,7 @@ pub fn prepare_preprocess_bind_groups(
                 &view_uniforms,
                 &indirect_parameters_buffers,
                 &mesh_culling_data_buffer,
-                &batched_instance_buffers,
+                batched_instance_buffers,
                 work_item_buffers,
                 &mut any_indirect,
             ) {
