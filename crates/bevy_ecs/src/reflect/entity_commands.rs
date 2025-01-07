@@ -227,7 +227,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Prefer to use the typed [`EntityWorldMut::insert`] if possible. Adding a reflected component
     /// is much slower.
-    pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
+    pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect + Send + Sync>) -> &mut Self {
         self.assert_not_despawned();
         let entity_id = self.id();
         self.world_scope(|world| {
@@ -255,7 +255,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the given [`Resource`] is not present in the [`World`].
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component: Box<dyn PartialReflect>,
+        component: Box<dyn PartialReflect + Send + Sync>,
     ) -> &mut Self {
         self.assert_not_despawned();
         let entity_id = self.id();
