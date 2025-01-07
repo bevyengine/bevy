@@ -1,7 +1,10 @@
 //! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
 //! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
 
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::{
+    prelude::*,
+    sprite::{Anchor, SpritePickable},
+};
 use std::fmt::Debug;
 
 fn main() {
@@ -29,7 +32,14 @@ fn move_sprite(
 
 /// Set up a scene that tests all sprite anchor types.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        // To allow our camera to perform any sprite picking, it needs this component. This
+        // behavior can be changed in `SpritePickingSettings`.
+        //
+        // Any sprite that should be pickable also needs this component.
+        SpritePickable,
+    ));
 
     let len = 128.0;
     let sprite_size = Vec2::splat(len / 2.0);
@@ -55,10 +65,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let i = (anchor_index % 3) as f32;
                 let j = (anchor_index / 3) as f32;
 
-                // spawn black square behind sprite to show anchor point
+                // Spawn black square behind sprite to show anchor point
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
+                        SpritePickable,
                         Transform::from_xyz(i * len - len, j * len - len, -1.0),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
@@ -75,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             anchor: anchor.to_owned(),
                             ..default()
                         },
+                        SpritePickable,
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -137,6 +149,7 @@ fn setup_atlas(
                     index: animation_indices.first,
                 },
             ),
+            SpritePickable,
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
