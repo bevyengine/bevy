@@ -1,4 +1,4 @@
-use std::{
+use core::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -9,17 +9,16 @@ use std::{
 /// Tasks are also futures themselves and yield the output of the spawned future.
 ///
 /// When a task is dropped, its gets canceled and won't be polled again. To cancel a task a bit
-/// more gracefully and wait until it stops running, use the [`cancel()`][Task::cancel()] method.
+/// more gracefully and wait until it stops running, use the [`Task::cancel()`] method.
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
-/// Wraps `async_executor::Task`
 #[derive(Debug)]
 #[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
-pub struct Task<T>(async_executor::Task<T>);
+pub struct Task<T>(async_task::Task<T>);
 
 impl<T> Task<T> {
     /// Creates a new task from a given `async_executor::Task`
-    pub fn new(task: async_executor::Task<T>) -> Self {
+    pub fn new(task: async_task::Task<T>) -> Self {
         Self(task)
     }
 

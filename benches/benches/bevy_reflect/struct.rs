@@ -1,28 +1,44 @@
-use std::time::Duration;
+use core::{hint::black_box, time::Duration};
 
-use bevy_reflect::{DynamicStruct, GetField, Reflect, Struct};
+use benches::bench;
+use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
 use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+    criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, PlotConfiguration, Throughput,
 };
 
 criterion_group!(
     benches,
     concrete_struct_apply,
     concrete_struct_field,
+    concrete_struct_type_info,
+    concrete_struct_clone,
+    dynamic_struct_clone,
     dynamic_struct_apply,
     dynamic_struct_get_field,
     dynamic_struct_insert,
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
 const SIZES: [usize; 4] = [16, 32, 64, 128];
 
+/// Creates a [`BenchmarkGroup`] with common configuration shared by all benchmarks within this
+/// module.
+fn create_group<'a, M: Measurement>(c: &'a mut Criterion<M>, name: &str) -> BenchmarkGroup<'a, M> {
+    let mut group = c.benchmark_group(name);
+
+    group
+        .warm_up_time(WARM_UP_TIME)
+        .measurement_time(MEASUREMENT_TIME)
+        // Make the plots logarithmic, matching `SIZES`' scale.
+        .plot_config(PlotConfiguration::default().summary_scale(AxisScale::Logarithmic));
+
+    group
+}
+
 fn concrete_struct_field(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_field");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_field"));
 
     let structs: [Box<dyn Struct>; 4] = [
         Box::new(Struct16::default()),
@@ -44,7 +60,7 @@ fn concrete_struct_field(criterion: &mut Criterion) {
 
                 bencher.iter(|| {
                     for name in &field_names {
-                        s.field(black_box(name));
+                        black_box(s.field(black_box(name)));
                     }
                 });
             },
@@ -53,13 +69,11 @@ fn concrete_struct_field(criterion: &mut Criterion) {
 }
 
 fn concrete_struct_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("concrete_struct_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("concrete_struct_apply"));
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
-    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn Reflect>)] = &[
+    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect>)] = &[
         || (Box::new(Struct16::default()), Box::new(Struct16::default())),
         || (Box::new(Struct32::default()), Box::new(Struct32::default())),
         || (Box::new(Struct64::default()), Box::new(Struct64::default())),
@@ -110,12 +124,126 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
     }
 }
 
-fn dynamic_struct_apply(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_apply");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+fn concrete_struct_type_info(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("concrete_struct_type_info"));
 
-    let patches: &[(fn() -> Box<dyn Reflect>, usize)] = &[
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
+        (
+            Box::new(Struct16::default()),
+            Box::new(GenericStruct16::<u32>::default()),
+        ),
+        (
+            Box::new(Struct32::default()),
+            Box::new(GenericStruct32::<u32>::default()),
+        ),
+        (
+            Box::new(Struct64::default()),
+            Box::new(GenericStruct64::<u32>::default()),
+        ),
+        (
+            Box::new(Struct128::default()),
+            Box::new(GenericStruct128::<u32>::default()),
+        ),
+    ];
+
+    for (standard, generic) in structs {
+        let field_count = standard.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::new("NonGeneric", field_count),
+            &standard,
+            |bencher, s| {
+                bencher.iter(|| s.get_represented_type_info());
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Generic", field_count),
+            &generic,
+            |bencher, s| {
+                bencher.iter(|| s.get_represented_type_info());
+            },
+        );
+    }
+}
+
+fn concrete_struct_clone(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("concrete_struct_clone"));
+
+    let structs: [(Box<dyn Struct>, Box<dyn Struct>); 5] = [
+        (
+            Box::new(Struct1::default()),
+            Box::new(GenericStruct1::<u32>::default()),
+        ),
+        (
+            Box::new(Struct16::default()),
+            Box::new(GenericStruct16::<u32>::default()),
+        ),
+        (
+            Box::new(Struct32::default()),
+            Box::new(GenericStruct32::<u32>::default()),
+        ),
+        (
+            Box::new(Struct64::default()),
+            Box::new(GenericStruct64::<u32>::default()),
+        ),
+        (
+            Box::new(Struct128::default()),
+            Box::new(GenericStruct128::<u32>::default()),
+        ),
+    ];
+
+    for (standard, generic) in structs {
+        let field_count = standard.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::new("NonGeneric", field_count),
+            &standard,
+            |bencher, s| {
+                bencher.iter(|| s.clone_dynamic());
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Generic", field_count),
+            &generic,
+            |bencher, s| {
+                bencher.iter(|| s.clone_dynamic());
+            },
+        );
+    }
+}
+
+fn dynamic_struct_clone(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("dynamic_struct_clone"));
+
+    let structs: [Box<dyn Struct>; 5] = [
+        Box::new(Struct1::default().clone_dynamic()),
+        Box::new(Struct16::default().clone_dynamic()),
+        Box::new(Struct32::default().clone_dynamic()),
+        Box::new(Struct64::default().clone_dynamic()),
+        Box::new(Struct128::default().clone_dynamic()),
+    ];
+
+    for s in structs {
+        let field_count = s.field_len();
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(field_count),
+            &s,
+            |bencher, s| {
+                bencher.iter(|| s.clone_dynamic());
+            },
+        );
+    }
+}
+
+fn dynamic_struct_apply(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("dynamic_struct_apply"));
+
+    let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
         (|| Box::new(Struct32::default()), 32),
         (|| Box::new(Struct64::default()), 64),
@@ -171,9 +299,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_insert(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_insert");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_insert"));
 
     for field_count in SIZES {
         group.throughput(Throughput::Elements(field_count as u64));
@@ -191,7 +317,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
                 bencher.iter_batched(
                     || s.clone_dynamic(),
                     |mut s| {
-                        black_box(s.insert(black_box(&field), ()));
+                        s.insert(black_box(&field), ());
                     },
                     BatchSize::SmallInput,
                 );
@@ -203,9 +329,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
 }
 
 fn dynamic_struct_get_field(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("dynamic_struct_get");
-    group.warm_up_time(WARM_UP_TIME);
-    group.measurement_time(MEASUREMENT_TIME);
+    let mut group = create_group(criterion, bench!("dynamic_struct_get_field"));
 
     for field_count in SIZES {
         group.throughput(Throughput::Elements(field_count as u64));
@@ -220,12 +344,15 @@ fn dynamic_struct_get_field(criterion: &mut Criterion) {
                 }
 
                 let field = black_box("field_63");
-                bencher.iter(|| {
-                    black_box(s.get_field::<()>(field));
-                });
+                bencher.iter(|| s.get_field::<()>(field));
             },
         );
     }
+}
+
+#[derive(Clone, Default, Reflect)]
+struct Struct1 {
+    field_0: u32,
 }
 
 #[derive(Clone, Default, Reflect)]
@@ -482,4 +609,265 @@ struct Struct128 {
     field_125: u32,
     field_126: u32,
     field_127: u32,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct1<T: Reflect + Default> {
+    field_0: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct16<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct32<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct64<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+    field_32: T,
+    field_33: T,
+    field_34: T,
+    field_35: T,
+    field_36: T,
+    field_37: T,
+    field_38: T,
+    field_39: T,
+    field_40: T,
+    field_41: T,
+    field_42: T,
+    field_43: T,
+    field_44: T,
+    field_45: T,
+    field_46: T,
+    field_47: T,
+    field_48: T,
+    field_49: T,
+    field_50: T,
+    field_51: T,
+    field_52: T,
+    field_53: T,
+    field_54: T,
+    field_55: T,
+    field_56: T,
+    field_57: T,
+    field_58: T,
+    field_59: T,
+    field_60: T,
+    field_61: T,
+    field_62: T,
+    field_63: T,
+}
+
+#[derive(Clone, Default, Reflect)]
+struct GenericStruct128<T: Reflect + Default> {
+    field_0: T,
+    field_1: T,
+    field_2: T,
+    field_3: T,
+    field_4: T,
+    field_5: T,
+    field_6: T,
+    field_7: T,
+    field_8: T,
+    field_9: T,
+    field_10: T,
+    field_11: T,
+    field_12: T,
+    field_13: T,
+    field_14: T,
+    field_15: T,
+    field_16: T,
+    field_17: T,
+    field_18: T,
+    field_19: T,
+    field_20: T,
+    field_21: T,
+    field_22: T,
+    field_23: T,
+    field_24: T,
+    field_25: T,
+    field_26: T,
+    field_27: T,
+    field_28: T,
+    field_29: T,
+    field_30: T,
+    field_31: T,
+    field_32: T,
+    field_33: T,
+    field_34: T,
+    field_35: T,
+    field_36: T,
+    field_37: T,
+    field_38: T,
+    field_39: T,
+    field_40: T,
+    field_41: T,
+    field_42: T,
+    field_43: T,
+    field_44: T,
+    field_45: T,
+    field_46: T,
+    field_47: T,
+    field_48: T,
+    field_49: T,
+    field_50: T,
+    field_51: T,
+    field_52: T,
+    field_53: T,
+    field_54: T,
+    field_55: T,
+    field_56: T,
+    field_57: T,
+    field_58: T,
+    field_59: T,
+    field_60: T,
+    field_61: T,
+    field_62: T,
+    field_63: T,
+    field_64: T,
+    field_65: T,
+    field_66: T,
+    field_67: T,
+    field_68: T,
+    field_69: T,
+    field_70: T,
+    field_71: T,
+    field_72: T,
+    field_73: T,
+    field_74: T,
+    field_75: T,
+    field_76: T,
+    field_77: T,
+    field_78: T,
+    field_79: T,
+    field_80: T,
+    field_81: T,
+    field_82: T,
+    field_83: T,
+    field_84: T,
+    field_85: T,
+    field_86: T,
+    field_87: T,
+    field_88: T,
+    field_89: T,
+    field_90: T,
+    field_91: T,
+    field_92: T,
+    field_93: T,
+    field_94: T,
+    field_95: T,
+    field_96: T,
+    field_97: T,
+    field_98: T,
+    field_99: T,
+    field_100: T,
+    field_101: T,
+    field_102: T,
+    field_103: T,
+    field_104: T,
+    field_105: T,
+    field_106: T,
+    field_107: T,
+    field_108: T,
+    field_109: T,
+    field_110: T,
+    field_111: T,
+    field_112: T,
+    field_113: T,
+    field_114: T,
+    field_115: T,
+    field_116: T,
+    field_117: T,
+    field_118: T,
+    field_119: T,
+    field_120: T,
+    field_121: T,
+    field_122: T,
+    field_123: T,
+    field_124: T,
+    field_125: T,
+    field_126: T,
+    field_127: T,
 }

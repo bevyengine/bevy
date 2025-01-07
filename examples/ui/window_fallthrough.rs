@@ -1,5 +1,6 @@
 //! This example illustrates how have a mouse's clicks/wheel/movement etc fall through the spawned transparent window to a window below.
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
+//! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
 use bevy::prelude::*;
 
@@ -16,42 +17,38 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(setup)
-        .add_system(toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
+        .add_systems(Startup, setup)
+        .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn(Camera2dBundle::default());
-    // Text with one section
+    commands.spawn(Camera2d);
+    // Text with one span
     commands.spawn((
-        // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "Hit 'P' then scroll/click around!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0, // Nice and big so you can see it!
-                color: Color::WHITE,
-            },
-        )
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.),
-                right: Val::Px(10.),
-                ..default()
-            },
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Hit 'P' then scroll/click around!"),
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 83.0, // Nice and big so you can see it!
             ..default()
-        }),
+        },
+        // Set the style of the TextBundle itself.
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.),
+            right: Val::Px(10.),
+            ..default()
+        },
     ));
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
-fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if keyboard_input.just_pressed(KeyCode::P) {
-        let mut window = windows.single_mut();
-        window.cursor.hit_test = !window.cursor.hit_test;
+fn toggle_mouse_passthrough(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut window: Single<&mut Window>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
+        window.cursor_options.hit_test = !window.cursor_options.hit_test;
     }
 }

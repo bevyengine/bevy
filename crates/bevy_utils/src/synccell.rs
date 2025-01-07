@@ -1,6 +1,10 @@
+#![expect(unsafe_code, reason = "SyncCell requires unsafe code.")]
+
 //! A reimplementation of the currently unstable [`std::sync::Exclusive`]
 //!
 //! [`std::sync::Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+
+use core::ptr;
 
 /// See [`Exclusive`](https://github.com/rust-lang/rust/issues/98407) for stdlib's upcoming implementation,
 /// which should replace this one entirely.
@@ -41,11 +45,11 @@ impl<T: ?Sized> SyncCell<T> {
     /// to its inner value, to skip constructing with [`new()`](SyncCell::new()).
     pub fn from_mut(r: &'_ mut T) -> &'_ mut SyncCell<T> {
         // SAFETY: repr is transparent, so refs have the same layout; and `SyncCell` properties are `&mut`-agnostic
-        unsafe { &mut *(r as *mut T as *mut SyncCell<T>) }
+        unsafe { &mut *(ptr::from_mut(r) as *mut SyncCell<T>) }
     }
 }
 
 // SAFETY: `Sync` only allows multithreaded access via immutable reference.
 // As `SyncCell` requires an exclusive reference to access the wrapped value for `!Sync` types,
-// marking this type as `Sync` does not actually allow unsychronized access to the inner value.
+// marking this type as `Sync` does not actually allow unsynchronized access to the inner value.
 unsafe impl<T: ?Sized> Sync for SyncCell<T> {}

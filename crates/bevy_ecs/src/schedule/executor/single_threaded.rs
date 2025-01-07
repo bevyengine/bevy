@@ -1,13 +1,18 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
+
 use crate::{
-    schedule::{
-        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
+
+use super::__rust_begin_short_backtrace;
 
 /// Runs the schedule using a single thread.
 ///
@@ -21,17 +26,13 @@ pub struct SingleThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
-    /// Setting when true applies system buffers after all systems have run
-    apply_final_buffers: bool,
+    /// Setting when true applies deferred system buffers after all systems have run
+    apply_final_deferred: bool,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
     fn kind(&self) -> ExecutorKind {
         ExecutorKind::SingleThreaded
-    }
-
-    fn set_apply_final_buffers(&mut self, apply_final_buffers: bool) {
-        self.apply_final_buffers = apply_final_buffers;
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
@@ -43,7 +44,20 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
+    ) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -75,6 +89,12 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -85,45 +105,85 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
-            if is_apply_system_buffers(system) {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
-                self.apply_system_buffers(schedule, world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
-            } else {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
-                system.run((), world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
-                self.unapplied_systems.insert(system_index);
+            if is_apply_deferred(system) {
+                self.apply_deferred(schedule, world);
+                continue;
             }
+
+            let f = AssertUnwindSafe(|| {
+                if system.is_exclusive() {
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    }
+                } else {
+                    // Use run_unsafe to avoid immediately applying deferred buffers
+                    let world = world.as_unsafe_world_cell();
+                    system.update_archetype_component_access(world);
+                    // SAFETY: We have exclusive, single-threaded access to the world and
+                    // update_archetype_component_access is being called immediately before this.
+                    unsafe {
+                        // TODO: implement an error-handling API instead of panicking.
+                        if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
+                            panic!(
+                                "Encountered an error in system `{}`: {:?}",
+                                &*system.name(),
+                                err
+                            );
+                        }
+                    };
+                }
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
+            }
+
+            self.unapplied_systems.insert(system_index);
         }
 
-        if self.apply_final_buffers {
-            self.apply_system_buffers(schedule, world);
+        if self.apply_final_deferred {
+            self.apply_deferred(schedule, world);
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
+
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
+    }
 }
 
 impl SingleThreadedExecutor {
+    /// Creates a new single-threaded executor for use in a [`Schedule`].
+    ///
+    /// [`Schedule`]: crate::schedule::Schedule
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
-            apply_final_buffers: true,
+            apply_final_deferred: true,
         }
     }
 
-    fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index];
-            system.apply_buffers(world);
+            system.apply_deferred(world);
         }
 
         self.unapplied_systems.clear();
@@ -136,9 +196,10 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })
         .fold(true, |acc, res| acc && res)
 }

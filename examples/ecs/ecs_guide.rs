@@ -25,11 +25,12 @@
 //! We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
-    utils::Duration,
 };
+use core::time::Duration;
 use rand::random;
+use std::fmt;
 
 // COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
 //
@@ -44,6 +45,25 @@ struct Player {
 #[derive(Component)]
 struct Score {
     value: usize,
+}
+
+// Enums can also be used as components.
+// This component tracks how many consecutive rounds a player has/hasn't scored in.
+#[derive(Component)]
+enum PlayerStreak {
+    Hot(usize),
+    None,
+    Cold(usize),
+}
+
+impl fmt::Display for PlayerStreak {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlayerStreak::Hot(n) => write!(f, "{n} round hot streak"),
+            PlayerStreak::None => write!(f, "0 round streak"),
+            PlayerStreak::Cold(n) => write!(f, "{n} round cold streak"),
+        }
+    }
 }
 
 // RESOURCES: "Global" state accessible by systems. These are also just normal Rust data types!
@@ -85,20 +105,38 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
     );
 }
 
-// This system updates the score for each entity with the "Player" and "Score" component.
-fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in &mut query {
+// This system updates the score for each entity with the `Player`, `Score` and `PlayerStreak` components.
+fn score_system(mut query: Query<(&Player, &mut Score, &mut PlayerStreak)>) {
+    for (player, mut score, mut streak) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
+            // Accessing components immutably is done via a regular reference - `player`
+            // has type `&Player`.
+            //
+            // Accessing components mutably is performed via type `Mut<T>` - `score`
+            // has type `Mut<Score>` and `streak` has type `Mut<PlayerStreak>`.
+            //
+            // `Mut<T>` implements `Deref<T>`, so struct fields can be updated using
+            // standard field update syntax ...
             score.value += 1;
+            // ... and matching against enums requires dereferencing them
+            *streak = match *streak {
+                PlayerStreak::Hot(n) => PlayerStreak::Hot(n + 1),
+                PlayerStreak::Cold(_) | PlayerStreak::None => PlayerStreak::Hot(1),
+            };
             println!(
-                "{} scored a point! Their score is: {}",
-                player.name, score.value
+                "{} scored a point! Their score is: {} ({})",
+                player.name, score.value, *streak
             );
         } else {
+            *streak = match *streak {
+                PlayerStreak::Hot(_) | PlayerStreak::None => PlayerStreak::Cold(1),
+                PlayerStreak::Cold(n) => PlayerStreak::Cold(n + 1),
+            };
+
             println!(
-                "{} did not score a point! Their score is: {}",
-                player.name, score.value
+                "{} did not score a point! Their score is: {} ({})",
+                player.name, score.value, *streak
             );
         }
     }
@@ -106,8 +144,8 @@ fn score_system(mut query: Query<(&Player, &mut Score)>) {
     // this game isn't very fun is it :)
 }
 
-// This system runs on all entities with the "Player" and "Score" components, but it also
-// accesses the "GameRules" resource to determine if a player has won.
+// This system runs on all entities with the `Player` and `Score` components, but it also
+// accesses the `GameRules` resource to determine if a player has won.
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
@@ -130,17 +168,18 @@ fn game_over_system(
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     }
 }
 
 // This is a "startup" system that runs exactly once when the app starts up. Startup systems are
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
-// "startup" system from a "normal" system is how it is registered:      Startup:
-// app.add_startup_system(startup_system)      Normal:  app.add_system(normal_system)
+// "startup" system from a "normal" system is how it is registered:
+//      Startup: app.add_systems(Startup, startup_system)
+//      Normal:  app.add_systems(Update, normal_system)
 fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
@@ -157,12 +196,14 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
                 name: "Alice".to_string(),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ),
         (
             Player {
                 name: "Bob".to_string(),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ),
     ]);
 
@@ -189,6 +230,7 @@ fn new_player_system(
                 name: format!("Player {}", game_state.total_players),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ));
 
         println!("Player {} joined the game!", game_state.total_players);
@@ -198,8 +240,7 @@ fn new_player_system(
 // If you really need full, immediate read/write access to the world or resources, you can use an
 // "exclusive system".
 // WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance.
-#[allow(dead_code)]
+// should generally be avoided if you want to maximize parallelism.
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
     let total_players = world.resource_mut::<GameState>().total_players;
@@ -216,6 +257,7 @@ fn exclusive_player_system(world: &mut World) {
                 name: format!("Player {}", total_players + 1),
             },
             Score { value: 0 },
+            PlayerStreak::None,
         ));
 
         let mut game_state = world.resource_mut::<GameState>();
@@ -224,8 +266,9 @@ fn exclusive_player_system(world: &mut World) {
 }
 
 // Sometimes systems need to be stateful. Bevy's ECS provides the `Local` system parameter
-// for this case. A `Local<T>` refers to a value owned by the system of type `T`, which is automatically
-// initialized using `T`'s `FromWorld`* implementation. In this system's `Local` (`counter`), `T` is `u32`.
+// for this case. A `Local<T>` refers to a value of type `T` that is owned by the system.
+// This value is automatically initialized using `T`'s `FromWorld`* implementation upon the system's initialization.
+// In this system's `Local` (`counter`), `T` is `u32`.
 // Therefore, on the first turn, `counter` has a value of 0.
 //
 // *: `FromWorld` is a trait which creates a value using the contents of the `World`.
@@ -237,11 +280,12 @@ fn print_at_end_round(mut counter: Local<u32>) {
     println!();
 }
 
-/// A group of related system sets, used for controlling the order of systems
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-#[system_set(base)]
+/// A group of related system sets, used for controlling the order of systems. Systems can be
+/// added to any number of sets.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum MySet {
     BeforeRound,
+    Round,
     AfterRound,
 }
 
@@ -252,24 +296,23 @@ fn main() {
     App::new()
         // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
-        // Some systems are configured by adding their settings as a resource.
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
         // We could easily turn our game into a plugin, but you can check out the plugin example for
-        // that :) The plugin below runs our app's "system schedule" once every 5 seconds
-        // (configured above).
-        .add_plugin(ScheduleRunnerPlugin::default())
-        // Startup systems run exactly once BEFORE all other systems. These are generally used for
+        // that :) The plugin below runs our app's "system schedule" once every 5 seconds.
+        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
+        // `Startup` systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
-        .add_system(print_message_system)
+        .add_systems(Startup, startup_system)
+        // `Update` systems run once every update. These are generally used for "real-time app logic"
+        .add_systems(Update, print_message_system)
         // SYSTEM EXECUTION ORDER
         //
         // Each system belongs to a `Schedule`, which controls the execution strategy and broad order
-        // of the systems within each tick. The [`CoreSchedule::Startup`] schedule holds
-        // startup systems, which are run a single time before the [`CoreSchedule::Main`] runs.
+        // of the systems within each tick. The `Startup` schedule holds
+        // startup systems, which are run a single time before `Update` runs. `Update` runs once per app update,
+        // which is generally one "frame" or one "tick".
         //
-        // By default, all systems run in parallel, except when they require mutable access to a
+        // By default, all systems in a `Schedule` run in parallel, except when they require mutable access to a
         // piece of data. This is efficient, but sometimes order matters.
         // For example, we want our "game over" system to execute after all other systems to ensure
         // we don't accidentally run the game for an extra round.
@@ -277,35 +320,41 @@ fn main() {
         // You can force an explicit ordering between systems using the `.before` or `.after` methods.
         // Systems will not be scheduled until all of the systems that they have an "ordering dependency" on have
         // completed.
-        //
-        // add_system(system) adds systems to the Update system set by default
-        // However we can manually specify the set if we want to. The following is equivalent to
-        // add_system(score_system)
-        .add_system(score_system.in_base_set(CoreSet::Update))
-        // There are other `CoreSets`, such as `Last` which runs at the very end of each run.
-        .add_system(print_at_end_round.in_base_set(CoreSet::Last))
+        // There are other schedules, such as `Last` which runs at the very end of each run.
+        .add_systems(Last, print_at_end_round)
         // We can also create new system sets, and order them relative to other system sets.
-        // Here is what our games stage order will look like:
+        // Here is what our games execution order will look like:
         // "before_round": new_player_system, new_round_system
-        // "update": print_message_system, score_system
+        // "round": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
-        .configure_set(MySet::BeforeRound.before(CoreSet::Update))
-        .configure_set(MySet::AfterRound.after(CoreSet::Update))
-        .add_system(new_round_system.in_base_set(MySet::BeforeRound))
-        .add_system(
-            new_player_system
-                .after(new_round_system)
-                .in_base_set(MySet::BeforeRound),
+        .configure_sets(
+            Update,
+            // chain() will ensure sets run in the order they are listed
+            (MySet::BeforeRound, MySet::Round, MySet::AfterRound).chain(),
         )
-        .add_system(exclusive_player_system.in_base_set(MySet::BeforeRound))
-        .add_system(score_check_system.in_base_set(MySet::AfterRound))
-        .add_system(
-            // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
-            // To do this we use either `.before` or `.after` to describe the order we want the relationship
-            // Since we are using `after`, `game_over_system` runs after `score_check_system`
-            game_over_system
-                .after(score_check_system)
-                .in_base_set(MySet::AfterRound),
+        // The add_systems function is powerful. You can define complex system configurations with ease!
+        .add_systems(
+            Update,
+            (
+                // These `BeforeRound` systems will run before `Round` systems, thanks to the chained set configuration
+                (
+                    // You can also chain systems! new_round_system will run first, followed by new_player_system
+                    (new_round_system, new_player_system).chain(),
+                    exclusive_player_system,
+                )
+                    // All of the systems in the tuple above will be added to this set
+                    .in_set(MySet::BeforeRound),
+                // This `Round` system will run after the `BeforeRound` systems thanks to the chained set configuration
+                score_system.in_set(MySet::Round),
+                // These `AfterRound` systems will run after the `Round` systems thanks to the chained set configuration
+                (
+                    score_check_system,
+                    // In addition to chain(), you can also use `before(system)` and `after(system)`. This also works
+                    // with sets!
+                    game_over_system.after(score_check_system),
+                )
+                    .in_set(MySet::AfterRound),
+            ),
         )
         // This call to run() starts the app we just built!
         .run();

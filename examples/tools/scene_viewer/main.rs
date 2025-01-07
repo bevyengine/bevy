@@ -4,27 +4,29 @@
 //! replacing the path as appropriate.
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
+//!
+//! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use bevy::{
-    math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
-    window::WindowPlugin,
 };
 
-mod camera_controller_plugin;
+#[path = "../../helpers/camera_controller.rs"]
+mod camera_controller;
+
+#[cfg(feature = "animation")]
+mod animation_plugin;
+mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
-use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use camera_controller::{CameraController, CameraControllerPlugin};
+use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 1.0 / 5.0f32,
-    })
-    .add_plugins(
+    app.add_plugins((
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -34,15 +36,18 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
-                    .unwrap_or_else(|_| ".".to_string()),
-                watch_for_changes: true,
+                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                ..default()
             }),
-    )
-    .add_plugin(CameraControllerPlugin)
-    .add_plugin(SceneViewerPlugin)
-    .add_startup_system(setup)
-    .add_system(setup_scene_after_load.in_base_set(CoreSet::PreUpdate));
+        CameraControllerPlugin,
+        SceneViewerPlugin,
+        MorphViewerPlugin,
+    ))
+    .add_systems(Startup, setup)
+    .add_systems(PreUpdate, setup_scene_after_load);
+
+    #[cfg(feature = "animation")]
+    app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();
 }
@@ -77,7 +82,7 @@ fn setup_scene_after_load(
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     asset_server: Res<AssetServer>,
-    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -109,23 +114,24 @@ fn setup_scene_after_load(
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
 
-        let camera_controller = CameraController::default();
+        let walk_speed = size * 3.0;
+        let camera_controller = CameraController {
+            walk_speed,
+            run_speed: 3.0 * walk_speed,
+            ..default()
+        };
 
         // Display the controls of the scene viewer
         info!("{}", camera_controller);
         info!("{}", *scene_handle);
 
         commands.spawn((
-            Camera3dBundle {
-                projection: projection.into(),
-                transform: Transform::from_translation(
-                    Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
-                )
+            Camera3d::default(),
+            Projection::from(projection),
+            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
                 .looking_at(Vec3::from(aabb.center), Vec3::Y),
-                camera: Camera {
-                    is_active: false,
-                    ..default()
-                },
+            Camera {
+                is_active: false,
                 ..default()
             },
             EnvironmentMapLight {
@@ -133,6 +139,8 @@ fn setup_scene_after_load(
                     .load("assets/environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+                intensity: 150.0,
+                ..default()
             },
             camera_controller,
         ));
@@ -140,13 +148,10 @@ fn setup_scene_after_load(
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
             info!("Spawning a directional light");
-            commands.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    ..default()
-                },
-                ..default()
-            });
+            commands.spawn((
+                DirectionalLight::default(),
+                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ));
 
             scene_handle.has_light = true;
         }
