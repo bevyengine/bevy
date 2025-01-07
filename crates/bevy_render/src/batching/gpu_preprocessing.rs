@@ -342,8 +342,9 @@ pub struct PreprocessWorkItem {
     /// In direct mode, this is the index of the uniform. In indirect mode, this
     /// is the first index uniform in the batch set.
     pub output_index: u32,
-    /// The index of the [`IndirectParameters`] in the
-    /// [`IndirectParametersBuffer`].
+    /// The index of the [`IndirectParametersMetadata`] in the
+    /// `IndirectParametersBuffers::indexed_metadata` or
+    /// `IndirectParametersBuffers::non_indexed_metadata`.
     pub indirect_parameters_index: u32,
 }
 
@@ -448,9 +449,9 @@ pub struct IndirectBatchSet {
     /// process.
     pub indirect_parameters_count: u32,
 
-    /// The offset within the [`IndirectParametersBuffers::indexed_data`] or
-    /// [`IndirectParametersBuffers::non_indexed_data`] of the first indirect
-    /// draw command for this batch set.
+    /// The offset within the `IndirectParametersBuffers::indexed_data` or
+    /// `IndirectParametersBuffers::non_indexed_data` of the first indirect draw
+    /// command for this batch set.
     ///
     /// The CPU fills out this value.
     pub indirect_parameters_base: u32,
@@ -690,12 +691,12 @@ impl IndirectParametersBuffers {
         }
     }
 
-    /// Adds a new batch set to [`Self::indexed_batch_sets`] or
-    /// [`Self::non_indexed_batch_sets`] as appropriate.
+    /// Adds a new batch set to `Self::indexed_batch_sets` or
+    /// `Self::non_indexed_batch_sets` as appropriate.
     ///
     /// `indexed` specifies whether the meshes that these batch sets correspond
     /// to are indexed or not. `indirect_parameters_base` specifies the offset
-    /// within [`Self::indexed_data`] or [`Self::non_indexed_data`] of the first
+    /// within `Self::indexed_data` or `Self::non_indexed_data` of the first
     /// batch in this batch set.
     pub fn add_batch_set(&mut self, indexed: bool, indirect_parameters_base: u32) {
         if indexed {
@@ -819,7 +820,7 @@ where
     instance_start_index: u32,
 
     /// The index of the indirect parameters for this batch in the
-    /// [`IndirectParametersBuffer`].
+    /// [`IndirectParametersBuffers`].
     ///
     /// If CPU culling is being used, then this will be `None`.
     indirect_parameters_index: Option<NonMaxU32>,

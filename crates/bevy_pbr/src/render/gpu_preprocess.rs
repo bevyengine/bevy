@@ -174,8 +174,8 @@ bitflags! {
 /// The compute shader bind group for the mesh preprocessing pass for each
 /// render phase.
 ///
-/// This goes on the view. It maps the [`TypeId`] of a render phase (e.g.
-/// [`bevy_core_pipeline::core_3d::Opaque3d`]) to the
+/// This goes on the view. It maps the [`core::any::TypeId`] of a render phase
+/// (e.g.  [`bevy_core_pipeline::core_3d::Opaque3d`]) to the
 /// [`PhasePreprocessBindGroups`] for that phase.
 #[derive(Component, Clone, Deref, DerefMut)]
 pub struct PreprocessBindGroups(pub TypeIdMap<PhasePreprocessBindGroups>);
