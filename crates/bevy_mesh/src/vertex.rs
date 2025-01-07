@@ -170,44 +170,49 @@ pub trait VertexFormatSize {
 }
 
 impl VertexFormatSize for VertexFormat {
-    #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
-            VertexFormat::Uint8x2 => 2,
-            VertexFormat::Uint8x4 => 4,
-            VertexFormat::Sint8x2 => 2,
-            VertexFormat::Sint8x4 => 4,
-            VertexFormat::Unorm8x2 => 2,
-            VertexFormat::Unorm8x4 => 4,
-            VertexFormat::Snorm8x2 => 2,
-            VertexFormat::Snorm8x4 => 4,
-            VertexFormat::Unorm10_10_10_2 => 4,
-            VertexFormat::Uint16x2 => 2 * 2,
-            VertexFormat::Uint16x4 => 2 * 4,
-            VertexFormat::Sint16x2 => 2 * 2,
-            VertexFormat::Sint16x4 => 2 * 4,
-            VertexFormat::Unorm16x2 => 2 * 2,
-            VertexFormat::Unorm16x4 => 2 * 4,
-            VertexFormat::Snorm16x2 => 2 * 2,
-            VertexFormat::Snorm16x4 => 2 * 4,
-            VertexFormat::Float16x2 => 2 * 2,
-            VertexFormat::Float16x4 => 2 * 4,
-            VertexFormat::Float32 => 4,
-            VertexFormat::Float32x2 => 4 * 2,
-            VertexFormat::Float32x3 => 4 * 3,
-            VertexFormat::Float32x4 => 4 * 4,
-            VertexFormat::Uint32 => 4,
-            VertexFormat::Uint32x2 => 4 * 2,
-            VertexFormat::Uint32x3 => 4 * 3,
-            VertexFormat::Uint32x4 => 4 * 4,
-            VertexFormat::Sint32 => 4,
-            VertexFormat::Sint32x2 => 4 * 2,
-            VertexFormat::Sint32x3 => 4 * 3,
-            VertexFormat::Sint32x4 => 4 * 4,
-            VertexFormat::Float64 => 8,
-            VertexFormat::Float64x2 => 8 * 2,
-            VertexFormat::Float64x3 => 8 * 3,
-            VertexFormat::Float64x4 => 8 * 4,
+            VertexFormat::Uint8x2
+            | VertexFormat::Sint8x2
+            | VertexFormat::Unorm8x2
+            | VertexFormat::Snorm8x2 => 2,
+            
+            VertexFormat::Uint8x4
+            | VertexFormat::Sint8x4
+            | VertexFormat::Unorm8x4
+            | VertexFormat::Snorm8x4
+            | VertexFormat::Unorm10_10_10_2
+            | VertexFormat::Uint16x2
+            | VertexFormat::Sint16x2
+            | VertexFormat::Unorm16x2
+            | VertexFormat::Snorm16x2
+            | VertexFormat::Float16x2
+            | VertexFormat::Float32
+            | VertexFormat::Uint32
+            | VertexFormat::Sint32 => 4,
+            
+            VertexFormat::Uint16x4
+            | VertexFormat::Sint16x4
+            | VertexFormat::Unorm16x4
+            | VertexFormat::Snorm16x4
+            | VertexFormat::Float16x4
+            | VertexFormat::Float32x2
+            | VertexFormat::Uint32x2
+            | VertexFormat::Sint32x2
+            | VertexFormat::Float64 => 8,
+            
+            VertexFormat::Float32x3
+            | VertexFormat::Uint32x3
+            | VertexFormat::Sint32x3 => 12,
+            
+            VertexFormat::Float32x4
+            | VertexFormat::Uint32x4
+            | VertexFormat::Sint32x4
+            | VertexFormat::Float64x2 => 16,
+            
+            VertexFormat::Float64x3 => 24,
+            
+            VertexFormat::Float64x4 => 32,
         }
     }
 }
@@ -249,7 +254,10 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn len(&self) -> usize {
         match self {
             VertexAttributeValues::Float32(values) => values.len(),
@@ -299,7 +307,10 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(values),
