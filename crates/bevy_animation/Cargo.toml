@@ -32,7 +32,7 @@ petgraph = { version = "0.6", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"
 blake3 = { version = "1.0" }
-downcast-rs = "1.2.0"
+downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 either = "1.13"

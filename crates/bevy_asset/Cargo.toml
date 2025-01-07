@@ -37,7 +37,7 @@ async-fs = "2.0"
 async-lock = "3.0"
 bitflags = { version = "2.3", features = ["serde"] }
 crossbeam-channel = "0.5"
-downcast-rs = "1.2"
+downcast-rs = { version = "2", default-features = false, features = ["std"] }
 disqualified = "1.0"
 either = "1.13"
 futures-io = "0.3"

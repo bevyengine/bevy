@@ -362,7 +362,6 @@ impl SubApp {
     }
 
     /// See [`App::get_added_plugins`].
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
