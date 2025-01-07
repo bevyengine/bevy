@@ -5,7 +5,8 @@ use crate::{
     folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -1466,6 +1467,28 @@ impl AssetServer {
             }
         }
     }
+
+    /// Writes the default meta file for the provided `path`.
+    ///
+    /// Note if there is already a meta file for `path`, it will be overwritten.
+    pub async fn write_default_meta_file_for_path(
+        &self,
+        path: impl Into<AssetPath<'_>>,
+    ) -> Result<(), WriteDefaultMetaError> {
+        let path = path.into();
+        let loader = self.get_path_asset_loader(&path).await?;
+
+        let meta = loader.default_meta();
+        let serialized_meta = meta.serialize();
+
+        let source = self.get_source(path.source())?;
+        let writer = source.writer()?;
+        writer
+            .write_meta_bytes(path.path(), &serialized_meta)
+            .await?;
+
+        Ok(())
+    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
@@ -1859,4 +1882,16 @@ pub enum WaitForAssetError {
     Failed(Arc<AssetLoadError>),
     #[error(transparent)]
     DependencyFailed(Arc<AssetLoadError>),
+}
+
+#[derive(Error, Debug)]
+pub enum WriteDefaultMetaError {
+    #[error(transparent)]
+    MissingAssetLoader(#[from] MissingAssetLoaderForExtensionError),
+    #[error(transparent)]
+    MissingAssetSource(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingAssetWriter(#[from] MissingAssetWriterError),
+    #[error("Failed to write default asset meta file: {0}")]
+    FailedToWriteMeta(#[from] AssetWriterError),
 }
