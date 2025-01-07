@@ -2,12 +2,12 @@
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
-use crate::{Sprite, TextureAtlasLayout};
+use crate::Sprite;
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
