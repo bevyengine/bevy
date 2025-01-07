@@ -75,11 +75,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<T>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` is the only thing that is borrowing world
-        // - `as_unsafe_world_cell` provides mutable permission to everything
-        // - `&mut self` ensures no other borrows on world data
-        unsafe { self.world.get_entity(entity)?.get_mut() }
+        self.get_entity_mut(entity).ok()?.into_mut()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -491,13 +487,10 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe {
-            self.world
-                .get_entity(entity)?
-                .get_mut_by_id(component_id)
-                .ok()
-        }
+        self.get_entity_mut(entity)
+            .ok()?
+            .into_mut_by_id(component_id)
+            .ok()
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
