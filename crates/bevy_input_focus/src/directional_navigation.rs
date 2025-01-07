@@ -22,6 +22,8 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::CompassOctant;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -33,11 +35,20 @@ pub struct DirectionalNavigationPlugin;
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>();
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<NavNeighbors>()
+            .register_type::<DirectionalNavigationMap>();
     }
 }
 
 /// The up-to-eight neighbors of a focusable entity, one for each [`CompassOctant`].
 #[derive(Default, Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, PartialEq)
+)]
 pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
     /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
@@ -79,6 +90,11 @@ impl NavNeighbors {
 ///
 /// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Resource, Debug, Default, PartialEq)
+)]
 pub struct DirectionalNavigationMap {
     /// A directed graph of focusable entities.
     ///
