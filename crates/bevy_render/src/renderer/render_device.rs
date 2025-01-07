@@ -7,7 +7,7 @@ use crate::WgpuWrapper;
 use alloc::sync::Arc;
 use bevy_ecs::system::Resource;
 use wgpu::{
-    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    util::DeviceExt as _, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
 };
 

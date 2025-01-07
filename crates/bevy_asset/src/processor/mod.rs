@@ -63,7 +63,7 @@ use bevy_tasks::ConditionalSendFuture;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
-use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use futures_lite::{AsyncReadExt as _, AsyncWriteExt as _, StreamExt as _};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 use thiserror::Error;

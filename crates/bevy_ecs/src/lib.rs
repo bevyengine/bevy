@@ -64,7 +64,7 @@ pub mod prelude {
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         name::{Name, NameOrEntity},
-        observer::{CloneEntityWithObserversExt, Observer, Trigger},
+        observer::{CloneEntityWithObserversExt as _, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         result::{Error, Result},

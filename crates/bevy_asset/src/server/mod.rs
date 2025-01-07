@@ -25,7 +25,7 @@ use bevy_utils::HashSet;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
-use futures_lite::{FutureExt, StreamExt};
+use futures_lite::{FutureExt as _, StreamExt as _};
 use info::*;
 use loaders::*;
 use parking_lot::{RwLock, RwLockWriteGuard};

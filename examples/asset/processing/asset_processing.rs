@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AsyncWriteExt as _, LoadContext,
     },
     prelude::*,
     reflect::TypePath,

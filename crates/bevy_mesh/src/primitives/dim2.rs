@@ -10,7 +10,7 @@ use bevy_math::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
         Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
-    FloatExt, Vec2,
+    FloatExt as _, Vec2,
 };
 use wgpu_types::PrimitiveTopology;
 
