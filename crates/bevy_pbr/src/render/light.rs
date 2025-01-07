@@ -35,8 +35,6 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use bevy_utils::{default, HashMap, HashSet};
 use core::{hash::Hash, ops::Range};
 #[cfg(feature = "trace")]
