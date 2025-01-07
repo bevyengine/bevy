@@ -250,7 +250,7 @@ mod tests {
     use alloc::{borrow::ToOwned, string::String, vec, vec::Vec};
     use bevy_ecs::{
         component::Component,
-        system::Commands,
+        system::{error_handler, Commands},
         world::{CommandQueue, World},
     };
 
@@ -310,6 +310,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
+            commands.override_error_handler(error_handler::silent());
             commands.entity(parent_entity).despawn_recursive();
             // despawning the same entity twice should not panic
             commands.entity(parent_entity).despawn_recursive();
