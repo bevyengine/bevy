@@ -25,12 +25,10 @@ use bevy_ecs::{
     world::{OnRemove, Ref},
 };
 #[cfg(feature = "custom_cursor")]
-use bevy_image::Image;
+use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 #[cfg(feature = "custom_cursor")]
 use bevy_math::{Rect, URect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "custom_cursor")]
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]

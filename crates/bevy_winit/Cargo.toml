@@ -18,13 +18,7 @@ serialize = ["serde", "bevy_input/serialize", "bevy_window/serialize"]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 
-custom_cursor = [
-  "bevy_asset",
-  "bevy_image",
-  "bevy_sprite",
-  "bytemuck",
-  "wgpu-types",
-]
+custom_cursor = ["bevy_image", "bevy_asset", "bytemuck", "wgpu-types"]
 
 [dependencies]
 # bevy
@@ -45,7 +39,6 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 # bevy optional
 bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev", optional = true }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev", optional = true }
-bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev", optional = true }
 
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
