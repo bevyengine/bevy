@@ -843,6 +843,26 @@ impl Image {
         Image::new(size, dimension, data, format, asset_usage)
     }
 
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// This is primarily for use as a render target for a [`Camera`](`bevy_render::camera::Camera`).
+    /// See [`RenderTarget::Image`](`bevy_render::camera::RenderTarget::Image`).
+    pub fn new_target_texture(width: u32, height: u32) -> Self {
+        let mut image = Self::default();
+
+        image.resize(Extent3d {
+            width,
+            height,
+            ..Default::default()
+        });
+
+        // You need to set these texture usage flags in order to use the image as a render target
+        image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT;
+
+        image
+    }
+
     /// Returns the width of a 2D image.
     #[inline]
     pub fn width(&self) -> u32 {
