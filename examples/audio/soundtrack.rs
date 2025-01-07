@@ -82,7 +82,7 @@ fn change_track(
                     AudioPlayer(soundtrack_player.track_list.first().unwrap().clone()),
                     PlaybackSettings {
                         mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::ZERO,
+                        volume: bevy::audio::Volume::SILENT,
                         ..default()
                     },
                     FadeIn,
@@ -93,7 +93,7 @@ fn change_track(
                     AudioPlayer(soundtrack_player.track_list.get(1).unwrap().clone()),
                     PlaybackSettings {
                         mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::ZERO,
+                        volume: bevy::audio::Volume::SILENT,
                         ..default()
                     },
                     FadeIn,
@@ -115,8 +115,8 @@ fn fade_in(
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
-        audio.set_volume(current_volume + time.delta_secs() / FADE_TIME);
-        if audio.volume() >= 1.0 {
+        audio.set_volume(current_volume.to_linear() + time.delta_secs() / FADE_TIME);
+        if audio.volume().to_linear() >= 1.0 {
             audio.set_volume(1.0);
             commands.entity(entity).remove::<FadeIn>();
         }
@@ -132,8 +132,8 @@ fn fade_out(
 ) {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
-        audio.set_volume(current_volume - time.delta_secs() / FADE_TIME);
-        if audio.volume() <= 0.0 {
+        audio.set_volume(current_volume.to_linear() - time.delta_secs() / FADE_TIME);
+        if audio.volume().to_linear() <= 0.0 {
             commands.entity(entity).despawn_recursive();
         }
     }

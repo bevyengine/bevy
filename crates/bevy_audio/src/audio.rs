@@ -74,7 +74,7 @@ impl PlaybackSettings {
     /// added again.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
         mode: PlaybackMode::Once,
-        volume: Volume(1.0),
+        volume: Volume::from_linear(1.0),
         speed: 1.0,
         paused: false,
         muted: false,

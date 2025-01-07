@@ -3,8 +3,12 @@ use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
+use crate::Volume;
+
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
+    // TODO: Docs.
+    //
     /// Gets the volume of the sound.
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value
@@ -13,8 +17,10 @@ pub trait AudioSinkPlayback {
     /// If the sink is muted, this returns the managed volume rather than the
     /// sink's actual volume. This allows you to use the volume as if the sink
     /// were not muted, because a muted sink has a volume of 0.
-    fn volume(&self) -> f32;
+    fn volume(&self) -> Volume;
 
+    // TODO: Docs.
+    //
     /// Changes the volume of the sound.
     ///
     /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
@@ -33,7 +39,7 @@ pub trait AudioSinkPlayback {
     /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
     /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
     /// Multiply the current volume by 0.316 to halve the perceived volume.
-    fn set_volume(&mut self, volume: f32);
+    fn set_volume(&mut self, volume: impl Into<Volume>);
 
     /// Gets the speed of the sound.
     ///
@@ -132,7 +138,7 @@ pub struct AudioSink {
     /// If the sink is muted, this is `Some(volume)` where `volume` is the
     /// user's intended volume setting, even if the underlying sink's volume is
     /// 0.
-    pub(crate) managed_volume: Option<f32>,
+    pub(crate) managed_volume: Option<Volume>,
 }
 
 impl AudioSink {
@@ -146,15 +152,16 @@ impl AudioSink {
 }
 
 impl AudioSinkPlayback for AudioSink {
-    fn volume(&self) -> f32 {
-        self.managed_volume.unwrap_or_else(|| self.sink.volume())
+    fn volume(&self) -> Volume {
+        self.managed_volume
+            .unwrap_or_else(|| self.sink.volume().into())
     }
 
-    fn set_volume(&mut self, volume: f32) {
+    fn set_volume(&mut self, volume: impl Into<Volume>) {
         if self.is_muted() {
-            self.managed_volume = Some(volume);
+            self.managed_volume = Some(volume.into());
         } else {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.into().to_linear());
         }
     }
 
@@ -197,7 +204,7 @@ impl AudioSinkPlayback for AudioSink {
 
     fn unmute(&mut self) {
         if let Some(volume) = self.managed_volume.take() {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 }
@@ -227,7 +234,7 @@ pub struct SpatialAudioSink {
     /// If the sink is muted, this is `Some(volume)` where `volume` is the
     /// user's intended volume setting, even if the underlying sink's volume is
     /// 0.
-    pub(crate) managed_volume: Option<f32>,
+    pub(crate) managed_volume: Option<Volume>,
 }
 
 impl SpatialAudioSink {
@@ -241,15 +248,16 @@ impl SpatialAudioSink {
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
-    fn volume(&self) -> f32 {
-        self.managed_volume.unwrap_or_else(|| self.sink.volume())
+    fn volume(&self) -> Volume {
+        self.managed_volume
+            .unwrap_or_else(|| self.sink.volume().into())
     }
 
-    fn set_volume(&mut self, volume: f32) {
+    fn set_volume(&mut self, volume: impl Into<Volume>) {
         if self.is_muted() {
-            self.managed_volume = Some(volume);
+            self.managed_volume = Some(volume.into());
         } else {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.into().to_linear());
         }
     }
 
@@ -292,7 +300,7 @@ impl AudioSinkPlayback for SpatialAudioSink {
 
     fn unmute(&mut self) {
         if let Some(volume) = self.managed_volume.take() {
-            self.sink.set_volume(volume);
+            self.sink.set_volume(volume.to_linear());
         }
     }
 }
@@ -326,11 +334,11 @@ mod tests {
 
     fn test_audio_sink_playback<T: AudioSinkPlayback>(mut audio_sink: T) {
         // Test volume
-        assert_eq!(audio_sink.volume(), 1.0); // default volume
+        assert_eq!(audio_sink.volume(), 1.0.into()); // default volume
         audio_sink.set_volume(0.5);
-        assert_eq!(audio_sink.volume(), 0.5);
+        assert_eq!(audio_sink.volume(), 0.5.into());
         audio_sink.set_volume(1.0);
-        assert_eq!(audio_sink.volume(), 1.0);
+        assert_eq!(audio_sink.volume(), 1.0.into());
 
         // Test speed
         assert_eq!(audio_sink.speed(), 1.0); // default speed
@@ -363,9 +371,9 @@ mod tests {
         // Test volume with mute
         audio_sink.set_volume(0.5);
         audio_sink.mute();
-        assert_eq!(audio_sink.volume(), 0.5); // returns managed volume even though sink volume is 0
+        assert_eq!(audio_sink.volume(), 0.5.into()); // returns managed volume even though sink volume is 0
         audio_sink.unmute();
-        assert_eq!(audio_sink.volume(), 0.5); // managed volume is restored
+        assert_eq!(audio_sink.volume(), 0.5.into()); // managed volume is restored
 
         // Test toggle mute
         audio_sink.toggle_mute();

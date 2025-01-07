@@ -78,9 +78,9 @@ fn volume(
 
     if keyboard_input.just_pressed(KeyCode::Equal) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume + 0.1);
+        sink.set_volume(current_volume.to_linear() + 0.1);
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
         let current_volume = sink.volume();
-        sink.set_volume(current_volume - 0.1);
+        sink.set_volume(current_volume.to_linear() - 0.1);
     }
 }
