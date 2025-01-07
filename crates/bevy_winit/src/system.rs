@@ -154,16 +154,6 @@ pub fn create_monitors(
                 seen_monitors[idx] = true;
                 continue 'outer;
             }
-            // on iOS, equality doesn't work, so we need to compare the names
-            // otherwise the monitor entity is recreated every time
-            // TODO: remove after https://github.com/rust-windowing/winit/pull/4013 has been released
-            #[cfg(target_os = "ios")]
-            {
-                if monitor.name() == m.name() {
-                    seen_monitors[idx] = true;
-                    continue 'outer;
-                }
-            }
         }
 
         let size = monitor.size();
