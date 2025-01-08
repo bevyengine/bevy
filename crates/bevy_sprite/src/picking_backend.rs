@@ -5,7 +5,7 @@
 //! # Usage
 //!
 //! This backend is strictly opt-in. For entities to be considered for sprite picking, you should
-//! mark them and their respective cameras with the [`SpritePickable`] component.
+//! mark them with [`Pickable`] and their respective cameras with [`SpritePickingCamera`].
 
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
