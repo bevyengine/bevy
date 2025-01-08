@@ -155,7 +155,7 @@ fn setup_ui(
 
 // The indirection between inputs and actions allows us to easily remap inputs
 // and handle multiple input sources (keyboard, gamepad, etc.) in our game
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum DirectionalNavigationAction {
     Up,
     Down,
