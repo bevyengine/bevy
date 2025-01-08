@@ -77,7 +77,17 @@ pub fn create_windows<F: QueryFilter + 'static>(
             window.window_theme = Some(convert_winit_theme(theme));
         }
 
-        if window.resolution.scale_factor_override().is_none() {
+        if let Some(forced_factor) = window.resolution.scale_factor_override() {
+            let size = window.resolution.physical_size();
+            let size = PhysicalSize::new(
+                ((size.x as f32) * forced_factor) as u32,
+                ((size.y as f32) * forced_factor) as u32,
+            );
+            window
+                .resolution
+                .set_physical_resolution(size.width, size.height);
+            let _ = winit_window.request_inner_size(size);
+        } else {
             window
                 .resolution
                 .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
