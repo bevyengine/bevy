@@ -25,9 +25,12 @@ pub trait BevyDefault {
 
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
-        TextureFormat::Rgba8UnormSrgb
+        TEXTURE_FORMAT_SDR
     }
 }
+
+pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
+pub const TEXTURE_FORMAT_SDR: TextureFormat = TextureFormat::Rgba8UnormSrgb;
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
