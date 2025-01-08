@@ -33,7 +33,7 @@ pub(crate) fn calculate_effective_rect(
 ) -> (Rect, bool) {
     let atlas_rect = texture_atlas
         .as_ref()
-        .and_then(|s| s.texture_rect(&texture_atlas_layouts))
+        .and_then(|s| s.texture_rect(texture_atlas_layouts))
         .map(|r| r.as_rect());
 
     match (atlas_rect, rect) {
