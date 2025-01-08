@@ -715,4 +715,41 @@ mod tests {
         assert_eq!(nav_map.get_neighbor(d, CompassOctant::East), None);
         assert_eq!(nav_map.get_neighbor(d, CompassOctant::West), None);
     }
+
+    #[test]
+    fn sparse_grid() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+        let d = world.spawn_empty().id();
+
+        let mut nav_map = DirectionalNavigationMap::default();
+        // a x b
+        // x x x
+        // c x d
+        let mut grid = HashMap::default();
+        grid.insert(IVec2::new(0, 0), a);
+        grid.insert(IVec2::new(2, 0), b);
+        grid.insert(IVec2::new(0, 2), c);
+        grid.insert(IVec2::new(2, 2), d);
+
+        nav_map.add_grid(grid, false);
+
+        // Cardinal directions
+        assert_eq!(nav_map.get_neighbor(a, CompassOctant::East), Some(b));
+        assert_eq!(nav_map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(nav_map.get_neighbor(a, CompassOctant::South), Some(c));
+        assert_eq!(nav_map.get_neighbor(c, CompassOctant::North), Some(a));
+        assert_eq!(nav_map.get_neighbor(b, CompassOctant::South), Some(d));
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::North), Some(b));
+        assert_eq!(nav_map.get_neighbor(c, CompassOctant::East), Some(d));
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::West), Some(c));
+
+        // Diagonal directions
+        assert_eq!(nav_map.get_neighbor(a, CompassOctant::SouthEast), Some(d));
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::NorthWest), Some(a));
+        assert_eq!(nav_map.get_neighbor(b, CompassOctant::SouthWest), Some(c));
+        assert_eq!(nav_map.get_neighbor(c, CompassOctant::NorthEast), Some(b));
+    }
 }
