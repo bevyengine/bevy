@@ -983,7 +983,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&World, &mut ComponentCloneCtx);
 
 /// A struct instructing which clone handler to use when cloning a component.
 #[derive(Debug)]
@@ -1003,8 +1003,8 @@ impl ComponentCloneHandler {
     /// Set clone handler based on `Clone` trait.
     ///
     /// If set as a handler for a component that is not the same as the one used to create this handler, it will panic.
-    pub fn clone_handler<C: Component + Clone>() -> Self {
-        Self(Some(component_clone_via_clone::<C>))
+    pub fn clone_handler<T: Clone + 'static>() -> Self {
+        Self(Some(component_clone_via_clone::<T>))
     }
 
     /// Set clone handler based on `Reflect` trait.
@@ -2170,11 +2170,8 @@ pub fn enforce_no_required_components_recursion(
 /// It will panic if set as handler for any other component.
 ///
 /// See [`ComponentCloneHandlers`] for more details.
-pub fn component_clone_via_clone<C: Clone + Component>(
-    _world: &mut DeferredWorld,
-    ctx: &mut ComponentCloneCtx,
-) {
-    if let Some(component) = ctx.read_source_component::<C>() {
+pub fn component_clone_via_clone<T: Clone + 'static>(_world: &World, ctx: &mut ComponentCloneCtx) {
+    if let Some(component) = ctx.read_source_component::<T>() {
         ctx.write_target_component(component.clone());
     }
 }
@@ -2195,7 +2192,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+pub fn component_clone_via_reflect(_world: &World, ctx: &mut ComponentCloneCtx) {
     let Some(registry) = ctx.type_registry() else {
         return;
     };
@@ -2233,12 +2230,16 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
     if let Some(reflect_from_world) =
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
+        let Some(mut commands) = ctx.commands() else {
+            return;
+        };
+        let Some(target) = ctx.target() else { return };
         let reflect_from_world = reflect_from_world.clone();
         let source_component_cloned = source_component_reflect.clone_value();
+        drop(registry);
         let component_layout = component_info.layout();
-        let target = ctx.target();
         let component_id = ctx.component_id();
-        world.commands().queue(move |world: &mut World| {
+        commands.queue(move |world: &mut World| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
@@ -2260,7 +2261,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
 /// Noop implementation of component clone handler function.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
-pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
+pub fn component_clone_ignore(_world: &World, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
@@ -2277,7 +2278,7 @@ impl<T> Default for ComponentCloneSpecializationWrapper<T> {
 pub trait ComponentCloneBase {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler;
 }
-impl<C: Component> ComponentCloneBase for ComponentCloneSpecializationWrapper<C> {
+impl<T: 'static> ComponentCloneBase for ComponentCloneSpecializationWrapper<T> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
         ComponentCloneHandler::default_handler()
     }
@@ -2288,8 +2289,8 @@ impl<C: Component> ComponentCloneBase for ComponentCloneSpecializationWrapper<C>
 pub trait ComponentCloneViaClone {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler;
 }
-impl<C: Clone + Component> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<C> {
+impl<T: Clone + 'static> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<T> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::clone_handler::<C>()
+        ComponentCloneHandler::clone_handler::<T>()
     }
 }

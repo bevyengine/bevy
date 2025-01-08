@@ -66,11 +66,14 @@ impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
-    let target = ctx.target();
-    let source = ctx.source();
+fn component_clone_observed_by(_world: &World, ctx: &mut ComponentCloneCtx) {
+    let Some(target) = ctx.target() else { return };
+    let Some(source) = ctx.source() else { return };
+    let Some(mut commands) = ctx.commands() else {
+        return;
+    };
 
-    world.commands().queue(move |world: &mut World| {
+    commands.queue(move |world: &mut World| {
         let observed_by = world
             .get::<ObservedBy>(source)
             .map(|observed_by| observed_by.0.clone())
