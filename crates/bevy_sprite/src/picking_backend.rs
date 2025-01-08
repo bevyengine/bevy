@@ -1,6 +1,11 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
+//!
+//! # Usage
+//!
+//! This backend is strictly opt-in. For entities to be considered for sprite picking, you should
+//! mark them and their respective cameras with the [`SpritePickable`] component.
 
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
