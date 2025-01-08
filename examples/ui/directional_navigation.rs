@@ -64,13 +64,37 @@ fn setup_ui(
     // Rendering UI elements requires a camera
     commands.spawn(Camera2d);
 
+    // Create a full-screen background node
+    let root_node = commands
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        })
+        .id();
+
+    // Add instruction to the left of the grid
+    let instructions = commands
+        .spawn((
+            Text::new("Use arrow keys or D-pad to navigate. \
+            Click the buttons, or press Enter / the South gamepad button to interact with the focused button."),
+            Node {
+                width: Val::Px(200.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::all(Val::Px(16.0)),
+                ..default()
+            },
+        ))
+        .id();
+
     // Set up the root entity to hold the grid
-    let root_entity = commands
+    let grid_root_entity = commands
         .spawn(Node {
             display: Display::Grid,
             // Allow the grid to take up the full height and width of the window
-            width: Val::Vw(100.),
-            height: Val::Vh(100.),
+            width: Val::Percent(60.),
+            height: Val::Percent(100.),
             // Set the number of rows and columns in the grid
             // allowing the grid to automatically size the cells
             grid_template_columns: RepeatedGridTrack::auto(N_COLS),
@@ -79,8 +103,12 @@ fn setup_ui(
         })
         .id();
 
-    let mut button_entities: HashMap<(u16, u16), Entity> = HashMap::default();
+    // Add the instructions and grid to the root node
+    commands
+        .entity(root_node)
+        .add_children(&[instructions, grid_root_entity]);
 
+    let mut button_entities: HashMap<(u16, u16), Entity> = HashMap::default();
     for row in 0..N_ROWS {
         for col in 0..N_COLS {
             let button_name = format!("Button {}-{}", row, col);
@@ -117,7 +145,7 @@ fn setup_ui(
                 .id();
 
             // Add the button to the grid
-            commands.entity(root_entity).add_child(button_entity);
+            commands.entity(grid_root_entity).add_child(button_entity);
 
             // Keep track of the button entities so we can set up our navigation graph
             button_entities.insert((row, col), button_entity);
