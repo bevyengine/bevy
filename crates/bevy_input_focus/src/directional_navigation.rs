@@ -24,7 +24,7 @@ use bevy_ecs::{
 use bevy_math::{CompassOctant, IVec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_utils::HashMap;
+use bevy_utils::{hashbrown, HashMap};
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -214,7 +214,7 @@ impl DirectionalNavigationMap {
     // which uses u16 values. We need signed integers here, but we should be able to cast them losslessly.
     // PERF: This is a very flexible / "clever" implementation, but it won't be the fastest for simple cases.
     // If there's user demand for it, we can add a more optimized / less flexible version that requires non-sparse rectangular grids.
-    pub fn add_grid(&mut self, entity_grid: HashMap<IVec2, Entity>, should_loop: bool) {
+    pub fn add_grid(&mut self, entity_grid: NavGrid, should_loop: bool) {
         let mut min_rows = i32::MAX;
         let mut min_columns = i32::MAX;
         let mut max_rows = i32::MIN;
@@ -227,7 +227,7 @@ impl DirectionalNavigationMap {
             max_columns = max_columns.max(position.x);
         }
 
-        for (&position, &entity) in &entity_grid {
+        for (&position, &entity) in entity_grid.iter() {
             let neighbors = self.neighbors.entry(entity).or_insert(NavNeighbors::EMPTY);
 
             for direction in CompassOctant::VARIANTS {
@@ -285,7 +285,7 @@ impl DirectionalNavigationMap {
     ///
     /// It is split out into its own method for ease of testing.
     fn find_nearest_grid_neighbor_in_direction<const SHOULD_LOOP: bool>(
-        entity_grid: &HashMap<IVec2, Entity>,
+        entity_grid: &NavGrid,
         min_rows: i32,
         min_columns: i32,
         max_rows: i32,
@@ -372,6 +372,164 @@ impl DirectionalNavigationMap {
     /// Note that the set of neighbors is not guaranteed to be non-empty though!
     pub fn get_neighbors(&self, entity: Entity) -> Option<&NavNeighbors> {
         self.neighbors.get(&entity)
+    }
+}
+
+/// A helper struct for creating grids that can be passed to [`DirectionalNavigationMap::add_grid`].
+///
+/// This exists to make constructing grids more ergonomic, with convenient constructors and builder methods.
+///
+/// Note that this type implements [`Deref`] into the internal [`HashMap`],
+/// so any immutable methods on [`HashMap`] can be called directly on a [`NavGrid`].
+#[derive(Debug)]
+pub struct NavGrid {
+    mapping: HashMap<IVec2, Entity>,
+    // These fields must be recomputed every time the mapping is updated.
+    min_rows: i32,
+    min_columns: i32,
+    max_rows: i32,
+    max_columns: i32,
+}
+
+impl Default for NavGrid {
+    fn default() -> Self {
+        NavGrid {
+            mapping: HashMap::default(),
+            min_rows: i32::MAX,
+            min_columns: i32::MAX,
+            max_rows: i32::MIN,
+            max_columns: i32::MIN,
+        }
+    }
+}
+
+impl std::ops::Deref for NavGrid {
+    type Target = HashMap<IVec2, Entity>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.mapping
+    }
+}
+
+impl NavGrid {
+    /// Gets an immutable reference to the internal mapping.
+    pub fn mapping(&self) -> &HashMap<IVec2, Entity> {
+        &self.mapping
+    }
+
+    /// Iterates over the (position, entity) pairs in the grid.
+    pub fn iter(&self) -> hashbrown::hash_map::Iter<IVec2, Entity> {
+        self.mapping.iter()
+    }
+
+    /// Adds an entity to the grid at the given position,
+    /// overwriting any existing entity at that position.
+    pub fn insert(&mut self, position: IVec2, entity: Entity) -> &mut Self {
+        self.mapping.insert(position, entity);
+        self.update_min_max(position);
+        self
+    }
+
+    /// Removes an entity from the grid at the given position.
+    pub fn remove(&mut self, position: IVec2) -> &mut Self {
+        self.mapping.remove(&position);
+
+        if self.mapping.is_empty() {
+            self.min_rows = i32::MAX;
+            self.min_columns = i32::MAX;
+            self.max_rows = i32::MIN;
+            self.max_columns = i32::MIN;
+        } else if self.min_columns == position.x
+            || self.max_columns == position.x
+            || self.min_rows == position.y
+            || self.max_rows == position.y
+        {
+            self.fully_recompute_min_max();
+        }
+        self
+    }
+
+    /// Constructs a new [`NavGrid`] from a two-dimensional array of entities,
+    /// with the inner arrays representing rows and the outer array representing columns.
+    pub fn from_array<const ROWS: usize, const COLUMNS: usize>(
+        grid: [[Entity; COLUMNS]; ROWS],
+    ) -> Self {
+        let mut mapping = HashMap::default();
+
+        for y in 0..ROWS {
+            for x in 0..COLUMNS {
+                mapping.insert(IVec2::new(x as i32, y as i32), grid[y][x]);
+            }
+        }
+
+        NavGrid {
+            mapping,
+            min_rows: 0,
+            min_columns: 0,
+            max_rows: ROWS as i32 - 1,
+            max_columns: COLUMNS as i32 - 1,
+        }
+    }
+
+    /// Constructs a new [`NavGrid`] from a two-dimensional array of [`Option<Entity>`],
+    /// with the inner arrays representing rows and the outer array representing columns.
+    pub fn from_optional_array<const ROWS: usize, const COLUMNS: usize>(
+        grid: [[Option<Entity>; COLUMNS]; ROWS],
+    ) -> Self {
+        let mut mapping = HashMap::default();
+
+        for y in 0..ROWS {
+            for x in 0..COLUMNS {
+                if let Some(entity) = grid[y][x] {
+                    mapping.insert(IVec2::new(x as i32, y as i32), entity);
+                }
+            }
+        }
+
+        NavGrid {
+            mapping,
+            min_rows: 0,
+            min_columns: 0,
+            max_rows: ROWS as i32 - 1,
+            max_columns: COLUMNS as i32 - 1,
+        }
+    }
+
+    /// Incrementally update the min and max rows and columns based on the new position.
+    fn update_min_max(&mut self, position: IVec2) {
+        self.min_rows = self.min_rows.min(position.y);
+        self.min_columns = self.min_columns.min(position.x);
+        self.max_rows = self.max_rows.max(position.y);
+        self.max_columns = self.max_columns.max(position.x);
+    }
+
+    /// Recomputes the min and max rows and columns based on the current mapping.
+    ///
+    /// These fields are private, and stored for faster operations.
+    /// Every operation should ensure that these are up-to-date.
+    fn fully_recompute_min_max(&mut self) {
+        self.min_rows = i32::MAX;
+        self.min_columns = i32::MAX;
+        self.max_rows = i32::MIN;
+        self.max_columns = i32::MIN;
+
+        for position in self.mapping.keys() {
+            self.min_rows = self.min_rows.min(position.y);
+            self.min_columns = self.min_columns.min(position.x);
+            self.max_rows = self.max_rows.max(position.y);
+            self.max_columns = self.max_columns.max(position.x);
+        }
+    }
+}
+
+impl From<HashMap<IVec2, Entity>> for NavGrid {
+    fn from(mapping: HashMap<IVec2, Entity>) -> Self {
+        let mut grid = NavGrid {
+            mapping,
+            ..Default::default()
+        };
+        grid.fully_recompute_min_max();
+        grid
     }
 }
 
@@ -598,7 +756,7 @@ mod tests {
         let mut nav_map = DirectionalNavigationMap::default();
         // a b
         // c d
-        let mut grid = HashMap::default();
+        let mut grid = NavGrid::default();
         grid.insert(IVec2::new(0, 0), a);
         grid.insert(IVec2::new(1, 0), b);
         grid.insert(IVec2::new(0, 1), c);
@@ -643,7 +801,7 @@ mod tests {
         let mut nav_map = DirectionalNavigationMap::default();
         // a b
         // c d
-        let mut grid = HashMap::default();
+        let mut grid = NavGrid::default();
         grid.insert(IVec2::new(0, 0), a);
         grid.insert(IVec2::new(1, 0), b);
         grid.insert(IVec2::new(0, 1), c);
@@ -688,7 +846,7 @@ mod tests {
         // a b
         // a c
         // d d
-        let mut grid = HashMap::default();
+        let mut grid = NavGrid::default();
         grid.insert(IVec2::new(0, 0), a);
         grid.insert(IVec2::new(1, 0), b);
         grid.insert(IVec2::new(0, 1), a);
@@ -728,7 +886,7 @@ mod tests {
         // a x b
         // x x x
         // c x d
-        let mut grid = HashMap::default();
+        let mut grid = NavGrid::default();
         grid.insert(IVec2::new(0, 0), a);
         grid.insert(IVec2::new(2, 0), b);
         grid.insert(IVec2::new(0, 2), c);
