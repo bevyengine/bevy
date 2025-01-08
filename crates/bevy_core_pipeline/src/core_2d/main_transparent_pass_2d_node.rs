@@ -9,9 +9,9 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 #[derive(Default)]
 pub struct MainTransparentPass2dNode {}

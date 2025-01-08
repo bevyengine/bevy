@@ -3,7 +3,7 @@
 //!
 //! # Usage
 //!
-//! To receive events from this module, you must use an [`Observer`]
+//! To receive events from this module, you must use an [`Observer`] or [`EventReader`] with [`Pointer<E>`] events.
 //! The simplest example, registering a callback when an entity is hovered over by a pointer, looks like this:
 //!
 //! ```rust
@@ -23,9 +23,9 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Focus`](crate::PickSet::Focus). All pointer-event
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Hover`](crate::PickSet::Hover). All pointer-event
 //! observers resolve during the sync point between [`pointer_events`] and
-//! [`update_interactions`](crate::focus::update_interactions).
+//! [`update_interactions`](crate::hover::update_interactions).
 //!
 //! # Events Types
 //!
@@ -35,21 +35,22 @@
 //! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 //!
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
-//! general metadata about the pointer and it's location.
+//! general metadata about the pointer event.
 
-use core::fmt::Debug;
+use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::{tracing::debug, Duration, HashMap, Instant};
+use bevy_utils::{HashMap, Instant};
 use bevy_window::Window;
+use tracing::debug;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
-    focus::{HoverMap, PreviousHoverMap},
+    hover::{HoverMap, PreviousHoverMap},
     pointer::{
         Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap, PressDirection,
     },
@@ -385,7 +386,7 @@ pub struct PickingEventWriters<'w> {
 /// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
 /// receive both an [`Over`] and and a [`Out`] event during the same frame.
 ///
-/// When we account for event bubbling, this is no longer true. When focus shifts
+/// When we account for event bubbling, this is no longer true. When the hovering focus shifts
 /// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
 /// In the context of UI, this is especially problematic. Additional hierarchy-aware
 /// events will be added in a future release.
@@ -393,7 +394,7 @@ pub struct PickingEventWriters<'w> {
 /// Both [`Click`] and [`Released`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
 /// on the frame they are released. The end effect is that these two events can
-/// be received sequentally after an [`Out`] event (but always on the same frame
+/// be received sequentially after an [`Out`] event (but always on the same frame
 /// as the [`Out`] event).
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain
@@ -692,6 +693,10 @@ pub fn pointer_events(
 
                     // Emit Drag events to the entities we are dragging
                     for (drag_target, drag) in state.dragging.iter_mut() {
+                        let delta = location.position - drag.latest_pos;
+                        if delta == Vec2::ZERO {
+                            continue; // No need to emit a Drag event if there is no movement
+                        }
                         let drag_event = Pointer::new(
                             pointer_id,
                             location.clone(),
@@ -699,7 +704,7 @@ pub fn pointer_events(
                             Drag {
                                 button,
                                 distance: location.position - drag.start_pos,
-                                delta: location.position - drag.latest_pos,
+                                delta,
                             },
                         );
                         commands.trigger_targets(drag_event.clone(), *drag_target);

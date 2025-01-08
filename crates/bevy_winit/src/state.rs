@@ -24,6 +24,8 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::HashMap;
 use bevy_utils::Instant;
 use core::marker::PhantomData;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::EventLoopExtWebSys;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -187,7 +189,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         }
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+        let _span = tracing::info_span!("winit event_handler").entered();
 
         if self.app.plugins_state() != PluginsState::Cleaned {
             if self.app.plugins_state() != PluginsState::Ready {
@@ -868,19 +870,27 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
-    let mut runner_state = WinitAppRunnerState::new(app);
+    let runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
-    if let Err(err) = event_loop.run_app(&mut runner_state) {
-        error!("winit event loop returned an error: {err}");
+    // The winit docs mention using `spawn` instead of `run` on Wasm.
+    // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            event_loop.spawn_app(runner_state);
+            AppExit::Success
+        } else {
+            let mut runner_state = runner_state;
+            if let Err(err) = event_loop.run_app(&mut runner_state) {
+                error!("winit event loop returned an error: {err}");
+            }
+            // If everything is working correctly then the event loop only exits after it's sent an exit code.
+            runner_state.app_exit.unwrap_or_else(|| {
+                error!("Failed to receive an app exit code! This is a bug");
+                AppExit::error()
+            })
+        }
     }
-
-    // If everything is working correctly then the event loop only exits after it's sent an exit code.
-    runner_state.app_exit.unwrap_or_else(|| {
-        error!("Failed to receive a app exit code! This is a bug");
-        AppExit::error()
-    })
 }
 
 pub(crate) fn react_to_resize(

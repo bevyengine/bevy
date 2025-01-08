@@ -114,14 +114,14 @@ fn assign_clips(
 
         let Some(ancestor_player) = ancestor_player else {
             warn!(
-                "Unexpected animation hierarchy for animation clip {:?}; ignoring.",
+                "Unexpected animation hierarchy for animation clip {}; ignoring.",
                 clip_id
             );
             continue;
         };
 
         let Some(clip_handle) = assets.get_id_handle(clip_id) else {
-            warn!("Clip {:?} wasn't loaded.", clip_id);
+            warn!("Clip {} wasn't loaded.", clip_id);
             continue;
         };
 
@@ -156,7 +156,7 @@ fn handle_inputs(
     for (mut player, mut clips, entity, name) in &mut animation_player {
         let display_entity_name = match name {
             Some(name) => name.to_string(),
-            None => format!("entity {entity:?}"),
+            None => format!("entity {entity}"),
         };
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.all_paused() {

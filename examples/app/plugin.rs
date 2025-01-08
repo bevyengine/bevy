@@ -4,7 +4,8 @@
 //! that provide a specific piece of functionality (generally the smaller the scope, the better).
 //! This example illustrates how to create a simple plugin that prints out a message.
 
-use bevy::{prelude::*, utils::Duration};
+use bevy::prelude::*;
+use core::time::Duration;
 
 fn main() {
     App::new()

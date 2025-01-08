@@ -2,7 +2,7 @@
 
 use bevy_ecs::event::EventReader;
 use bevy_state::state::{StateTransitionEvent, States};
-use bevy_utils::tracing::info;
+use tracing::info;
 
 /// Logs state transitions into console.
 ///

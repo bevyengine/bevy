@@ -36,7 +36,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_secs().round());
-            info!("New value: {new_component:?} {entity:?}");
+            info!("New value: {new_component:?} {entity}");
             // Change detection occurs on mutable dereference, and does not consider whether or not
             // a value is actually equal. To avoid triggering change detection when nothing has
             // actually changed, you can use the `set_if_neq` method on any component or resource
@@ -53,7 +53,7 @@ fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponen
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_secs().round());
-            info!("New value: {new_component:?} {entity:?}");
+            info!("New value: {new_component:?} {entity}");
             component.set_if_neq(new_component);
         }
     }
@@ -87,7 +87,7 @@ fn change_detection(
             component,
             component.is_added(),
             component.is_changed(),
-            // If you enable the `track_change_detection` feature, you can unlock the `changed_by()`
+            // If you enable the `track_location` feature, you can unlock the `changed_by()`
             // method. It returns the file and line number that the component or resource was
             // changed in. It's not recommended for released games, but great for debugging!
             component.changed_by()
@@ -100,7 +100,7 @@ fn change_detection(
             my_resource,
             my_resource.is_added(),
             my_resource.is_changed(),
-            my_resource.changed_by() // Like components, requires `track_change_detection` feature.
+            my_resource.changed_by() // Like components, requires `track_location` feature.
         );
     }
 }

@@ -6,13 +6,15 @@
     )
 )]
 
-use crate::{App, Last, Plugin};
+use crate::{App, Plugin};
 
 use alloc::string::ToString;
-use bevy_ecs::prelude::*;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
+
+#[cfg(not(target_arch = "wasm32"))]
+use {crate::Last, bevy_ecs::prelude::NonSend};
 
 #[cfg(feature = "portable-atomic")]
 use portable_atomic_util::Arc;
@@ -187,6 +189,7 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string());
@@ -215,6 +218,7 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string());
@@ -243,6 +247,7 @@ impl TaskPoolOptions {
             trace!("Compute Threads: {}", compute_threads);
 
             ComputeTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string());

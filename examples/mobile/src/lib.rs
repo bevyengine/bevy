@@ -30,6 +30,8 @@ fn main() {
                     recognize_rotation_gesture: true,
                     // Only has an effect on iOS
                     prefers_home_indicator_hidden: true,
+                    // Only has an effect on iOS
+                    prefers_status_bar_hidden: true,
                     ..default()
                 }),
                 ..default()

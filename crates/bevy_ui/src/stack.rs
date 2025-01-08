@@ -38,7 +38,10 @@ impl ChildBufferCache {
 /// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,

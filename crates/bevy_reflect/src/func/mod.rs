@@ -96,7 +96,7 @@
 //!
 //! # Generic Functions
 //!
-//! In Rust, generic functions are [monomophized] by the compiler,
+//! In Rust, generic functions are [monomorphized] by the compiler,
 //! which means that a separate copy of the function is generated for each concrete set of type parameters.
 //!
 //! When converting a generic function to a [`DynamicFunction`] or [`DynamicFunctionMut`],
@@ -153,7 +153,7 @@
 //! [`Reflect`]: crate::Reflect
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
-//! [monomophized]: https://en.wikipedia.org/wiki/Monomorphization
+//! [monomorphized]: https://en.wikipedia.org/wiki/Monomorphization
 //! [overloading]: #overloading-functions
 //! [function overloading]: https://en.wikipedia.org/wiki/Function_overloading
 //! [variadic functions]: https://en.wikipedia.org/wiki/Variadic_function

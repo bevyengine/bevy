@@ -1,7 +1,7 @@
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     cmp::Ordering,
@@ -62,7 +62,7 @@ pub struct EventId<E: Event> {
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
     /// The source code location that triggered this event.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub caller: &'static Location<'static>,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(super) _marker: PhantomData<E>,

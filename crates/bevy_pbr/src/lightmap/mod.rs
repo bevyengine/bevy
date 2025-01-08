@@ -50,15 +50,17 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, tracing::error, HashSet};
+use bevy_utils::{default, HashSet};
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
+use tracing::error;
 
 use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
@@ -71,7 +73,7 @@ pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// If bindless textures aren't in use, then only a single lightmap can be bound
 /// at a time.
-pub const LIGHTMAPS_PER_SLAB: usize = 16;
+pub const LIGHTMAPS_PER_SLAB: usize = 4;
 
 /// A plugin that provides an implementation of lightmaps.
 pub struct LightmapPlugin;
@@ -332,7 +334,9 @@ impl Default for Lightmap {
 impl FromWorld for RenderLightmaps {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let bindless_supported = binding_arrays_are_usable(render_device);
+        let render_adapter = world.resource::<RenderAdapter>();
+
+        let bindless_supported = binding_arrays_are_usable(render_device, render_adapter);
 
         RenderLightmaps {
             render_lightmaps: default(),

@@ -27,10 +27,10 @@ use bevy_ecs::{
 #[cfg(feature = "custom_cursor")]
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "custom_cursor")]
-use bevy_utils::tracing::warn;
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
+#[cfg(feature = "custom_cursor")]
+use tracing::warn;
 #[cfg(feature = "custom_cursor")]
 use wgpu_types::TextureFormat;
 

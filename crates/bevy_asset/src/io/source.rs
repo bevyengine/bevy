@@ -5,12 +5,10 @@ use crate::{
 use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_utils::{
-    tracing::{error, warn},
-    Duration, HashMap,
-};
-use core::{fmt::Display, hash::Hash};
+use bevy_utils::HashMap;
+use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
+use tracing::{error, warn};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
@@ -531,7 +529,7 @@ impl AssetSource {
                 not(target_os = "android")
             ))]
             {
-                let path = std::path::PathBuf::from(path.clone());
+                let path = super::file::get_base_path().join(path.clone());
                 if path.exists() {
                     Some(Box::new(
                         super::file::FileWatcher::new(

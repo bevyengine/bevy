@@ -4,7 +4,10 @@
 //! [`GizmoBuffer::curve_3d`] and assorted support items.
 
 use bevy_color::Color;
-use bevy_math::{curve::Curve, Vec2, Vec3};
+use bevy_math::{
+    curve::{Curve, CurveExt},
+    Vec2, Vec3,
+};
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 

@@ -70,9 +70,6 @@ pub struct DistanceFog {
     pub falloff: FogFalloff,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `DistanceFog`")]
-pub type FogSettings = DistanceFog;
-
 /// Allows switching between different fog falloff modes, and configuring their parameters.
 ///
 /// ## Convenience Methods

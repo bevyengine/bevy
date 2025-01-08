@@ -33,9 +33,8 @@
 #endif
 
 
-// Biasing info needed to sample from a texture when calling `sample_texture`.
-// How this is done depends on whether we're rendering meshlets or regular
-// meshes.
+// Biasing info needed to sample from a texture. How this is done depends on
+// whether we're rendering meshlets or regular meshes.
 struct SampleBias {
 #ifdef MESHLET_MESH_MATERIAL_PASS
     ddx_uv: vec2<f32>,
@@ -443,7 +442,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::point_light(light_id, &transmissive_lighting_input);
+            lighting::point_light(light_id, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -501,7 +500,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::spot_light(light_id, &transmissive_lighting_input);
+            lighting::spot_light(light_id, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }
@@ -557,7 +556,7 @@ fn apply_pbr_lighting(
         }
 
         let transmitted_light_contrib =
-            lighting::directional_light(i, &transmissive_lighting_input);
+            lighting::directional_light(i, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
     }

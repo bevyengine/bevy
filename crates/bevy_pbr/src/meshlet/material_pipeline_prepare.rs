@@ -114,6 +114,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
                 Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
             };
         }
 

@@ -89,10 +89,7 @@ pub(crate) struct FromReflectAttrs {
 impl FromReflectAttrs {
     /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
     pub fn should_auto_derive(&self) -> bool {
-        self.auto_derive
-            .as_ref()
-            .map(LitBool::value)
-            .unwrap_or(true)
+        self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
 }
 
@@ -112,10 +109,7 @@ pub(crate) struct TypePathAttrs {
 impl TypePathAttrs {
     /// Returns true if `TypePath` should be automatically derived as part of the `Reflect` derive.
     pub fn should_auto_derive(&self) -> bool {
-        self.auto_derive
-            .as_ref()
-            .map(LitBool::value)
-            .unwrap_or(true)
+        self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
 }
 

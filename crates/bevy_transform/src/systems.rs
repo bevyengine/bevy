@@ -1,4 +1,5 @@
 use crate::components::{GlobalTransform, Transform};
+use alloc::vec::Vec;
 use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
@@ -185,6 +186,7 @@ unsafe fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};

@@ -1,6 +1,4 @@
-#[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
-
 use core::{cell::RefCell, ops::DerefMut};
 use thread_local::ThreadLocal;
 

@@ -14,7 +14,7 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`matches_component_set`], and [`fetch`]
+/// [`update_component_access`], [`matches_component_set`], [`fetch`] and [`init_fetch`]
 /// obey the following:
 ///
 /// - For each component mutably accessed by [`fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
@@ -26,8 +26,8 @@ use variadics_please::all_tuples;
 ///     - [`matches_component_set`] must be a disjunction of the element's implementations
 ///     - [`update_component_access`] must replace the filters with a disjunction of filters
 ///     - Each filter in that disjunction must be a conjunction of the corresponding element's filter with the previous `access`
-/// - For each resource mutably accessed by [`init_fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each resource readonly accessed by [`init_fetch`], [`update_component_access`] should add read access.
+/// - Mutable resource access is not allowed.
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
@@ -60,11 +60,14 @@ pub unsafe trait WorldQuery {
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of this fetch.
+    /// Readonly accesses resources registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
     ///
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
+    /// - `world` must have the **right** to access any access registered in `update_component_access`.
+    /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         state: &Self::State,
@@ -114,11 +117,13 @@ pub unsafe trait WorldQuery {
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
     /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
+    /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
     ///
-    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
+    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    ///   `table_row` must be in the range of the current table and archetype.
+    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,

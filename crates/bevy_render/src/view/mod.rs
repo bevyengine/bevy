@@ -631,10 +631,10 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoCpuCulling;
 
 impl ViewTarget {

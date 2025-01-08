@@ -1,5 +1,10 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -40,7 +45,6 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
-mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
@@ -50,7 +54,6 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -64,9 +67,8 @@ pub mod prelude {
             Mesh3d,
         },
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
         texture::ImagePlugin,
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
     };
 }
@@ -80,7 +82,7 @@ use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
-use renderer::{RenderDevice, RenderQueue};
+use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
@@ -101,9 +103,9 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
+use tracing::debug;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -489,7 +491,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.set_extract(|main_world, render_world| {
         {
             #[cfg(feature = "trace")]
-            let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
+            let _stage_span = tracing::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 
@@ -513,4 +515,24 @@ fn apply_extract_commands(render_world: &mut World) {
             .unwrap()
             .apply_deferred(render_world);
     });
+}
+
+/// If the [`RenderAdapter`] is a Qualcomm Adreno, returns its model number.
+///
+/// This lets us work around hardware bugs.
+pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let adapter_name = adapter.get_info().name;
+    let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+
+    // Take suffixes into account (like Adreno 642L).
+    Some(
+        adreno_model
+            .chars()
+            .map_while(|c| c.to_digit(10))
+            .fold(0, |acc, digit| acc * 10 + digit),
+    )
 }

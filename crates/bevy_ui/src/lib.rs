@@ -1,4 +1,9 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -11,7 +16,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
-pub mod node_bundles;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -49,16 +53,12 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::widget::TextBundle;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
-            node_bundles::*,
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label},

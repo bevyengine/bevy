@@ -2,11 +2,8 @@ use crate::{
     func::args::{ArgError, FromArg, Ownership},
     PartialReflect, Reflect, TypePath,
 };
-use alloc::boxed::Box;
+use alloc::{boxed::Box, string::ToString};
 use core::ops::Deref;
-
-#[cfg(not(feature = "std"))]
-use alloc::{format, vec};
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

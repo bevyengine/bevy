@@ -34,23 +34,19 @@ use bevy_render::{
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        prepare_view_targets, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::Entry,
-    tracing::{error, warn},
-    HashMap, Parallel,
-};
+use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap, Parallel};
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
+use tracing::{error, warn};
 
 use crate::{
     render::{
@@ -137,6 +133,10 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
+        if app.get_sub_app(RenderApp).is_none() {
+            return;
+        }
+
         app.add_systems(
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
@@ -217,8 +217,7 @@ impl Plugin for MeshRenderPlugin {
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
                                 .in_set(RenderSet::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::ManageViews)
-                                .after(prepare_view_targets),
+                                .in_set(RenderSet::PrepareResources),
                             collect_meshes_for_gpu_building
                                 .in_set(RenderSet::PrepareAssets)
                                 .after(allocator::allocate_and_free_meshes)
@@ -958,7 +957,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform = current_input_buffer.get(current_uniform_index);
+                let previous_mesh_input_uniform =
+                    current_input_buffer.get_unchecked(current_uniform_index);
                 let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
                 mesh_input_uniform.previous_input_index = previous_input_index;
 
@@ -1484,11 +1484,12 @@ impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
             Res<RenderDevice>,
+            Res<RenderAdapter>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue, view_layouts) =
+        let (render_device, render_adapter, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
 
         let clustered_forward_buffer_binding_type = render_device
@@ -1532,9 +1533,9 @@ impl FromWorld for MeshPipeline {
             view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts::new(&render_device),
+            mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
-            binding_arrays_are_usable: binding_arrays_are_usable(&render_device),
+            binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
@@ -1627,7 +1628,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_index_and_compare_data(
         (mesh_instances, lightmaps, _, _, _): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1653,7 +1654,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_batch_data(
         (mesh_instances, lightmaps, _, mesh_allocator, skin_indices): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -1684,7 +1685,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_index(
         (mesh_instances, _, _, _, _): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1700,46 +1701,53 @@ impl GetFullBatchData for MeshPipeline {
             .map(|entity| entity.current_uniform_index)
     }
 
-    fn get_batch_indirect_parameters_index(
+    fn write_batch_indirect_parameters(
         (mesh_instances, _, meshes, mesh_allocator, _): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32> {
-        get_batch_indirect_parameters_index(
+        indirect_parameters_offset: u32,
+        main_entity: MainEntity,
+    ) {
+        write_batch_indirect_parameters(
             mesh_instances,
             meshes,
             mesh_allocator,
             indirect_parameters_buffer,
-            entity,
-            instance_index,
-        )
+            indirect_parameters_offset,
+            main_entity,
+        );
     }
 }
 
 /// Pushes a set of [`IndirectParameters`] onto the [`IndirectParametersBuffer`]
 /// for the given mesh instance, and returns the index of those indirect
 /// parameters.
-fn get_batch_indirect_parameters_index(
+fn write_batch_indirect_parameters(
     mesh_instances: &RenderMeshInstances,
     meshes: &RenderAssets<RenderMesh>,
     mesh_allocator: &MeshAllocator,
     indirect_parameters_buffer: &mut IndirectParametersBuffer,
-    (_entity, main_entity): (Entity, MainEntity),
-    instance_index: u32,
-) -> Option<NonMaxU32> {
+    indirect_parameters_offset: u32,
+    main_entity: MainEntity,
+) {
     // This should only be called during GPU building.
     let RenderMeshInstances::GpuBuilding(ref mesh_instances) = *mesh_instances else {
         error!(
-            "`get_batch_indirect_parameters_index` should never be called in CPU mesh uniform \
+            "`write_batch_indirect_parameters_index` should never be called in CPU mesh uniform \
                 building mode"
         );
-        return None;
+        return;
     };
 
-    let mesh_instance = mesh_instances.get(&main_entity)?;
-    let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
-    let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
+    let Some(mesh_instance) = mesh_instances.get(&main_entity) else {
+        return;
+    };
+    let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+        return;
+    };
+    let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+    else {
+        return;
+    };
 
     // Note that `IndirectParameters` covers both of these structures, even
     // though they actually have distinct layouts. See the comment above that
@@ -1748,28 +1756,31 @@ fn get_batch_indirect_parameters_index(
         RenderMeshBufferInfo::Indexed {
             count: index_count, ..
         } => {
-            let index_buffer_slice =
-                mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)?;
+            let Some(index_buffer_slice) =
+                mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+            else {
+                return;
+            };
             IndirectParameters {
                 vertex_or_index_count: index_count,
                 instance_count: 0,
                 first_vertex_or_first_index: index_buffer_slice.range.start,
                 base_vertex_or_first_instance: vertex_buffer_slice.range.start,
-                first_instance: instance_index,
+                first_instance: 0,
             }
         }
         RenderMeshBufferInfo::NonIndexed => IndirectParameters {
             vertex_or_index_count: mesh.vertex_count,
             instance_count: 0,
             first_vertex_or_first_index: vertex_buffer_slice.range.start,
-            base_vertex_or_first_instance: instance_index,
-            first_instance: instance_index,
+            base_vertex_or_first_instance: 0,
+            // Use `0xffffffff` as a placeholder to tell the mesh preprocessing
+            // shader that this is a non-indexed mesh.
+            first_instance: !0,
         },
     };
 
-    (indirect_parameters_buffer.push(indirect_parameters) as u32)
-        .try_into()
-        .ok()
+    indirect_parameters_buffer.set(indirect_parameters_offset, indirect_parameters);
 }
 
 bitflags::bitflags! {

@@ -41,10 +41,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    tracing::{error, info_span, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -60,6 +57,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+use tracing::{error, info_span, warn};
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -646,13 +644,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
                         primitive_label
                     );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -704,17 +702,15 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                bevy_utils::tracing::debug!(
-                    "Automatically calculating missing vertex normals for geometry."
-                );
+                tracing::debug!("Automatically calculating missing vertex normals for geometry.");
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();
                 mesh.compute_flat_normals();
                 let vertex_count_after = mesh.count_vertices();
                 if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_utils::tracing::debug!(
+                    tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -728,7 +724,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
+                tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
@@ -737,9 +733,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
                         warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                            err
+                        );
                     }
                 });
             }
@@ -1912,7 +1908,7 @@ impl<'a> GltfTreeIterator<'a> {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
                 {
                     warn!(
-                        "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                        "The glTF skin {} has {} joints, but the maximum supported is {}",
                         skin.name()
                             .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),

@@ -2,7 +2,7 @@ use bevy_app::FixedMain;
 use bevy_ecs::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 use crate::{time::Time, virt::Virtual};
 

@@ -80,7 +80,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```should_panic
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource, PartialEq)]
@@ -90,7 +90,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
-    ///     // The `resource_equals` run condition will fail since we don't initialize `R`,
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );

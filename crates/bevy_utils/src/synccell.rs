@@ -1,3 +1,5 @@
+#![expect(unsafe_code, reason = "SyncCell requires unsafe code.")]
+
 //! A reimplementation of the currently unstable [`std::sync::Exclusive`]
 //!
 //! [`std::sync::Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html

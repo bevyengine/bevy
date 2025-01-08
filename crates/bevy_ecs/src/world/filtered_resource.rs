@@ -6,7 +6,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::Ptr;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
 
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].
@@ -165,7 +165,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
                 value: unsafe { value.deref() },
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 changed_by: unsafe { _caller.deref() },
             },
@@ -483,7 +483,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
                 value: unsafe { value.assert_unique() },
                 // SAFETY: We have exclusive access to the underlying storage.
                 ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 // SAFETY: We have exclusive access to the underlying storage.
                 changed_by: unsafe { _caller.deref_mut() },
             },

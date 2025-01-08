@@ -109,11 +109,13 @@ fn run_camera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    query: Single<(&mut Transform, &mut CameraController), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 
-    let (mut transform, mut controller) = query.into_inner();
+    let Ok((mut transform, mut controller)) = query.get_single_mut() else {
+        return;
+    };
 
     if !controller.initialized {
         let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);

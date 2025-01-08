@@ -231,10 +231,16 @@ impl RenderDevice {
         buffer.map_async(map_mode, callback);
     }
 
-    pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
+    // Rounds up `row_bytes` to be a multiple of [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+    pub const fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
-        let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
-        row_bytes + padded_bytes_per_row_padding
+
+        // If row_bytes is aligned calculate a value just under the next aligned value.
+        // Otherwise calculate a value greater than the next aligned value.
+        let over_aligned = row_bytes + align - 1;
+
+        // Round the number *down* to the nearest aligned value.
+        (over_aligned / align) * align
     }
 
     pub fn get_supported_read_only_binding_type(
@@ -246,5 +252,21 @@ impl RenderDevice {
         } else {
             BufferBindingType::Uniform
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn align_copy_bytes_per_row() {
+        // Test for https://github.com/bevyengine/bevy/issues/16992
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(0), 0);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(1), align);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(align + 1), align * 2);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(align), align);
     }
 }

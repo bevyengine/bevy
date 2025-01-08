@@ -12,9 +12,9 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use super::AlphaMask3d;
 
