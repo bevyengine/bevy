@@ -293,6 +293,10 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
 
         Some(self.render_entity)
     }
+
+    pub fn current_camera(&self) -> Entity {
+        self.camera_entity
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

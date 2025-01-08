@@ -264,13 +264,13 @@ pub fn extract_shadows(
         };
 
         let ui_physical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(camera_mapper.current_camera())
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
                     .map(|size| Vec2::new(size.x as f32, size.y as f32))
             })
-            .unwrap_or(Vec2::ZERO);
+            .unwrap_or_else(|| Vec2::ZERO);
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
