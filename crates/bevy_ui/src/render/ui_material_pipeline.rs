@@ -362,7 +362,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -374,20 +373,11 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Option<&TargetCamera>,
         )>,
     >,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = default_ui_camera.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
 
     for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
-            continue;
-        };
-
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
-            continue;
-        };
-
         // skip invisible nodes
         if !view_visibility.get() {
             continue;
@@ -397,6 +387,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         if !materials.contains(handle) {
             continue;
         }
+
+        let Some(camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         let border = [
             uinode.border.left / uinode.size().x,

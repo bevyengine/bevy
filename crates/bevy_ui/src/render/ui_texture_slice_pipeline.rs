@@ -247,7 +247,6 @@ pub struct ExtractedUiTextureSlices {
 pub fn extract_ui_texture_slices(
     mut commands: Commands,
     mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<(
@@ -260,18 +259,18 @@ pub fn extract_ui_texture_slices(
             &ImageNode,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
 
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
+        // Skip invisible images
+        if !view_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
-        };
-
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
+        }
 
         let image_scale_mode = match image.image_mode.clone() {
             widget::NodeImageMode::Sliced(texture_slicer) => {
@@ -289,13 +288,9 @@ pub fn extract_ui_texture_slices(
             _ => continue,
         };
 
-        // Skip invisible images
-        if !view_visibility.get()
-            || image.color.is_fully_transparent()
-            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-        {
+        let Some(camera_entity) = camera_mapper.map(camera) else {
             continue;
-        }
+        };
 
         let atlas_rect = image
             .texture_atlas

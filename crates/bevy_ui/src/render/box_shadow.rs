@@ -34,7 +34,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraMap, UiCameraMapper, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -236,7 +236,6 @@ pub struct ExtractedBoxShadows {
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
@@ -249,24 +248,20 @@ pub fn extract_shadows(
             Option<&TargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
 
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
         // Skip if no visible shadows
         if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
+
+        let Some(camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         let ui_physical_viewport_size = camera_query
             .get(camera_entity)

@@ -70,24 +70,20 @@ pub fn extract_debug_overlay(
             Option<&TargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
     if !debug_options.enabled {
         return;
     }
 
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
 
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Some(camera_entity) = camera_mapper.map(maybe_camera) else {
             continue;
         };
 
