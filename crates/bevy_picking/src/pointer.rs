@@ -32,6 +32,8 @@ pub enum PointerId {
     /// The mouse pointer.
     #[default]
     Mouse,
+    /// A synthetic pointer representing the currently focused element.
+    Focus,
     /// A touch input, usually numbered by window touch events from `winit`.
     Touch(u64),
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software

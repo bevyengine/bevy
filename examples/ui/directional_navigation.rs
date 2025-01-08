@@ -12,10 +12,15 @@ use bevy::{
         },
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::CompassOctant,
+    math::{CompassOctant, FloatOrd},
+    picking::{
+        backend::HitData,
+        pointer::{Location, PointerId},
+    },
     prelude::*,
     utils::{HashMap, HashSet},
 };
+use bevy_render::camera::NormalizedRenderTarget;
 
 fn main() {
     App::new()
@@ -39,17 +44,59 @@ fn main() {
             (
                 // We need to show which button is currently focused
                 highlight_focused_element,
-                // We should use the focused element to determine what "Enter" / "A" does
-                // And then respond to that action
-                (interact_with_focused_button, change_color_on_interaction).chain(),
+                // Pressing the "Interact" button while we have a focused element should simulate a click
+                interact_with_focused_button,
+                // We're doing a tiny animation when the button is interacted with,
+                // so we need a timer and a polling mechanism to reset it
+                reset_button_after_interaction,
             ),
         )
+        // This observer is added globally, so it will respond to *any* trigger of the correct type.
+        // However, we're filtering in the observer's query to only respond to button presses
+        .add_observer(universal_button_click_behavior)
         .run();
 }
 
 const NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_400;
 const PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_500;
 const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
+
+// This observer will be triggered whenever a button is pressed
+// In a real project, each button would also have its own unique behavior,
+// to capture the actual intent of the user
+fn universal_button_click_behavior(
+    // We're using a on-mouse-down trigger to improve responsiveness;
+    // Clicked is better when you want roll-off cancellation
+    mut trigger: Trigger<Pointer<Pressed>>,
+    mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
+) {
+    let button_entity = trigger.target();
+    if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
+        // This would be a great place to play a little sound effect too!
+        color.0 = PRESSED_BUTTON.into();
+        reset_timer.0 = Timer::from_seconds(0.3, TimerMode::Once);
+
+        // Picking events propagate up the hierarchy,
+        // so we need to stop the propagation here now that we've handled it
+        trigger.propagate(false);
+    }
+}
+
+/// Resets a UI element to its default state when the timer has elapsed.
+#[derive(Component, Deref, DerefMut)]
+struct ResetTimer(Timer);
+
+fn reset_button_after_interaction(
+    time: Res<Time>,
+    mut query: Query<(&mut ResetTimer, &mut BackgroundColor)>,
+) {
+    for (mut reset_timer, mut color) in query.iter_mut() {
+        reset_timer.tick(time.delta());
+        if reset_timer.just_finished() {
+            color.0 = NORMAL_BUTTON.into();
+        }
+    }
+}
 
 // We're spawning a simple 3x3 grid of buttons
 // The buttons are just colored rectangles with text displaying the button's name
@@ -324,42 +371,45 @@ fn highlight_focused_element(
     }
 }
 
-// By modifying the [`Interaction`] component rather than directly handling button-like interactions,
-// we can unify our handling of pointer and buttonlike interactions
+// By sending a Pointer<Pressed> trigger rather than directly handling button-like interactions,
+// we can unify our handling of pointer and keyboard/gamepad interactions
 fn interact_with_focused_button(
     action_state: Res<ActionState>,
     input_focus: Res<InputFocus>,
-    mut query: Query<&mut Interaction>,
+    mut commands: Commands,
 ) {
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
     {
         if let Some(focused_entity) = input_focus.0 {
-            if let Ok(mut interaction) = query.get_mut(focused_entity) {
-                // `Interaction::Pressed` is also set whenever the user clicks on a button
-                // and `Interaction` is reset at the start of each frame
-                *interaction = Interaction::Pressed;
-            }
-        }
-    }
-}
-
-// This system will change the background color of the button that was interacted with,
-// regardless of whether the interaction was a click or an interaction with a focused button.
-//
-// The actual behavior should be specialized for each button in a real application.
-//
-// We're filtering for `Changed<Interaction>` to only run this system when the interaction changes,
-// to avoid spamming the console with the same message when the button is held down
-fn change_color_on_interaction(
-    mut query: Query<(&Interaction, &mut BackgroundColor), Changed<Interaction>>,
-) {
-    for (interaction, mut color) in query.iter_mut() {
-        if *interaction == Interaction::Pressed {
-            color.0 = PRESSED_BUTTON.into();
-        } else {
-            color.0 = NORMAL_BUTTON.into();
+            commands.trigger_targets(
+                Pointer::<Pressed> {
+                    target: focused_entity,
+                    pointer_id: PointerId::Focus,
+                    // FIXME: this field should be optional
+                    pointer_location: Location {
+                        target: NormalizedRenderTarget::Image(
+                            bevy_render::camera::ImageRenderTarget {
+                                handle: Handle::default(),
+                                scale_factor: FloatOrd(1.0),
+                            },
+                        ),
+                        position: Vec2::ZERO,
+                    },
+                    event: Pressed {
+                        button: PointerButton::Primary,
+                        // FIXME: this field should be optional
+                        hit: HitData {
+                            camera: Entity::PLACEHOLDER,
+                            depth: 0.0,
+                            position: None,
+                            normal: None,
+                        },
+                    },
+                },
+                focused_entity,
+            );
         }
     }
 }
