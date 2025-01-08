@@ -58,7 +58,7 @@ fn setup_ui(
     mut directional_nav_map: ResMut<DirectionalNavigationMap>,
     mut input_focus: ResMut<InputFocus>,
 ) {
-    const N_ROWS: u16 = 3;
+    const N_ROWS: u16 = 5;
     const N_COLS: u16 = 3;
 
     // Rendering UI elements requires a camera
