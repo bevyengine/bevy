@@ -15,7 +15,7 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityCloneBuilder},
     event::Event,
-    system::{error_handler, Command, IntoObserverSystem},
+    system::{error_handler, Command, HandleError, IntoObserverSystem},
     world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
 };
 use bevy_ptr::OwningPtr;
@@ -86,12 +86,16 @@ pub trait EntityCommand<T = ()>: Send + 'static {
 pub trait CommandWithEntity<T> {
     /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
     /// internally runs the [`EntityCommand`] on that entity.
-    fn with_entity(self, entity: Entity) -> impl Command<T>;
+    fn with_entity(self, entity: Entity) -> impl Command<T> + HandleError<T>;
 }
 
-impl<C: EntityCommand<()>> CommandWithEntity<Result<(), EntityFetchError>> for C {
-    fn with_entity(self, entity: Entity) -> impl Command<Result<(), EntityFetchError>> {
-        move |world: &mut World| {
+impl<C: EntityCommand> CommandWithEntity<Result<(), EntityFetchError>> for C {
+    fn with_entity(
+        self,
+        entity: Entity,
+    ) -> impl Command<Result<(), EntityFetchError>> + HandleError<Result<(), EntityFetchError>>
+    {
+        move |world: &mut World| -> Result<(), EntityFetchError> {
             let entity = world.get_entity_mut(entity)?;
             self.apply(entity);
             Ok(())
@@ -99,10 +103,17 @@ impl<C: EntityCommand<()>> CommandWithEntity<Result<(), EntityFetchError>> for C
     }
 }
 
-impl<C: EntityCommand<Result<T, Err>>, T, Err> CommandWithEntity<Result<T, EntityCommandError<Err>>>
-    for C
+impl<
+        C: EntityCommand<Result<T, Err>>,
+        T,
+        Err: core::fmt::Debug + core::fmt::Display + Send + Sync + 'static,
+    > CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
 {
-    fn with_entity(self, entity: Entity) -> impl Command<Result<T, EntityCommandError<Err>>> {
+    fn with_entity(
+        self,
+        entity: Entity,
+    ) -> impl Command<Result<T, EntityCommandError<Err>>> + HandleError<Result<T, EntityCommandError<Err>>>
+    {
         move |world: &mut World| {
             let entity = world.get_entity_mut(entity)?;
             match self.apply(entity) {
@@ -115,7 +126,7 @@ impl<C: EntityCommand<Result<T, Err>>, T, Err> CommandWithEntity<Result<T, Entit
 
 /// Takes a [`EntityCommand`] that returns a Result and uses a given error handler function to convert it into
 /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleEntityError {
+pub trait HandleEntityError<T = ()> {
     /// Takes a [`EntityCommand`] that returns a Result and uses a given error handler function to convert it into
     /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
     fn handle_error_with(
@@ -132,7 +143,9 @@ pub trait HandleEntityError {
     }
 }
 
-impl<C: EntityCommand<crate::result::Result>> HandleEntityError for C {
+impl<C: EntityCommand<crate::result::Result<T, E>>, T, E: Into<crate::result::Error>>
+    HandleEntityError<crate::result::Result<T, E>> for C
+{
     fn handle_error_with(
         self,
         error_handler: fn(&mut World, crate::result::Error),
@@ -146,20 +159,27 @@ impl<C: EntityCommand<crate::result::Result>> HandleEntityError for C {
             // SAFETY: location has not changed and entity is valid
             match self.apply(unsafe { EntityWorldMut::new(world, id, location) }) {
                 Ok(_) => {}
-                Err(err) => (error_handler)(world, err),
+                Err(err) => (error_handler)(world, err.into()),
             }
         }
     }
 }
 
-/// Takes a [`EntityCommand`] that returns a [`Result`] with an error that can be converted into the [`Error`] type
-/// and returns a [`EntityCommand`] that internally converts that error to [`Error`] (if it occurs).
-pub fn map_entity_command_err<T, E: Into<crate::result::Error>>(
-    command: impl EntityCommand<Result<T, E>>,
-) -> impl EntityCommand<Result<T, crate::result::Error>> {
-    move |entity: EntityWorldMut| match command.apply(entity) {
-        Ok(result) => Ok(result),
-        Err(err) => Err(err.into()),
+impl<C: EntityCommand> HandleEntityError for C {
+    #[inline]
+    fn handle_error_with(
+        self,
+        _error_handler: fn(&mut World, crate::result::Error),
+    ) -> impl EntityCommand {
+        self
+    }
+
+    #[inline]
+    fn handle_error(self) -> impl EntityCommand
+    where
+        Self: Sized,
+    {
+        self
     }
 }
 

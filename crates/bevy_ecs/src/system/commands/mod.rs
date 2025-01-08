@@ -26,11 +26,10 @@ use crate::{
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
-    result::{Error, Result},
     schedule::ScheduleLabel,
     system::{
-        command::map_command_err, entity_command::map_entity_command_err, input::SystemInput,
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource, SystemId,
+        input::SystemInput, Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource,
+        SystemId,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -589,7 +588,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue<C: Command>(&mut self, command: C) {
+    pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
+        let command = command.handle_error();
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -602,18 +602,6 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             }
         }
-    }
-
-    /// Pushes a generic [`Command`] to the command queue with error handling.
-    ///
-    /// The command can be:
-    /// - A custom struct that implements [`Command`].
-    /// - A closure or function that has the signature [`(&mut World)`](World)`->`[`Result`](crate::result::Result).
-    /// - A built-in command from the [`command`] module.
-    ///
-    /// This will use the default error handler. See [`Command`] for details on error handling.
-    pub fn queue_fallible<E: Into<Error>>(&mut self, command: impl Command<Result<(), E>>) {
-        self.queue(map_command_err(command).handle_error());
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -1666,25 +1654,11 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue(&mut self, command: impl EntityCommand) -> &mut Self {
-        self.commands
-            .queue_fallible(command.with_entity(self.entity));
-        self
-    }
-
-    /// Pushes a fallible [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
-    ///
-    /// The command can be:
-    /// - A custom struct that implements [`EntityCommand`].
-    /// - A closure or function that matches the following signature:
-    ///   - [`(EntityWorldMut)`](EntityWorldMut)`->` [`Result<(), E>`]
-    /// - A built-in command from the [`entity_command`] module.
-    pub fn queue_fallible<E: Into<Error>>(
+    pub fn queue<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
         &mut self,
-        command: impl EntityCommand<Result<(), E>>,
+        command: C,
     ) -> &mut Self {
-        self.commands
-            .queue_fallible(map_entity_command_err(command).with_entity(self.entity));
+        self.commands.queue(command.with_entity(self.entity));
         self
     }
 

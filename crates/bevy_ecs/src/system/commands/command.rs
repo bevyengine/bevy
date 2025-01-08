@@ -65,7 +65,7 @@ where
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleError {
+pub trait HandleError<T = ()> {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command;
@@ -79,23 +79,26 @@ pub trait HandleError {
     }
 }
 
-impl<C: Command<Result>> HandleError for C {
+impl<C: Command<Result<T, E>>, T, E: Into<Error>> HandleError<Result<T, E>> for C {
     fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command {
         move |world: &mut World| match self.apply(world) {
             Ok(_) => {}
-            Err(err) => (error_handler)(world, err),
+            Err(err) => (error_handler)(world, err.into()),
         }
     }
 }
 
-/// Takes a [`Command`] that returns a [`Result`] with an error that can be converted into the [`Error`] type
-/// and returns a [`Command`] that internally converts that error to [`Error`] (if it occurs).
-pub fn map_command_err<T, E: Into<Error>>(
-    command: impl Command<Result<T, E>>,
-) -> impl Command<Result<T, Error>> {
-    move |world: &mut World| match command.apply(world) {
-        Ok(result) => Ok(result),
-        Err(err) => Err(err.into()),
+impl<C: Command> HandleError for C {
+    #[inline]
+    fn handle_error_with(self, _error_handler: fn(&mut World, Error)) -> impl Command {
+        self
+    }
+    #[inline]
+    fn handle_error(self) -> impl Command
+    where
+        Self: Sized,
+    {
+        self
     }
 }
 
