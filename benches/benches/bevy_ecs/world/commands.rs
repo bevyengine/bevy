@@ -1,9 +1,12 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::Component,
-    system::Commands,
-    world::{Command, CommandQueue, World},
+    result::Result,
+    system::{Command, Commands},
+    world::{CommandQueue, World},
 };
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 
 #[derive(Component)]
 struct A;
@@ -134,16 +137,18 @@ struct FakeCommandA;
 struct FakeCommandB(u64);
 
 impl Command for FakeCommandA {
-    fn apply(self, world: &mut World) {
+    fn apply(self, world: &mut World) -> Result {
         black_box(self);
         black_box(world);
+        Ok(())
     }
 }
 
 impl Command for FakeCommandB {
-    fn apply(self, world: &mut World) {
+    fn apply(self, world: &mut World) -> Result {
         black_box(self);
         black_box(world);
+        Ok(())
     }
 }
 
@@ -178,9 +183,10 @@ pub fn fake_commands(criterion: &mut Criterion) {
 struct SizedCommand<T: Default + Send + Sync + 'static>(T);
 
 impl<T: Default + Send + Sync + 'static> Command for SizedCommand<T> {
-    fn apply(self, world: &mut World) {
+    fn apply(self, world: &mut World) -> Result {
         black_box(self);
         black_box(world);
+        Ok(())
     }
 }
 

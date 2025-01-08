@@ -16,7 +16,10 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -33,6 +36,7 @@ pub mod event;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+pub mod name;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -57,8 +61,9 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::{require, Component},
-        entity::{Entity, EntityMapper},
+        entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
@@ -68,13 +73,13 @@ pub mod prelude {
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
-            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
-            WithParamWarnPolicy,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
@@ -118,7 +123,12 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::{sync::Arc, vec};
+    use alloc::{
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;

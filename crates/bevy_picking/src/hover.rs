@@ -62,7 +62,7 @@ pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
-pub fn update_focus(
+pub fn generate_hovermap(
     // Inputs
     picking_behavior: Query<&PickingBehavior>,
     pointers: Query<&PointerId>,
@@ -231,7 +231,7 @@ pub fn update_interactions(
         if let Some(pointers_hovered_entities) = hover_map.get(pointer) {
             // Insert a sorted list of hit entities into the pointer's interaction component.
             let mut sorted_entities: Vec<_> = pointers_hovered_entities.clone().drain().collect();
-            sorted_entities.sort_by_key(|(_entity, hit)| FloatOrd(hit.depth));
+            sorted_entities.sort_by_key(|(_, hit)| FloatOrd(hit.depth));
             pointer_interaction.sorted_entities = sorted_entities;
 
             for hovered_entity in pointers_hovered_entities.iter().map(|(entity, _)| entity) {

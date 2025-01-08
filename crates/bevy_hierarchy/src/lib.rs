@@ -4,6 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! Parent-child relationships for Bevy entities.
 //!
@@ -50,6 +51,9 @@
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -98,8 +102,9 @@ pub struct HierarchyPlugin;
 #[cfg(feature = "bevy_app")]
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Children>()
-            .register_type::<Parent>()
-            .add_event::<HierarchyEvent>();
+        #[cfg(feature = "reflect")]
+        app.register_type::<Children>().register_type::<Parent>();
+
+        app.add_event::<HierarchyEvent>();
     }
 }

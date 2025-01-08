@@ -235,8 +235,7 @@ impl Location {
 
         camera
             .logical_viewport_rect()
-            .map(|rect| rect.contains(self.position))
-            .unwrap_or(false)
+            .is_some_and(|rect| rect.contains(self.position))
     }
 }
 

@@ -1,10 +1,15 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! Representations of colors in various color spaces.
 //!
@@ -90,6 +95,9 @@
 //! println!("Hsla: {:?}", hsla);
 //! ```
 
+#[cfg(feature = "std")]
+extern crate std;
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -142,7 +150,14 @@ pub use srgba::*;
 pub use xyza::*;
 
 /// Describes the traits that a color should implement for consistency.
-#[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
+#[expect(
+    clippy::allow_attributes,
+    reason = "If the below attribute on `dead_code` is removed, then rustc complains that `StandardColor` is dead code. However, if we `expect` the `dead_code` lint, then rustc complains of an unfulfilled expectation."
+)]
+#[allow(
+    dead_code,
+    reason = "This is an internal marker trait used to ensure that our color types impl the required traits"
+)]
 pub(crate) trait StandardColor
 where
     Self: core::fmt::Debug,

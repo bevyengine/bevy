@@ -38,7 +38,7 @@ pub struct StandardMaterial {
     ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a `base_color_texture`, this is factored into the final
-    /// base color as `base_color * base_color_texture_value`
+    /// base color as `base_color * base_color_texture_value`.
     ///
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
@@ -1238,7 +1238,9 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         }
 
         key.insert(StandardMaterialKey::from_bits_retain(
-            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+            // Casting to i32 first to ensure the full i32 range is preserved.
+            // (wgpu expects the depth_bias as an i32 when this is extracted in a later step)
+            (material.depth_bias as i32 as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
         key
     }

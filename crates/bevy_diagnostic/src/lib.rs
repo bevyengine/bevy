@@ -1,6 +1,11 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -14,6 +19,7 @@ extern crate alloc;
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
+mod frame_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 #[cfg(feature = "sysinfo_plugin")]
@@ -22,6 +28,7 @@ mod system_information_diagnostics_plugin;
 pub use diagnostic::*;
 
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
+pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 #[cfg(feature = "sysinfo_plugin")]

@@ -5,6 +5,7 @@ use crate::{
 use alloc::{
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -28,9 +29,6 @@ use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-
-#[cfg(feature = "downcast")]
-use alloc::vec::Vec;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -103,7 +101,10 @@ impl Default for App {
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
+        {
+            app.init_resource::<AppTypeRegistry>();
+            app.register_type::<Name>();
+        }
 
         #[cfg(feature = "reflect_functions")]
         app.init_resource::<AppFunctionRegistry>();
@@ -519,7 +520,6 @@ impl App {
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
@@ -1053,6 +1053,16 @@ impl App {
     /// Returns a mutable reference to the main [`SubApp`].
     pub fn main_mut(&mut self) -> &mut SubApp {
         &mut self.sub_apps.main
+    }
+
+    /// Returns a reference to the [`SubApps`] collection.
+    pub fn sub_apps(&self) -> &SubApps {
+        &self.sub_apps
+    }
+
+    /// Returns a mutable reference to the [`SubApps`] collection.
+    pub fn sub_apps_mut(&mut self) -> &mut SubApps {
+        &mut self.sub_apps
     }
 
     /// Returns a reference to the [`SubApp`] with the given label.

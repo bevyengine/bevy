@@ -22,8 +22,9 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
+use tracing::debug;
 
 use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,

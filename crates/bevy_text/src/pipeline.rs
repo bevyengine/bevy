@@ -9,10 +9,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{ResMut, Resource},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
@@ -98,6 +97,7 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
+        let mut line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -130,6 +130,7 @@ impl TextPipeline {
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
+            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -146,7 +147,6 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let line_height = font_size * 1.2;
         let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
@@ -486,7 +486,13 @@ fn get_attrs<'a>(
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
-        .metrics(Metrics::relative(text_font.font_size, 1.2).scale(scale_factor as f32))
+        .metrics(
+            Metrics {
+                font_size: text_font.font_size,
+                line_height: text_font.line_height.eval(text_font.font_size),
+            }
+            .scale(scale_factor as f32),
+        )
         .color(cosmic_text::Color(color.to_linear().as_u32()));
     attrs
 }

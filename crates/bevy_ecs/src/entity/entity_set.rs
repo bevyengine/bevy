@@ -2,7 +2,6 @@ use alloc::{
     boxed::Box,
     collections::{btree_map, btree_set},
     rc::Rc,
-    sync::Arc,
 };
 
 use core::{
@@ -13,6 +12,12 @@ use core::{
 };
 
 use super::Entity;
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 /// A trait for entity borrows.
 ///
@@ -130,6 +135,7 @@ unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
 /// [`into_iter()`]: IntoIterator::into_iter
 /// [`iter_many_unique`]: crate::system::Query::iter_many_unique
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_unique_mut
+/// [`Vec`]: alloc::vec::Vec
 pub trait EntitySet: IntoIterator<IntoIter: EntitySetIterator> {}
 
 impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
@@ -374,6 +380,8 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
+
     #[allow(unused_imports)]
     use crate::prelude::{Schedule, World};
 
