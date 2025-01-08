@@ -60,6 +60,13 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
+[lib]
+# This fixes the "Unrecognized Option" error when running commands like
+# `cargo bench -- --save-baseline before` by disabling the default benchmark harness.
+# See <https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options>
+# for more information.
+bench = false
+
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/main.rs"
