@@ -15,7 +15,7 @@ use variadics_please::all_tuples;
 use crate::material::Material;
 
 pub trait MaterialPipeline: TypePath + Sized + 'static {
-    type Meta: Send + Sync;
+    type Properties: Send + Sync;
     type Pipelines<M: Material<Self>>: Pipelines;
 
     fn material_plugin<M: Material<Self>>() -> impl Plugin;
