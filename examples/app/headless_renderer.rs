@@ -24,6 +24,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice, RenderQueue},
         Extract, Render, RenderApp, RenderSet,
     },
+    window::ExitCondition,
     winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
@@ -86,6 +87,7 @@ fn main() {
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
+                    exit_condition: ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
