@@ -22,6 +22,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    // Spawn a camera
     commands.spawn((
         Camera2d,
         Camera {
@@ -63,7 +64,7 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
+            top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },

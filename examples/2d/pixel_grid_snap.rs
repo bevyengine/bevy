@@ -1,6 +1,7 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
+    color::palettes::css::GRAY,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -28,7 +29,7 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
+        .add_systems(Startup, (setup_camera, setup_minimal_ui, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();
 }
@@ -53,7 +54,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
         Sprite::from_image(asset_server.load("pixel/bevy_pixel_dark.png")),
-        Transform::from_xyz(-40., 20., 2.),
+        Transform::from_xyz(-45., 20., 2.),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -61,7 +62,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
         Sprite::from_image(asset_server.load("pixel/bevy_pixel_light.png")),
-        Transform::from_xyz(-40., -20., 2.),
+        Transform::from_xyz(-45., -20., 2.),
         Rotate,
         HIGH_RES_LAYERS,
     ));
@@ -76,9 +77,22 @@ fn setup_mesh(
     commands.spawn((
         Mesh2d(meshes.add(Capsule2d::default())),
         MeshMaterial2d(materials.add(Color::BLACK)),
-        Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
+        Transform::from_xyz(25., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,
+    ));
+}
+
+fn setup_minimal_ui(mut commands: Commands) {
+     // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
     ));
 }
 
@@ -118,6 +132,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // render before the "main pass" camera
             order: -1,
             target: RenderTarget::Image(image_handle.clone().into()),
+            clear_color: ClearColorConfig::Custom(GRAY.into()),
             ..default()
         },
         Msaa::Off,

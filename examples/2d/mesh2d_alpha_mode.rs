@@ -20,7 +20,19 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // Spawn a camera
     commands.spawn(Camera2d);
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Example that shows how transforms interact with alpha modes."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 
     let texture_handle = asset_server.load("branding/icon.png");
     let mesh_handle = meshes.add(Rectangle::from_size(Vec2::splat(256.0)));
@@ -88,4 +100,5 @@ fn setup(
         })),
         Transform::from_xyz(400.0, 0.0, -1.0),
     ));
+
 }

@@ -30,5 +30,17 @@ fn draw_cursor(
 }
 
 fn setup(mut commands: Commands) {
+    // Spawn a camera
     commands.spawn(Camera2d);
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Hover over the window to see the cursor."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }

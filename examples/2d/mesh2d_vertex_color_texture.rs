@@ -35,6 +35,17 @@ fn setup(
     // Spawn camera
     commands.spawn(Camera2d);
 
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Shows how to render a polygonal [`Mesh`], generated from a [`Rectangle`] primitive, in a 2D scene."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
     // Spawn the quad with vertex colors
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
@@ -48,4 +59,5 @@ fn setup(
         MeshMaterial2d(materials.add(texture_handle)),
         Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
+
 }

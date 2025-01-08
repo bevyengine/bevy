@@ -5,7 +5,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},
+    color::palettes::css::{BLUE, GRAY, RED},
     math::{
         bounding::{Bounded2d, BoundingVolume},
         Isometry2d,
@@ -39,17 +39,30 @@ fn setup(
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
+    // Spawn a camera
     commands.spawn((
         Camera2d,
         Camera {
-            clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
+            clear_color: ClearColorConfig::Custom(GRAY.into()),
+            ..default()
+        },
+    ));
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
     ));
 
     const UPPER_Y: f32 = 50.0;
     const LOWER_Y: f32 = -50.0;
-    const FIRST_X: f32 = -450.0;
+    const FIRST_X: f32 = -375.0;
+    const FIRST_Y: f32 = -40.0;
     const OFFSET: f32 = 100.0;
     const NUM_SLICES: i32 = 8;
 
@@ -70,7 +83,7 @@ fn setup(
             Mesh2d(meshes.add(sector_mesh)),
             MeshMaterial2d(material.clone()),
             Transform {
-                translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, FIRST_Y + 2.0 * UPPER_Y, 0.0),
                 rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
             },
@@ -94,7 +107,7 @@ fn setup(
             Mesh2d(meshes.add(segment_mesh)),
             MeshMaterial2d(material.clone()),
             Transform {
-                translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, FIRST_Y + LOWER_Y, 0.0),
                 rotation: Quat::from_rotation_z(segment_angle),
                 ..default()
             },

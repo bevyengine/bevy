@@ -87,7 +87,19 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    // Spawn a camera
     commands.spawn(Camera2d);
+
+    // create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Press ArrowLeft to Animate Left Sprite\nPress ArrowRight to Animate Right Sprite"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 
     // load the sprite sheet using the `AssetServer`
     let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
@@ -109,7 +121,7 @@ fn setup(
             }),
             ..default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-50.0, 0.0, 0.0)),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-70.0, 0.0, 0.0)),
         LeftSprite,
         animation_config_1,
     ));
@@ -127,19 +139,8 @@ fn setup(
             }),
             ..Default::default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(50.0, 0.0, 0.0)),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(70.0, 0.0, 0.0)),
         RightSprite,
         animation_config_2,
-    ));
-
-    // create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
     ));
 }

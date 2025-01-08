@@ -95,6 +95,17 @@ fn setup(
 
     // setup 2d scene
     commands.spawn(Camera2d);
+    
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Generating four texture atlases (sprite sheets) from a folder containing individual sprites."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 
     // padded textures are to the right, unpadded to the left
 
@@ -102,8 +113,8 @@ fn setup(
     commands.spawn((
         Sprite::from_image(linear_texture.clone()),
         Transform {
-            translation: Vec3::new(-250.0, -130.0, 0.0),
-            scale: Vec3::splat(0.8),
+            translation: Vec3::new(-250.0, -160.0, 0.0),
+            scale: Vec3::splat(0.5),
             ..default()
         },
     ));
@@ -112,8 +123,8 @@ fn setup(
     commands.spawn((
         Sprite::from_image(linear_padded_texture.clone()),
         Transform {
-            translation: Vec3::new(250.0, -130.0, 0.0),
-            scale: Vec3::splat(0.8),
+            translation: Vec3::new(250.0, -160.0, 0.0),
+            scale: Vec3::splat(0.5),
             ..default()
         },
     ));
@@ -132,13 +143,13 @@ fn setup(
     // No padding
     create_label(
         &mut commands,
-        (-250.0, 330.0, 0.0),
+        (-250.0, 250.0, 0.0),
         "No padding",
         text_style.clone(),
     );
 
     // Padding
-    create_label(&mut commands, (250.0, 330.0, 0.0), "Padding", text_style);
+    create_label(&mut commands, (250.0, 250.0, 0.0), "Padding", text_style);
 
     // get handle to a sprite to render
     let vendor_handle: Handle<Image> = asset_server
@@ -190,7 +201,7 @@ fn setup(
         ..default()
     };
 
-    let base_y = 170.0; // y position of the sprites
+    let base_y = 80.0; // y position of the sprites
 
     for (sampling, atlas_handle, atlas_sources, atlas_texture, x) in configurations {
         // render a sprite from the texture_atlas

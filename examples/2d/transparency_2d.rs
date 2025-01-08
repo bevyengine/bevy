@@ -11,7 +11,20 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+
+    // Spawn a camera
     commands.spawn(Camera2d);
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Demonstrates how to use transparency in 2D."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 
     let sprite_handle = asset_server.load("branding/icon.png");
 
@@ -23,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: Color::srgba(0.0, 0.0, 1.0, 0.7),
             ..default()
         },
-        Transform::from_xyz(100.0, 0.0, 0.1),
+        Transform::from_xyz(-50.0, 0.0, 0.1),
     ));
     commands.spawn((
         Sprite {
@@ -31,6 +44,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: Color::srgba(0.0, 1.0, 0.0, 0.3),
             ..default()
         },
-        Transform::from_xyz(200.0, 0.0, 0.2),
+        Transform::from_xyz(50.0, 0.0, 0.2),
     ));
 }

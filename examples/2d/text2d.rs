@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let box_position = Vec2::new(0.0, -250.0);
     commands
         .spawn((
-            Sprite::from_color(Color::srgb(0.25, 0.25, 0.75), box_size),
+            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
             Transform::from_translation(box_position.extend(0.0)),
         ))
         .with_children(|builder| {
@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let other_box_position = Vec2::new(320.0, -250.0);
     commands
         .spawn((
-            Sprite::from_color(Color::srgb(0.20, 0.3, 0.70), other_box_size),
+            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
             Transform::from_translation(other_box_position.extend(0.0)),
         ))
         .with_children(|builder| {
@@ -119,10 +119,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(LIME)),
-        (Anchor::BottomRight, Color::Srgba(BLUE)),
-        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
+        (Anchor::TopLeft, Color::Srgba(LIGHT_SALMON)),
+        (Anchor::TopRight, Color::Srgba(LIGHT_GREEN)),
+        (Anchor::BottomRight, Color::Srgba(LIGHT_BLUE)),
+        (Anchor::BottomLeft, Color::Srgba(LIGHT_YELLOW)),
     ] {
         commands.spawn((
             Text2d::new(format!(" Anchor::{text_anchor:?} ")),
