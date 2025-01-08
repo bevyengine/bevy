@@ -116,10 +116,7 @@ impl<
     {
         move |world: &mut World| {
             let entity = world.get_entity_mut(entity)?;
-            match self.apply(entity) {
-                Ok(result) => Ok(result),
-                Err(err) => Err(EntityCommandError::Error(err)),
-            }
+            self.apply(entity).map_err(EntityCommandError::Error)
         }
     }
 }
