@@ -5,6 +5,7 @@ use crate::Dir2;
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use glam::IVec2;
 
 /// A compass enum with 4 directions.
 /// ```text
@@ -67,6 +68,20 @@ impl CompassQuadrant {
             Self::East => 1,
             Self::South => 2,
             Self::West => 3,
+        }
+    }
+
+    /// Converts a [`CompassQuadrant`] to a [`IVec2`] offset.
+    ///
+    /// For example, [`CompassQuadrant::North`] would return `IVec2{x: 0, y: 1}`.
+    ///
+    /// This is useful when moving along a grid.
+    pub const fn to_offset(self) -> IVec2 {
+        match self {
+            Self::North => IVec2::Y,
+            Self::East => IVec2::X,
+            Self::South => IVec2::NEG_Y,
+            Self::West => IVec2::NEG_X,
         }
     }
 
@@ -164,6 +179,24 @@ impl CompassOctant {
             Self::SouthWest => 5,
             Self::West => 6,
             Self::NorthWest => 7,
+        }
+    }
+
+    /// Converts a [`CompassOctant`] to a [`IVec2`] offset.
+    ///
+    /// For example, [`CompassOctant::NorthEast`] would return `IVec2{x: 1, y: 1}`.
+    ///
+    /// This is useful when moving along a grid.
+    pub const fn to_offset(self) -> IVec2 {
+        match self {
+            Self::North => IVec2::Y,
+            Self::NorthEast => IVec2 { x: 1, y: 1 },
+            Self::East => IVec2::X,
+            Self::SouthEast => IVec2 { x: 1, y: -1 },
+            Self::South => IVec2::NEG_Y,
+            Self::SouthWest => IVec2 { x: -1, y: -1 },
+            Self::West => IVec2::NEG_X,
+            Self::NorthWest => IVec2 { x: -1, y: 1 },
         }
     }
 
