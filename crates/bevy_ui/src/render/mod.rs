@@ -256,7 +256,7 @@ pub struct UiCameraMap<'w, 's> {
 }
 
 pub struct UiCameraMapper<'w, 's> {
-    mapping: &'s Query<'w, 's, RenderEntity>,
+    mapping: &'w Query<'w, 's, RenderEntity>,
     default_camera_entity: Option<Entity>,
     camera_entity: Entity,
     render_entity: Entity,
@@ -264,7 +264,7 @@ pub struct UiCameraMapper<'w, 's> {
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Get the default camera and create the mapper
-    pub fn new(ui_camera_map: &'s UiCameraMap<'w, 's>) -> Self {
+    pub fn new(ui_camera_map: &'w UiCameraMap<'w, 's>) -> Self {
         let default_camera_entity = ui_camera_map.default.get();
         Self {
             mapping: &ui_camera_map.mapping,
