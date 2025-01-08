@@ -513,6 +513,25 @@ mod tests {
     }
 
     #[test]
+    fn edges() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edges(&[a, b, c], CompassOctant::East);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), None);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
+    }
+
+    #[test]
     fn looping_edges() {
         let mut world = World::new();
         let a = world.spawn_empty().id();
