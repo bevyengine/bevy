@@ -1,7 +1,6 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cone, Vec3};
-use wgpu::PrimitiveTopology;
 
 /// Anchoring options for [`ConeMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default)]

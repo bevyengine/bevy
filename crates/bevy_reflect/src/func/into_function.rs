@@ -1,5 +1,8 @@
 use crate::func::{DynamicFunction, ReflectFn, TypedFunction};
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// A trait for types that can be converted into a [`DynamicFunction`].
 ///
 /// This trait is automatically implemented for any type that implements
@@ -63,6 +66,6 @@ mod tests {
     fn should_default_closure_name_to_none() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_function();
-        assert_eq!(func.info().name(), None);
+        assert!(func.name().is_none());
     }
 }

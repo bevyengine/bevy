@@ -3,7 +3,10 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+  # TODO: #16477 - Delete this once notify-types has been bumped.
+  "RUSTSEC-2024-0384",
+]
 
 [licenses]
 version = 2
@@ -25,6 +28,7 @@ allow = [
 exceptions = [
   { name = "unicode-ident", allow = [
     "Unicode-DFS-2016",
+    "Unicode-3.0",
   ] },
   { name = "symphonia", allow = [
     "MPL-2.0",
@@ -80,3 +84,8 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
+
+# thiserror is the preferred way to derive error types
+[[bans.features]]
+crate = "derive_more"
+deny = ["error"]

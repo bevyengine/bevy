@@ -31,7 +31,9 @@ use bevy_render::{
         RenderMeshBufferInfo,
     },
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{
+        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
+    },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, MainEntityHashMap},
@@ -311,7 +313,7 @@ impl FromWorld for Mesh2dPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: image.texture_descriptor.size,
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -779,8 +781,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     ) -> RenderCommandResult {
         let mut dynamic_offsets: [u32; 1] = Default::default();
         let mut offset_count = 0;
-        if let Some(dynamic_offset) = item.extra_index().as_dynamic_offset() {
-            dynamic_offsets[offset_count] = dynamic_offset.get();
+        if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
+            dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
         pass.set_bind_group(

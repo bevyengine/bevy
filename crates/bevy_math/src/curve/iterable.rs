@@ -1,7 +1,10 @@
 //! Iterable curves, which sample in the form of an iterator in order to support `Vec`-like
 //! output whose length cannot be known statically.
 
-use super::{ConstantCurve, Interval};
+use super::Interval;
+
+#[cfg(feature = "alloc")]
+use {super::ConstantCurve, alloc::vec::Vec};
 
 /// A curve which provides samples in the form of [`Iterator`]s.
 ///
@@ -39,6 +42,7 @@ pub trait IterableCurve<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> IterableCurve<T> for ConstantCurve<Vec<T>>
 where
     T: Clone,

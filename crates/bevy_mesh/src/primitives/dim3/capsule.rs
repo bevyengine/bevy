@@ -1,7 +1,6 @@
-use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
-use wgpu::PrimitiveTopology;
 
 /// Manner in which UV coordinates are distributed vertically.
 #[derive(Clone, Copy, Debug, Default)]

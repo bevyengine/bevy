@@ -17,7 +17,7 @@ impl Prepare for TestCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}"
+                "cargo test --workspace --lib --bins --tests {no_fail_fast}"
             ),
             "Please fix failing tests in output above.",
         )]

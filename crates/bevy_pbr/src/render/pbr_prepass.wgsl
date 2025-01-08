@@ -6,6 +6,7 @@
     pbr_functions,
     pbr_functions::SampleBias,
     prepass_io,
+    mesh_bindings::mesh,
     mesh_view_bindings::view,
 }
 
@@ -26,20 +27,36 @@ fn fragment(
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let in = resolve_vertex_output(frag_coord);
     let is_front = true;
-#else
+#else   // MESHLET_MESH_MATERIAL_PASS
+
+#ifdef BINDLESS
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
+    let flags = pbr_bindings::material[slot].flags;
+    let uv_transform = pbr_bindings::material[slot].uv_transform;
+#else   // BINDLESS
+    let flags = pbr_bindings::material.flags;
+    let uv_transform = pbr_bindings::material.uv_transform;
+#endif  // BINDLESS
+
+    // If we're in the crossfade section of a visibility range, conditionally
+    // discard the fragment according to the visibility pattern.
+#ifdef VISIBILITY_RANGE_DITHER
+    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+#endif  // VISIBILITY_RANGE_DITHER
+
     pbr_prepass_functions::prepass_alpha_discard(in);
-#endif
+#endif  // MESHLET_MESH_MATERIAL_PASS
 
     var out: prepass_io::FragmentOutput;
 
-#ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_position_unclamped.z;
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.frag_depth = in.unclipped_depth;
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        let double_sided = (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+    if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
         let world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
@@ -55,9 +72,9 @@ fn fragment(
 
 // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
-        let uv = (material.uv_transform * vec3(in.uv_b, 1.0)).xy;
+        let uv = (uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
-        let uv = (material.uv_transform * vec3(in.uv, 1.0)).xy;
+        let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 #endif
 
         // Fill in the sample bias so we can sample from textures.
@@ -69,16 +86,31 @@ fn fragment(
         bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
-        let Nt = pbr_functions::sample_texture(
-            pbr_bindings::normal_map_texture,
-            pbr_bindings::normal_map_sampler,
-            uv,
-            bias,
-        ).rgb;
+        let Nt =
+#ifdef MESHLET_MESH_MATERIAL_PASS
+            textureSampleGrad(
+#else   // MESHLET_MESH_MATERIAL_PASS
+            textureSampleBias(
+#endif  // MESHLET_MESH_MATERIAL_PASS
+#ifdef BINDLESS
+                pbr_bindings::normal_map_texture[slot],
+                pbr_bindings::normal_map_sampler[slot],
+#else   // BINDLESS
+                pbr_bindings::normal_map_texture,
+                pbr_bindings::normal_map_sampler,
+#endif  // BINDLESS
+                uv,
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                bias.ddx_uv,
+                bias.ddy_uv,
+#else   // MESHLET_MESH_MATERIAL_PASS
+                bias.mip_bias,
+#endif  // MESHLET_MESH_MATERIAL_PASS
+            ).rgb;
         let TBN = pbr_functions::calculate_tbn_mikktspace(normal, in.world_tangent);
 
         normal = pbr_functions::apply_normal_mapping(
-            material.flags,
+            flags,
             TBN,
             double_sided,
             is_front,

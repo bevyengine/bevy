@@ -13,8 +13,8 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
-        VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityClass,
+        VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -503,6 +503,9 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// The [`VisibilityClass`] used for all lights (point, directional, and spot).
+pub struct LightVisibilityClass;
+
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
@@ -514,7 +517,7 @@ pub enum SimulationLightSystems {
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }

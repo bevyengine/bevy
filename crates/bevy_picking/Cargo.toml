@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 
 [features]
 # Provides a mesh picking backend
-bevy_mesh = ["dep:bevy_mesh", "dep:crossbeam-channel"]
+bevy_mesh_picking_backend = ["dep:bevy_mesh", "dep:crossbeam-channel"]
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }

@@ -1,5 +1,5 @@
 use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, BenchmarkId, Criterion};
 
 struct ParChunks<'a, T>(core::slice::Chunks<'a, T>);
 impl<'a, T> ParallelIterator<core::slice::Iter<'a, T>> for ParChunks<'a, T>
@@ -141,4 +141,3 @@ fn bench_many_maps(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_overhead, bench_for_each, bench_many_maps);
-criterion_main!(benches);

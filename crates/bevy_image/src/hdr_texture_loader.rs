@@ -1,10 +1,10 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use derive_more::derive::{Display, Error, From};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use thiserror::Error;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]
@@ -16,12 +16,12 @@ pub struct HdrTextureLoaderSettings {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum HdrTextureLoaderError {
-    #[display("Could load texture: {_0}")]
-    Io(std::io::Error),
-    #[display("Could not extract image: {_0}")]
-    Image(image::ImageError),
+    #[error("Could load texture: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not extract image: {0}")]
+    Image(#[from] image::ImageError),
 }
 
 impl AssetLoader for HdrTextureLoader {

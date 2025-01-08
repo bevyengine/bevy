@@ -17,7 +17,7 @@ use core::time::Duration;
 /// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the
 /// allowed configuration, see [`CiTestingConfig`].
 ///
-/// This plugin is included within `DefaultPlugins`, `HeadlessPlugins` and `MinimalPlugins`
+/// This plugin is included within `DefaultPlugins` and `MinimalPlugins`
 /// when the `bevy_ci_testing` feature is enabled.
 /// It is recommended to only used this plugin during testing (manual or
 /// automatic), and disable it during regular development and for production builds.

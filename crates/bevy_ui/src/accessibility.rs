@@ -133,14 +133,14 @@ fn label_changed(
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Label);
             if let Some(label) = label {
-                accessible.set_label(label);
+                accessible.set_value(label);
             } else {
-                accessible.clear_label();
+                accessible.clear_value();
             }
         } else {
             let mut node = Node::new(Role::Label);
             if let Some(label) = label {
-                node.set_label(label);
+                node.set_value(label);
             }
             commands
                 .entity(entity)

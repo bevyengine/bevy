@@ -2,16 +2,31 @@ use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
-        args::ArgList, info::FunctionInfo, DynamicFunctionMut, Function, FunctionError,
-        FunctionResult, IntoFunction, IntoFunctionMut,
+        args::{ArgCount, ArgList},
+        dynamic_function_internal::DynamicFunctionInternal,
+        info::FunctionInfo,
+        DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
+        IntoFunctionMut,
     },
-    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
+/// An [`Arc`] containing a callback to a reflected function.
+///
+/// The `Arc` is used to both ensure that it is `Send + Sync`
+/// and to allow for the callback to be cloned.
+///
+/// Note that cloning is okay since we only ever need an immutable reference
+/// to call a `dyn Fn` function.
+/// If we were to contain a `dyn FnMut` instead, cloning would be a lot more complicated.
+type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>;
 
 /// A dynamic representation of a function.
 ///
@@ -32,7 +47,7 @@ use core::fmt::{Debug, Formatter};
 /// Most of the time, a [`DynamicFunction`] can be created using the [`IntoFunction`] trait:
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, DynamicFunction, FunctionInfo, IntoFunction};
+/// # use bevy_reflect::func::{ArgList, DynamicFunction, IntoFunction};
 /// #
 /// fn add(a: i32, b: i32) -> i32 {
 ///   a + b
@@ -51,9 +66,9 @@ use core::fmt::{Debug, Formatter};
 ///
 /// [`ReflectFn`]: crate::func::ReflectFn
 /// [module-level documentation]: crate::func
+#[derive(Clone)]
 pub struct DynamicFunction<'env> {
-    pub(super) info: FunctionInfo,
-    pub(super) func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>,
+    pub(super) internal: DynamicFunctionInternal<ArcFn<'env>>,
 }
 
 impl<'env> DynamicFunction<'env> {
@@ -62,31 +77,170 @@ impl<'env> DynamicFunction<'env> {
     /// The given function can be used to call out to any other callable,
     /// including functions, closures, or methods.
     ///
-    /// It's important that the function signature matches the provided [`FunctionInfo`]
+    /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// as this will be used to validate arguments when [calling] the function.
+    /// This is also required in order for [function overloading] to work correctly.
     ///
-    /// [calling]: DynamicFunction::call
+    /// # Panics
+    ///
+    /// This function may panic for any of the following reasons:
+    /// - No [`SignatureInfo`] is provided.
+    /// - A provided [`SignatureInfo`] has more arguments than [`ArgCount::MAX_COUNT`].
+    /// - The conversion to [`FunctionInfo`] fails.
+    ///
+    /// [calling]: crate::func::dynamic_function::DynamicFunction::call
+    /// [`SignatureInfo`]: crate::func::SignatureInfo
+    /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
-        info: FunctionInfo,
+        info: impl TryInto<FunctionInfo, Error: Debug>,
     ) -> Self {
         Self {
-            info,
-            func: Arc::new(func),
+            internal: DynamicFunctionInternal::new(Arc::new(func), info.try_into().unwrap()),
         }
     }
 
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.info = self.info.with_name(name);
+        self.internal = self.internal.with_name(name);
         self
+    }
+
+    /// Add an overload to this function.
+    ///
+    /// Overloads allow a single [`DynamicFunction`] to represent multiple functions of different signatures.
+    ///
+    /// This can be used to handle multiple monomorphizations of a generic function
+    /// or to allow functions with a variable number of arguments.
+    ///
+    /// Any functions with the same [argument signature] will be overwritten by the one from the new function, `F`.
+    /// For example, if the existing function had the signature `(i32, i32) -> i32`,
+    /// and the new function, `F`, also had the signature `(i32, i32) -> i32`,
+    /// the one from `F` would replace the one from the existing function.
+    ///
+    /// Overloaded functions retain the [name] of the original function.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the function, `F`, contains a signature already found in this function.
+    ///
+    /// For a non-panicking version, see [`try_with_overload`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::ops::Add;
+    /// # use bevy_reflect::func::{ArgList, IntoFunction};
+    /// #
+    /// fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+    ///     a + b
+    /// }
+    ///
+    /// // Currently, the only generic type `func` supports is `i32`:
+    /// let mut func = add::<i32>.into_function();
+    ///
+    /// // However, we can add an overload to handle `f32` as well:
+    /// func = func.with_overload(add::<f32>);
+    ///
+    /// // Test `i32`:
+    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let result = func.call(args).unwrap().unwrap_owned();
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
+    ///
+    /// // Test `f32`:
+    /// let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+    /// let result = func.call(args).unwrap().unwrap_owned();
+    /// assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+    ///```
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{ArgList, IntoFunction};
+    /// #
+    /// fn add_2(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// fn add_3(a: i32, b: i32, c: i32) -> i32 {
+    ///     a + b + c
+    /// }
+    ///
+    /// // Currently, `func` only supports two arguments.
+    /// let mut func = add_2.into_function();
+    ///
+    /// // However, we can add an overload to handle three arguments as well.
+    /// func = func.with_overload(add_3);
+    ///
+    /// // Test two arguments:
+    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let result = func.call(args).unwrap().unwrap_owned();
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
+    ///
+    /// // Test three arguments:
+    /// let args = ArgList::default()
+    ///     .push_owned(25_i32)
+    ///     .push_owned(75_i32)
+    ///     .push_owned(100_i32);
+    /// let result = func.call(args).unwrap().unwrap_owned();
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
+    /// ```
+    ///
+    ///```should_panic
+    /// # use bevy_reflect::func::IntoFunction;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// fn sub(a: i32, b: i32) -> i32 {
+    ///     a - b
+    /// }
+    ///
+    /// let mut func = add.into_function();
+    ///
+    /// // This will panic because the function already has an argument signature for `(i32, i32)`:
+    /// func = func.with_overload(sub);
+    /// ```
+    ///
+    /// [argument signature]: crate::func::signature::ArgumentSignature
+    /// [name]: Self::name
+    /// [`try_with_overload`]: Self::try_with_overload
+    pub fn with_overload<'a, F: IntoFunction<'a, Marker>, Marker>(
+        self,
+        function: F,
+    ) -> DynamicFunction<'a>
+    where
+        'env: 'a,
+    {
+        self.try_with_overload(function).unwrap_or_else(|(_, err)| {
+            panic!("{}", err);
+        })
+    }
+
+    /// Attempt to add an overload to this function.
+    ///
+    /// If the function, `F`, contains a signature already found in this function,
+    /// an error will be returned along with the original function.
+    ///
+    /// For a panicking version, see [`with_overload`].
+    ///
+    /// [`with_overload`]: Self::with_overload
+    pub fn try_with_overload<F: IntoFunction<'env, Marker>, Marker>(
+        mut self,
+        function: F,
+    ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
+        let function = function.into_function();
+
+        match self.internal.merge(function.internal) {
+            Ok(_) => Ok(self),
+            Err(err) => Err((Box::new(self), err)),
+        }
     }
 
     /// Call the function with the given arguments.
@@ -113,44 +267,81 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// The function itself may also return any errors it needs to.
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.info.arg_count();
-        let received_arg_count = args.len();
-
-        if expected_arg_count != received_arg_count {
-            Err(FunctionError::ArgCountMismatch {
-                expected: expected_arg_count,
-                received: received_arg_count,
-            })
-        } else {
-            (self.func)(args)
-        }
+        self.internal.validate_args(&args)?;
+        let func = self.internal.get(&args)?;
+        func(args)
     }
 
     /// Returns the function info.
     pub fn info(&self) -> &FunctionInfo {
-        &self.info
+        self.internal.info()
     }
 
-    /// The [name] of the function.
+    /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
-    /// [name]: FunctionInfo::name
+    /// If the function was [overloaded], it will retain its original name if it had one.
+    ///
     /// [`DynamicFunctions`]: DynamicFunction
     /// [`with_name`]: Self::with_name
+    /// [overloaded]: Self::with_overload
     pub fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info.name()
+        self.internal.name()
+    }
+
+    /// Returns `true` if the function is [overloaded].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunction;
+    /// let add = (|a: i32, b: i32| a + b).into_function();
+    /// assert!(!add.is_overloaded());
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32| a + b);
+    /// assert!(add.is_overloaded());
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn is_overloaded(&self) -> bool {
+        self.internal.is_overloaded()
+    }
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunction;
+    /// let add = (|a: i32, b: i32| a + b).into_function();
+    /// assert!(add.arg_count().contains(2));
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32, c: f32| a + b + c);
+    /// assert!(add.arg_count().contains(2));
+    /// assert!(add.arg_count().contains(3));
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn arg_count(&self) -> ArgCount {
+        self.internal.arg_count()
     }
 }
 
 impl Function for DynamicFunction<'static> {
+    fn name(&self) -> Option<&Cow<'static, str>> {
+        self.internal.name()
+    }
+
     fn info(&self) -> &FunctionInfo {
-        self.info()
+        self.internal.info()
     }
 
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
@@ -236,10 +427,6 @@ impl PartialReflect for DynamicFunction<'static> {
         Debug::fmt(self, f)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-
     fn is_dynamic(&self) -> bool {
         true
     }
@@ -255,32 +442,14 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
+///
+/// If the function is [overloaded], the output will include the signatures of all overloads as a set.
+/// For example, `DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+///
+/// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicFunction(fn {name}(")?;
-
-        for (index, arg) in self.info.args().iter().enumerate() {
-            let name = arg.name().unwrap_or("_");
-            let ty = arg.type_path();
-            write!(f, "{name}: {ty}")?;
-
-            if index + 1 < self.info.args().len() {
-                write!(f, ", ")?;
-            }
-        }
-
-        let ret = self.info.return_info().type_path();
-        write!(f, ") -> {ret})")
-    }
-}
-
-impl<'env> Clone for DynamicFunction<'env> {
-    fn clone(&self) -> Self {
-        Self {
-            info: self.info.clone(),
-            func: Arc::clone(&self.func),
-        }
+        write!(f, "DynamicFunction({:?})", &self.internal)
     }
 }
 
@@ -301,15 +470,20 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::IntoReturn;
+    use crate::func::signature::ArgumentSignature;
+    use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use crate::Type;
+    use bevy_utils::HashSet;
+    use core::ops::Add;
 
     #[test]
     fn should_overwrite_function_name() {
         let c = 23;
-        let func = (|a: i32, b: i32| a + b + c)
-            .into_function()
-            .with_name("my_function");
-        assert_eq!(func.info().name().unwrap(), "my_function");
+        let func = (|a: i32, b: i32| a + b + c).into_function();
+        assert!(func.name().is_none());
+
+        let func = func.with_name("my_function");
+        assert_eq!(func.name().unwrap(), "my_function");
     }
 
     #[test]
@@ -329,13 +503,40 @@ mod tests {
 
         let args = ArgList::default().push_owned(25_i32);
         let error = func.call(args).unwrap_err();
-        assert!(matches!(
+
+        assert_eq!(
             error,
             FunctionError::ArgCountMismatch {
-                expected: 2,
+                expected: ArgCount::new(2).unwrap(),
                 received: 1
             }
-        ));
+        );
+    }
+
+    #[test]
+    fn should_return_error_on_arg_count_mismatch_overloaded() {
+        let func = (|a: i32, b: i32| a + b)
+            .into_function()
+            .with_overload(|a: i32, b: i32, c: i32| a + b + c);
+
+        let args = ArgList::default()
+            .push_owned(1_i32)
+            .push_owned(2_i32)
+            .push_owned(3_i32)
+            .push_owned(4_i32);
+
+        let error = func.call(args).unwrap_err();
+
+        let mut expected_count = ArgCount::new(2).unwrap();
+        expected_count.add(3);
+
+        assert_eq!(
+            error,
+            FunctionError::ArgCountMismatch {
+                expected: expected_count,
+                received: 4
+            }
+        );
     }
 
     #[test]
@@ -397,7 +598,7 @@ mod tests {
             },
             // The `FunctionInfo` doesn't really matter for this test
             // so we can just give it dummy information.
-            FunctionInfo::anonymous()
+            SignatureInfo::anonymous()
                 .with_arg::<i32>("curr")
                 .with_arg::<()>("this"),
         );
@@ -405,5 +606,193 @@ mod tests {
         let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
         let value = factorial.call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 120);
+    }
+
+    #[test]
+    fn should_allow_creating_manual_generic_dynamic_function() {
+        let func = DynamicFunction::new(
+            |mut args| {
+                let a = args.take_arg()?;
+                let b = args.take_arg()?;
+
+                if a.is::<i32>() {
+                    let a = a.take::<i32>()?;
+                    let b = b.take::<i32>()?;
+                    Ok((a + b).into_return())
+                } else {
+                    let a = a.take::<f32>()?;
+                    let b = b.take::<f32>()?;
+                    Ok((a + b).into_return())
+                }
+            },
+            vec![
+                SignatureInfo::named("add::<i32>")
+                    .with_arg::<i32>("a")
+                    .with_arg::<i32>("b")
+                    .with_return::<i32>(),
+                SignatureInfo::named("add::<f32>")
+                    .with_arg::<f32>("a")
+                    .with_arg::<f32>("b")
+                    .with_return::<f32>(),
+            ],
+        );
+
+        assert_eq!(func.name().unwrap(), "add::<i32>");
+        let func = func.with_name("add");
+        assert_eq!(func.name().unwrap(), "add");
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: MissingSignature")]
+    fn should_panic_on_missing_function_info() {
+        let _ = DynamicFunction::new(|_| Ok(().into_return()), Vec::new());
+    }
+
+    #[test]
+    fn should_allow_function_overloading() {
+        fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+            a + b
+        }
+
+        let func = add::<i32>.into_function().with_overload(add::<f32>);
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+    }
+
+    #[test]
+    fn should_allow_variable_arguments_via_overloading() {
+        fn add_2(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        fn add_3(a: i32, b: i32, c: i32) -> i32 {
+            a + b + c
+        }
+
+        let func = add_2.into_function().with_overload(add_3);
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default()
+            .push_owned(25_i32)
+            .push_owned(75_i32)
+            .push_owned(100_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 200);
+    }
+
+    #[test]
+    fn should_allow_function_overloading_with_manual_overload() {
+        let manual = DynamicFunction::new(
+            |mut args| {
+                let a = args.take_arg()?;
+                let b = args.take_arg()?;
+
+                if a.is::<i32>() {
+                    let a = a.take::<i32>()?;
+                    let b = b.take::<i32>()?;
+                    Ok((a + b).into_return())
+                } else {
+                    let a = a.take::<f32>()?;
+                    let b = b.take::<f32>()?;
+                    Ok((a + b).into_return())
+                }
+            },
+            vec![
+                SignatureInfo::named("add::<i32>")
+                    .with_arg::<i32>("a")
+                    .with_arg::<i32>("b")
+                    .with_return::<i32>(),
+                SignatureInfo::named("add::<f32>")
+                    .with_arg::<f32>("a")
+                    .with_arg::<f32>("b")
+                    .with_return::<f32>(),
+            ],
+        );
+
+        let func = manual.with_overload(|a: u32, b: u32| a + b);
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<u32>().unwrap(), 100);
+    }
+
+    #[test]
+    fn should_return_error_on_unknown_overload() {
+        fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+            a + b
+        }
+
+        let func = add::<i32>.into_function().with_overload(add::<f32>);
+
+        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let result = func.call(args);
+        assert_eq!(
+            result.unwrap_err(),
+            FunctionError::NoOverload {
+                expected: [
+                    ArgumentSignature::from_iter(vec![Type::of::<i32>(), Type::of::<i32>()]),
+                    ArgumentSignature::from_iter(vec![Type::of::<f32>(), Type::of::<f32>()])
+                ]
+                .into_iter()
+                .collect::<HashSet<_>>(),
+                received: ArgumentSignature::from_iter(vec![Type::of::<u32>(), Type::of::<u32>()]),
+            }
+        );
+    }
+
+    #[test]
+    fn should_debug_dynamic_function() {
+        fn greet(name: &String) -> String {
+            format!("Hello, {}!", name)
+        }
+
+        let function = greet.into_function();
+        let debug = format!("{:?}", function);
+        assert_eq!(debug, "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)");
+    }
+
+    #[test]
+    fn should_debug_anonymous_dynamic_function() {
+        let function = (|a: i32, b: i32| a + b).into_function();
+        let debug = format!("{:?}", function);
+        assert_eq!(debug, "DynamicFunction(fn _(_: i32, _: i32) -> i32)");
+    }
+
+    #[test]
+    fn should_debug_overloaded_dynamic_function() {
+        fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+            a + b
+        }
+
+        let func = add::<i32>
+            .into_function()
+            .with_overload(add::<f32>)
+            .with_name("add");
+        let debug = format!("{:?}", func);
+        assert_eq!(
+            debug,
+            "DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"
+        );
     }
 }

@@ -1,4 +1,5 @@
 use core::mem::{self, size_of};
+use std::sync::OnceLock;
 
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -15,19 +16,34 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 
 /// Maximum number of joints supported for skinned meshes.
+///
+/// It is used to allocate buffers.
+/// The correctness of the value depends on the GPU/platform.
+/// The current value is chosen because it is guaranteed to work everywhere.
+/// To allow for bigger values, a check must be made for the limits
+/// of the GPU at runtime, which would mean not using consts anymore.
 pub const MAX_JOINTS: usize = 256;
 
+/// The location of the first joint matrix in the skin uniform buffer.
 #[derive(Component)]
 pub struct SkinIndex {
-    pub index: u32,
+    /// The byte offset of the first joint matrix.
+    pub byte_offset: u32,
 }
 
 impl SkinIndex {
     /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
         SkinIndex {
-            index: (start * size_of::<Mat4>()) as u32,
+            byte_offset: (start * size_of::<Mat4>()) as u32,
         }
+    }
+
+    /// Returns this skin index in elements (not bytes).
+    ///
+    /// Each element is a 4x4 matrix.
+    pub fn index(&self) -> u32 {
+        self.byte_offset / size_of::<Mat4>() as u32
     }
 }
 
@@ -64,13 +80,28 @@ pub struct SkinUniforms {
     pub prev_buffer: RawBufferVec<Mat4>,
 }
 
-impl Default for SkinUniforms {
-    fn default() -> Self {
+impl FromWorld for SkinUniforms {
+    fn from_world(world: &mut World) -> Self {
+        let device = world.resource::<RenderDevice>();
+        let buffer_usages = if skins_use_uniform_buffers(device) {
+            BufferUsages::UNIFORM
+        } else {
+            BufferUsages::STORAGE
+        };
+
         Self {
-            current_buffer: RawBufferVec::new(BufferUsages::UNIFORM),
-            prev_buffer: RawBufferVec::new(BufferUsages::UNIFORM),
+            current_buffer: RawBufferVec::new(buffer_usages),
+            prev_buffer: RawBufferVec::new(buffer_usages),
         }
     }
+}
+
+/// Returns true if skinning must use uniforms (and dynamic offsets) because
+/// storage buffers aren't supported on the current platform.
+pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
+    static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
+    *SKINS_USE_UNIFORM_BUFFERS
+        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
 }
 
 pub fn prepare_skins(
@@ -124,7 +155,10 @@ pub fn extract_skins(
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
+    render_device: Res<RenderDevice>,
 ) {
+    let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device);
+
     // Borrow check workaround.
     let (skin_indices, uniform) = (skin_indices.into_inner(), uniform.into_inner());
 
@@ -164,9 +198,12 @@ pub fn extract_skins(
         }
         last_start = last_start.max(start);
 
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
+        // Pad to 256 byte alignment if we're using a uniform buffer.
+        // There's no need to do this if we're using storage buffers, though.
+        if skins_use_uniform_buffers {
+            while buffer.len() % 4 != 0 {
+                buffer.push(Mat4::ZERO);
+            }
         }
 
         skin_indices
@@ -181,11 +218,16 @@ pub fn extract_skins(
 }
 
 // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
-// entity and so cannot currently be batched.
+// entity and so cannot currently be batched on WebGL 2.
 pub fn no_automatic_skin_batching(
     mut commands: Commands,
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
+    render_device: Res<RenderDevice>,
 ) {
+    if !skins_use_uniform_buffers(&render_device) {
+        return;
+    }
+
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
     }

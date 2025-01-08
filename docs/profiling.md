@@ -2,36 +2,59 @@
 
 ## Table of Contents
 
-- [Runtime](#runtime)
-  - [Chrome tracing format](#chrome-tracing-format)
-  - [Tracy profiler](#tracy-profiler)
+- [CPU runtime](#cpu-runtime)
+  - [Overview](#overview)
   - [Adding your own spans](#adding-your-own-spans)
+  - [Tracy profiler](#tracy-profiler)
+  - [Chrome tracing format](#chrome-tracing-format)
   - [Perf flame graph](#perf-flame-graph)
+- [GPU runtime](#gpu-runtime)
 - [Compile time](#compile-time)
 
-## Runtime
+## CPU runtime
+
+### Overview
 
 Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make it cheap and easy to profile Bevy ECS systems, render logic, engine internals, and user app code. Enable the `trace` cargo feature to enable Bevy's built-in spans.
 
 If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
 
-You also need to select a `tracing` backend using one of the following cargo features.
+You also need to select a `tracing` backend using one of the cargo features described in the below sections.
 
-**⚠️ Note**: for users of [span](https://docs.rs/tracing/0.1.37/tracing/index.html) based profilers
-
-When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
-
-Improvements are planned to resolve this issue, you can find more details in the docs for [`prepare_windows`](https://docs.rs/bevy/latest/bevy/render/view/fn.prepare_windows.html).
+> [!NOTE]
+> When your app is bottlenecked by the GPU, you may encounter frames that have multiple prepare-set systems all taking an unusually long time to complete, and all finishing at about the same time.
+>
+> See the section on GPU profiling for determining what GPU work is the bottleneck.
+>
+> You can find more details in the docs for [`prepare_windows`](https://docs.rs/bevy/latest/bevy/render/view/fn.prepare_windows.html).
 
 ![prepare_windows span bug](https://github.com/bevyengine/bevy/assets/2771466/15c0819b-0e07-4665-aa1e-579caa24fece)
 
-### Chrome tracing format
+### Adding your own spans
 
-`cargo run --release --features bevy/trace_chrome`
+Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log::*`, just like the normal logging macros).
 
-After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this:
+```rust
+{
+  // creates a span and starts the timer
+  let my_span = info_span!("span_name", name = "span_name").entered();
+  do_something_here();
+} // my_span is dropped here ... this stops the timer
 
-![image](https://user-images.githubusercontent.com/2694663/141657409-6f4a3ad3-59b6-4378-95ba-66c0dafecd8e.png)
+
+// You can also "manually" enter the span if you need more control over when the timer starts
+// Prefer the previous, simpler syntax unless you need the extra control.
+let my_span = info_span!("span_name", name = "span_name");
+{
+  // starts the span's timer
+  let guard = my_span.enter();
+  do_something_here();
+} // guard is dropped here ... this stops the timer
+```
+
+Search for `info_span!` in this repo for some real-world examples.
+
+For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tracing/span/index.html).
 
 ### Tracy profiler
 
@@ -78,31 +101,13 @@ If you save more than one trace, you can compare the spans between both of them 
 
 ![A graph and statistics in the Tracy GUI comparing the distribution of execution times of an instrumented span across two traces](https://user-images.githubusercontent.com/3137680/205834698-84405b2f-97b5-43a3-9dba-385167ac1db5.png)
 
-### Adding your own spans
+### Chrome tracing format
 
-Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log::*`, just like the normal logging macros).
+`cargo run --release --features bevy/trace_chrome`
 
-```rust
-{
-  // creates a span and starts the timer
-  let my_span = info_span!("span_name", name = "span_name").entered();
-  do_something_here();
-} // my_span is dropped here ... this stops the timer
+After running your app a `json` file in the "chrome tracing format" will be produced. You can open this file in your browser using <https://ui.perfetto.dev>. It will look something like this:
 
-
-// You can also "manually" enter the span if you need more control over when the timer starts
-// Prefer the previous, simpler syntax unless you need the extra control.
-let my_span = info_span!("span_name", name = "span_name");
-{
-  // starts the span's timer
-  let guard = my_span.enter();
-  do_something_here();
-} // guard is dropped here ... this stops the timer
-```
-
-Search for `info_span!` in this repo for some real-world examples.
-
-For more details, check out the [tracing span docs](https://docs.rs/tracing/*/tracing/span/index.html).
+![image](https://user-images.githubusercontent.com/2694663/141657409-6f4a3ad3-59b6-4378-95ba-66c0dafecd8e.png)
 
 ### `perf` Flame Graph
 
@@ -115,6 +120,29 @@ Install [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph), [enable
 
 After closing your app, an interactive `svg` file will be produced:
 ![image](https://user-images.githubusercontent.com/2694663/141657609-0089675d-fb6a-4dc4-9a59-871e95e31c8a.png)
+
+## GPU runtime
+
+If CPU profiling has shown that GPU work is the bottleneck, it's time to profile the GPU.
+
+For profiling GPU work, you should use the tool corresponding to your GPU's vendor:
+
+- NVIDIA - [Nsight Graphics](https://developer.nvidia.com/nsight-graphics)
+- AMD - [Radeon GPU Profiler](https://gpuopen.com/rgp)
+- Intel - [Graphics Frame Analyzer](https://www.intel.com/content/www/us/en/developer/tools/graphics-performance-analyzers/graphics-frame-analyzer.html)
+- Apple - [Xcode](https://developer.apple.com/documentation/xcode/optimizing-gpu-performance)
+
+Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
+
+### Graphics work
+
+Finally, a quick note on how GPU programming works. GPUs are essentially separate computers with their own compiler, scheduler, memory (for discrete GPUs), etc. You do not simply call functions to have the GPU perform work - instead, you communicate with them by sending data back and forth over the PCIe bus, via the GPU driver.
+
+Specifically, you record a list of tasks (commands) for the GPU to perform into a CommandBuffer, and then submit that on a Queue to the GPU. At some point in the future, the GPU will receive the commands and execute them.
+
+In terms of where your app is spending time doing graphics work, it might manifest as a CPU bottleneck (extracting to the render world, wgpu resource tracking, recording commands to a CommandBuffer, or GPU driver code), or it might manifest as a GPU bottleneck (the GPU actually running your commands).
+
+Graphics related work is not all CPU work or all GPU work, but a mix of both, and you should find the bottleneck and profile using the appropriate tool for each case.
 
 ## Compile time
 

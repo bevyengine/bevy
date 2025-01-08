@@ -7,8 +7,9 @@ use core::{
     ptr::{addr_of_mut, NonNull},
 };
 
+use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
-use bevy_utils::tracing::warn;
+use log::warn;
 
 use crate::world::{Command, World};
 
@@ -261,7 +262,7 @@ impl RawCommandQueue {
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
-            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            let f = AssertUnwindSafe(|| {
                 // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
                 // since they were stored next to each other by `.push()`.
                 // For ZSTs, the type doesn't matter as long as the pointer is non-null.
@@ -269,33 +270,41 @@ impl RawCommandQueue {
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
                 unsafe { (meta.consume_command_and_get_size)(cmd, world, &mut local_cursor) };
-            }));
+            });
 
-            if let Err(payload) = result {
-                // local_cursor now points to the location _after_ the panicked command.
-                // Add the remaining commands that _would have_ been applied to the
-                // panic_recovery queue.
-                //
-                // This uses `current_stop` instead of `stop` to account for any commands
-                // that were queued _during_ this panic.
-                //
-                // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
-                // an applied Command, the correct command order will be retained.
-                let panic_recovery = self.panic_recovery.as_mut();
-                let bytes = self.bytes.as_mut();
-                let current_stop = bytes.len();
-                panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
-                bytes.set_len(start);
-                *self.cursor.as_mut() = start;
+            #[cfg(feature = "std")]
+            {
+                let result = std::panic::catch_unwind(f);
 
-                // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
-                // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
-                // until we reach the top.
-                if start == 0 {
-                    bytes.append(panic_recovery);
+                if let Err(payload) = result {
+                    // local_cursor now points to the location _after_ the panicked command.
+                    // Add the remaining commands that _would have_ been applied to the
+                    // panic_recovery queue.
+                    //
+                    // This uses `current_stop` instead of `stop` to account for any commands
+                    // that were queued _during_ this panic.
+                    //
+                    // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
+                    // an applied Command, the correct command order will be retained.
+                    let panic_recovery = self.panic_recovery.as_mut();
+                    let bytes = self.bytes.as_mut();
+                    let current_stop = bytes.len();
+                    panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
+                    bytes.set_len(start);
+                    *self.cursor.as_mut() = start;
+
+                    // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
+                    // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
+                    // until we reach the top.
+                    if start == 0 {
+                        bytes.append(panic_recovery);
+                    }
+                    std::panic::resume_unwind(payload);
                 }
-                std::panic::resume_unwind(payload);
             }
+
+            #[cfg(not(feature = "std"))]
+            (f)();
         }
 
         // Reset the buffer: all commands past the original `start` cursor have been applied.

@@ -1,4 +1,8 @@
 use crate::PartialReflect;
+use alloc::boxed::Box;
+
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec};
 
 /// The return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

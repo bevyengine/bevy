@@ -23,6 +23,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev", optional = true }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", optional = true }
+variadics_please = "1.1"
 
 [lints]
 workspace = true

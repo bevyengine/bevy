@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// Helper macro to implement the necessary traits for function reflection.
 ///
 /// This macro calls the following macros:

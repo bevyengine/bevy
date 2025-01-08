@@ -2,23 +2,26 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     batching::BatchingStrategy,
     component::{ComponentId, Tick},
-    entity::Entity,
+    entity::{Entity, EntityBorrow, EntitySet},
     prelude::FromWorld,
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
+        WorldQuery,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
-use bevy_utils::tracing::warn;
+
+use alloc::vec::Vec;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
-use core::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
+use core::{fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
+use log::warn;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QuerySingleError, ROQueryItem,
+    QueryManyUniqueIter, QuerySingleError, ROQueryItem,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -160,6 +163,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
+    /// Creates a new [`QueryState`] from an immutable [`World`] reference and inherits the result of `world.id()`.
+    ///
+    /// This function may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    pub fn try_new(world: &World) -> Option<Self> {
+        let mut state = Self::try_new_uninitialized(world)?;
+        state.update_archetypes(world);
+        Some(state)
+    }
+
     /// Identical to `new`, but it populates the provided `access` with the matched results.
     pub(crate) fn new_with_access(
         world: &mut World,
@@ -176,6 +189,24 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
         }
         state.archetype_generation = world.archetypes.generation();
+
+        // Resource access is not part of any archetype and must be handled separately
+        if state.component_access.access().has_read_all_resources() {
+            access.read_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_reads() {
+                access.add_resource_read(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
+        if state.component_access.access().has_write_all_resources() {
+            access.write_all_resources();
+        } else {
+            for component_id in state.component_access.access().resource_writes() {
+                access.add_resource_write(world.initialize_resource_internal(component_id).id());
+            }
+        }
+
         state
     }
 
@@ -186,7 +217,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
+        Self::from_states_uninitialized(world.id(), fetch_state, filter_state)
+    }
 
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn try_new_uninitialized(world: &World) -> Option<Self> {
+        let fetch_state = D::get_state(world.components())?;
+        let filter_state = F::get_state(world.components())?;
+        Some(Self::from_states_uninitialized(
+            world.id(),
+            fetch_state,
+            filter_state,
+        ))
+    }
+
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn from_states_uninitialized(
+        world_id: WorldId,
+        fetch_state: <D as WorldQuery>::State,
+        filter_state: <F as WorldQuery>::State,
+    ) -> Self {
         let mut component_access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut component_access);
 
@@ -205,7 +261,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let is_dense = D::IS_DENSE && F::IS_DENSE;
 
         Self {
-            world_id: world.id(),
+            world_id,
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
             is_dense,
@@ -215,7 +271,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -241,7 +297,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: Default::default(),
             matched_archetypes: Default::default(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 data = core::any::type_name::<D>(),
                 filter = core::any::type_name::<F>(),
@@ -604,7 +660,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables: self.matched_tables.clone(),
             matched_archetypes: self.matched_archetypes.clone(),
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),
@@ -726,7 +782,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             matched_tables,
             matched_archetypes,
             #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
+            par_iter_span: tracing::info_span!(
                 "par_for_each",
                 query = core::any::type_name::<NewD>(),
                 filter = core::any::type_name::<NewF>(),
@@ -787,7 +843,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw(365);
     ///
-    /// assert_eq!(query_state.get_many(&world, [wrong_entity]), Err(QueryEntityError::NoSuchEntity(wrong_entity)));
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -867,7 +923,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw(57);
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -964,7 +1020,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let location = world
             .entities()
             .get(entity)
-            .ok_or(QueryEntityError::NoSuchEntity(entity))?;
+            .ok_or(QueryEntityError::NoSuchEntity(entity, world))?;
         if !self
             .matched_archetypes
             .contains(location.archetype_id.index())
@@ -1198,7 +1254,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
@@ -1230,7 +1286,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
@@ -1252,7 +1308,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityBorrow>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
@@ -1271,6 +1327,88 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_unique_mut`](Self::iter_many_unique_mut) to get mutable query items.
+    #[inline]
+    pub fn iter_many_unique<'w, 's, EntityList: EntitySet>(
+        &'s mut self,
+        world: &'w World,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
+        self.update_archetypes(world);
+        // SAFETY: query is read only
+        unsafe {
+            self.as_readonly().iter_many_unique_unchecked_manual(
+                entities,
+                world.as_unsafe_world_cell_readonly(),
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
+    /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
+    /// this will skip entities contained in new archetypes.
+    ///
+    /// This can only be called for read-only queries.
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_unique`](Self::iter_many) to update archetypes.
+    /// - [`iter_many`](Self::iter_many) to iterate over a non-unique entity list.
+    /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
+    #[inline]
+    pub fn iter_many_unique_manual<'w, 's, EntityList: EntitySet>(
+        &'s self,
+        world: &'w World,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
+        self.validate_world(world.id());
+        // SAFETY: query is read only, world id is validated
+        unsafe {
+            self.as_readonly().iter_many_unique_unchecked_manual(
+                entities,
+                world.as_unsafe_world_cell_readonly(),
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns an iterator over the unique query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    #[inline]
+    pub fn iter_many_unique_mut<'w, 's, EntityList: EntitySet>(
+        &'s mut self,
+        world: &'w mut World,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter> {
+        self.update_archetypes(world);
+        let last_change_tick = world.last_change_tick();
+        let change_tick = world.change_tick();
+        // SAFETY: Query has unique world access.
+        unsafe {
+            self.iter_many_unique_unchecked_manual(
+                entities,
+                world.as_unsafe_world_cell(),
+                last_change_tick,
+                change_tick,
+            )
+        }
+    }
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
@@ -1357,9 +1495,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         this_run: Tick,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
     where
-        EntityList: IntoIterator<Item: Borrow<Entity>>,
+        EntityList: IntoIterator<Item: EntityBorrow>,
     {
         QueryManyIter::new(world, self, entities, last_run, this_run)
+    }
+
+    /// Returns an [`Iterator`] for the given [`World`] and an [`EntitySet`], where the last change and
+    /// the current change tick are given.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_many_unique_unchecked_manual<'w, 's, EntityList: EntitySet>(
+        &'s self,
+        entities: EntityList,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter> {
+        QueryManyUniqueIter::new(world, self, entities, last_run, this_run)
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -1441,7 +1602,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw(57);
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NoSuchEntity(entity, _) => entity, _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```

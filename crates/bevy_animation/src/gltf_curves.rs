@@ -5,8 +5,8 @@ use bevy_math::{
     vec4, Quat, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
-use derive_more::derive::{Display, Error, From};
 use either::Either;
+use thiserror::Error;
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
 #[derive(Debug, Clone, Reflect)]
@@ -319,11 +319,11 @@ where
 }
 
 /// An error indicating that a multisampling keyframe curve could not be constructed.
-#[derive(Debug, Error, Display, From)]
-#[display("unable to construct a curve using this data")]
+#[derive(Debug, Error)]
+#[error("unable to construct a curve using this data")]
 pub enum WideKeyframeCurveError {
     /// The number of given values was not divisible by a multiple of the number of keyframes.
-    #[display("number of values ({values_given}) is not divisible by {divisor}")]
+    #[error("number of values ({values_given}) is not divisible by {divisor}")]
     LengthMismatch {
         /// The number of values given.
         values_given: usize,
@@ -331,7 +331,8 @@ pub enum WideKeyframeCurveError {
         divisor: usize,
     },
     /// An error was returned by the internal core constructor.
-    CoreError(ChunkedUnevenCoreError),
+    #[error(transparent)]
+    CoreError(#[from] ChunkedUnevenCoreError),
 }
 
 impl<T> WideCubicKeyframeCurve<T> {

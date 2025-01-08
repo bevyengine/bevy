@@ -1,5 +1,8 @@
 use crate::func::{DynamicFunctionMut, ReflectFnMut, TypedFunction};
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// A trait for types that can be converted into a [`DynamicFunctionMut`].
 ///
 /// This trait is automatically implemented for any type that implements
@@ -78,6 +81,6 @@ mod tests {
     fn should_default_closure_name_to_none() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b).into_function_mut();
-        assert_eq!(func.info().name(), None);
+        assert!(func.name().is_none());
     }
 }

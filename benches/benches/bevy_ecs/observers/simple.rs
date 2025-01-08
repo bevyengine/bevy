@@ -20,7 +20,7 @@ pub fn observe_simple(criterion: &mut Criterion) {
         world.add_observer(empty_listener_base);
         bencher.iter(|| {
             for _ in 0..10000 {
-                world.trigger(EventBase)
+                world.trigger(EventBase);
             }
         });
     });

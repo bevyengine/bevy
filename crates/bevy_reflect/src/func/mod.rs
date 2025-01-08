@@ -94,6 +94,32 @@
 //! For other functions that don't conform to one of the above signatures,
 //! [`DynamicFunction`] and [`DynamicFunctionMut`] can instead be created manually.
 //!
+//! # Generic Functions
+//!
+//! In Rust, generic functions are [monomophized] by the compiler,
+//! which means that a separate copy of the function is generated for each concrete set of type parameters.
+//!
+//! When converting a generic function to a [`DynamicFunction`] or [`DynamicFunctionMut`],
+//! the function must be manually monomorphized with concrete types.
+//! In other words, you cannot write `add<T>.into_function()`.
+//! Instead, you will need to write `add::<i32>.into_function()`.
+//!
+//! This means that reflected functions cannot be generic themselves.
+//! To get around this limitation, you can consider [overloading] your function with multiple concrete types.
+//!
+//! # Overloading Functions
+//!
+//! Both [`DynamicFunction`] and [`DynamicFunctionMut`] support [function overloading].
+//!
+//! Function overloading allows one function to handle multiple types of arguments.
+//! This is useful for simulating generic functions by having an overload for each known concrete type.
+//! Additionally, it can also simulate [variadic functions]: functions that can be called with a variable number of arguments.
+//!
+//! Internally, this works by storing multiple functions in a map,
+//! where each function is associated with a specific argument signature.
+//!
+//! To learn more, see the docs on [`DynamicFunction::with_overload`].
+//!
 //! # Function Registration
 //!
 //! This module also provides a [`FunctionRegistry`] that can be used to register functions and closures
@@ -127,6 +153,10 @@
 //! [`Reflect`]: crate::Reflect
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
+//! [monomophized]: https://en.wikipedia.org/wiki/Monomorphization
+//! [overloading]: #overloading-functions
+//! [function overloading]: https://en.wikipedia.org/wiki/Function_overloading
+//! [variadic functions]: https://en.wikipedia.org/wiki/Variadic_function
 
 pub use args::{ArgError, ArgList, ArgValue};
 pub use dynamic_function::*;
@@ -143,6 +173,7 @@ pub use return_type::*;
 
 pub mod args;
 mod dynamic_function;
+mod dynamic_function_internal;
 mod dynamic_function_mut;
 mod error;
 mod function;
@@ -154,17 +185,18 @@ mod reflect_fn;
 mod reflect_fn_mut;
 mod registry;
 mod return_type;
+pub mod signature;
 
 #[cfg(test)]
 mod tests {
     use alloc::borrow::Cow;
 
+    use super::*;
+    use crate::func::args::ArgCount;
     use crate::{
         func::args::{ArgError, ArgList, Ownership},
         TypePath,
     };
-
-    use super::*;
 
     #[test]
     fn should_error_on_missing_args() {
@@ -176,7 +208,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 1,
+                expected: ArgCount::new(1).unwrap(),
                 received: 0
             }
         );
@@ -192,7 +224,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 0,
+                expected: ArgCount::new(0).unwrap(),
                 received: 1
             }
         );

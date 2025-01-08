@@ -1,5 +1,3 @@
-use criterion::*;
-
 mod heavy_compute;
 mod iter_frag;
 mod iter_frag_foreach;
@@ -22,10 +20,11 @@ mod iter_simple_wide_sparse_set;
 mod par_iter_simple;
 mod par_iter_simple_foreach_hybrid;
 
+use criterion::{criterion_group, Criterion};
 use heavy_compute::*;
 
 criterion_group!(
-    iterations_benches,
+    benches,
     iter_frag,
     iter_frag_sparse,
     iter_simple,
@@ -136,7 +135,7 @@ fn par_iter_simple(c: &mut Criterion) {
             b.iter(move || bench.run());
         });
     }
-    group.bench_function(format!("hybrid"), |b| {
+    group.bench_function("hybrid".to_string(), |b| {
         let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });

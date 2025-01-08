@@ -5,8 +5,8 @@ use bevy_math::Vec3;
 use bevy_utils::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
-use derive_more::derive::{Display, Error};
-use wgpu::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
+use thiserror::Error;
+use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MeshVertexAttribute {
@@ -108,8 +108,8 @@ impl MeshVertexBufferLayout {
     }
 }
 
-#[derive(Error, Display, Debug)]
-#[display("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
+#[derive(Error, Debug)]
+#[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
 pub struct MissingVertexAttributeError {
     pub pipeline_type: Option<&'static str>,
     id: MeshVertexAttributeId,
@@ -138,7 +138,29 @@ pub(crate) struct MeshAttributeData {
     pub(crate) values: VertexAttributeValues,
 }
 
-pub(crate) fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+/// Compute a vector whose direction is the normal of the triangle formed by
+/// points a, b, c, and whose magnitude is double the area of the triangle. This
+/// is useful for computing smooth normals where the contributing normals are
+/// proportionate to the areas of the triangles as [discussed
+/// here](https://iquilezles.org/articles/normals/).
+///
+/// Question: Why double the area? Because the area of a triangle _A_ is
+/// determined by this equation:
+///
+/// _A = |(b - a) x (c - a)| / 2_
+///
+/// By computing _2 A_ we avoid a division operation, and when calculating the
+/// the sum of these vectors which are then normalized, a constant multiple has
+/// no effect.
+#[inline]
+pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+    let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
+    (b - a).cross(c - a).into()
+}
+
+/// Compute the normal of a face made of three points: a, b, and c.
+#[inline]
+pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize().into()
 }

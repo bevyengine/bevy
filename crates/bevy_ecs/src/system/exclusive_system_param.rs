@@ -4,8 +4,9 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use bevy_utils::synccell::SyncCell;
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.

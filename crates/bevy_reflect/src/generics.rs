@@ -1,7 +1,6 @@
 use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
-use alloc::borrow::Cow;
-use alloc::sync::Arc;
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::ops::Deref;
 use derive_more::derive::From;
 

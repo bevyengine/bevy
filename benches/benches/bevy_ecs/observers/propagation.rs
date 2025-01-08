@@ -71,7 +71,7 @@ impl<const N: usize> Event for TestEvent<N> {
     const AUTO_PROPAGATE: bool = true;
 }
 
-fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &Vec<Entity>) {
+fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
     let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
@@ -100,9 +100,9 @@ fn spawn_listener_hierarchy(world: &mut World) -> (Vec<Entity>, Vec<Entity>, Vec
 }
 
 fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
-    roots: &Vec<Entity>,
-    leaves: &Vec<Entity>,
-    nodes: &Vec<Entity>,
+    roots: &[Entity],
+    leaves: &[Entity],
+    nodes: &[Entity],
     world: &mut World,
 ) {
     for e in roots.iter() {

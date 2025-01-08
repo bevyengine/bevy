@@ -9,24 +9,27 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
+use alloc::vec::Vec;
 use core::fmt;
-use derive_more::derive::{Display, From};
+use derive_more::derive::From;
+use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
 /// An error returned from a failed path string query.
-#[derive(Debug, PartialEq, Eq, Display, From)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ReflectPathError<'a> {
     /// An error caused by trying to access a path that's not able to be accessed,
     /// see [`AccessError`] for details.
+    #[error(transparent)]
     InvalidAccess(AccessError<'a>),
 
     /// An error that occurs when a type cannot downcast to a given type.
-    #[display("Can't downcast result of access to the given type")]
+    #[error("Can't downcast result of access to the given type")]
     InvalidDowncast,
 
     /// An error caused by an invalid path string that couldn't be parsed.
-    #[display("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
+    #[error("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
@@ -37,7 +40,11 @@ pub enum ReflectPathError<'a> {
     },
 }
 
-impl<'a> core::error::Error for ReflectPathError<'a> {}
+impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
+    fn from(value: AccessError<'a>) -> Self {
+        ReflectPathError::InvalidAccess(value)
+    }
+}
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
 pub trait ReflectPath<'a>: Sized {

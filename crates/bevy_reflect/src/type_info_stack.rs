@@ -4,6 +4,9 @@ use core::{
     slice::Iter,
 };
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// Helper struct for managing a stack of [`TypeInfo`] instances.
 ///
 /// This is useful for tracking the type hierarchy when serializing and deserializing types.

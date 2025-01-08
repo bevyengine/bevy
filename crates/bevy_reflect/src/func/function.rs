@@ -1,9 +1,15 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    func::{
+        args::{ArgCount, ArgList},
+        DynamicFunction, FunctionInfo, FunctionResult,
+    },
     PartialReflect,
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
 
 /// A trait used to power [function-like] operations via [reflection].
 ///
@@ -36,18 +42,21 @@ pub trait Function: PartialReflect + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info().name()
-    }
+    fn name(&self) -> Option<&Cow<'static, str>>;
 
-    /// The number of arguments this function accepts.
-    fn arg_count(&self) -> usize {
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    ///
+    /// [overloaded]: crate::func#overloading-functions
+    fn arg_count(&self) -> ArgCount {
         self.info().arg_count()
     }
 

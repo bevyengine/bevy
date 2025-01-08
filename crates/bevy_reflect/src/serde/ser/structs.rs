@@ -4,22 +4,16 @@ use crate::{
 };
 use serde::{ser::SerializeStruct, Serialize};
 
+use super::ReflectSerializerProcessor;
+
 /// A serializer for [`Struct`] values.
-pub(super) struct StructSerializer<'a> {
-    struct_value: &'a dyn Struct,
-    registry: &'a TypeRegistry,
+pub(super) struct StructSerializer<'a, P> {
+    pub struct_value: &'a dyn Struct,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a P>,
 }
 
-impl<'a> StructSerializer<'a> {
-    pub fn new(struct_value: &'a dyn Struct, registry: &'a TypeRegistry) -> Self {
-        Self {
-            struct_value,
-            registry,
-        }
-    }
-}
-
-impl<'a> Serialize for StructSerializer<'a> {
+impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -63,7 +57,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             let key = struct_info.field_at(index).unwrap().name();
             state.serialize_field(
                 key,
-                &TypedReflectSerializer::new_internal(value, self.registry),
+                &TypedReflectSerializer::new_internal(value, self.registry, self.processor),
             )?;
         }
         state.end()

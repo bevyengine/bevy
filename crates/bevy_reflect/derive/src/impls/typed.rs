@@ -106,27 +106,34 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
     quote! {
         #primitive_assert
 
-        impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
-            fn type_path() -> &'static str {
-                #long_type_path
-            }
+        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
+        const _: () = {
+            extern crate alloc;
 
-            fn short_type_path() -> &'static str {
-                #short_type_path
-            }
+            use alloc::string::ToString;
 
-            fn type_ident() -> Option<&'static str> {
-                #type_ident
-            }
+            impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
+                fn type_path() -> &'static str {
+                    #long_type_path
+                }
 
-            fn crate_name() -> Option<&'static str> {
-                #crate_name
-            }
+                fn short_type_path() -> &'static str {
+                    #short_type_path
+                }
 
-            fn module_path() -> Option<&'static str> {
-                #module_path
+                fn type_ident() -> Option<&'static str> {
+                    #type_ident
+                }
+
+                fn crate_name() -> Option<&'static str> {
+                    #crate_name
+                }
+
+                fn module_path() -> Option<&'static str> {
+                    #module_path
+                }
             }
-        }
+        };
     }
 }
 

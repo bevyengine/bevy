@@ -12,7 +12,7 @@ use bevy_utils::{
     ConditionalSendFuture,
 };
 use core::any::TypeId;
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -275,9 +275,10 @@ impl AssetLoaders {
     }
 }
 
-#[derive(Error, Display, Debug, Clone, From)]
+#[derive(Error, Debug, Clone)]
 pub(crate) enum GetLoaderError {
-    CouldNotResolve(RecvError),
+    #[error(transparent)]
+    CouldNotResolve(#[from] RecvError),
 }
 
 #[derive(Clone)]

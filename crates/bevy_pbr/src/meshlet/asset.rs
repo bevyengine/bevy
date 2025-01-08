@@ -8,10 +8,10 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
-use derive_more::derive::{Display, Error, From};
 use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
+use thiserror::Error;
 
 /// Unique identifier for the [`MeshletMesh`] asset format.
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
@@ -211,16 +211,16 @@ impl AssetLoader for MeshletMeshLoader {
     }
 }
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum MeshletMeshSaveOrLoadError {
-    #[display("file was not a MeshletMesh asset")]
+    #[error("file was not a MeshletMesh asset")]
     WrongFileType,
-    #[display("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
-    #[display("failed to compress or decompress asset data")]
-    CompressionOrDecompression(lz4_flex::frame::Error),
-    #[display("failed to read or write asset data")]
-    Io(std::io::Error),
+    #[error("failed to compress or decompress asset data")]
+    CompressionOrDecompression(#[from] lz4_flex::frame::Error),
+    #[error("failed to read or write asset data")]
+    Io(#[from] std::io::Error),
 }
 
 async fn async_read_u64(reader: &mut dyn Reader) -> Result<u64, std::io::Error> {

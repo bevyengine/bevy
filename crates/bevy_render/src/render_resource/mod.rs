@@ -49,13 +49,13 @@ pub use wgpu::{
     PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
     PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
-    StencilOperation, StencilState, StorageTextureAccess, StoreOp, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexAttribute,
-    VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
+    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension,
+    VertexAttribute, VertexBufferLayout as RawVertexBufferLayout, VertexFormat,
+    VertexState as RawVertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
 pub use crate::mesh::VertexBufferLayout;

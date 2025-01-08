@@ -1,4 +1,5 @@
 use bevy_ecs::{event::Event, prelude::Entity};
+#[cfg(feature = "reflect")]
 use bevy_reflect::Reflect;
 
 /// An [`Event`] that is fired whenever there is a change in the world's hierarchy.

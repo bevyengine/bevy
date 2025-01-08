@@ -1,5 +1,8 @@
 use core::fmt::{Display, Formatter};
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// A trait for getting the ownership of a type.
 ///
 /// This trait exists so that [`TypedFunction`] can automatically generate

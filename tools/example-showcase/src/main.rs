@@ -505,7 +505,7 @@ header_message = \"Examples (WebGL2)\"
                     continue;
                 }
 
-                // This beautifys the category name
+                // This beautifies the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't

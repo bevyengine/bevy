@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::ops::Deref;
 
 /// A type-erased serializable value.

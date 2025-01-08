@@ -1,5 +1,5 @@
-use bevy_utils::all_tuples_with_size;
 use core::num::NonZero;
+use variadics_please::all_tuples_with_size;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.

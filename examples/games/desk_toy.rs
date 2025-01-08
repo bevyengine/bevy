@@ -3,7 +3,7 @@
 //! This example demonstrates:
 //! - Transparent windows that can be clicked through.
 //! - Drag-and-drop operations in 2D.
-//! - Using entity hierarchy and [`SpatialBundle`]s to create simple animations.
+//! - Using entity hierarchy, Transform, and Visibility to create simple animations.
 //! - Creating simple 2D meshes based on shape primitives.
 
 use bevy::{

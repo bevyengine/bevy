@@ -106,6 +106,19 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// Contains the text produced by this keypress.
+    ///
+    /// In most cases this is identical to the content
+    /// of the `Character` variant of `logical_key`.
+    /// However, on Windows when a dead key was pressed earlier
+    /// but cannot be combined with the character from this
+    /// keypress, the produced text will consist of two characters:
+    /// the dead-key-character followed by the character resulting
+    /// from this keypress.
+    ///
+    /// This is `None` if the current keypress cannot
+    /// be interpreted as text.
+    pub text: Option<SmolStr>,
     /// On some systems, holding down a key for some period of time causes that key to be repeated
     /// as though it were being pressed and released repeatedly. This field is [`true`] if this
     /// event is the result of one of those repeats.
@@ -750,6 +763,9 @@ pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in
     /// effect.
+    ///
+    /// Note that behavior may vary across platforms and keyboard layouts.
+    /// See the `text` field of [`KeyboardInput`] for more information.
     Character(SmolStr),
 
     /// This variant is used when the key cannot be translated to any other variant.

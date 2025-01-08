@@ -10,9 +10,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use alloc::borrow::Cow;
-use bevy_utils::all_tuples;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A function system that runs with exclusive [`World`] access.
 ///

@@ -4,8 +4,11 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+
+mod executor;
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
@@ -37,9 +40,9 @@ mod thread_executor;
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
-#[cfg(feature = "async-io")]
+#[cfg(all(feature = "async-io", feature = "std"))]
 pub use async_io::block_on;
-#[cfg(not(feature = "async-io"))]
+#[cfg(all(not(feature = "async-io"), feature = "std"))]
 pub use futures_lite::future::block_on;
 pub use futures_lite::future::poll_once;
 
@@ -54,13 +57,17 @@ pub use futures_lite;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
+
+    #[cfg(feature = "std")]
+    #[doc(hidden)]
+    pub use crate::block_on;
 }
 
+#[cfg(feature = "std")]
 use core::num::NonZero;
 
 /// Gets the logical CPU core count available to the current process.
@@ -69,8 +76,18 @@ use core::num::NonZero;
 /// it will return a default value of 1 if it internally errors out.
 ///
 /// This will always return at least 1.
+#[cfg(feature = "std")]
 pub fn available_parallelism() -> usize {
     std::thread::available_parallelism()
         .map(NonZero::<usize>::get)
         .unwrap_or(1)
+}
+
+/// Gets the logical CPU core count available to the current process.
+///
+/// This will always return at least 1.
+#[cfg(not(feature = "std"))]
+pub fn available_parallelism() -> usize {
+    // Without access to std, assume a single thread is available
+    1
 }

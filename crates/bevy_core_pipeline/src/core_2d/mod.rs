@@ -33,6 +33,9 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+use bevy_render::{
+    batching::gpu_preprocessing::GpuPreprocessingMode, render_phase::PhaseItemBinKey,
+};
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -42,7 +45,6 @@ use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -57,7 +59,7 @@ use bevy_render::{
         TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
-    sync_world::RenderEntity,
+    sync_world::{MainEntity, RenderEntity},
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -153,6 +155,14 @@ pub struct Opaque2dBinKey {
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
+impl PhaseItemBinKey for Opaque2dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
+    }
+}
+
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
@@ -179,7 +189,7 @@ impl PhaseItem for Opaque2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -269,7 +279,7 @@ impl PhaseItem for AlphaMask2d {
     }
 
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
@@ -292,6 +302,14 @@ impl BinnedPhaseItem for AlphaMask2d {
             batch_range,
             extra_index,
         }
+    }
+}
+
+impl PhaseItemBinKey for AlphaMask2dBinKey {
+    type BatchSetKey = ();
+
+    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
+        None
     }
 }
 
@@ -340,7 +358,7 @@ impl PhaseItem for Transparent2d {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -385,8 +403,8 @@ pub fn extract_core_2d_camera_phases(
             continue;
         }
         transparent_2d_phases.insert_or_clear(entity);
-        opaque_2d_phases.insert_or_clear(entity);
-        alpha_mask_2d_phases.insert_or_clear(entity);
+        opaque_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
 
         live_entities.insert(entity);
     }
@@ -405,7 +423,7 @@ pub fn prepare_core_2d_depth_textures(
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (view, camera, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
             continue;

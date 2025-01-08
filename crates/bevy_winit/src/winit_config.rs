@@ -35,6 +35,19 @@ impl WinitSettings {
         }
     }
 
+    /// Default settings for mobile.
+    ///
+    /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
+    /// [`reactive_low_power`](UpdateMode::reactive_low_power) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
+    pub fn mobile() -> Self {
+        WinitSettings {
+            focused_mode: UpdateMode::reactive(Duration::from_secs_f32(1.0 / 60.0)),
+            unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs(1)),
+        }
+    }
+
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.

@@ -1,4 +1,4 @@
-// This shader draws a circle with a given input color
+// Draws a progress bar with properties defined in CustomUiMaterial
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 
 @group(1) @binding(0) var<uniform> color: vec4<f32>;

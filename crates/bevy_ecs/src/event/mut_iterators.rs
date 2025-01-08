@@ -2,7 +2,6 @@ use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
-use bevy_utils::detailed_trace;
 use core::{iter::Chain, slice::IterMut};
 
 /// An iterator that yields any unread events from an [`EventMutator`] or [`EventCursor`].
@@ -95,7 +94,8 @@ impl<'a, E: Event> Iterator for EventMutIteratorWithId<'a, E> {
             .map(|instance| (&mut instance.event, instance.event_id))
         {
             Some(item) => {
-                detailed_trace!("EventMutator::iter() -> {}", item.1);
+                #[cfg(feature = "detailed_trace")]
+                tracing::trace!("EventMutator::iter() -> {}", item.1);
                 self.mutator.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)

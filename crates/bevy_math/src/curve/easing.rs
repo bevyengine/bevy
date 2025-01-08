@@ -3,9 +3,10 @@
 //!
 //! [easing functions]: EaseFunction
 
-use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace};
-
-use super::{function_curve, Curve, Interval};
+use crate::{
+    curve::{FunctionCurve, Interval},
+    Curve, Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+};
 
 // TODO: Think about merging `Ease` with `StableInterpolate`
 
@@ -28,13 +29,13 @@ pub trait Ease: Sized {
 
 impl<V: VectorSpace> Ease for V {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, move |t| V::lerp(start, end, t))
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| V::lerp(start, end, t))
     }
 }
 
 impl Ease for Rot2 {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, move |t| Rot2::slerp(start, end, t))
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| Rot2::slerp(start, end, t))
     }
 }
 
@@ -44,7 +45,7 @@ impl Ease for Quat {
         let end_adjusted = if dot < 0.0 { -end } else { end };
         let difference = end_adjusted * start.inverse();
         let (axis, angle) = difference.to_axis_angle();
-        function_curve(Interval::EVERYWHERE, move |s| {
+        FunctionCurve::new(Interval::EVERYWHERE, move |s| {
             Quat::from_axis_angle(axis, angle * s) * start
         })
     }
@@ -52,7 +53,7 @@ impl Ease for Quat {
 
 impl Ease for Dir2 {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, move |t| Dir2::slerp(start, end, t))
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| Dir2::slerp(start, end, t))
     }
 }
 
@@ -68,20 +69,6 @@ impl Ease for Dir3A {
         let difference_quat =
             Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
         Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
-    }
-}
-
-/// Given a `start` and `end` value, create a curve parametrized over [the unit interval]
-/// that connects them, using the given [ease function] to determine the form of the
-/// curve in between.
-///
-/// [the unit interval]: Interval::UNIT
-/// [ease function]: EaseFunction
-pub fn easing_curve<T: Ease + Clone>(start: T, end: T, ease_fn: EaseFunction) -> EasingCurve<T> {
-    EasingCurve {
-        start,
-        end,
-        ease_fn,
     }
 }
 
@@ -102,6 +89,22 @@ pub struct EasingCurve<T> {
     start: T,
     end: T,
     ease_fn: EaseFunction,
+}
+
+impl<T> EasingCurve<T> {
+    /// Given a `start` and `end` value, create a curve parametrized over [the unit interval]
+    /// that connects them, using the given [ease function] to determine the form of the
+    /// curve in between.
+    ///
+    /// [the unit interval]: Interval::UNIT
+    /// [ease function]: EaseFunction
+    pub fn new(start: T, end: T, ease_fn: EaseFunction) -> Self {
+        Self {
+            start,
+            end,
+            ease_fn,
+        }
+    }
 }
 
 impl<T> Curve<T> for EasingCurve<T>
@@ -306,18 +309,18 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn circular_in(t: f32) -> f32 {
-        1.0 - (1.0 - t.squared()).sqrt()
+        1.0 - ops::sqrt(1.0 - t.squared())
     }
     #[inline]
     pub(crate) fn circular_out(t: f32) -> f32 {
-        (1.0 - (t - 1.0).squared()).sqrt()
+        ops::sqrt(1.0 - (t - 1.0).squared())
     }
     #[inline]
     pub(crate) fn circular_in_out(t: f32) -> f32 {
         if t < 0.5 {
-            (1.0 - (1.0 - (2.0 * t).squared()).sqrt()) / 2.0
+            (1.0 - ops::sqrt(1.0 - (2.0 * t).squared())) / 2.0
         } else {
-            ((1.0 - (-2.0 * t + 2.0).squared()).sqrt() + 1.0) / 2.0
+            (ops::sqrt(1.0 - (-2.0 * t + 2.0).squared()) + 1.0) / 2.0
         }
     }
 
@@ -408,7 +411,7 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        (t * num_steps as f32).round() / num_steps.max(1) as f32
+        ops::round(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
     #[inline]

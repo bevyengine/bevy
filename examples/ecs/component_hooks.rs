@@ -14,7 +14,7 @@
 //!     between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{ComponentHooks, StorageType},
+    ecs::component::{ComponentHooks, Mutable, StorageType},
     prelude::*,
 };
 use std::collections::HashMap;
@@ -30,6 +30,7 @@ struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    type Mutability = Mutable;
 
     /// Hooks can also be registered during component initialization by
     /// implementing `register_component_hooks`

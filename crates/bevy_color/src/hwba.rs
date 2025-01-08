@@ -5,7 +5,7 @@
 use crate::{
     Alpha, ColorToComponents, Gray, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -239,7 +239,7 @@ impl From<Hwba> for Srgba {
         let v = 1. - blackness;
 
         let h = (hue % 360.) / 60.;
-        let i = h.floor();
+        let i = ops::floor(h);
         let f = h - i;
 
         let i = i as u8;

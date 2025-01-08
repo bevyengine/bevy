@@ -1,6 +1,6 @@
 //! A test to confirm that `bevy` allows minimizing the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::{core::FrameCount, prelude::*};
+use bevy::{diagnostic::FrameCount, prelude::*};
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
