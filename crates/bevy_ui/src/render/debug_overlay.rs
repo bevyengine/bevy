@@ -54,10 +54,6 @@ impl Default for UiDebugOptions {
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
