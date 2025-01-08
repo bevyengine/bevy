@@ -181,7 +181,6 @@ fn set_camera_viewports(
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
         (&Interaction, &TargetCamera, &RotateCamera),
