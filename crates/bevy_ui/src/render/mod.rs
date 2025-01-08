@@ -533,6 +533,7 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
+/// Entity id of the temporary render entity with the corresponding extracted UI view.
 pub struct UiCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
@@ -554,11 +555,11 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.")
                 .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
@@ -595,7 +596,7 @@ pub fn extract_ui_camera_view(
                 ))
                 .id();
             let mut entity_commands = commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
@@ -604,9 +605,9 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(entity);
+            transparent_render_phases.insert_or_clear(render_entity);
 
-            live_entities.insert(entity);
+            live_entities.insert(render_entity);
         }
     }
 
