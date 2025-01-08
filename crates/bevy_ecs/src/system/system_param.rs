@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
+    component::{ComponentCloneHandler, ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
@@ -839,7 +839,14 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + Sync + 'static {
+    /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
+    ///
+    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::default_handler()
+    }
+}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}

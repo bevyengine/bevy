@@ -51,6 +51,11 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+            fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
+                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
+                (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
+                    .get_component_clone_handler()
+            }
         }
     })
 }

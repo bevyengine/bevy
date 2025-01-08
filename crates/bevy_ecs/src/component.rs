@@ -1609,11 +1609,14 @@ impl Components {
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
+        let component_id = unsafe {
             self.get_or_register_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
             })
-        }
+        };
+        self.component_clone_handlers
+            .set_component_handler(component_id, T::get_component_clone_handler());
+        component_id
     }
 
     /// Registers a [`Resource`] described by `descriptor`.
