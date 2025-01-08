@@ -83,7 +83,7 @@ fn universal_button_click_behavior(
 }
 
 /// Resets a UI element to its default state when the timer has elapsed.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Default, Deref, DerefMut)]
 struct ResetTimer(Timer);
 
 fn reset_button_after_interaction(
@@ -176,6 +176,7 @@ fn setup_ui(
                         justify_self: JustifySelf::Center,
                         ..default()
                     },
+                    ResetTimer::default(),
                     BorderRadius::all(Val::Px(16.0)),
                     BackgroundColor::from(NORMAL_BUTTON),
                     Name::new(button_name.clone()),
