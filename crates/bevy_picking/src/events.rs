@@ -668,6 +668,9 @@ pub fn pointer_events(
 
                     // Emit DragEntry and DragStart the first time we move while pressing an entity
                     for (press_target, (location, _, hit)) in state.pressing.iter() {
+                        if delta == Vec2::ZERO {
+                            continue; // No need to emit a DragStart event if there is no movement
+                        }
                         if state.dragging.contains_key(press_target) {
                             continue; // This entity is already logged as being dragged
                         }
