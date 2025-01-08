@@ -11,9 +11,7 @@ use bevy_ecs::{
     world::FromWorld,
 };
 #[cfg(feature = "custom_cursor")]
-use bevy_image::Image;
-#[cfg(feature = "custom_cursor")]
-use bevy_image::TextureAtlasLayout;
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},

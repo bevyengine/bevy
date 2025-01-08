@@ -6,6 +6,10 @@ use crate::{
 };
 #[cfg(feature = "custom_cursor")]
 use crate::{
+    custom_cursor::{
+        calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
+        CustomCursorPlugin,
+    },
     state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
 };
@@ -27,21 +31,19 @@ use bevy_ecs::{
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 #[cfg(feature = "custom_cursor")]
-use bevy_math::{Rect, URect, Vec2};
+use bevy_math::URect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
-#[cfg(feature = "custom_cursor")]
-use wgpu_types::TextureFormat;
 
 pub(crate) struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "custom_cursor")]
-        app.init_resource::<CustomCursorCache>();
+        app.add_plugins(CustomCursorPlugin);
 
         app.register_type::<CursorIcon>()
             .add_systems(Last, update_cursors);
@@ -161,36 +163,22 @@ fn update_cursors(
                         continue;
                     };
 
-                    let atlas_rect = texture_atlas
-                        .as_ref()
-                        .and_then(|s| s.texture_rect(&texture_atlases))
-                        .map(|r| r.as_rect());
+                    let (rect, needs_sub_image) =
+                        calculate_effective_rect(&texture_atlases, image, texture_atlas, rect);
 
-                    let rect = match (atlas_rect, rect) {
-                        (None, None) => Rect {
-                            min: Vec2::ZERO,
-                            max: Vec2::new(
-                                image.texture_descriptor.size.width as f32,
-                                image.texture_descriptor.size.height as f32,
-                            ),
-                        },
-                        (None, Some(image_rect)) => image_rect.as_rect(),
-                        (Some(atlas_rect), None) => atlas_rect,
-                        (Some(atlas_rect), Some(image_rect)) => {
-                            let mut image_rect = image_rect.as_rect();
-                            image_rect.min += atlas_rect.min;
-                            image_rect.max += atlas_rect.min;
-                            image_rect
-                        }
+                    let maybe_rgba = if *flip_x || *flip_y || needs_sub_image {
+                        extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect)
+                    } else {
+                        extract_rgba_pixels(image)
                     };
 
-                    let Some(rgba) = image_to_rgba_pixels(image, *flip_x, *flip_y, rect) else {
+                    let Some(rgba) = maybe_rgba else {
                         warn!("Cursor image {handle:?} not accepted because it's not rgba8 or rgba32float format");
                         continue;
                     };
 
-                    let width = (rect.max.x - rect.min.x) as u16;
-                    let height = (rect.max.y - rect.min.y) as u16;
+                    let width = rect.width() as u16;
+                    let height = rect.height() as u16;
                     let source = match WinitCustomCursor::from_rgba(
                         rgba, width, height, hotspot.0, hotspot.1,
                     ) {
@@ -239,314 +227,4 @@ fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: C
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));
-}
-
-#[cfg(feature = "custom_cursor")]
-/// Returns the `image` data as a `Vec<u8>` for the specified sub-region.
-///
-/// The image is flipped along the x and y axes if `flip_x` and `flip_y` are
-/// `true`, respectively.
-///
-/// Only supports rgba8 and rgba32float formats.
-fn image_to_rgba_pixels(image: &Image, flip_x: bool, flip_y: bool, rect: Rect) -> Option<Vec<u8>> {
-    let image_data_as_u8s: Vec<u8>;
-
-    let image_data = match image.texture_descriptor.format {
-        TextureFormat::Rgba8Unorm
-        | TextureFormat::Rgba8UnormSrgb
-        | TextureFormat::Rgba8Snorm
-        | TextureFormat::Rgba8Uint
-        | TextureFormat::Rgba8Sint => Some(&image.data),
-        TextureFormat::Rgba32Float => {
-            image_data_as_u8s = image
-                .data
-                .chunks(4)
-                .map(|chunk| {
-                    let chunk = chunk.try_into().unwrap();
-                    let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
-                    (num * 255.0) as u8
-                })
-                .collect::<Vec<u8>>();
-
-            Some(&image_data_as_u8s)
-        }
-        _ => None,
-    };
-
-    let image_data = image_data?;
-
-    let width = (rect.max.x - rect.min.x) as usize;
-    let height = (rect.max.y - rect.min.y) as usize;
-    let mut sub_image_data = Vec::with_capacity(width * height * 4); // assuming 4 bytes per pixel (RGBA8)
-
-    for y in 0..height {
-        for x in 0..width {
-            let src_x = if flip_x { width - 1 - x } else { x };
-            let src_y = if flip_y { height - 1 - y } else { y };
-            let index = ((rect.min.y as usize + src_y)
-                * image.texture_descriptor.size.width as usize
-                + (rect.min.x as usize + src_x))
-                * 4;
-            sub_image_data.extend_from_slice(&image_data[index..index + 4]);
-        }
-    }
-
-    Some(sub_image_data)
-}
-
-#[cfg(feature = "custom_cursor")]
-#[cfg(test)]
-mod tests {
-    use bevy_asset::RenderAssetUsages;
-    use bevy_image::Image;
-    use bevy_math::Rect;
-    use bevy_math::Vec2;
-    use wgpu_types::{Extent3d, TextureDimension};
-
-    use super::*;
-
-    fn create_image_rgba8(data: &[u8]) -> Image {
-        Image::new(
-            Extent3d {
-                width: 3,
-                height: 3,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            data.to_vec(),
-            TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::default(),
-        )
-    }
-
-    fn create_image_rgba32float(data: &[u8]) -> Image {
-        let float_data: Vec<f32> = data
-            .chunks(4)
-            .flat_map(|chunk| {
-                chunk
-                    .iter()
-                    .map(|&x| x as f32 / 255.0) // convert each channel to f32
-                    .collect::<Vec<f32>>()
-            })
-            .collect();
-
-        Image::new(
-            Extent3d {
-                width: 3,
-                height: 3,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            bytemuck::cast_slice(&float_data).to_vec(),
-            TextureFormat::Rgba32Float,
-            RenderAssetUsages::default(),
-        )
-    }
-
-    macro_rules! test_image_to_rgba_pixels {
-        ($name:ident, $flip_x:expr, $flip_y:expr, $rect:expr, $expected:expr) => {
-            #[test]
-            fn $name() {
-                let image_data: &[u8] = &[
-                    // Row 1: Red, Green, Blue
-                    255, 0, 0, 255, // Red
-                    0, 255, 0, 255, // Green
-                    0, 0, 255, 255, // Blue
-                    // Row 2: Yellow, Cyan, Magenta
-                    255, 255, 0, 255, // Yellow
-                    0, 255, 255, 255, // Cyan
-                    255, 0, 255, 255, // Magenta
-                    // Row 3: White, Gray, Black
-                    255, 255, 255, 255, // White
-                    128, 128, 128, 255, // Gray
-                    0, 0, 0, 255, // Black
-                ];
-
-                // RGBA8 test
-                {
-                    let image = create_image_rgba8(image_data);
-                    let rect = $rect;
-                    let result = image_to_rgba_pixels(&image, $flip_x, $flip_y, rect);
-                    assert_eq!(result, Some($expected.to_vec()));
-                }
-
-                // RGBA32Float test
-                {
-                    let image = create_image_rgba32float(image_data);
-                    let rect = $rect;
-                    let result = image_to_rgba_pixels(&image, $flip_x, $flip_y, rect);
-                    assert_eq!(result, Some($expected.to_vec()));
-                }
-            }
-        };
-    }
-
-    test_image_to_rgba_pixels!(
-        no_flip_full_image,
-        false,
-        false,
-        Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 1: Red, Green, Blue
-            255, 0, 0, 255, // Red
-            0, 255, 0, 255, // Green
-            0, 0, 255, 255, // Blue
-            // Row 2: Yellow, Cyan, Magenta
-            255, 255, 0, 255, // Yellow
-            0, 255, 255, 255, // Cyan
-            255, 0, 255, 255, // Magenta
-            // Row 3: White, Gray, Black
-            255, 255, 255, 255, // White
-            128, 128, 128, 255, // Gray
-            0, 0, 0, 255, // Black
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_x_full_image,
-        true,
-        false,
-        Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 1 flipped: Blue, Green, Red
-            0, 0, 255, 255, // Blue
-            0, 255, 0, 255, // Green
-            255, 0, 0, 255, // Red
-            // Row 2 flipped: Magenta, Cyan, Yellow
-            255, 0, 255, 255, // Magenta
-            0, 255, 255, 255, // Cyan
-            255, 255, 0, 255, // Yellow
-            // Row 3 flipped: Black, Gray, White
-            0, 0, 0, 255, // Black
-            128, 128, 128, 255, // Gray
-            255, 255, 255, 255, // White
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_y_full_image,
-        false,
-        true,
-        Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 3: White, Gray, Black
-            255, 255, 255, 255, // White
-            128, 128, 128, 255, // Gray
-            0, 0, 0, 255, // Black
-            // Row 2: Yellow, Cyan, Magenta
-            255, 255, 0, 255, // Yellow
-            0, 255, 255, 255, // Cyan
-            255, 0, 255, 255, // Magenta
-            // Row 1: Red, Green, Blue
-            255, 0, 0, 255, // Red
-            0, 255, 0, 255, // Green
-            0, 0, 255, 255, // Blue
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_both_full_image,
-        true,
-        true,
-        Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 3 flipped: Black, Gray, White
-            0, 0, 0, 255, // Black
-            128, 128, 128, 255, // Gray
-            255, 255, 255, 255, // White
-            // Row 2 flipped: Magenta, Cyan, Yellow
-            255, 0, 255, 255, // Magenta
-            0, 255, 255, 255, // Cyan
-            255, 255, 0, 255, // Yellow
-            // Row 1 flipped: Blue, Green, Red
-            0, 0, 255, 255, // Blue
-            0, 255, 0, 255, // Green
-            255, 0, 0, 255, // Red
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        no_flip_rect,
-        false,
-        false,
-        Rect {
-            min: Vec2::new(1.0, 1.0),
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Only includes part of the original image (sub-rectangle)
-            // Row 2, columns 2-3: Cyan, Magenta
-            0, 255, 255, 255, // Cyan
-            255, 0, 255, 255, // Magenta
-            // Row 3, columns 2-3: Gray, Black
-            128, 128, 128, 255, // Gray
-            0, 0, 0, 255, // Black
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_x_rect,
-        true,
-        false,
-        Rect {
-            min: Vec2::new(1.0, 1.0),
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 2 flipped: Magenta, Cyan
-            255, 0, 255, 255, // Magenta
-            0, 255, 255, 255, // Cyan
-            // Row 3 flipped: Black, Gray
-            0, 0, 0, 255, // Black
-            128, 128, 128, 255, // Gray
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_y_rect,
-        false,
-        true,
-        Rect {
-            min: Vec2::new(1.0, 1.0),
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 3 first: Gray, Black
-            128, 128, 128, 255, // Gray
-            0, 0, 0, 255, // Black
-            // Row 2 second: Cyan, Magenta
-            0, 255, 255, 255, // Cyan
-            255, 0, 255, 255, // Magenta
-        ]
-    );
-
-    test_image_to_rgba_pixels!(
-        flip_both_rect,
-        true,
-        true,
-        Rect {
-            min: Vec2::new(1.0, 1.0),
-            max: Vec2::new(3.0, 3.0)
-        },
-        [
-            // Row 3 flipped: Black, Gray
-            0, 0, 0, 255, // Black
-            128, 128, 128, 255, // Gray
-            // Row 2 flipped: Magenta, Cyan
-            255, 0, 255, 255, // Magenta
-            0, 255, 255, 255, // Cyan
-        ]
-    );
 }
