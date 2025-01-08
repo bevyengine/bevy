@@ -1071,25 +1071,30 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+        self.spawn_with_caller(
+            bundle,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        )
+    }
+
+    pub(crate) fn spawn_with_caller<B: Bundle>(
+        &mut self,
+        bundle: B,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
-                )
-            }
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) }
         };
 
         #[cfg(feature = "track_location")]
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+            .set_spawned_or_despawned_by(entity.index(), caller);
 
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }

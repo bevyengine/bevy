@@ -720,7 +720,6 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        #[cfg(feature = "track_location")]
         let caller = Location::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
@@ -729,7 +728,7 @@ impl<'w, 's> Commands<'w, 's> {
                 caller,
             ) {
                 error!(
-                    "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
+                    "{caller}: Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                     core::any::type_name::<B>(),
                     invalid_entities
                 );
@@ -1082,6 +1081,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// isn't scoped to specific targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) {
         self.queue(command::trigger(event));
     }
@@ -1090,6 +1090,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// watches those targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
+    #[track_caller]
     pub fn trigger_targets(
         &mut self,
         event: impl Event,
@@ -1650,6 +1651,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn remove<T>(&mut self) -> &mut Self
     where
         T: Bundle,
@@ -1681,6 +1683,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
+    #[track_caller]
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
         self.queue_with_default(
             entity_command::remove_with_requires::<T>(),
@@ -1693,6 +1696,7 @@ impl<'a> EntityCommands<'a> {
     /// # Panics
     ///
     /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    #[track_caller]
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.queue_with_default(
             entity_command::remove_by_id(component_id),
@@ -1701,6 +1705,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Removes all components associated with the entity.
+    #[track_caller]
     pub fn clear(&mut self) -> &mut Self {
         self.queue_with_default(entity_command::clear(), error_handler::silent())
     }
@@ -1898,6 +1903,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn retain<T>(&mut self) -> &mut Self
     where
         T: Bundle,

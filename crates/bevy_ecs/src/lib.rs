@@ -2009,8 +2009,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn(X).contains::<Y>());
@@ -2039,8 +2039,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn_empty().insert(X).contains::<Y>());
