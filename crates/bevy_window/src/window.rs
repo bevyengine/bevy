@@ -277,10 +277,10 @@ pub struct Window {
     ///
     /// - Only supported on Windows.
     pub skip_taskbar: bool,
-    /// Sets whether the window should clip its child windows to its client area.
+    /// Sets whether the window should draw over its child windows.
     ///
-    /// If `true`, child windows will be clipped to the client area of this window.
-    /// If `false`, child windows can be drawn outside the client area.
+    /// If `true`, the window excludes drawing over areas obscured by child windows.
+    /// If `false`, the window can draw over child windows.
     ///
     /// ## Platform-specific
     ///
