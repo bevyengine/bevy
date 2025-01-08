@@ -255,31 +255,6 @@ pub struct UiCameraMap<'w, 's> {
     mapping: Query<'w, 's, RenderEntity>,
 }
 
-impl<'w, 's> UiCameraMap<'w, 's> {
-    pub fn get(&'w self) -> impl FnMut(Option<&TargetCamera>) -> Option<Entity> + 'w {
-        let default_camera_entity = self.default.get();
-        let mut current_camera_entity = Entity::PLACEHOLDER;
-        let mut current_render_entity = Entity::PLACEHOLDER;
-
-        move |camera: Option<&TargetCamera>| {
-            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity)
-            else {
-                return None;
-            };
-
-            if current_camera_entity != camera_entity {
-                let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
-                    return None;
-                };
-                current_render_entity = new_render_camera_entity;
-                current_camera_entity = camera_entity;
-            }
-
-            Some(current_render_entity)
-        }
-    }
-}
-
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'s Query<'w, 's, RenderEntity>,
     default_camera_entity: Option<Entity>,
@@ -288,6 +263,7 @@ pub struct UiCameraMapper<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
+    /// Get the default camera and create the mapper
     pub fn new(ui_camera_map: &'s UiCameraMap<'w, 's>) -> Self {
         let default_camera_entity = ui_camera_map.default.get();
         Self {
@@ -298,6 +274,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
         }
     }
 
+    /// Returns the render entity corresponding to the given `TargetCamera` or the default camera if `None``.
     pub fn map(&mut self, camera: Option<&TargetCamera>) -> Option<Entity> {
         let Some(camera_entity) = camera
             .map(TargetCamera::entity)
@@ -335,7 +312,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
 
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
@@ -345,7 +322,7 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let Some(camera_entity) = camera_mapper(camera) else {
+        let Some(camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
