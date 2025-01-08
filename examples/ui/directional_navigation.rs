@@ -41,11 +41,15 @@ fn main() {
                 highlight_focused_element,
                 // We should use the focused element to determine what "Enter" / "A" does
                 // And then respond to that action
-                (interact_with_focused_button, say_button_name_on_interaction).chain(),
+                (interact_with_focused_button, change_color_on_interaction).chain(),
             ),
         )
         .run();
 }
+
+const NORMAL_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_400;
+const PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_500;
+const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 
 // We're spawning a simple 3x3 grid of buttons
 // The buttons are just colored rectangles with text displaying the button's name
@@ -101,7 +105,7 @@ fn setup_ui(
                         ..default()
                     },
                     BorderRadius::all(Val::Px(16.0)),
-                    BackgroundColor::from(bevy::color::palettes::tailwind::BLUE_300),
+                    BackgroundColor::from(NORMAL_BUTTON),
                     Name::new(button_name.clone()),
                 ))
                 // Add a text element to the button
@@ -288,7 +292,7 @@ fn highlight_focused_element(
         if input_focus.0 == Some(entity) && input_focus_visible.0 {
             // Don't change the border size / radius here,
             // as it would result in wiggling buttons when they are focused
-            border_color.0 = Color::WHITE;
+            border_color.0 = FOCUSED_BORDER.into();
         } else {
             border_color.0 = Color::NONE;
         }
@@ -316,17 +320,21 @@ fn interact_with_focused_button(
     }
 }
 
-// This system will print the name of the button that was interacted with,
+// This system will change the background color of the button that was interacted with,
 // regardless of whether the interaction was a click or an interaction with a focused button.
 //
-// Obviously, the actual behavior should be specialized for each button in a real game.
+// The actual behavior should be specialized for each button in a real application.
 //
 // We're filtering for `Changed<Interaction>` to only run this system when the interaction changes,
 // to avoid spamming the console with the same message when the button is held down
-fn say_button_name_on_interaction(query: Query<(&Interaction, &Name), Changed<Interaction>>) {
-    for (interaction, button_name) in query.iter() {
+fn change_color_on_interaction(
+    mut query: Query<(&Interaction, &mut BackgroundColor), Changed<Interaction>>,
+) {
+    for (interaction, mut color) in query.iter_mut() {
         if *interaction == Interaction::Pressed {
-            println!("Button clicked: {button_name}");
+            color.0 = PRESSED_BUTTON.into();
+        } else {
+            color.0 = NORMAL_BUTTON.into();
         }
     }
 }
