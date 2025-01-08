@@ -119,7 +119,7 @@ impl<E: Event> Hash for EventId<E> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub(crate) struct EventInstance<E: Event> {
     pub event_id: EventId<E>,

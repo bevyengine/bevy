@@ -13,7 +13,7 @@ use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
@@ -21,7 +21,7 @@ pub(crate) struct SparseArray<I, V = I> {
 
 /// A space-optimized version of [`SparseArray`] that cannot be changed
 /// after construction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
     marker: PhantomData<I>,
@@ -368,7 +368,7 @@ impl ComponentSparseSet {
 /// A data structure that blends dense and sparse storage
 ///
 /// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
@@ -377,7 +377,7 @@ pub struct SparseSet<I, V: 'static> {
 
 /// A space-optimized version of [`SparseSet`] that cannot be changed
 /// after construction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,
     indices: Box<[I]>,

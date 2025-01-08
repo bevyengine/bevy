@@ -325,7 +325,7 @@ impl ObserverTrigger {
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
     map: ObserverMap,
@@ -334,7 +334,7 @@ pub struct CachedComponentObservers {
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct CachedObservers {
     // Observers listening for any time this trigger is fired
     map: ObserverMap,
@@ -345,7 +345,7 @@ pub struct CachedObservers {
 }
 
 /// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup most common triggers.
     on_add: CachedObservers,

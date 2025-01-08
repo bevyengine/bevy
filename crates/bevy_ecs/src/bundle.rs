@@ -348,6 +348,7 @@ pub(crate) enum InsertMode {
 /// Stores metadata associated with a specific type of [`Bundle`] for a given [`World`].
 ///
 /// [`World`]: crate::world::World
+#[derive(Clone)]
 pub struct BundleInfo {
     id: BundleId,
     /// The list of all components contributed by the bundle (including Required Components). This is in
@@ -1435,7 +1436,7 @@ impl<'w> BundleSpawner<'w> {
 }
 
 /// Metadata for bundles. Stores a [`BundleInfo`] for each type of [`Bundle`] in a given world.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
