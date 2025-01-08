@@ -34,8 +34,7 @@ fn move_sprite(
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera2d,
-        // To allow our camera to perform any sprite picking, it needs this component. This
-        // behavior can be changed in `SpritePickingSettings`.
+        // To allow our camera to perform any sprite picking, it needs this component.
         //
         // Any sprite that should be pickable also needs this component.
         SpritePickable,

@@ -31,12 +31,6 @@ pub enum SpritePickingMode {
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
-    /// When set to `true` sprite picking will only consider cameras and entities explicitly marked
-    /// with [`SpritePickable`]. `true` by default.
-    ///
-    /// This setting is provided to give you fine-grained control over which cameras and entities
-    /// should be used by the sprite picking backend at runtime.
-    pub require_markers: bool,
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
     /// Defaults to an inclusive alpha threshold of 0.1
@@ -46,16 +40,13 @@ pub struct SpritePickingSettings {
 impl Default for SpritePickingSettings {
     fn default() -> Self {
         Self {
-            require_markers: true,
             picking_mode: SpritePickingMode::AlphaThreshold(0.1),
         }
     }
 }
 
-/// An optional component that marks cameras and target entities that should be used in the
+/// A component that marks cameras and target entities that should be used in the
 /// [`SpritePickingPlugin`].
-///
-/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Debug, Default, Component)]
 pub struct SpritePickable;
@@ -77,39 +68,32 @@ impl Plugin for SpritePickingPlugin {
 )]
 fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(
-        Entity,
-        &Camera,
-        Option<&SpritePickable>,
-        &GlobalTransform,
-        &Projection,
-    )>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection), With<SpritePickable>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
     settings: Res<SpritePickingSettings>,
-    sprite_query: Query<(
-        Entity,
-        &Sprite,
-        Option<&SpritePickable>,
-        &GlobalTransform,
-        Option<&PickingBehavior>,
-        &ViewVisibility,
-    )>,
+    sprite_query: Query<
+        (
+            Entity,
+            &Sprite,
+            &GlobalTransform,
+            Option<&PickingBehavior>,
+            &ViewVisibility,
+        ),
+        With<SpritePickable>,
+    >,
     mut output: EventWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(
-            |(entity, sprite, pickable, transform, picking_behavior, vis)| {
-                let marker_requirement = !settings.require_markers || pickable.is_some();
-                if !transform.affine().is_nan() && vis.get() && marker_requirement {
-                    Some((entity, sprite, transform, picking_behavior))
-                } else {
-                    None
-                }
-            },
-        )
+        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, picking_behavior))
+            } else {
+                None
+            }
+        })
         .collect();
 
     // radsort is a stable radix sort that performed better than `slice::sort_by_key`
@@ -123,14 +107,11 @@ fn sprite_picking(
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, _, cam_transform, Projection::Orthographic(cam_ortho))) =
+        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) =
             cameras
                 .iter()
-                .filter(|(_, camera, cam_pickable, _, _)| {
-                    let marker_requirement = !settings.require_markers || cam_pickable.is_some();
-                    camera.is_active && marker_requirement
-                })
-                .find(|(_, camera, _, _, _)| {
+                .filter(|(_, camera, _, _)| camera.is_active)
+                .find(|(_, camera, _, _)| {
                     camera
                         .target
                         .normalize(primary_window)
