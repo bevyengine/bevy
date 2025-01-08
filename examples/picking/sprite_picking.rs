@@ -1,11 +1,7 @@
 //! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
 //! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
 
-use bevy::{
-    picking::backend::prelude::*,
-    prelude::*,
-    sprite::{Anchor, SpritePickingCamera},
-};
+use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;
 
 fn main() {
@@ -33,14 +29,7 @@ fn move_sprite(
 
 /// Set up a scene that tests all sprite anchor types.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        Camera2d,
-        // The sprite picking backend is strictly opt-in. As such, we need to mark this camera with
-        // `SpritePickingCamera` so it may be used in the backend.
-        //
-        // Additionally, any sprite that should be pickable will need a `Pickable` component.
-        SpritePickingCamera,
-    ));
+    commands.spawn(Camera2d);
 
     let len = 128.0;
     let sprite_size = Vec2::splat(len / 2.0);
@@ -70,7 +59,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
-                        Pickable,
                         Transform::from_xyz(i * len - len, j * len - len, -1.0),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
@@ -87,7 +75,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             anchor: anchor.to_owned(),
                             ..default()
                         },
-                        Pickable,
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -150,7 +137,6 @@ fn setup_atlas(
                     index: animation_indices.first,
                 },
             ),
-            Pickable,
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),

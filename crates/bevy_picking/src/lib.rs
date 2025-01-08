@@ -188,9 +188,12 @@ pub mod prelude {
     };
 }
 
-/// An optional component that overrides default picking behavior for an entity, allowing you to
-/// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
-/// the fields for more details.
+/// An optional component that marks an entity as usable by a backend, and overrides default
+/// picking behavior for an entity.
+///
+/// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
+///
+/// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct PickingBehavior {
@@ -388,7 +391,6 @@ impl Plugin for PickingPlugin {
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
             .register_type::<pointer::PointerInteraction>()
-            .register_type::<backend::Pickable>()
             .register_type::<backend::ray::RayId>();
     }
 }

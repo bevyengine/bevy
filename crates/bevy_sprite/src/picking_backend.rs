@@ -1,11 +1,6 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
-//!
-//! # Usage
-//!
-//! This backend is strictly opt-in. For entities to be considered for sprite picking, you should
-//! mark them with [`Pickable`] and their respective cameras with [`SpritePickingCamera`].
 
 use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
@@ -41,6 +36,12 @@ pub enum SpritePickingMode {
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
+    /// When set to `true` sprite picking will only consider cameras marked with
+    /// [`SpritePickingCamera`] and entities marked with [`PickingBehavior`]. `false` by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the sprite picking backend at runtime.
+    pub require_markers: bool,
     /// Should the backend count transparent pixels as part of the sprite for picking purposes or should it use the bounding box of the sprite alone.
     ///
     /// Defaults to an inclusive alpha threshold of 0.1
@@ -50,6 +51,7 @@ pub struct SpritePickingSettings {
 impl Default for SpritePickingSettings {
     fn default() -> Self {
         Self {
+            require_markers: false,
             picking_mode: SpritePickingMode::AlphaThreshold(0.1),
         }
     }
@@ -76,27 +78,31 @@ impl Plugin for SpritePickingPlugin {
 )]
 fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection), With<SpritePickingCamera>>,
+    cameras: Query<(
+        Entity,
+        &Camera,
+        &GlobalTransform,
+        &Projection,
+        Has<SpritePickingCamera>,
+    )>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
     settings: Res<SpritePickingSettings>,
-    sprite_query: Query<
-        (
-            Entity,
-            &Sprite,
-            &GlobalTransform,
-            Option<&PickingBehavior>,
-            &ViewVisibility,
-        ),
-        With<Pickable>,
-    >,
+    sprite_query: Query<(
+        Entity,
+        &Sprite,
+        &GlobalTransform,
+        Option<&PickingBehavior>,
+        &ViewVisibility,
+    )>,
     mut output: EventWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
         .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
-            if !transform.affine().is_nan() && vis.get() {
+            let marker_requirement = !settings.require_markers || picking_behavior.is_some();
+            if !transform.affine().is_nan() && vis.get() && marker_requirement {
                 Some((entity, sprite, transform, picking_behavior))
             } else {
                 None
@@ -115,11 +121,14 @@ fn sprite_picking(
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) =
+        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), _)) =
             cameras
                 .iter()
-                .filter(|(_, camera, _, _)| camera.is_active)
-                .find(|(_, camera, _, _)| {
+                .filter(|(_, camera, _, _, cam_can_pick)| {
+                    let marker_requirement = !settings.require_markers || *cam_can_pick;
+                    camera.is_active && marker_requirement
+                })
+                .find(|(_, camera, _, _, _)| {
                     camera
                         .target
                         .normalize(primary_window)
