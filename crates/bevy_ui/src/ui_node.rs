@@ -1812,11 +1812,9 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
-        // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
+        span: NonZero::<u16>::new(1),
         end: None,
     };
 

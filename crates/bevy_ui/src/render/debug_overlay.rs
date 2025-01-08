@@ -54,7 +54,6 @@ impl Default for UiDebugOptions {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,

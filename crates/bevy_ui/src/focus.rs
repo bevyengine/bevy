@@ -147,7 +147,10 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ViewVisibility`] are always treated as released.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,

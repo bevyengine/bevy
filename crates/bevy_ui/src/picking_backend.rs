@@ -19,8 +19,6 @@
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 
-#![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
