@@ -138,7 +138,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view,
+                extract_ui_camera_view,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -533,10 +533,10 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+pub struct UiCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
-pub fn extract_default_ui_camera_view(
+pub fn extract_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     query: Extract<
@@ -560,7 +560,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
+                .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
@@ -574,7 +574,7 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
-            let default_camera_view = commands
+            let ui_camera_view = commands
                 .spawn((
                     ExtractedView {
                         clip_from_view: projection_matrix,
@@ -597,7 +597,7 @@ pub fn extract_default_ui_camera_view(
             let mut entity_commands = commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
-            entity_commands.insert(DefaultCameraView(default_camera_view));
+            entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
