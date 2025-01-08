@@ -177,10 +177,12 @@ fn update_cursors(
                         continue;
                     };
 
-                    let width = rect.width() as u16;
-                    let height = rect.height() as u16;
                     let source = match WinitCustomCursor::from_rgba(
-                        rgba, width, height, hotspot.0, hotspot.1,
+                        rgba,
+                        rect.width() as u16,
+                        rect.height() as u16,
+                        hotspot.0,
+                        hotspot.1,
                     ) {
                         Ok(source) => source,
                         Err(err) => {
