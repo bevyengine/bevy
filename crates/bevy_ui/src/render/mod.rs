@@ -20,6 +20,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemParam;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -248,11 +249,54 @@ impl ExtractedUiNodes {
     }
 }
 
+#[derive(SystemParam)]
+pub struct UiCameraMap<'w, 's> {
+    default: DefaultUiCamera<'w, 's>,
+    mapping: Query<'w, 's, RenderEntity>,
+}
+
+pub struct UiCameraMapper<'w, 's> {
+    mapping: &'s Query<'w, 's, RenderEntity>,
+    default_camera_entity: Option<Entity>,
+    camera_entity: Entity,
+    render_entity: Entity,
+}
+
+impl<'w, 's> UiCameraMapper<'w, 's> {
+    pub fn new(ui_camera_map: &'s UiCameraMap<'w, 's>) -> Self {
+        let default_camera_entity = ui_camera_map.default.get();
+        Self {
+            mapping: &ui_camera_map.mapping,
+            default_camera_entity,
+            camera_entity: Entity::PLACEHOLDER,
+            render_entity: Entity::PLACEHOLDER,
+        }
+    }
+
+    pub fn map(&mut self, camera: Option<&TargetCamera>) -> Option<Entity> {
+        let Some(camera_entity) = camera
+            .map(TargetCamera::entity)
+            .or(self.default_camera_entity)
+        else {
+            return None;
+        };
+
+        if self.camera_entity != camera_entity {
+            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
+                return None;
+            };
+            self.render_entity = new_render_camera_entity;
+            self.camera_entity = camera_entity;
+        }
+
+        Some(self.render_entity)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -264,24 +308,21 @@ pub fn extract_uinode_background_colors(
             &BackgroundColor,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
         // Skip invisible backgrounds
         if !view_visibility.get() || background_color.0.is_fully_transparent() {
             continue;
         }
+
+        let Some(camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         extracted_uinodes.uinodes.insert(
             commands.spawn(TemporaryRenderEntity).id(),
@@ -294,7 +335,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
