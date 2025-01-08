@@ -4,6 +4,7 @@ use crate::{
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    world::{error::WorldCloneError, World},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -671,6 +672,25 @@ impl Table {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
+
+    pub(crate) unsafe fn try_clone(&self, world: &World) -> Result<Self, WorldCloneError> {
+        let mut columns = SparseSet::with_capacity(self.columns.len());
+        let column_len = self.entities.len();
+        for (component_id, column) in self.columns.iter() {
+            columns.insert(
+                *component_id,
+                column.try_clone(
+                    world.components().get_info_unchecked(*component_id),
+                    world,
+                    column_len,
+                )?,
+            );
+        }
+        Ok(Self {
+            entities: self.entities.clone(),
+            columns: columns.into_immutable(),
+        })
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
@@ -780,6 +800,17 @@ impl Tables {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
+    }
+
+    pub(crate) unsafe fn try_clone(&self, world: &World) -> Result<Self, WorldCloneError> {
+        let mut tables = Vec::with_capacity(self.tables.len());
+        for table in &self.tables {
+            tables.push(table.try_clone(world)?)
+        }
+        Ok(Self {
+            table_ids: self.table_ids.clone(),
+            tables,
+        })
     }
 }
 

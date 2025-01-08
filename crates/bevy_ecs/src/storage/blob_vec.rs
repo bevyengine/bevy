@@ -184,6 +184,21 @@ impl BlobVec {
         core::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
+    pub(crate) unsafe fn try_initialize_next(
+        &mut self,
+        init_fn: impl Fn(NonNull<u8>) -> bool,
+    ) -> bool {
+        self.reserve(1);
+        let index = self.len;
+        self.len += 1;
+        let ptr = self.get_unchecked_mut(index);
+        if init_fn(ptr.into()) {
+            return true;
+        }
+        self.len = index;
+        false
+    }
+
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
     ///
     /// # Safety

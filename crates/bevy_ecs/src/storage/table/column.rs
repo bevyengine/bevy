@@ -1,7 +1,11 @@
+use core::ptr::NonNull;
+
 use super::*;
 use crate::{
-    component::TickCells,
+    component::{self, TickCells},
+    entity::clone_component_world,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
+    world::{error::WorldCloneError, World},
 };
 use alloc::vec::Vec;
 use bevy_ptr::PtrMut;
@@ -325,6 +329,53 @@ impl ThinColumn {
         len: usize,
     ) -> &[UnsafeCell<&'static Location<'static>>] {
         self.changed_by.as_slice(len)
+    }
+
+    pub(crate) unsafe fn try_clone(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+        len: usize,
+    ) -> Result<Self, WorldCloneError> {
+        let mut column = Self::with_capacity(component_info, len);
+        column.added_ticks = ThinArrayPtr::from(
+            self.added_ticks
+                .as_slice(len)
+                .iter()
+                .map(|cell| UnsafeCell::new(cell.read()))
+                .collect::<Box<_>>(),
+        );
+        column.changed_ticks = ThinArrayPtr::from(
+            self.changed_ticks
+                .as_slice(len)
+                .iter()
+                .map(|cell| UnsafeCell::new(cell.read()))
+                .collect::<Box<_>>(),
+        );
+        #[cfg(feature = "track_location")]
+        {
+            column.changed_by = ThinArrayPtr::from(
+                self.changed_by
+                    .as_slice(len)
+                    .iter()
+                    .map(|tick| UnsafeCell::new(tick.read()))
+                    .collect::<Box<_>>(),
+            );
+        }
+        for i in 0..len {
+            let source_component_ptr = self.data.get_unchecked(i);
+            let target_component_ptr = column.data.get_unchecked_mut(i).into();
+            let is_initialized = clone_component_world(
+                component_info.id(),
+                source_component_ptr,
+                target_component_ptr,
+                world,
+            );
+            if !is_initialized {
+                return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+            }
+        }
+        Ok(column)
     }
 }
 
@@ -685,5 +736,48 @@ impl Column {
     ) -> &UnsafeCell<&'static Location<'static>> {
         debug_assert!(row.as_usize() < self.changed_by.len());
         self.changed_by.get_unchecked(row.as_usize())
+    }
+
+    pub(crate) unsafe fn try_clone(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+    ) -> Result<Self, WorldCloneError> {
+        let len = self.added_ticks.len();
+        let mut column = Self::with_capacity(component_info, len);
+        column.added_ticks = self
+            .added_ticks
+            .iter()
+            .map(|cell| UnsafeCell::new(cell.read()))
+            .collect();
+        column.changed_ticks = self
+            .changed_ticks
+            .iter()
+            .map(|cell| UnsafeCell::new(cell.read()))
+            .collect();
+        #[cfg(feature = "track_location")]
+        {
+            column.changed_by = self
+                .changed_by
+                .iter()
+                .map(|tick| UnsafeCell::new(tick.read()))
+                .collect();
+        }
+        for i in 0..self.len() {
+            let row = TableRow::from_usize(i);
+            let source_component_ptr = self.get_data_unchecked(row);
+            let is_initialized = column.data.try_initialize_next(|target_component_ptr| {
+                clone_component_world(
+                    component_info.id(),
+                    source_component_ptr,
+                    target_component_ptr,
+                    world,
+                )
+            });
+            if !is_initialized {
+                return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+            }
+        }
+        Ok(column)
     }
 }

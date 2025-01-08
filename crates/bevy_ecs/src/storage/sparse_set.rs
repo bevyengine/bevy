@@ -3,12 +3,13 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
+    world::{error::WorldCloneError, World},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, ptr::NonNull};
 use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
@@ -138,6 +139,18 @@ impl ComponentSparseSet {
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
+    }
+
+    pub(crate) unsafe fn try_clone<'a>(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+    ) -> Result<Self, WorldCloneError> {
+        Ok(Self {
+            dense: unsafe { self.dense.try_clone(component_info, world)? },
+            entities: self.entities.clone(),
+            sparse: self.sparse.clone(),
+        })
     }
 
     /// Removes all of the values stored within.
@@ -608,6 +621,19 @@ impl SparseSets {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty()
+    }
+
+    pub(crate) unsafe fn try_clone<'a>(&self, world: &World) -> Result<Self, WorldCloneError> {
+        let mut sets = SparseSet::with_capacity(self.sets.len());
+        let components = world.components();
+        for (component_id, set) in self.sets.iter() {
+            let component_info = components.get_info_unchecked(*component_id);
+            let set = set.try_clone(component_info, world)?;
+            sets.insert(*component_id, set);
+        }
+        let mut sparse_sets = SparseSets::default();
+        sparse_sets.sets = sets;
+        Ok(sparse_sets)
     }
 
     /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.

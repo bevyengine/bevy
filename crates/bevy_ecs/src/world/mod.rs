@@ -205,6 +205,29 @@ impl World {
         self.id
     }
 
+    pub fn try_clone(&self) -> Result<World, error::WorldCloneError> {
+        let id = WorldId::new().ok_or(error::WorldCloneError::WorldIdExhausted)?;
+        let storages = unsafe { self.storages.try_clone(self)? };
+
+        let world = World {
+            id,
+            entities: self.entities.clone(),
+            components: self.components.clone(),
+            archetypes: self.archetypes.clone(),
+            storages,
+            bundles: self.bundles.clone(),
+            observers: self.observers.clone(),
+            removed_components: self.removed_components.clone(),
+            change_tick: AtomicU32::new(self.change_tick.load(Ordering::Relaxed)),
+            last_change_tick: self.last_change_tick.clone(),
+            last_check_tick: self.last_check_tick.clone(),
+            last_trigger_id: self.last_trigger_id,
+            command_queue: RawCommandQueue::new(),
+        };
+
+        Ok(world)
+    }
+
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
     #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
@@ -3720,7 +3743,7 @@ mod tests {
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
-        entity::EntityHashSet,
+        entity::{Entity, EntityHashSet},
         ptr::OwningPtr,
         system::Resource,
         world::error::EntityFetchError,
@@ -4371,5 +4394,43 @@ mod tests {
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
             Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+    }
+
+    #[test]
+    fn clone_world() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        struct Comp {
+            value: i32,
+            alloc_value: Vec<u32>,
+        }
+
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        struct ZSTComp;
+
+        #[derive(Resource, Clone, PartialEq, Eq, Debug)]
+        struct Res {
+            value: i32,
+            alloc_value: Vec<u32>,
+        }
+
+        let comp = Comp {
+            value: 5,
+            alloc_value: vec![1, 2, 3, 4, 5],
+        };
+        let zst = ZSTComp;
+        let res = Res {
+            value: 1,
+            alloc_value: vec![7, 8, 9],
+        };
+
+        let mut world = World::default();
+        let e_id = world.spawn((comp.clone(), zst.clone())).id();
+        world.insert_resource(res.clone());
+
+        let mut world2 = world.try_clone().unwrap();
+
+        let mut query = world2.query::<(Entity, &Comp, &ZSTComp)>();
+        assert_eq!(query.single(&world2), (e_id, &comp, &zst));
+        assert_eq!(world2.get_resource::<Res>(), Some(&res));
     }
 }

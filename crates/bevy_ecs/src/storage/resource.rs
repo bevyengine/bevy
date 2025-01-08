@@ -1,8 +1,10 @@
 use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    entity::clone_component_world,
     storage::{blob_vec::BlobVec, SparseSet},
+    world::{error::WorldCloneError, World},
 };
 use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -69,24 +71,35 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
-        if SEND {
+        if self.try_validate_access() {
             return;
         }
 
-        #[cfg(feature = "std")]
-        if self.origin_thread_id != Some(std::thread::current().id()) {
-            // Panic in tests, as testing for aborting is nearly impossible
-            panic!(
+        // Panic in tests, as testing for aborting is nearly impossible
+        panic!(
                 "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.type_name,
                 self.origin_thread_id,
                 std::thread::current().id()
             );
+    }
+
+    #[inline]
+    fn try_validate_access(&self) -> bool {
+        #[cfg(feature = "std")]
+        {
+            return if SEND {
+                true
+            } else {
+                self.origin_thread_id == Some(std::thread::current().id())
+            };
         }
 
         // TODO: Handle no_std non-send.
         // Currently, no_std is single-threaded only, so this is safe to ignore.
         // To support no_std multithreading, an alternative will be required.
+        #[cfg(not(feature = "std"))]
+        true
     }
 
     /// Returns true if the resource is populated.
@@ -304,6 +317,41 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.added_ticks.get_mut().check_tick(change_tick);
         self.changed_ticks.get_mut().check_tick(change_tick);
     }
+
+    pub(crate) unsafe fn try_clone(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+    ) -> Result<Self, WorldCloneError> {
+        if !self.try_validate_access() {
+            return Err(WorldCloneError::NonSendResourceCloned(component_info.id()));
+        }
+        let mut data = BlobVec::new(component_info.layout(), component_info.drop(), 1);
+        let is_initialized = data.try_initialize_next(|target_component_ptr| {
+            let source_component_ptr = self.data.get_unchecked(Self::ROW);
+            clone_component_world(
+                component_info.id(),
+                source_component_ptr,
+                target_component_ptr,
+                world,
+            )
+        });
+        if !is_initialized {
+            return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+        }
+
+        Ok(Self {
+            data: ManuallyDrop::new(data),
+            added_ticks: UnsafeCell::new(self.added_ticks.read()),
+            changed_ticks: UnsafeCell::new(self.changed_ticks.read()),
+            type_name: self.type_name.clone(),
+            id: self.id.clone(),
+            #[cfg(feature = "std")]
+            origin_thread_id: self.origin_thread_id.clone(),
+            #[cfg(feature = "track_location")]
+            changed_by: UnsafeCell::new(self.changed_by.read()),
+        })
+    }
 }
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
@@ -402,5 +450,16 @@ impl<const SEND: bool> Resources<SEND> {
         for info in self.resources.values_mut() {
             info.check_change_ticks(change_tick);
         }
+    }
+
+    pub(crate) unsafe fn try_clone(&self, world: &World) -> Result<Self, WorldCloneError> {
+        let mut resources = SparseSet::with_capacity(self.resources.len());
+        for (component_id, res) in self.resources.iter() {
+            resources.insert(
+                *component_id,
+                res.try_clone(world.components().get_info_unchecked(*component_id), world)?,
+            );
+        }
+        Ok(Self { resources })
     }
 }

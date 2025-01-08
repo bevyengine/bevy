@@ -27,9 +27,14 @@ mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
+use core::ptr::NonNull;
+
+use bevy_ptr::{OwningPtr, Ptr};
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
+
+use crate::world::{error::WorldCloneError, World};
 
 /// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]
@@ -42,4 +47,15 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+}
+
+impl Storages {
+    pub(crate) unsafe fn try_clone<'a>(&self, world: &World) -> Result<Storages, WorldCloneError> {
+        Ok(Storages {
+            sparse_sets: self.sparse_sets.try_clone(world)?,
+            tables: self.tables.try_clone(world)?,
+            resources: self.resources.try_clone(world)?,
+            non_send_resources: self.non_send_resources.try_clone(world)?,
+        })
+    }
 }
