@@ -670,4 +670,44 @@ mod tests {
         assert_eq!(nav_map.get_neighbor(d, CompassOctant::East), Some(c));
         assert_eq!(nav_map.get_neighbor(d, CompassOctant::South), Some(b));
     }
+
+    #[test]
+    fn big_entity_in_grid() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+        let d = world.spawn_empty().id();
+
+        let mut nav_map = DirectionalNavigationMap::default();
+        // a b
+        // a c
+        // d d
+        let mut grid = HashMap::default();
+        grid.insert(IVec2::new(0, 0), a);
+        grid.insert(IVec2::new(1, 0), b);
+        grid.insert(IVec2::new(0, 1), a);
+        grid.insert(IVec2::new(1, 1), c);
+        grid.insert(IVec2::new(0, 2), d);
+        grid.insert(IVec2::new(1, 2), d);
+
+        nav_map.add_grid(grid, false);
+
+        // A should lead to B or C
+        // The exact behavior is not currently guaranteed, but it should be one of these two
+        let east_from_a = nav_map.get_neighbor(a, CompassOctant::East);
+        assert!(east_from_a == Some(b) || east_from_a == Some(c));
+
+        // B and C should lead back to A
+        assert_eq!(nav_map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(nav_map.get_neighbor(c, CompassOctant::West), Some(a));
+
+        // Up from a should loop to d
+        assert_eq!(nav_map.get_neighbor(a, CompassOctant::North), Some(d));
+        // Down from d should loop to a
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::South), Some(a));
+        // East and west from d should be nothing, since it's navigating to itself
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::East), None);
+        assert_eq!(nav_map.get_neighbor(d, CompassOctant::West), None);
+    }
 }
