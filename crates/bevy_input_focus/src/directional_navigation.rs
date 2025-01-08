@@ -21,9 +21,10 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::CompassOctant;
+use bevy_math::{CompassOctant, IVec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_utils::HashMap;
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -193,6 +194,164 @@ impl DirectionalNavigationMap {
             let b = entities[(i + 1) % entities.len()];
             self.add_symmetrical_edge(a, b, direction);
         }
+    }
+
+    /// Adds edges to a grid of entities, connecting each entity to its neighbors in each of the eight directions.
+    ///
+    /// The grid is provided as a hashmap of [`IVec2`] to entities,
+    /// where the `x` represents columns from the top and `y` represents rows from the left.
+    /// Missing entities will be ignored, so sparse grids are supported.
+    /// If an element is missing, their neighbors will be connected to the nearest existing entity in the given direction.
+    ///
+    /// Diagonals travel in a purely 1:1 step fashion, so an entity at (0, 0) will connect to an entity at (2, 2) in the SouthEast direction,
+    /// but would never see an entity at (1, 2).
+    /// That said, you can add the same entity at multiple locations in the grid!
+    /// This works well to model larger entities,
+    /// even if the entities aren't truly grid-aligned.
+    ///
+    /// If `should_loop` is set to `true`, the top and bottom rows will be connected, as will the left and right columns.
+    // The keys are specified as i32 for compatibility with taffy's grid system,
+    // which uses u16 values. We need signed integers here, but we should be able to cast them losslessly.
+    // PERF: This is a very flexible / "clever" implementation, but it won't be the fastest for simple cases.
+    // If there's user demand for it, we can add a more optimized / less flexible version that requires non-sparse rectangular grids.
+    pub fn add_grid(&mut self, entity_grid: HashMap<IVec2, Entity>, should_loop: bool) {
+        let mut min_rows = i32::MAX;
+        let mut min_columns = i32::MAX;
+        let mut max_rows = i32::MIN;
+        let mut max_columns = i32::MIN;
+
+        for position in entity_grid.keys() {
+            min_rows = min_rows.min(position.y);
+            min_columns = min_columns.min(position.x);
+            max_rows = max_rows.max(position.y);
+            max_columns = max_columns.max(position.x);
+        }
+
+        for (&position, &entity) in &entity_grid {
+            let neighbors = self.neighbors.entry(entity).or_insert(NavNeighbors::EMPTY);
+
+            for direction in CompassOctant::VARIANTS {
+                // Don't overwrite existing connections
+                if neighbors.get(direction).is_some() {
+                    continue;
+                }
+
+                let maybe_neighbor = if should_loop {
+                    Self::find_nearest_grid_neighbor_in_direction::<true>(
+                        &entity_grid,
+                        min_rows,
+                        min_columns,
+                        max_rows,
+                        max_columns,
+                        direction,
+                        position,
+                    )
+                } else {
+                    Self::find_nearest_grid_neighbor_in_direction::<false>(
+                        &entity_grid,
+                        min_rows,
+                        min_columns,
+                        max_rows,
+                        max_columns,
+                        direction,
+                        position,
+                    )
+                };
+
+                if let Some(neighbor) = maybe_neighbor {
+                    // PERF: we could also add the reverse edge here, to save work later
+                    // Doing so is tricky with the borrow checker though, since we already have one mutable borrow alive
+                    // We could construct the borrow at the last minute, but then we'd need to look up the `neighbors` entry every time
+                    // and it's not clear that that would be faster
+                    neighbors.set(direction, neighbor);
+                }
+            }
+        }
+    }
+
+    /// A helper function for add_grid that finds the nearest neighbor in a given direction.
+    ///
+    /// Returns `Some(Entity)` if a neighbor is found, and `None` if no neighbor is found.
+    /// If the entity encounters itself, it will return `None` to avoid self-connections.
+    ///
+    /// Only one loop in each direction is allowed, to avoid unintuitive connections.
+    ///
+    /// We're using a const generic to allow the compiler to optimize out the loop check if it's not needed.
+    ///
+    /// It is split out into its own method for ease of testing.
+    fn find_nearest_grid_neighbor_in_direction<const SHOULD_LOOP: bool>(
+        entity_grid: &HashMap<IVec2, Entity>,
+        min_rows: i32,
+        min_columns: i32,
+        max_rows: i32,
+        max_columns: i32,
+        direction: CompassOctant,
+        starting_location: IVec2,
+    ) -> Option<Entity> {
+        let direction_offset = direction.to_offset();
+        let mut current_location = starting_location;
+
+        if SHOULD_LOOP {
+            let starting_entity = entity_grid.get(&starting_location)?;
+            let mut looped_horizontal = false;
+            let mut looped_vertical = false;
+
+            loop {
+                current_location += direction_offset;
+                if current_location.x > max_columns {
+                    if looped_horizontal {
+                        break;
+                    }
+                    current_location.x = min_columns;
+                    looped_horizontal = true;
+                }
+                if current_location.y > max_rows {
+                    if looped_vertical {
+                        break;
+                    }
+                    current_location.y = min_rows;
+                    looped_vertical = true;
+                }
+                if current_location.x < min_columns {
+                    if looped_horizontal {
+                        break;
+                    }
+                    current_location.x = max_columns;
+                    looped_horizontal = true;
+                }
+                if current_location.y < min_rows {
+                    if looped_vertical {
+                        break;
+                    }
+                    current_location.y = max_rows;
+                    looped_vertical = true;
+                }
+
+                if let Some(entity) = entity_grid.get(&current_location) {
+                    if entity != starting_entity {
+                        return Some(*entity);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        } else {
+            loop {
+                current_location += direction_offset;
+                if current_location.x > max_columns || current_location.x < min_columns {
+                    break;
+                }
+                if current_location.y > max_rows || current_location.y < min_rows {
+                    break;
+                }
+
+                if let Some(entity) = entity_grid.get(&current_location) {
+                    return Some(*entity);
+                }
+            }
+        }
+
+        None
     }
 
     /// Gets the entity in a given direction from the current focus, if any.

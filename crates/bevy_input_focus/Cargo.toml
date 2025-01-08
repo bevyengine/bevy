@@ -31,6 +31,7 @@ bevy_window = { path = "../bevy_window", version = "0.16.0-dev", default-feature
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "glam",
 ], default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 
 # other
 thiserror = { version = "2", default-features = false }
