@@ -62,7 +62,7 @@ fn setup_ui(
     const N_COLS: u16 = 3;
 
     // Rendering UI elements requires a camera
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Set up the root entity to hold the grid
     let root_entity = commands
