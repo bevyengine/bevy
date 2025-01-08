@@ -89,6 +89,7 @@ fn setup_ui(
 
             let button_entity = commands
                 .spawn((
+                    Button,
                     Node {
                         width: Val::Px(100.0),
                         height: Val::Px(100.0),
