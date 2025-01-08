@@ -8,13 +8,13 @@ use crate::{material::Material, material_pipeline::MaterialPipeline};
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-pub struct MaterialComponent<M: Material<P>, P: MaterialPipeline> {
+pub struct MaterialHandle<M: Material<P>, P: MaterialPipeline> {
     pub handle: Handle<M>,
     #[reflect(ignore)]
     _data: PhantomData<fn(P)>,
 }
 
-impl<M: Material<P>, P: MaterialPipeline> MaterialComponent<M, P> {
+impl<M: Material<P>, P: MaterialPipeline> MaterialHandle<M, P> {
     pub fn new(handle: Handle<M>) -> Self {
         Self {
             handle,
@@ -28,14 +28,14 @@ impl<M: Material<P>, P: MaterialPipeline> MaterialComponent<M, P> {
     }
 }
 
-impl<M: Material<P>, P: MaterialPipeline> From<MaterialComponent<M, P>> for AssetId<M> {
-    fn from(value: MaterialComponent<M, P>) -> Self {
+impl<M: Material<P>, P: MaterialPipeline> From<MaterialHandle<M, P>> for AssetId<M> {
+    fn from(value: MaterialHandle<M, P>) -> Self {
         value.id()
     }
 }
 
-impl<M: Material<P>, P: MaterialPipeline> From<&MaterialComponent<M, P>> for AssetId<M> {
-    fn from(value: &MaterialComponent<M, P>) -> Self {
+impl<M: Material<P>, P: MaterialPipeline> From<&MaterialHandle<M, P>> for AssetId<M> {
+    fn from(value: &MaterialHandle<M, P>) -> Self {
         value.id()
     }
 }

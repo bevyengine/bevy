@@ -8,10 +8,10 @@ use bevy_render::{
 
 use crate::{
     material::{
-        MaterialBindGroup, MaterialInstances, MaterialLayout, MaterialProperties, MaterialShaders,
+        Material, MaterialBindGroup, MaterialInstances, MaterialLayout, MaterialProperties,
+        MaterialShaders,
     },
     material_pipeline::MaterialPipeline,
-    prelude::Material,
 };
 
 #[derive(SystemParam)]

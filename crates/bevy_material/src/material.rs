@@ -18,10 +18,9 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 
-use crate::material_pipeline::MaterialPipeline;
 use crate::{
-    component::MaterialComponent,
-    shaders::{LoadedShaders, Shaders},
+    handle::MaterialHandle,
+    material_pipeline::MaterialPipeline},
 };
 
 pub enum SpecializeMaterialError {}
@@ -31,9 +30,8 @@ pub trait BaseMaterial: Asset + AsBindGroup + Clone + Sized {}
 impl<T: Asset + AsBindGroup + Clone + Sized> BaseMaterial for T {}
 
 pub trait Material<P: MaterialPipeline>: BaseMaterial {
-    fn properties(&self) -> P::Meta;
-    fn shaders() -> Shaders<P>;
-    fn specialize(ctx: P::PipelineContext<'_, Self>) -> Result<(), SpecializeMaterialError>;
+    fn pipelines() -> P::Pipelines<Self>;
+    fn properties(&self) -> P::Properties;
 }
 
 pub struct MaterialPlugin<M: Material<P>, P: MaterialPipeline>(PhantomData<fn(M, P)>);
@@ -46,7 +44,7 @@ impl<M: Material<P>, P: MaterialPipeline> Default for MaterialPlugin<M, P> {
 
 impl<M: Material<P>, P: MaterialPipeline> Plugin for MaterialPlugin<M, P> {
     fn build(&self, app: &mut App) {
-        app.register_type::<MaterialComponent<M, P>>()
+        app.register_type::<MaterialHandle<M, P>>()
             .init_asset::<M>()
             .add_plugins((
                 RenderAssetPlugin::<MaterialBindGroup<M>>::default(),
@@ -75,7 +73,7 @@ fn clear_material_instances<M: Material<P>, P: MaterialPipeline>(
 
 fn extract_materials<M: Material<P>, P: MaterialPipeline>(
     mut material_instances: ResMut<MaterialInstances<M, P>>,
-    materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialComponent<M, P>)>>,
+    materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialHandle<M, P>)>>,
 ) {
     for (main_entity, view_visibility, material) in &materials {
         if view_visibility.get() {
@@ -129,7 +127,7 @@ impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
 #[derive(Deref)]
 pub struct MaterialProperties<M: Material<R>, R: MaterialPipeline> {
     #[deref]
-    properties: R::Meta,
+    properties: R::Properties,
     _data: PhantomData<fn(M)>,
 }
 

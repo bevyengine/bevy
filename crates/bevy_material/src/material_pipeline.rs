@@ -21,9 +21,6 @@ pub trait MaterialPipeline: TypePath + Sized + 'static {
     fn material_plugin<M: Material<Self>>() -> impl Plugin;
 }
 
-pub type MaterialMeta<P> = <P as MaterialPipeline>::Meta;
-pub type MaterialPipelines<M, P> = <P as MaterialPipeline>::Pipelines<M>;
-
 pub trait Pipelines {
     type Cached: Send + Sync;
 
