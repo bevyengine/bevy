@@ -15,11 +15,11 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityCloneBuilder},
     event::Event,
+    result::{Error, Result},
     system::{error_handler, Command, HandleError, IntoObserverSystem},
     world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
 };
 use bevy_ptr::OwningPtr;
-use thiserror::Error;
 
 /// A [`Command`] which gets executed for a given [`Entity`].
 ///
@@ -126,10 +126,7 @@ impl<
 pub trait HandleEntityError<T = ()> {
     /// Takes a [`EntityCommand`] that returns a Result and uses a given error handler function to convert it into
     /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(
-        self,
-        error_handler: fn(&mut World, crate::result::Error),
-    ) -> impl EntityCommand;
+    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl EntityCommand;
     /// Takes a [`EntityCommand`] that returns a Result and uses the default error handler function to convert it into
     /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
     fn handle_error(self) -> impl EntityCommand
@@ -140,13 +137,8 @@ pub trait HandleEntityError<T = ()> {
     }
 }
 
-impl<C: EntityCommand<crate::result::Result<T, E>>, T, E: Into<crate::result::Error>>
-    HandleEntityError<crate::result::Result<T, E>> for C
-{
-    fn handle_error_with(
-        self,
-        error_handler: fn(&mut World, crate::result::Error),
-    ) -> impl EntityCommand {
+impl<C: EntityCommand<Result<T, E>>, T, E: Into<Error>> HandleEntityError<Result<T, E>> for C {
+    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl EntityCommand {
         move |entity: EntityWorldMut| {
             let location = entity.location();
             let id = entity.id();
@@ -164,10 +156,7 @@ impl<C: EntityCommand<crate::result::Result<T, E>>, T, E: Into<crate::result::Er
 
 impl<C: EntityCommand> HandleEntityError for C {
     #[inline]
-    fn handle_error_with(
-        self,
-        _error_handler: fn(&mut World, crate::result::Error),
-    ) -> impl EntityCommand {
+    fn handle_error_with(self, _error_handler: fn(&mut World, Error)) -> impl EntityCommand {
         self
     }
 
@@ -181,7 +170,7 @@ impl<C: EntityCommand> HandleEntityError for C {
 }
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum EntityCommandError<E> {
     /// The entity this [`EntityCommand`] tried to run on could not be fetched.
     #[error(transparent)]
