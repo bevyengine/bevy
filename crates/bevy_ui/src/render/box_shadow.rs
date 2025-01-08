@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
     ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
@@ -27,7 +27,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };

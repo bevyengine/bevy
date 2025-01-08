@@ -12,7 +12,6 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::system::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
-use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::ViewVisibility;
 use bevy_render::Extract;
@@ -23,6 +22,7 @@ use super::ExtractedUiItem;
 use super::ExtractedUiNode;
 use super::ExtractedUiNodes;
 use super::NodeType;
+use super::{UiCameraMap, UiCameraMapper};
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -58,7 +58,6 @@ pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -82,7 +81,7 @@ pub fn extract_debug_overlay(
             continue;
         }
 
-        let Some(camera_entity) = camera_mapper.map(maybe_camera) else {
+        let Some(camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -101,7 +100,7 @@ pub fn extract_debug_overlay(
                     .filter(|_| !debug_options.show_clipped)
                     .map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
