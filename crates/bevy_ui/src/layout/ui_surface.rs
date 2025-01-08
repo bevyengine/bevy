@@ -465,7 +465,7 @@ mod tests {
 
     #[expect(
         unreachable_code,
-        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #17231 for progress on fixing this"
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
     )]
     #[test]
     fn test_remove_camera_entities() {
@@ -517,7 +517,7 @@ mod tests {
 
     #[expect(
         unreachable_code,
-        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #17231 for progress on fixing this"
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
     )]
     #[test]
     fn test_remove_entities() {
@@ -600,7 +600,7 @@ mod tests {
 
     #[expect(
         unreachable_code,
-        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #17231 for progress on fixing this"
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
     )]
     #[test]
     fn test_set_camera_children() {
