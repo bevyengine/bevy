@@ -259,11 +259,16 @@ impl DirectionalNavigationMap {
                 };
 
                 if let Some(neighbor) = maybe_neighbor {
-                    // PERF: we could also add the reverse edge here, to save work later
-                    // Doing so is tricky with the borrow checker though, since we already have one mutable borrow alive
-                    // We could construct the borrow at the last minute, but then we'd need to look up the `neighbors` entry every time
-                    // and it's not clear that that would be faster
-                    neighbors.set(direction, neighbor);
+                    // Entities should not be neighbors of themselves
+                    // Inserting the same entity at multiple locations is supported,
+                    // so we need to check for this case
+                    if neighbor != entity {
+                        // PERF: we could also add the reverse edge here, to save work later
+                        // Doing so is tricky with the borrow checker though, since we already have one mutable borrow alive
+                        // We could construct the borrow at the last minute, but then we'd need to look up the `neighbors` entry every time
+                        // and it's not clear that that would be faster
+                        neighbors.set(direction, neighbor);
+                    }
                 }
             }
         }
