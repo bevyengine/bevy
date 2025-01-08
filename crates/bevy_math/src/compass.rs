@@ -37,6 +37,14 @@ pub enum CompassQuadrant {
 }
 
 impl CompassQuadrant {
+    /// The list of all possible [`CompassQuadrant`] variants.
+    pub const VARIANTS: [CompassQuadrant; 4] = [
+        CompassQuadrant::North,
+        CompassQuadrant::East,
+        CompassQuadrant::South,
+        CompassQuadrant::West,
+    ];
+
     /// Converts a standard index to a [`CompassQuadrant`].
     ///
     /// Starts at 0 for [`CompassQuadrant::North`] and increments clockwise.
@@ -114,6 +122,18 @@ pub enum CompassOctant {
 }
 
 impl CompassOctant {
+    /// The list of all possible [`CompassOctant`] variants.
+    pub const VARIANTS: [CompassOctant; 8] = [
+        CompassOctant::North,
+        CompassOctant::NorthEast,
+        CompassOctant::East,
+        CompassOctant::SouthEast,
+        CompassOctant::South,
+        CompassOctant::SouthWest,
+        CompassOctant::West,
+        CompassOctant::NorthWest,
+    ];
+
     /// Converts a standard index to a [`CompassOctant`].
     ///
     /// Starts at 0 for [`CompassOctant::North`] and increments clockwise.
