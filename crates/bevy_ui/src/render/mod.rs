@@ -137,7 +137,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view,
+                extract_ui_camera_view,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -532,10 +532,11 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+/// Entity id of the temporary render entity with the corresponding extracted UI view.
+pub struct UiCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
-pub fn extract_default_ui_camera_view(
+pub fn extract_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     query: Extract<
@@ -553,13 +554,13 @@ pub fn extract_default_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
+                .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
@@ -573,7 +574,7 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
-            let default_camera_view = commands
+            let ui_camera_view = commands
                 .spawn((
                     ExtractedView {
                         clip_from_view: projection_matrix,
@@ -594,18 +595,18 @@ pub fn extract_default_ui_camera_view(
                 ))
                 .id();
             let mut entity_commands = commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
-            entity_commands.insert(DefaultCameraView(default_camera_view));
+            entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(entity);
+            transparent_render_phases.insert_or_clear(render_entity);
 
-            live_entities.insert(entity);
+            live_entities.insert(render_entity);
         }
     }
 
