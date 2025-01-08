@@ -387,8 +387,9 @@ fn interact_with_focused_button(
             commands.trigger_targets(
                 Pointer::<Pressed> {
                     target: focused_entity,
-                    pointer_id: PointerId::Focus,
-                    // FIXME: this field should be optional
+                    // We're pretending that we're a mouse
+                    pointer_id: PointerId::Mouse,
+                    // This field isn't used, so we're just setting it to a placeholder value
                     pointer_location: Location {
                         target: NormalizedRenderTarget::Image(
                             bevy_render::camera::ImageRenderTarget {
@@ -400,7 +401,7 @@ fn interact_with_focused_button(
                     },
                     event: Pressed {
                         button: PointerButton::Primary,
-                        // FIXME: this field should be optional
+                        // This field isn't used, so we're just setting it to a placeholder value
                         hit: HitData {
                             camera: Entity::PLACEHOLDER,
                             depth: 0.0,
