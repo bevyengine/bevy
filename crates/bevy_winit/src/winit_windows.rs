@@ -249,7 +249,7 @@ impl WinitWindows {
         #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
         #[allow(
             unused_mut,
-            reason = "This variable needs to be mutable if `cfg(target_arch = "wasm32")`"
+            reason = "This variable needs to be mutable if `cfg(target_arch = \"wasm32\")`"
         )]
         let mut winit_window_attributes = winit_window_attributes.with_title(window.title.as_str());
 
