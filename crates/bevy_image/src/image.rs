@@ -848,8 +848,12 @@ impl Image {
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
-    pub fn new_target_texture(width: u32, height: u32) -> Self {
-        let format = TextureFormat::bevy_default();
+    pub fn new_target_texture(width: u32, height: u32, hdr: bool) -> Self {
+        let format = if hdr {
+            TEXTURE_FORMAT_HDR
+        } else {
+            TEXTURE_FORMAT_SDR
+        };
         let size = Extent3d {
             width,
             height,
