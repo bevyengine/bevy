@@ -1287,34 +1287,34 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox"
-path = "examples/animation/animated_fox.rs"
+name = "animated_mesh"
+path = "examples/animation/animated_mesh.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox]
-name = "Animated Fox"
+[package.metadata.example.animated_mesh]
+name = "Animated Mesh"
 description = "Plays an animation from a skinned glTF"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_control"
-path = "examples/animation/animated_fox_control.rs"
+name = "animated_mesh_control"
+path = "examples/animation/animated_mesh_control.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_control]
-name = "Animated Fox Control"
+[package.metadata.example.animated_mesh_control]
+name = "Animated Mesh Control"
 description = "Plays an animation from a skinned glTF with keyboard controls"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_events"
-path = "examples/animation/animated_fox_events.rs"
+name = "animated_mesh_events"
+path = "examples/animation/animated_mesh_events.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_events]
-name = "Animated Fox Events"
+[package.metadata.example.animated_mesh_events]
+name = "Animated Mesh Events"
 description = "Plays an animation from a skinned glTF with events"
 category = "Animation"
 wasm = true
