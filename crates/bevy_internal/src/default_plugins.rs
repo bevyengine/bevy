@@ -124,12 +124,12 @@ plugin_group! {
     /// You can add a delay using [`run_loop`](crate::app::ScheduleRunnerPlugin::run_loop),
     /// or remove the loop using [`run_once`](crate::app::ScheduleRunnerPlugin::run_once).
     /// # Example:
-    /// ```rust
+    /// ```rust, no_run
     /// # use std::time::Duration;
     /// # use bevy_app::{App, PluginGroup, ScheduleRunnerPlugin};
     /// # use bevy_internal::MinimalPlugins;
     /// App::new().add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
     ///     // Run 60 times per second.
     ///     Duration::from_secs_f64(1.0 / 60.0),
-    /// )));
+    /// ))).run();
 }
