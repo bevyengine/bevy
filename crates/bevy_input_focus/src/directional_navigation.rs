@@ -203,8 +203,8 @@ impl DirectionalNavigationMap {
     /// Missing entities will be ignored, so sparse grids are supported.
     /// If an element is missing, their neighbors will be connected to the nearest existing entity in the given direction.
     ///
-    /// Diagonals travel in a purely 1:1 step fashion, so an entity at (0, 0) will connect to an entity at (2, 2) in the SouthEast direction,
-    /// but would never see an entity at (1, 2).
+    /// Diagonals travel in a purely 1:1 step fashion, so an entity at (0, 0) will connect to an entity at (2, 2)
+    /// in the [`SouthEast`](CompassOctant::SouthEast) direction, but would never see an entity at (1, 2).
     /// That said, you can add the same entity at multiple locations in the grid!
     /// This works well to model larger entities,
     /// even if the entities aren't truly grid-aligned.
@@ -274,7 +274,7 @@ impl DirectionalNavigationMap {
         }
     }
 
-    /// A helper function for add_grid that finds the nearest neighbor in a given direction.
+    /// A helper function for [`add_grid`](Self::add_grid) that finds the nearest neighbor in a given direction.
     ///
     /// Returns `Some(Entity)` if a neighbor is found, and `None` if no neighbor is found.
     /// If the entity encounters itself, it will return `None` to avoid self-connections.
@@ -305,49 +305,50 @@ impl DirectionalNavigationMap {
                 current_location += direction_offset;
                 if current_location.x > max_columns {
                     if looped_horizontal {
-                        break;
+                        return None;
                     }
                     current_location.x = min_columns;
                     looped_horizontal = true;
                 }
                 if current_location.y > max_rows {
                     if looped_vertical {
-                        break;
+                        return None;
                     }
                     current_location.y = min_rows;
                     looped_vertical = true;
                 }
                 if current_location.x < min_columns {
                     if looped_horizontal {
-                        break;
+                        return None;
                     }
                     current_location.x = max_columns;
                     looped_horizontal = true;
                 }
                 if current_location.y < min_rows {
                     if looped_vertical {
-                        break;
+                        return None;
                     }
                     current_location.y = max_rows;
                     looped_vertical = true;
                 }
 
                 if let Some(entity) = entity_grid.get(&current_location) {
-                    if entity != starting_entity {
-                        return Some(*entity);
-                    } else {
-                        break;
+                    // No self-connections
+                    if entity == starting_entity {
+                        return None;
                     }
+
+                    return Some(*entity);
                 }
             }
         } else {
             loop {
                 current_location += direction_offset;
                 if current_location.x > max_columns || current_location.x < min_columns {
-                    break;
+                    return None;
                 }
                 if current_location.y > max_rows || current_location.y < min_rows {
-                    break;
+                    return None;
                 }
 
                 if let Some(entity) = entity_grid.get(&current_location) {
@@ -355,8 +356,6 @@ impl DirectionalNavigationMap {
                 }
             }
         }
-
-        None
     }
 
     /// Gets the entity in a given direction from the current focus, if any.
@@ -403,7 +402,7 @@ impl Default for NavGrid {
     }
 }
 
-impl std::ops::Deref for NavGrid {
+impl core::ops::Deref for NavGrid {
     type Target = HashMap<IVec2, Entity>;
 
     fn deref(&self) -> &Self::Target {
@@ -456,9 +455,9 @@ impl NavGrid {
     ) -> Self {
         let mut mapping = HashMap::default();
 
-        for y in 0..ROWS {
-            for x in 0..COLUMNS {
-                mapping.insert(IVec2::new(x as i32, y as i32), grid[y][x]);
+        for (y, row) in grid.iter().enumerate() {
+            for (x, &entity) in row.iter().enumerate() {
+                mapping.insert(IVec2::new(x as i32, y as i32), entity);
             }
         }
 
@@ -478,9 +477,9 @@ impl NavGrid {
     ) -> Self {
         let mut mapping = HashMap::default();
 
-        for y in 0..ROWS {
-            for x in 0..COLUMNS {
-                if let Some(entity) = grid[y][x] {
+        for (y, row) in grid.iter().enumerate() {
+            for (x, &maybe_entity) in row.iter().enumerate() {
+                if let Some(entity) = maybe_entity {
                     mapping.insert(IVec2::new(x as i32, y as i32), entity);
                 }
             }
