@@ -31,7 +31,7 @@ pub trait BaseMaterial: Asset + AsBindGroup + Clone + Sized {}
 impl<T: Asset + AsBindGroup + Clone + Sized> BaseMaterial for T {}
 
 pub trait Material<P: MaterialPipeline>: BaseMaterial {
-    fn properties(&self) -> P::MaterialProperties;
+    fn properties(&self) -> P::Meta;
     fn shaders() -> Shaders<P>;
     fn specialize(ctx: P::PipelineContext<'_, Self>) -> Result<(), SpecializeMaterialError>;
 }
@@ -129,7 +129,7 @@ impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
 #[derive(Deref)]
 pub struct MaterialProperties<M: Material<R>, R: MaterialPipeline> {
     #[deref]
-    properties: R::MaterialProperties,
+    properties: R::Meta,
     _data: PhantomData<fn(M)>,
 }
 

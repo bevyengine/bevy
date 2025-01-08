@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
+bevy_material_macros = { path = "macros", version = "0.15.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
@@ -21,6 +22,7 @@ bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
+variadics_please = { version = "1.1", default-features = false }
 
 # misc
 derive_more = { version = "1", default-features = false, features = [

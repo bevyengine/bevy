@@ -2,8 +2,6 @@ pub mod component;
 pub mod material;
 pub mod material_data;
 pub mod material_pipeline;
-pub mod shaders;
-pub mod specialize;
 
 pub mod prelude {
     pub use super::material::{Material, MaterialPlugin};
