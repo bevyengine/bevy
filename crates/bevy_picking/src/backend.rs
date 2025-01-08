@@ -41,10 +41,18 @@ use bevy_reflect::Reflect;
 pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
+        backend::Pickable,
         pointer::{PointerId, PointerLocation},
         PickSet, PickingBehavior,
     };
 }
+
+/// Component used to mark entities as pickable by backends.
+///
+/// You should use this component if you are using a backend with opt-in behavior.
+#[derive(Component, Reflect, Debug)]
+#[reflect(Component, Debug)]
+pub struct Pickable;
 
 /// An event produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.

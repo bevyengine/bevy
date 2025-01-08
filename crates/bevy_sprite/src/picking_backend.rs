@@ -20,6 +20,11 @@ use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
+/// A component that marks cameras that should be used in the [`SpritePickingPlugin`].
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct SpritePickingCamera;
+
 /// How should the [`SpritePickingPlugin`] handle picking and how should it handle transparent pixels
 #[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Debug)]
@@ -50,19 +55,17 @@ impl Default for SpritePickingSettings {
     }
 }
 
-/// A component that marks cameras and target entities that should be used in the
-/// [`SpritePickingPlugin`].
-#[derive(Debug, Clone, Default, Component, Reflect)]
-#[reflect(Debug, Default, Component)]
-pub struct SpritePickable;
-
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<(SpritePickingMode, SpritePickingSettings, SpritePickable)>()
+            .register_type::<(
+                SpritePickingCamera,
+                SpritePickingMode,
+                SpritePickingSettings,
+            )>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
@@ -73,7 +76,7 @@ impl Plugin for SpritePickingPlugin {
 )]
 fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection), With<SpritePickable>>,
+    cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection), With<SpritePickingCamera>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
@@ -86,7 +89,7 @@ fn sprite_picking(
             Option<&PickingBehavior>,
             &ViewVisibility,
         ),
-        With<SpritePickable>,
+        With<Pickable>,
     >,
     mut output: EventWriter<PointerHits>,
 ) {

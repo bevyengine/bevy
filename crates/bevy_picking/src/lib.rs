@@ -388,6 +388,7 @@ impl Plugin for PickingPlugin {
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
             .register_type::<pointer::PointerInteraction>()
+            .register_type::<backend::Pickable>()
             .register_type::<backend::ray::RayId>();
     }
 }

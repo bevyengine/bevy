@@ -2,8 +2,9 @@
 //! sprite bounds, so the sprite atlas can be picked by clicking on its transparent areas.
 
 use bevy::{
+    picking::backend::prelude::*,
     prelude::*,
-    sprite::{Anchor, SpritePickable},
+    sprite::{Anchor, SpritePickingCamera},
 };
 use std::fmt::Debug;
 
@@ -34,10 +35,11 @@ fn move_sprite(
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera2d,
-        // To allow our camera to perform any sprite picking, it needs this component.
+        // The sprite picking backend is strictly opt-in. As such, we need to mark this camera with
+        // `SpritePickingCamera` so it may be used in the backend.
         //
-        // Any sprite that should be pickable also needs this component.
-        SpritePickable,
+        // Additionally, any sprite that should be pickable will need a `Pickable` component.
+        SpritePickingCamera,
     ));
 
     let len = 128.0;
@@ -68,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
-                        SpritePickable,
+                        Pickable,
                         Transform::from_xyz(i * len - len, j * len - len, -1.0),
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
@@ -85,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             anchor: anchor.to_owned(),
                             ..default()
                         },
-                        SpritePickable,
+                        Pickable,
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -148,7 +150,7 @@ fn setup_atlas(
                     index: animation_indices.first,
                 },
             ),
-            SpritePickable,
+            Pickable,
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
