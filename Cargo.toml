@@ -4028,3 +4028,14 @@ name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "decal_projectors"
+path = "examples/3d/decal_projectors.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.decal_projectors]
+name = "Decal Projectors"
+description = "Demonstrates decal projectors"
+category = "3D Rendering"
+wasm = false

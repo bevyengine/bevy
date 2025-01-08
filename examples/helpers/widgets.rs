@@ -22,6 +22,18 @@ pub struct RadioButton;
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
 
+/// The size of the border that surrounds buttons.
+pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
+
+/// The color of the border that surrounds buttons.
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor(Color::WHITE);
+
+/// The amount of rounding to apply to button corners.
+pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);
+
+/// The amount of space between the edge of the button and its label.
+pub const BUTTON_PADDING: UiRect = UiRect::axes(Val::Px(12.0), Val::Px(6.0));
+
 /// Returns a [`Node`] appropriate for the outer main UI node.
 ///
 /// This UI is in the bottom left corner and has flex column support
@@ -61,20 +73,24 @@ pub fn spawn_option_button<T>(
         .spawn((
             Button,
             Node {
-                border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
-                    Val::Px(1.0)
+                border: BUTTON_BORDER.with_left(if is_first { Val::Px(1.0) } else { Val::Px(0.0) }),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: BUTTON_PADDING,
+                ..default()
+            },
+            BUTTON_BORDER_COLOR,
+            BorderRadius::ZERO
+                .with_left(if is_first {
+                    BUTTON_BORDER_RADIUS_SIZE
+                } else {
+                    Val::Px(0.0)
+                })
+                .with_right(if is_last {
+                    BUTTON_BORDER_RADIUS_SIZE
                 } else {
                     Val::Px(0.0)
                 }),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
-            },
-            BorderColor(Color::WHITE),
-            BorderRadius::ZERO
-                .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
-                .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
             BackgroundColor(bg_color),
         ))
         .insert(RadioButton)

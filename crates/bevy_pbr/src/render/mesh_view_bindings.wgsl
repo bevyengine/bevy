@@ -70,44 +70,50 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(22) var irradiance_volume_sampler: sampler;
 #endif
 
+#ifdef CLUSTERED_DECALS_ARE_USABLE
+@group(0) @binding(23) var<storage> clustered_decals: types::ClusteredDecals;
+@group(0) @binding(24) var clustered_decal_textures: binding_array<texture_2d<f32>, 8u>;
+@group(0) @binding(25) var clustered_decal_sampler: sampler;
+#endif  // CLUSTERED_DECALS_ARE_USABLE
+
 // NB: If you change these, make sure to update `tonemapping_shared.wgsl` too.
-@group(0) @binding(23) var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(24) var dt_lut_sampler: sampler;
+@group(0) @binding(26) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(27) var dt_lut_sampler: sampler;
 
 #ifdef MULTISAMPLED
 #ifdef DEPTH_PREPASS
-@group(0) @binding(25) var depth_prepass_texture: texture_depth_multisampled_2d;
+@group(0) @binding(28) var depth_prepass_texture: texture_depth_multisampled_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(26) var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(29) var normal_prepass_texture: texture_multisampled_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(27) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(30) var motion_vector_prepass_texture: texture_multisampled_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #else // MULTISAMPLED
 
 #ifdef DEPTH_PREPASS
-@group(0) @binding(25) var depth_prepass_texture: texture_depth_2d;
+@group(0) @binding(28) var depth_prepass_texture: texture_depth_2d;
 #endif // DEPTH_PREPASS
 #ifdef NORMAL_PREPASS
-@group(0) @binding(26) var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(29) var normal_prepass_texture: texture_2d<f32>;
 #endif // NORMAL_PREPASS
 #ifdef MOTION_VECTOR_PREPASS
-@group(0) @binding(27) var motion_vector_prepass_texture: texture_2d<f32>;
+@group(0) @binding(30) var motion_vector_prepass_texture: texture_2d<f32>;
 #endif // MOTION_VECTOR_PREPASS
 
 #endif // MULTISAMPLED
 
 #ifdef DEFERRED_PREPASS
-@group(0) @binding(28) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(31) var deferred_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(29) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(30) var view_transmission_sampler: sampler;
+@group(0) @binding(32) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(33) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(31) var<storage, read_write> oit_layers: array<vec2<u32>>;
-@group(0) @binding(32) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
-@group(0) @binding(33) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
+@group(0) @binding(34) var<storage, read_write> oit_layers: array<vec2<u32>>;
+@group(0) @binding(35) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
+@group(0) @binding(36) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
 #endif // OIT_ENABLED
