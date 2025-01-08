@@ -65,18 +65,12 @@ fn setup_ui(
         .spawn(Node {
             display: Display::Grid,
             // Allow the grid to take up the full height and width of the window
-            width: Val::Vh(100.),
+            width: Val::Vw(100.),
             height: Val::Vh(100.),
             // Set the number of rows and columns in the grid
             // allowing the grid to automatically size the cells
-            grid_template_columns: RepeatedGridTrack::auto(N_ROWS),
-            grid_template_rows: RepeatedGridTrack::auto(N_COLS),
-            // Center the grid in the window
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
-            align_items: AlignItems::Center,
-            justify_items: JustifyItems::Center,
-            justify_content: JustifyContent::Center,
+            grid_template_columns: RepeatedGridTrack::auto(N_COLS),
+            grid_template_rows: RepeatedGridTrack::auto(N_ROWS),
             ..default()
         })
         .id();
@@ -90,13 +84,16 @@ fn setup_ui(
             let button_entity = commands
                 .spawn((
                     Node {
-                        width: Val::Px(100.0),
-                        height: Val::Px(100.0),
+                        width: Val::Px(200.0),
+                        height: Val::Px(120.0),
                         // Add a border so we can show which element is focused
                         border: UiRect::all(Val::Px(4.0)),
                         // Center the button's text label
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        justify_items: JustifyItems::Center,
+                        // Center the button within the grid cell
+                        align_self: AlignSelf::Center,
+                        justify_self: JustifySelf::Center,
                         ..default()
                     },
                     BorderRadius::all(Val::Px(16.0)),
