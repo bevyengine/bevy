@@ -11,7 +11,7 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.83.0"
 
 [features]
-default = ["std", "bevy_reflect", "async_executor", "track_location"] #TMP
+default = ["std", "bevy_reflect", "async_executor"]
 
 # Functionality
 
