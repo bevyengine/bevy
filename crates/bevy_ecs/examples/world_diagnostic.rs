@@ -66,7 +66,7 @@ pub enum ScheduleLabel {
 pub struct DiagnosticLabel;
 
 /// World diagnostic example.
-/// can be called directly on World or run as a system.
+/// Can be called directly on a World or run as a system.
 fn diagnostic_world_system(world: &World) {
     println!("{}", diagnostic_world(world).unwrap());
 }
@@ -291,19 +291,19 @@ fn component_display(component_id: ComponentId, world: &World) -> String {
     format!("{:?}({})", component_id, component.name())
 }
 
-// In this example we add a counter resource and increase it's value in one system,
+// In this example, we add a counter resource and increase its value in one system,
 // while a different system prints the current count to the console.
 fn main() {
     let mut world = World::new();
     world.init_resource::<Schedules>();
 
     {
-        let mut diagnostic_shedule = Schedule::default();
-        diagnostic_shedule.add_systems(diagnostic_world_system);
-        world.add_schedule(diagnostic_shedule);
+        let mut diagnostic_schedule  = Schedule::new(DiagnosticLabel);
+        diagnostic_schedule.add_systems(diagnostic_world_system);
+        world.add_schedule(diagnostic_schedule);
     }
 
-    let mut schedule = Schedule::default();
+    let mut schedule = Schedule::new(ScheduleLabel::Bar);
     schedule.configure_sets(MySet::Set1);
     schedule.configure_sets(MySet::Set2);
 
