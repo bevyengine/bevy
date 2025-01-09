@@ -3,11 +3,11 @@
 mod button;
 mod image;
 mod label;
-mod viewport;
 mod text;
+mod viewport;
 
 pub use button::*;
 pub use image::*;
 pub use label::*;
-pub use viewport::*;
 pub use text::*;
+pub use viewport::*;
