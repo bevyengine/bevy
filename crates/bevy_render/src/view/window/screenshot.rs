@@ -251,7 +251,6 @@ fn extract_screenshots(
     system_state.apply(&mut main_world);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn prepare_screenshots(
     targets: Res<RenderScreenshotTargets>,
     mut prepared: ResMut<RenderScreenshotsPrepared>,
@@ -576,7 +575,6 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn render_screenshot(
     encoder: &mut CommandEncoder,
     prepared: &RenderScreenshotsPrepared,

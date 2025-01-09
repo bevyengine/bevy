@@ -43,6 +43,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Resource},
@@ -68,42 +69,6 @@ use bevy_ptr::UnsafeCellDeref;
 use core::panic::Location;
 
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::queue`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.queue(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -1230,11 +1195,7 @@ impl World {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<T>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` is the only thing that is borrowing world
-        // - `as_unsafe_world_cell` provides mutable permission to everything
-        // - `&mut self` ensures no other borrows on world data
-        unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
+        self.get_entity_mut(entity).ok()?.into_mut()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -3509,14 +3470,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        // SAFETY:
-        // - `&self` ensures that all accessed data is not mutably aliased
-        // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell_readonly()
-                .get_entity(entity)?
-                .get_by_id(component_id)
-        }
+        self.get_entity(entity).ok()?.get_by_id(component_id).ok()
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -3530,15 +3484,10 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that all accessed data is unaliased
-        // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell()
-                .get_entity(entity)?
-                .get_mut_by_id(component_id)
-                .ok()
-        }
+        self.get_entity_mut(entity)
+            .ok()?
+            .into_mut_by_id(component_id)
+            .ok()
     }
 }
 
