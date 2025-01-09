@@ -34,10 +34,9 @@ use crate::{
 /// struct AddToCounter(u64);
 ///
 /// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) -> Result {
+///     fn apply(self, world: &mut World) {
 ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
 ///         counter.0 += self.0;
-///         Ok(())
 ///     }
 /// }
 ///

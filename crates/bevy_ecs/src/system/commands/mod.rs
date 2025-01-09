@@ -571,11 +571,12 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command for AddToCounter {
+    /// impl Command<Result> for AddToCounter {
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-    ///         let amount: usize = self.0.parse()?;
+    ///         let amount: u64 = self.0.parse()?;
     ///         counter.0 += amount;
+    ///         Ok(())
     ///     }
     /// }
     ///
@@ -610,16 +611,18 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::error_handler;
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
     /// struct AddToCounter(String);
     ///
-    /// impl Command for AddToCounter {
+    /// impl Command<Result> for AddToCounter {
     ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-    ///         let amount: usize = self.0.parse()?;
+    ///         let amount: u64 = self.0.parse()?;
     ///         counter.0 += amount;
+    ///         Ok(())
     ///     }
     /// }
     ///
@@ -1405,7 +1408,10 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(entity_command::insert_by_id(component_id, value))
+        self.queue_handled(
+            entity_command::insert_by_id(component_id, value),
+            error_handler::warn(),
+        )
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1458,7 +1464,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle))
+        self.queue_handled(entity_command::insert(bundle), error_handler::warn())
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1557,7 +1563,7 @@ impl<'a> EntityCommands<'a> {
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert_if_new(bundle))
+        self.queue_handled(entity_command::insert_if_new(bundle), error_handler::warn())
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1674,16 +1680,15 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn despawn(&mut self) {
-        self.queue(entity_command::despawn());
+        self.queue_handled(entity_command::despawn(), error_handler::warn());
     }
 
     /// Despawns the entity.
     ///
     /// This will not emit a warning if the entity does not exist, essentially performing
     /// the same function as [`Self::despawn`] without emitting warnings.
-    #[track_caller]
     pub fn try_despawn(&mut self) {
-        self.queue(entity_command::despawn());
+        self.queue_handled(entity_command::despawn(), error_handler::silent());
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
