@@ -259,7 +259,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -326,7 +326,7 @@ pub fn extract_shadows(
                     color: drop_shadow.color.into(),
                     bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    camera_entity: render_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
