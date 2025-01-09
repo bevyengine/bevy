@@ -2582,6 +2582,12 @@ name = "extended_material"
 path = "examples/shader/extended_material.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "extended_vertex_material"
+path = "examples/shader/extended_vertex_material.rs"
+doc-scrape-examples = true
+
+
 [package.metadata.example.extended_material]
 name = "Extended Material"
 description = "A custom shader that builds on the standard material"
