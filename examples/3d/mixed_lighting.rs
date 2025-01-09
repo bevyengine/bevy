@@ -319,11 +319,11 @@ const fn uv_rect_opengl(gl_min: Vec2, size: Vec2) -> Rect {
 /// hit on the sphere itself.
 fn make_sphere_nonpickable(
     mut commands: Commands,
-    mut query: Query<(Entity, &Name), (With<Mesh3d>, Without<PickingBehavior>)>,
+    mut query: Query<(Entity, &Name), (With<Mesh3d>, Without<Pickable>)>,
 ) {
     for (sphere, name) in &mut query {
         if &**name == "Sphere" {
-            commands.entity(sphere).insert(PickingBehavior::IGNORE);
+            commands.entity(sphere).insert(Pickable::IGNORE);
         }
     }
 }
