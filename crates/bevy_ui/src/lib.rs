@@ -85,10 +85,18 @@ use update::{update_clipping_system, update_target_camera_system};
 pub struct UiPlugin {
     /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
     /// The layout and interaction components will still be updated as normal.
+    ///
+    /// Default is true.
     pub enable_rendering: bool,
     /// Whether to add the UI picking backend to the app.
+    ///
+    /// Default is true.
     #[cfg(feature = "bevy_ui_picking_backend")]
     pub add_picking: bool,
+    /// If set to true, bevy_ui will listen for input events and send them to UI entities.
+    ///
+    /// Default is true.
+    pub actions: bool,
 }
 
 impl Default for UiPlugin {
@@ -97,6 +105,7 @@ impl Default for UiPlugin {
             enable_rendering: true,
             #[cfg(feature = "bevy_ui_picking_backend")]
             add_picking: true,
+            actions: true,
         }
     }
 }
@@ -108,6 +117,10 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    /// Various UI-centric actions, such as activating buttons, are computed from input.
+    ///
+    /// Runs in [`PreUpdate`], after [`InputSystem`].
+    Actions,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// After this label, the ui layout state has been updated.
@@ -189,6 +202,20 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
+
+        if self.actions {
+            app.configure_sets(PreUpdate, UiSystem::Actions.after(InputSystem));
+
+            app.add_systems(
+                PreUpdate,
+                (
+                    activate_focus_on_enter,
+                    activate_ui_elements_on_click,
+                    activate_focus_on_gamepad_south,
+                )
+                    .in_set(UiSystem::Actions),
+            );
+        }
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)

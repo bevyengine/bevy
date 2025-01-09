@@ -20,6 +20,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.16.0-dev" }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
@@ -42,11 +43,6 @@ nonmax = "0.5"
 smallvec = "1.11"
 accesskit = "0.17"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-
-[dev-dependencies]
-# This is currently a dev dependency for documentation purposes,
-# but it will likely be used as a full dependency in the future.
-bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
 
 [features]
 default = []
