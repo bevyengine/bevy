@@ -2,8 +2,8 @@ use core::ptr::NonNull;
 
 use super::*;
 use crate::{
-    component::{self, TickCells},
-    entity::clone_component_world,
+    component::{self, ComponentCloneHandlerKind, TickCells},
+    entity::ComponentCloneCtx,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
     world::{error::WorldCloneError, World},
 };
@@ -334,8 +334,9 @@ impl ThinColumn {
     pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
-        world: &World,
         len: usize,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
     ) -> Result<Self, WorldCloneError> {
         let mut column = Self::with_capacity(component_info, len);
         column.added_ticks = ThinArrayPtr::from(
@@ -362,16 +363,35 @@ impl ThinColumn {
                     .collect::<Box<_>>(),
             );
         }
+
+        let handler = match component_info
+            .clone_handler()
+            .get_world_handler()
+            .unwrap_or_else(|| component_info.clone_handler().get_entity_handler())
+        {
+            ComponentCloneHandlerKind::Default => world.components.get_default_clone_handler(),
+            ComponentCloneHandlerKind::Ignore => {
+                return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
+            }
+            ComponentCloneHandlerKind::Copy => {
+                column.data.copy_from_unchecked(&self.data, len);
+                return Ok(column);
+            }
+            ComponentCloneHandlerKind::Custom(handler) => handler,
+        };
+
         for i in 0..len {
             let source_component_ptr = self.data.get_unchecked(i);
             let target_component_ptr = column.data.get_unchecked_mut(i).into();
-            let is_initialized = clone_component_world(
-                component_info.id(),
+            let mut ctx = ComponentCloneCtx::new_for_component(
+                component_info,
                 source_component_ptr,
                 target_component_ptr,
                 world,
+                type_registry,
             );
-            if !is_initialized {
+            handler(world, &mut ctx);
+            if !ctx.target_component_written() {
                 return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
             }
         }
@@ -742,6 +762,7 @@ impl Column {
         &self,
         component_info: &ComponentInfo,
         world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
     ) -> Result<Self, WorldCloneError> {
         let len = self.added_ticks.len();
         let mut column = Self::with_capacity(component_info, len);
@@ -763,16 +784,36 @@ impl Column {
                 .map(|tick| UnsafeCell::new(tick.read()))
                 .collect();
         }
+
+        let handler = match component_info
+            .clone_handler()
+            .get_world_handler()
+            .unwrap_or_else(|| component_info.clone_handler().get_entity_handler())
+        {
+            ComponentCloneHandlerKind::Default => world.components.get_default_clone_handler(),
+            ComponentCloneHandlerKind::Ignore => {
+                return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
+            }
+            ComponentCloneHandlerKind::Copy => {
+                column.data.copy_from_unchecked(&self.data);
+                return Ok(column);
+            }
+            ComponentCloneHandlerKind::Custom(handler) => handler,
+        };
+
         for i in 0..self.len() {
             let row = TableRow::from_usize(i);
             let source_component_ptr = self.get_data_unchecked(row);
             let is_initialized = column.data.try_initialize_next(|target_component_ptr| {
-                clone_component_world(
-                    component_info.id(),
+                let mut ctx = ComponentCloneCtx::new_for_component(
+                    component_info,
                     source_component_ptr,
                     target_component_ptr,
                     world,
-                )
+                    type_registry,
+                );
+                handler(world, &mut ctx);
+                ctx.target_component_written()
             });
             if !is_initialized {
                 return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));

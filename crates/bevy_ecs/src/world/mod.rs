@@ -34,11 +34,11 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        Component, ComponentCloneFn, ComponentCloneHandler, ComponentDescriptor, ComponentHooks,
+        ComponentId, ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
         RequiredComponentsError, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity::{AllocAtWithoutReplacement, ComponentCloneCtx, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -207,7 +207,13 @@ impl World {
 
     pub fn try_clone(&self) -> Result<World, error::WorldCloneError> {
         let id = WorldId::new().ok_or(error::WorldCloneError::WorldIdExhausted)?;
-        let storages = unsafe { self.storages.try_clone(self)? };
+        let storages = unsafe {
+            self.storages.try_clone(
+                self,
+                #[cfg(feature = "bevy_reflect")]
+                self.get_resource::<crate::reflect::AppTypeRegistry>(),
+            )?
+        };
 
         let world = World {
             id,
@@ -219,8 +225,8 @@ impl World {
             observers: self.observers.clone(),
             removed_components: self.removed_components.clone(),
             change_tick: AtomicU32::new(self.change_tick.load(Ordering::Relaxed)),
-            last_change_tick: self.last_change_tick.clone(),
-            last_check_tick: self.last_check_tick.clone(),
+            last_change_tick: self.last_change_tick,
+            last_check_tick: self.last_check_tick,
             last_trigger_id: self.last_trigger_id,
             command_queue: RawCommandQueue::new(),
         };
@@ -3182,33 +3188,16 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::ComponentCloneCtx;
-    /// use bevy_ecs::world::DeferredWorld;
-    ///
-    /// fn custom_clone_handler(
-    ///     _world: &mut DeferredWorld,
-    ///     _ctx: &mut ComponentCloneCtx,
-    /// ) {
-    ///     // Custom cloning logic for component
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// let component_id = world.register_component::<ComponentA>();
-    ///
-    /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
-    /// ```
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
+    pub fn set_default_component_clone_handler(&mut self, handler: ComponentCloneFn) {
+        self.components.set_default_clone_handler(handler);
+    }
+
+    pub fn set_component_clone_handler(
+        &mut self,
+        component_id: ComponentId,
+        handler: ComponentCloneHandler,
+    ) {
+        self.components.set_clone_handler(component_id, handler)
     }
 }
 
@@ -3742,7 +3731,7 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        component::{ComponentCloneHandler, ComponentDescriptor, ComponentInfo, StorageType},
         entity::{Entity, EntityHashSet},
         ptr::OwningPtr,
         system::Resource,
@@ -4041,6 +4030,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                ComponentCloneHandler::default_handler(),
             )
         };
 
@@ -4404,7 +4394,12 @@ mod tests {
             alloc_value: Vec<u32>,
         }
 
-        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+        struct CopyComp {
+            value: i32,
+        }
+
+        #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
         struct ZSTComp;
 
         #[derive(Resource, Clone, PartialEq, Eq, Debug)]
@@ -4417,6 +4412,7 @@ mod tests {
             value: 5,
             alloc_value: vec![1, 2, 3, 4, 5],
         };
+        let copy_comp = CopyComp { value: 10 };
         let zst = ZSTComp;
         let res = Res {
             value: 1,
@@ -4424,13 +4420,13 @@ mod tests {
         };
 
         let mut world = World::default();
-        let e_id = world.spawn((comp.clone(), zst.clone())).id();
+        let e_id = world.spawn((comp.clone(), copy_comp, zst)).id();
         world.insert_resource(res.clone());
 
         let mut world2 = world.try_clone().unwrap();
 
-        let mut query = world2.query::<(Entity, &Comp, &ZSTComp)>();
-        assert_eq!(query.single(&world2), (e_id, &comp, &zst));
+        let mut query = world2.query::<(Entity, &Comp, &CopyComp, &ZSTComp)>();
+        assert_eq!(query.single(&world2), (e_id, &comp, &copy_comp, &zst));
         assert_eq!(world2.get_resource::<Res>(), Some(&res));
     }
 }

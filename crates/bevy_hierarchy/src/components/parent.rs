@@ -45,7 +45,15 @@ impl Component for Parent {
     type Mutability = Mutable;
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::ignore()
+        // Custom handler to avoid adding `Clone` to Parent
+        ComponentCloneHandler::ignore().with_world_clone_handler(
+            ComponentCloneHandler::custom_handler(|_world, ctx| {
+                let component = ctx.read_source_component::<Self>();
+                if let Some(component) = component {
+                    ctx.write_target_component(Self(component.0));
+                }
+            }),
+        )
     }
 }
 

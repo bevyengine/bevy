@@ -1,7 +1,7 @@
 use crate::{
     change_detection::MaybeUnsafeCellLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
-    entity::Entity,
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    entity::{ComponentCloneCtx, Entity},
     storage::{Column, TableRow},
     world::{error::WorldCloneError, World},
 };
@@ -141,13 +141,21 @@ impl ComponentSparseSet {
         }
     }
 
-    pub(crate) unsafe fn try_clone<'a>(
+    pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
         world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
     ) -> Result<Self, WorldCloneError> {
         Ok(Self {
-            dense: unsafe { self.dense.try_clone(component_info, world)? },
+            dense: unsafe {
+                self.dense.try_clone(
+                    component_info,
+                    world,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
+                )?
+            },
             entities: self.entities.clone(),
             sparse: self.sparse.clone(),
         })
@@ -623,17 +631,24 @@ impl SparseSets {
         self.sets.is_empty()
     }
 
-    pub(crate) unsafe fn try_clone<'a>(&self, world: &World) -> Result<Self, WorldCloneError> {
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
         let mut sets = SparseSet::with_capacity(self.sets.len());
         let components = world.components();
         for (component_id, set) in self.sets.iter() {
             let component_info = components.get_info_unchecked(*component_id);
-            let set = set.try_clone(component_info, world)?;
+            let set = set.try_clone(
+                component_info,
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?;
             sets.insert(*component_id, set);
         }
-        let mut sparse_sets = SparseSets::default();
-        sparse_sets.sets = sets;
-        Ok(sparse_sets)
+        Ok(SparseSets { sets })
     }
 
     /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.

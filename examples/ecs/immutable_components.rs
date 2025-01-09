@@ -2,7 +2,7 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{ComponentCloneHandler, ComponentDescriptor, ComponentId, StorageType},
         world::DeferredWorld,
     },
     prelude::*,
@@ -149,6 +149,7 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    ComponentCloneHandler::default_handler(),
                 )
             };
 

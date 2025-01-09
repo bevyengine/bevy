@@ -55,6 +55,8 @@ pub enum WorldCloneError {
     WorldIdExhausted,
     #[error("Component clone handler for component with ID {0:?} failed to clone the component")]
     FailedToCloneComponent(ComponentId),
-    #[error("Component clone handler for component with ID {0:?} failed to clone the component")]
+    #[error("")]
     NonSendResourceCloned(ComponentId),
+    #[error("")]
+    ComponentCantBeCloned(ComponentId),
 }

@@ -16,7 +16,10 @@ use alloc::sync::Arc;
 
 use crate::{
     bundle::Bundle,
-    component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
+    component::{
+        Component, ComponentCloneHandler, ComponentCloneHandlerKind, ComponentId, ComponentInfo,
+        Components,
+    },
     entity::{Entities, Entity},
     query::DebugCheckedUnwrap,
     system::Commands,
@@ -53,25 +56,26 @@ pub struct ComponentCloneCtx<'a, 'b> {
 
 impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     pub unsafe fn new_for_component(
-        component_id: ComponentId,
+        component_info: &'a ComponentInfo,
         source_component_ptr: Ptr<'a>,
         target_component_ptr: NonNull<u8>,
         world: &'a World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
     ) -> Self {
         let components = world.components();
         let target_write_buffer = ComponentWriteBuffer::Ptr(target_component_ptr);
         Self {
-            component_id,
+            component_id: component_info.id(),
             source_component_ptr,
             target_write_buffer,
             target_component_written: false,
-            component_info: components.get_info_unchecked(component_id),
+            component_info,
             entities: world.entities(),
             command_queue: None,
             components,
             entity_cloner: None,
             #[cfg(feature = "bevy_reflect")]
-            type_registry: world.get_resource::<crate::reflect::AppTypeRegistry>(),
+            type_registry,
         }
     }
 
@@ -297,26 +301,6 @@ pub struct EntityCloner {
     move_components: bool,
 }
 
-pub(crate) unsafe fn clone_component_world(
-    component_id: ComponentId,
-    source_component_ptr: Ptr,
-    target_component_ptr: NonNull<u8>,
-    world: &World,
-) -> bool {
-    let handlers = world.components().get_component_clone_handlers();
-    let handler = handlers.get_handler(component_id);
-    let mut ctx = ComponentCloneCtx::new_for_component(
-        component_id,
-        source_component_ptr,
-        target_component_ptr,
-        world,
-    );
-
-    handler(&world, &mut ctx);
-
-    ctx.target_component_written()
-}
-
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     pub fn clone_entity(&mut self, world: &mut World) {
@@ -331,17 +315,32 @@ impl EntityCloner {
         let mut component_ids: Vec<ComponentId> = Vec::with_capacity(archetype.component_count());
         let mut component_data_ptrs: Vec<PtrMut> = Vec::with_capacity(archetype.component_count());
 
+        fn copy_clone_handler(_world: &World, ctx: &mut ComponentCloneCtx) {
+            let count = ctx.component_info().layout().size();
+            unsafe {
+                ctx.write_target_component_ptr(|source_ptr, target_ptr| {
+                    core::ptr::copy_nonoverlapping(source_ptr.as_ptr(), target_ptr.as_ptr(), count);
+                    true
+                })
+            }
+        }
+
         for component in archetype.components() {
             if !self.is_cloning_allowed(&component) {
                 continue;
             }
+            let component_info = unsafe { components.get_info_unchecked(component) };
 
-            let global_handlers = components.get_component_clone_handlers();
-            let handler = match self.clone_handlers_overrides.get(&component) {
-                Some(handler) => handler
-                    .get_handler()
-                    .unwrap_or_else(|| global_handlers.get_default_handler()),
-                None => global_handlers.get_handler(component),
+            let handler = match self
+                .clone_handlers_overrides
+                .get(&component)
+                .unwrap_or_else(|| component_info.clone_handler())
+                .get_entity_handler()
+            {
+                ComponentCloneHandlerKind::Default => components.get_default_clone_handler(),
+                ComponentCloneHandlerKind::Ignore => continue,
+                ComponentCloneHandlerKind::Copy => copy_clone_handler,
+                ComponentCloneHandlerKind::Custom(handler) => handler,
             };
 
             // SAFETY:
@@ -357,7 +356,7 @@ impl EntityCloner {
                 ComponentCloneCtx {
                     command_queue: Some(command_queue.get_raw()),
                     component_id: component,
-                    component_info: components.get_info_unchecked(component),
+                    component_info,
                     components,
                     entities: world.entities(),
                     entity_cloner: Some(self),
@@ -724,9 +723,7 @@ mod tests {
 
             world.register_component::<A>();
             let id = world.component_id::<A>().unwrap();
-            world
-                .get_component_clone_handlers_mut()
-                .set_component_handler(id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(id, ComponentCloneHandler::reflect_handler());
 
             let component = A { field: 5 };
 
@@ -774,10 +771,9 @@ mod tests {
             let a_id = world.register_component::<A>();
             let b_id = world.register_component::<B>();
             let c_id = world.register_component::<C>();
-            let handlers = world.get_component_clone_handlers_mut();
-            handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(c_id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(a_id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(b_id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(c_id, ComponentCloneHandler::reflect_handler());
 
             let component_a = A {
                 field: 5,
@@ -827,9 +823,10 @@ mod tests {
             }
 
             let a_id = world.register_component::<A>();
-            let handlers = world.get_component_clone_handlers_mut();
-            handlers
-                .set_component_handler(a_id, ComponentCloneHandler::custom_handler(test_handler));
+            world.set_component_clone_handler(
+                a_id,
+                ComponentCloneHandler::custom_handler(test_handler),
+            );
 
             let e = world.spawn(A).id();
             let e_clone = world.spawn_empty().id();
@@ -883,9 +880,8 @@ mod tests {
             let mut world = World::default();
             let a_id = world.register_component::<A>();
             let b_id = world.register_component::<B>();
-            let handlers = world.get_component_clone_handlers_mut();
-            handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(a_id, ComponentCloneHandler::reflect_handler());
+            world.set_component_clone_handler(b_id, ComponentCloneHandler::reflect_handler());
 
             // No AppTypeRegistry
             let e = world.spawn((A, B)).id();
@@ -924,6 +920,35 @@ mod tests {
         EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
 
         assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
+    }
+
+    #[test]
+    fn clone_entity_using_copy() {
+        #[derive(Component, Copy, PartialEq, Eq, Debug)]
+        struct A {
+            field: usize,
+        }
+
+        impl Clone for A {
+            #[expect(
+                clippy::non_canonical_clone_impl,
+                reason = "This is required to check that Copy implementation is selected instead of Clone"
+            )]
+            fn clone(&self) -> Self {
+                Self { field: 1 }
+            }
+        }
+
+        let mut world = World::default();
+
+        let component = A { field: 5 };
+
+        let e = world.spawn(component).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloneBuilder::new(&mut world).clone_entity(e, e_clone);
+
+        assert_eq!(world.get::<A>(e_clone), Some(&component));
     }
 
     #[test]
@@ -1105,15 +1130,10 @@ mod tests {
                 layout,
                 None,
                 true,
+                ComponentCloneHandler::custom_handler(test_handler),
             )
         };
         let component_id = world.register_component_with_descriptor(descriptor);
-
-        let handlers = world.get_component_clone_handlers_mut();
-        handlers.set_component_handler(
-            component_id,
-            ComponentCloneHandler::custom_handler(test_handler),
-        );
 
         let mut entity = world.spawn_empty();
         let data = [5u8; COMPONENT_SIZE];

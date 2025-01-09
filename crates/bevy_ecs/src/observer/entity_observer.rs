@@ -7,7 +7,7 @@ use crate::{
 use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
@@ -45,6 +45,7 @@ impl Component for ObservedBy {
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::ignore()
+            .with_world_clone_handler(ComponentCloneHandler::clone_handler::<Self>())
     }
 }
 

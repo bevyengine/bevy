@@ -1,7 +1,7 @@
 use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
-    entity::Entity,
+    entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
     world::{error::WorldCloneError, World},
@@ -17,6 +17,7 @@ use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
+    ptr::NonNull,
 };
 mod column;
 
@@ -673,16 +674,23 @@ impl Table {
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
 
-    pub(crate) unsafe fn try_clone(&self, world: &World) -> Result<Self, WorldCloneError> {
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
         let mut columns = SparseSet::with_capacity(self.columns.len());
+        let components = world.components();
         let column_len = self.entities.len();
         for (component_id, column) in self.columns.iter() {
             columns.insert(
                 *component_id,
                 column.try_clone(
-                    world.components().get_info_unchecked(*component_id),
-                    world,
+                    components.get_info_unchecked(*component_id),
                     column_len,
+                    world,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
                 )?,
             );
         }
@@ -802,10 +810,18 @@ impl Tables {
         }
     }
 
-    pub(crate) unsafe fn try_clone(&self, world: &World) -> Result<Self, WorldCloneError> {
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
         let mut tables = Vec::with_capacity(self.tables.len());
         for table in &self.tables {
-            tables.push(table.try_clone(world)?)
+            tables.push(table.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?)
         }
         Ok(Self {
             table_ids: self.table_ids.clone(),

@@ -475,6 +475,23 @@ impl BlobArray {
             drop(value);
         }
     }
+
+    pub unsafe fn copy_from_unchecked(&mut self, other: &Self, len: usize) {
+        if other.is_zst() {
+            return;
+        }
+        let num_bytes_to_copy = array_layout_unchecked(&other.layout(), len).size();
+        debug_assert!(
+            num_bytes_to_copy
+                <= array_layout(&other.layout(), self.capacity)
+                    .expect("Calculating capacity to copy to BlobVec failed")
+                    .size()
+        );
+        debug_assert!(other.layout() == self.layout());
+        let source_ptr = other.get_ptr().as_ptr();
+        let target_ptr = self.get_ptr_mut().as_ptr();
+        core::ptr::copy_nonoverlapping(source_ptr, target_ptr, num_bytes_to_copy);
+    }
 }
 
 #[cfg(test)]
