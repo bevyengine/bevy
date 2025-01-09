@@ -151,6 +151,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_type::<Activate>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ComputedNode>()
