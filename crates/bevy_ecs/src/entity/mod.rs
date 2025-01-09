@@ -997,8 +997,12 @@ impl Entities {
     ) -> EntityDoesNotExistDetails {
         #[cfg(feature = "track_location")]
         if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
-            if self.resolve_from_id(_entity.index()).is_some() {
-                EntityDoesNotExistDetails::Reused
+            if let Some(found) = self.resolve_from_id(_entity.index()) {
+                if found.generation > _entity.generation {
+                    EntityDoesNotExistDetails::None
+                } else {
+                    EntityDoesNotExistDetails::Reused
+                }
             } else {
                 EntityDoesNotExistDetails::DespawnedBy(location)
             }
