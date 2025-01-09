@@ -43,7 +43,7 @@ struct Args {
     #[argh(switch)]
     no_frustum_culling: bool,
 
-    /// whether the text should use JustifyText::Center.
+    /// whether the text should use `JustifyText::Center`.
     #[argh(switch)]
     center: bool,
 }
