@@ -114,7 +114,9 @@ impl InputFocus {
 /// By contrast, a console-style UI intended to be navigated with a gamepad may always have the focus indicator visible.
 ///
 /// To easily access information about whether focus indicators should be shown for a given entity, use the [`IsFocused`] trait.
-#[derive(Clone, Debug, Resource)]
+///
+/// By default, this resource is set to `false`.
+#[derive(Clone, Debug, Resource, Default)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
 pub struct InputFocusVisible(pub bool);
 
@@ -174,8 +176,8 @@ pub struct InputDispatchPlugin;
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, set_initial_focus)
-            .insert_resource(InputFocus(None))
-            .insert_resource(InputFocusVisible(false))
+            .init_resource::<InputFocus>()
+            .init_resource::<InputFocusVisible>()
             .add_systems(
                 PreUpdate,
                 (
