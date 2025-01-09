@@ -662,15 +662,15 @@ pub fn pointer_events(
             }
             // Moved
             PointerAction::Moved { delta } => {
+                if delta == Vec2::ZERO {
+                    continue; // If delta is zero, the following events will not be triggered.
+                }
                 // Triggers during movement even if not over an entity
                 for button in PointerButton::iter() {
                     let state = pointer_state.get_mut(pointer_id, button);
 
                     // Emit DragEntry and DragStart the first time we move while pressing an entity
                     for (press_target, (location, _, hit)) in state.pressing.iter() {
-                        if delta == Vec2::ZERO {
-                            continue; // No need to emit a DragStart event if there is no movement
-                        }
                         if state.dragging.contains_key(press_target) {
                             continue; // This entity is already logged as being dragged
                         }
