@@ -1,28 +1,25 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
- 
+
 use bevy::pbr::MaterialExtensionKey;
-use bevy::pbr::{MaterialExtensionPipeline,};
-use bevy_render::mesh::MeshVertexAttribute;
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy::pbr::MaterialExtensionPipeline;
 use bevy::{
     color::palettes::basic::RED,
-      
-    pbr::{ ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
+    pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::*,
 };
+use bevy_render::mesh::MeshVertexAttribute;
+use bevy_render::mesh::MeshVertexBufferLayoutRef;
 
 /// This example uses a shader source file from the assets subdirectory
 //const SHADER_ASSET_PATH: &str = "shaders/extended_material.wgsl";
 
 const SHADER_ASSET_PATH: &str = "shaders/extended_vertex_material.wgsl";
 
-
 // A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
 // See the MeshVertexAttribute docs for more info.
 const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
-
 
 fn main() {
     App::new()
@@ -40,9 +37,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
 ) {
-
-
-      let mesh = Mesh::from(Cuboid::default())
+    let mesh = Mesh::from(Cuboid::default())
         // Sets the custom attribute
         .with_inserted_attribute(
             ATTRIBUTE_BLEND_COLOR,
@@ -50,11 +45,9 @@ fn setup(
             vec![[1.0, 0.0, 0.0, 1.0]; 24],
         );
 
-
-
     // sphere
     commands.spawn((
-        Mesh3d(meshes.add( mesh )),
+        Mesh3d(meshes.add(mesh)),
         MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: RED.into(),
@@ -101,8 +94,6 @@ struct MyExtension {
     // so we start from binding slot 100, leaving slots 0-99 for the base material.
     #[uniform(100)]
     time_ms_elapsed: u32,
-
-
 }
 
 impl MaterialExtension for MyExtension {
@@ -119,11 +110,10 @@ impl MaterialExtension for MyExtension {
     }
 
     fn specialize(
-        _pipeline: &MaterialExtensionPipeline ,
+        _pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayoutRef ,
-        _key: MaterialExtensionKey<Self>
-       
+        layout: &MeshVertexBufferLayoutRef,
+        _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         let vertex_layout = layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
