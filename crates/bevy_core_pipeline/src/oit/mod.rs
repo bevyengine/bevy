@@ -233,10 +233,6 @@ pub struct OrderIndependentTransparencySettingsOffset {
 /// This creates or resizes the oit buffers for each camera.
 /// It will always create one big buffer that's as big as the biggest buffer needed.
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
-#[expect(
-    clippy::type_complexity,
-    reason = "Can't be rewritten with less complex arguments."
-)]
 pub fn prepare_oit_buffers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
