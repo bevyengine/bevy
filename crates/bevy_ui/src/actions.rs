@@ -6,8 +6,19 @@
 //!
 //! By contrast, cosmetic behavior like hover effects should generally be implemented by reading the [`Interaction`](crate::focus::Interaction) component,
 //! the [`InputFocus`](bevy_input_focus::InputFocus) resource or in response to various [`Pointer`](bevy_picking::events::Pointer) events.
+//!
+//! # Event bubbling
+//!
+//! All of the events in this module are will automatically bubble up the entity hierarchy.
+//! This allows for more responsiveness to the users' input, as the event will be
+//! consumed by the first entity that cares about it.
+//!
+//! When responding to these events, make sure to call [`Trigger::propagate`] with `false`
+//! to prevent the event from being consumed by other later entities.
 
-use bevy_ecs::event::Event;
+use bevy_ecs::prelude::*;
+use bevy_hierarchy::Parent;
+use bevy_reflect::prelude::*;
 
 /// Activate a UI element.
 ///
@@ -16,6 +27,11 @@ use bevy_ecs::event::Event;
 /// or the "A" button on a gamepad.
 ///
 /// Buttons should respond to this action via an observer to perform their primary action.
+///
+/// # Bubbling
+///
+/// This event will bubble up the entity hierarchy.
+/// Make sure to call [`Trigger::propagate`] with `false` to prevent the event from being consumed by other later entities.
 ///
 /// # Example
 ///
@@ -39,10 +55,18 @@ use bevy_ecs::event::Event;
 /// fn activate_my_button(trigger: Trigger<Activate>) {
 ///    let button_entity = trigger.target();
 ///    println!("The button with the entity ID {button_entity} was activated!");
+///    // We've handled the event, so don't let it bubble up.
+///    trigger.propagate(false);
 /// }
 ///
 /// # assert_is_system!(send_activate_event_to_input_focus);
 /// # assert_is_system!(spawn_my_button);
 /// ```
-#[derive(Debug, Event, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Component, Debug, Default, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Component, Default, PartialEq, Hash)]
 pub struct Activate;
+
+impl Event for Activate {
+    type Traversal = &'static Parent;
+    const AUTO_PROPAGATE: bool = true;
+}
