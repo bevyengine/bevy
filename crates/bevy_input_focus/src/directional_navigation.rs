@@ -381,7 +381,7 @@ impl DirectionalNavigationMap {
 ///
 /// Note that this type implements [`Deref`] into the internal [`HashMap`],
 /// so any immutable methods on [`HashMap`] can be called directly on a [`NavGrid`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NavGrid {
     mapping: HashMap<IVec2, Entity>,
     // These fields must be recomputed every time the mapping is updated.
@@ -743,6 +743,50 @@ mod tests {
 
         world.run_system_once(navigate_east).unwrap();
         assert_eq!(world.resource::<InputFocus>().get(), Some(a));
+    }
+
+    #[test]
+    fn trivial_grids() {
+        let mut world = World::new();
+
+        // 0 entities
+        let empty_map = DirectionalNavigationMap::default();
+
+        let mut nonlooping_map: DirectionalNavigationMap = DirectionalNavigationMap::default();
+        nonlooping_map.add_grid(NavGrid::default(), false);
+
+        assert_eq!(empty_map, nonlooping_map);
+
+        let mut looping_map: DirectionalNavigationMap = DirectionalNavigationMap::default();
+        looping_map.add_grid(NavGrid::default(), true);
+
+        assert_eq!(empty_map, looping_map);
+
+        // 1 entity
+        let a = world.spawn_empty().id();
+        let mut grid = NavGrid::default();
+        grid.insert(IVec2::new(0, 0), a);
+
+        let mut nonlooping_map: DirectionalNavigationMap = DirectionalNavigationMap::default();
+        nonlooping_map.add_grid(grid.clone(), false);
+
+        let mut looping_map: DirectionalNavigationMap = DirectionalNavigationMap::default();
+        looping_map.add_grid(grid.clone(), true);
+
+        // The entity should not be connected to itself
+        // Both "no neighbors found" and "no neighbors in any direction" are fine:
+        // this test is robust to either implementation to reduce fragility
+        if let Some(nonlooping_neighbors) = nonlooping_map.get_neighbors(a) {
+            for neighbor in nonlooping_neighbors.neighbors.iter() {
+                assert_eq!(*neighbor, None);
+            }
+        }
+
+        if let Some(looping_neighbors) = looping_map.get_neighbors(a) {
+            for neighbor in looping_neighbors.neighbors.iter() {
+                assert_eq!(*neighbor, None);
+            }
+        }
     }
 
     #[test]
