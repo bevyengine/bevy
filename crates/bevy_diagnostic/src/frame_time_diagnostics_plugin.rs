@@ -23,7 +23,7 @@ impl Default for FrameTimeDiagnosticsPlugin {
     }
 }
 impl FrameTimeDiagnosticsPlugin {
-    /// Creates a new `FrameTimeDiagnosticsPlugin` wth the specified `max_history_length` and a
+    /// Creates a new `FrameTimeDiagnosticsPlugin` with the specified `max_history_length` and a
     /// reasonable `smoothing_factor`.
     pub fn new(max_history_length: usize) -> Self {
         Self {
