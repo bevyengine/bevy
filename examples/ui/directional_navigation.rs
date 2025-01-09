@@ -18,9 +18,9 @@ use bevy::{
         pointer::{Location, PointerId},
     },
     prelude::*,
+    render::camera::NormalizedRenderTarget,
     utils::{HashMap, HashSet},
 };
-use bevy_render::camera::NormalizedRenderTarget;
 
 fn main() {
     App::new()
