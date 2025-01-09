@@ -98,7 +98,7 @@ fn reset_button_after_interaction(
     }
 }
 
-// We're spawning a simple 3x3 grid of buttons
+// We're spawning a simple grid of buttons and some instructions
 // The buttons are just colored rectangles with text displaying the button's name
 fn setup_ui(
     mut commands: Commands,
@@ -126,10 +126,10 @@ fn setup_ui(
             Text::new("Use arrow keys or D-pad to navigate. \
             Click the buttons, or press Enter / the South gamepad button to interact with the focused button."),
             Node {
-                width: Val::Px(200.0),
+                width: Val::Px(300.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                margin: UiRect::all(Val::Px(16.0)),
+                margin: UiRect::all(Val::Px(12.0)),
                 ..default()
             },
         ))
@@ -139,7 +139,7 @@ fn setup_ui(
     let grid_root_entity = commands
         .spawn(Node {
             display: Display::Grid,
-            // Allow the grid to take up the full height and width of the window
+            // Allow the grid to take up the full height and the rest of the width of the window
             width: Val::Percent(60.),
             height: Val::Percent(100.),
             // Set the number of rows and columns in the grid
@@ -184,7 +184,7 @@ fn setup_ui(
                 // Add a text element to the button
                 .with_child((
                     Text::new(button_name),
-                    // And center the text within the label
+                    // And center the text if it flows onto multiple lines
                     TextLayout {
                         justify: JustifyText::Center,
                         ..default()
