@@ -46,12 +46,15 @@ impl Viewport {
 }
 
 #[cfg(feature = "bevy_ui_picking_backend")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Won't have too many arguments when `dragged_last_frame` is removed"
+)]
 pub fn viewport_picking(
     mut commands: Commands,
-    viewport_query: Query<(&Viewport, &PointerId)>,
+    viewport_query: Query<(&Viewport, &PointerId, &Children)>,
     node_query: Query<(&ComputedNode, &ImageNode, &GlobalTransform)>,
     camera_query: Query<&Camera>,
-    children_query: Query<&Children>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
@@ -83,15 +86,17 @@ pub fn viewport_picking(
         }
     }
 
-    for (root, pick_pointer_id) in viewport_picks {
-        let Ok((&viewport, &viewport_pointer_id)) = viewport_query.get(root) else {
+    for (viewport_entity, pick_pointer_id) in viewport_picks {
+        let Ok((&viewport, &viewport_pointer_id, viewport_children)) =
+            viewport_query.get(viewport_entity)
+        else {
             // TODO: Error?
             continue;
         };
 
-        let Some((computed_node, image_node, global_transform)) = children_query
-            .iter_descendants(root)
-            .find_map(|child| node_query.get(child).ok())
+        let Some((computed_node, image_node, global_transform)) = viewport_children
+            .iter()
+            .find_map(|child| node_query.get(*child).ok())
         else {
             continue;
         };
@@ -99,8 +104,7 @@ pub fn viewport_picking(
         let Some(cam_viewport_size) = camera_query
             .get(viewport.camera)
             .ok()
-            .map(|camera| camera.logical_viewport_size())
-            .flatten()
+            .and_then(Camera::logical_viewport_size)
         else {
             // TODO: Error?
             continue;
@@ -174,16 +178,15 @@ pub fn on_viewport_added(
 }
 
 pub fn update_viewport_render_target_size(
-    viewport_query: Query<(Entity, &Viewport)>,
+    viewport_query: Query<(&Viewport, &Children)>,
     node_query: Query<&ComputedNode, Changed<ComputedNode>>,
     camera_query: Query<&Camera>,
-    children_query: Query<&Children>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (root, viewport) in &viewport_query {
-        let Some(computed_node) = children_query
-            .iter_descendants(root)
-            .find_map(|child| node_query.get(child).ok())
+    for (viewport, children) in &viewport_query {
+        let Some(computed_node) = children
+            .iter()
+            .find_map(|child| node_query.get(*child).ok())
         else {
             // Node hasn't been changed, or one wasn't found
             continue;
