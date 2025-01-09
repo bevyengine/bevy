@@ -80,7 +80,6 @@ impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
-    #[allow(clippy::too_many_arguments)]
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
@@ -207,7 +206,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
-    #[allow(clippy::too_many_arguments)]
     pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
@@ -341,7 +339,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,

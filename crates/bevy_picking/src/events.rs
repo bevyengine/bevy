@@ -402,7 +402,6 @@ pub struct PickingEventWriters<'w> {
 /// determined only by the pointer's *final position*. Since the hover state
 /// ultimately determines which entities receive events, this may mean that an
 /// entity can receive events from before or after it was actually hovered.
-#[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
     mut input_events: EventReader<PointerInput>,
