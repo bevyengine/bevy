@@ -54,10 +54,6 @@ impl Plugin for SpritePickingPlugin {
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 fn sprite_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(Entity, &Camera, &GlobalTransform, &Projection)>,

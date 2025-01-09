@@ -247,7 +247,6 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_button(
     commands: &mut ChildBuilder,
     background_color: Color,

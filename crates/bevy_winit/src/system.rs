@@ -202,10 +202,6 @@ pub fn create_monitors(
     });
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,

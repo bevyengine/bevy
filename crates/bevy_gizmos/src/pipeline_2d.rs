@@ -288,7 +288,6 @@ type DrawLineJointGizmo2d = (
     DrawLineJointGizmo,
 );
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<LineGizmoPipeline>,
@@ -365,8 +364,6 @@ fn queue_line_gizmos_2d(
         }
     }
 }
-
-#[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<LineJointGizmoPipeline>,

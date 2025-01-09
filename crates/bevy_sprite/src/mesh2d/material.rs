@@ -467,10 +467,6 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn queue_material2d_meshes<M: Material2d>(
     opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,

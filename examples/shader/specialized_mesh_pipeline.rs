@@ -261,7 +261,6 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
 
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
-#[allow(clippy::too_many_arguments)]
 fn queue_custom_mesh_pipeline(
     pipeline_cache: Res<PipelineCache>,
     custom_mesh_pipeline: Res<CustomMeshPipeline>,

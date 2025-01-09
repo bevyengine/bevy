@@ -1029,7 +1029,6 @@ macro_rules! impl_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
                     $($param: $param,)*
@@ -1056,7 +1055,6 @@ macro_rules! impl_system_function {
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,

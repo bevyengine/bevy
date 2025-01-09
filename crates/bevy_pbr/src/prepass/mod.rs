@@ -755,7 +755,6 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_prepass_material_meshes<M: Material>(
     (
         opaque_draw_functions,

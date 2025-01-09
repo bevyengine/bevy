@@ -43,10 +43,6 @@ pub struct WinitWindows {
 
 impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-    )]
     pub fn create_window(
         &mut self,
         event_loop: &ActiveEventLoop,

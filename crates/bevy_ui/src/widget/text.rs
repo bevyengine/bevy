@@ -188,10 +188,6 @@ impl Measure for TextMeasure {
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Used in measure_text_system to make the function body easier to read"
-)]
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
@@ -245,10 +241,6 @@ fn create_text_measure<'a>(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
@@ -316,10 +308,6 @@ pub fn measure_text_system(
     core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Used in text_system to make the function body easier to read"
-)]
 #[inline]
 fn queue_text(
     entity: Entity,
@@ -391,10 +379,6 @@ fn queue_text(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,

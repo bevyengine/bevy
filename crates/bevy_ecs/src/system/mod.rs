@@ -1111,7 +1111,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_arguments)]
     fn can_have_16_parameters() {
         fn sys_x(
             _: Res<A>,

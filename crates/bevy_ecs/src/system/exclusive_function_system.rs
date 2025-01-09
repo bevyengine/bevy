@@ -236,7 +236,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut(&mut World, $($param,)*) -> Out,
                     world: &mut World,
@@ -267,7 +266,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,

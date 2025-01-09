@@ -610,7 +610,6 @@ pub fn extract_mesh_materials<M: Material>(
 
 /// For each view, iterates over all the meshes visible from that view and adds
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
-#[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     (
         opaque_draw_functions,

@@ -347,7 +347,6 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn draw_grid<Config, Clear>(
     gizmos: &mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
