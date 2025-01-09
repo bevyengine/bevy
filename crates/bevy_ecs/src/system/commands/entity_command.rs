@@ -15,8 +15,8 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityCloneBuilder},
     event::Event,
-    result::{Error, Result},
-    system::{error_handler, Command, HandleError, IntoObserverSystem},
+    result::Result,
+    system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
 };
 use bevy_ptr::OwningPtr;
@@ -118,54 +118,6 @@ impl<
             let entity = world.get_entity_mut(entity)?;
             self.apply(entity).map_err(EntityCommandError::Error)
         }
-    }
-}
-
-/// Takes a [`EntityCommand`] that returns a Result and uses a given error handler function to convert it into
-/// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleEntityError<T = ()> {
-    /// Takes a [`EntityCommand`] that returns a Result and uses a given error handler function to convert it into
-    /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl EntityCommand;
-    /// Takes a [`EntityCommand`] that returns a Result and uses the default error handler function to convert it into
-    /// a [`EntityCommand`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error(self) -> impl EntityCommand
-    where
-        Self: Sized,
-    {
-        self.handle_error_with(error_handler::default())
-    }
-}
-
-impl<C: EntityCommand<Result<T, E>>, T, E: Into<Error>> HandleEntityError<Result<T, E>> for C {
-    fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl EntityCommand {
-        move |entity: EntityWorldMut| {
-            let location = entity.location();
-            let id = entity.id();
-            // This is broken up into parts so we can pass in the world to the error handler
-            // after EntityWorldMut is consumed
-            let world = entity.into_world_mut();
-            // SAFETY: location has not changed and entity is valid
-            match self.apply(unsafe { EntityWorldMut::new(world, id, location) }) {
-                Ok(_) => {}
-                Err(err) => (error_handler)(world, err.into()),
-            }
-        }
-    }
-}
-
-impl<C: EntityCommand> HandleEntityError for C {
-    #[inline]
-    fn handle_error_with(self, _error_handler: fn(&mut World, Error)) -> impl EntityCommand {
-        self
-    }
-
-    #[inline]
-    fn handle_error(self) -> impl EntityCommand
-    where
-        Self: Sized,
-    {
-        self
     }
 }
 

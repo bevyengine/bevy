@@ -5,8 +5,8 @@ pub mod error_handler;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
-pub use command::{Command, HandleError};
-pub use entity_command::{CommandWithEntity, EntityCommand};
+pub use command::Command;
+pub use entity_command::EntityCommand;
 
 #[cfg(feature = "std")]
 pub use parallel_scope::*;
@@ -26,10 +26,11 @@ use crate::{
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
+    result::Error,
     schedule::ScheduleLabel,
     system::{
-        input::SystemInput, Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, Resource,
-        SystemId,
+        command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
+        IntoObserverSystem, IntoSystem, RegisteredSystem, Resource, SystemId,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -551,14 +552,15 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Pushes a generic [`Command`] to the command queue.
     ///
+    /// If the [`Command`] returns a [`Result`], it will be handled using the [default error handler](error_handler::default).
+    ///
+    /// To use a custom error handler, see [`Commands::queue_handled`].
+    ///
     /// The command can be:
     /// - A custom struct that implements [`Command`].
     /// - A closure or function that matches one of the following signatures:
     ///   - [`(&mut World)`](World)
     /// - A built-in command from the [`command`] module.
-    ///
-    /// If you want to queue a fallible command with error handling,
-    /// use [`Commands::queue_fallible`].
     ///
     /// # Example
     ///
@@ -567,17 +569,18 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
-    /// struct AddToCounter(u64);
+    /// struct AddToCounter(String);
     ///
     /// impl Command for AddToCounter {
-    ///     fn apply(self, world: &mut World) {
+    ///     fn apply(self, world: &mut World) -> Result {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-    ///         counter.0 += self.0;
+    ///         let amount: usize = self.0.parse()?;
+    ///         counter.0 += amount;
     ///     }
     /// }
     ///
     /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.queue(AddToCounter(3));
+    ///     commands.queue(AddToCounter("3".to_string()));
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
     ///     commands.queue(|world: &mut World| {
@@ -589,7 +592,58 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
-        let command = command.handle_error();
+        self.queue_internal(command.handle_error());
+    }
+    /// Pushes a generic [`Command`] to the command queue. If the command returns a [`Result`] the given
+    /// `error_handler` will be used to handle error cases.
+    ///
+    /// To implicitly use the default error handler, see [`Commands::queue`].
+    ///
+    /// The command can be:
+    /// - A custom struct that implements [`Command`].
+    /// - A closure or function that matches one of the following signatures:
+    ///   - [`(&mut World)`](World)
+    ///   - [`(&mut World)`](World) `->` [`Result`]
+    /// - A built-in command from the [`command`] module.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Resource, Default)]
+    /// struct Counter(u64);
+    ///
+    /// struct AddToCounter(String);
+    ///
+    /// impl Command for AddToCounter {
+    ///     fn apply(self, world: &mut World) -> Result {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         let amount: usize = self.0.parse()?;
+    ///         counter.0 += amount;
+    ///     }
+    /// }
+    ///
+    /// fn add_three_to_counter_system(mut commands: Commands) {
+    ///     commands.queue_handled(AddToCounter("3".to_string()), error_handler::warn());
+    /// }
+    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
+    ///     commands.queue(|world: &mut World| {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += 25;
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
+    /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
+    /// ```
+    pub fn queue_handled<C: Command<T> + HandleError<T>, T>(
+        &mut self,
+        command: C,
+        error_handler: fn(&mut World, Error),
+    ) {
+        self.queue_internal(command.handle_error_with(error_handler));
+    }
+
+    fn queue_internal(&mut self, command: impl Command) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -1634,10 +1688,15 @@ impl<'a> EntityCommands<'a> {
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
+    /// If the [`EntityCommand`] returns a [`Result`], it will be handled using the [default error handler](error_handler::default).
+    ///
+    /// To use a custom error handler, see [`EntityCommands::queue_handled`].
+    ///
     /// The command can be:
     /// - A custom struct that implements [`EntityCommand`].
     /// - A closure or function that matches the following signature:
     ///   - [`(EntityWorldMut)`](EntityWorldMut)
+    ///   - [`(EntityWorldMut)`](EntityWorldMut) `->` [`Result`]
     /// - A built-in command from the [`entity_command`] module.
     ///
     /// # Examples
@@ -1659,6 +1718,48 @@ impl<'a> EntityCommands<'a> {
         command: C,
     ) -> &mut Self {
         self.commands.queue(command.with_entity(self.entity));
+        self
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    /// If the command returns a [`Result`] the given `error_handler` will be used to handle error cases.
+    ///
+    /// To implicitly use the default error handler, see [`EntityCommands::queue`].
+    ///
+    /// The command can be:
+    /// - A custom struct that implements [`EntityCommand`].
+    /// - A closure or function that matches the following signature:
+    ///   - [`(EntityWorldMut)`](EntityWorldMut)
+    ///   - [`(EntityWorldMut)`](EntityWorldMut) `->` [`Result`]
+    /// - A built-in command from the [`entity_command`] module.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::error_handler;
+    /// # fn my_system(mut commands: Commands) {
+    /// commands
+    ///     .spawn_empty()
+    ///     // Closures with this signature implement `EntityCommand`.
+    ///     .queue_handled(
+    ///         |entity: EntityWorldMut| -> Result {
+    ///             let value: usize = "100".parse()?;
+    ///             println!("Successfully parsed the value {} for entity {}", value, entity.id());
+    ///             Ok(())
+    ///         },
+    ///         error_handler::warn()
+    ///     );
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    pub fn queue_handled<C: EntityCommand<T> + CommandWithEntity<M>, T, M>(
+        &mut self,
+        command: C,
+        error_handler: fn(&mut World, Error),
+    ) -> &mut Self {
+        self.commands
+            .queue_handled(command.with_entity(self.entity), error_handler);
         self
     }
 
