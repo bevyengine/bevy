@@ -201,9 +201,10 @@ impl Plugin for UiPlugin {
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
-                    // the systems don't care about stack index
+                    // These systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(widget::update_viewport_render_target_size)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
@@ -215,7 +216,8 @@ impl Plugin for UiPlugin {
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
                 // Potential conflicts: `Assets<Image>`
-                // They run independently since this system will only ever update viewport images.
+                // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
+                // since this system will only ever update viewport images.
                 widget::update_viewport_render_target_size
                     .in_set(UiSystem::PostLayout)
                     .in_set(AmbiguousWithTextSystem)
