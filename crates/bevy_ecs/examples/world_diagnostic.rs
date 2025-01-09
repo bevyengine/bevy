@@ -1,6 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::Write;
-
+use core::fmt::Write;
 use bevy_ecs::{
     component::ComponentId,
     prelude::*,
@@ -36,12 +35,12 @@ enum MySet {
     Set2,
 }
 
-#[derive(SystemSet, Hash, Clone, Copy, PartialEq, Eq, Debug)]
-#[system_set(base)]
-enum MyBaseSet {
-    BaseSet1,
-    BaseSet2,
-}
+// Todo Double check. Base sets seem to have been removed as of V0.11.
+// #[derive(SystemSet, Hash, Clone, Copy, PartialEq, Eq, Debug)]
+// enum MyBaseSet {
+//     BaseSet1,
+//     BaseSet2,
+// }
 
 #[derive(Component)]
 struct Counter(usize);
@@ -72,7 +71,7 @@ fn diagnostic_world_system(world: &World) {
     println!("{}", diagnostic_world(world).unwrap());
 }
 
-fn diagnostic_world(world: &World) -> Result<String, std::fmt::Error> {
+fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
     let mut result = "".to_string();
 
     let bundle_size = world.bundles().len();
@@ -105,7 +104,7 @@ fn diagnostic_world(world: &World) -> Result<String, std::fmt::Error> {
                 "      {:?}: {:?}",
                 bundle.id(),
                 bundle
-                    .components()
+                    .explicit_components()
                     .iter()
                     .map(|id| component_display(*id, world))
                     .collect::<Vec<_>>()
@@ -191,18 +190,18 @@ fn diagnostic_world(world: &World) -> Result<String, std::fmt::Error> {
     Ok(result)
 }
 
-fn diagnostic_schedules(schedules: &Schedules) -> Result<String, std::fmt::Error> {
+fn diagnostic_schedules(schedules: &Schedules) -> Result<String, core::fmt::Error> {
     let mut result = "Schedule:\n".to_string();
 
     let label_with_schedules = schedules.iter().collect::<Vec<_>>();
     writeln!(result, "  schedules: {}", label_with_schedules.len())?;
 
     for (label, schedule) in label_with_schedules {
-        let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::new();
+        let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
         schedule.systems_for_each(|node_id, system| {
             id_to_names.insert(node_id, system.name());
         });
-        for (node_id, set, _, _) in schedule.graph().system_sets() {
+        for (node_id, set, _) in schedule.graph().system_sets() {
             id_to_names.insert(node_id, format!("{:?}", set).into());
         }
 
@@ -236,17 +235,18 @@ fn diagnostic_schedules(schedules: &Schedules) -> Result<String, std::fmt::Error
                 .trim_end()
             )?;
 
-            writeln!(
-                result,
-                "{}",
-                diagnose_dag(
-                    "dependency flatten",
-                    schedule_graph.dependency_flatten(),
-                    &id_to_names,
-                    "  "
-                )?
-                .trim_end()
-            )?;
+            // Todo
+            // writeln!(
+            //     result,
+            //     "{}",
+            //     diagnose_dag(
+            //         "dependency flatten",
+            //         schedule_graph.dependency_flatten(),
+            //         &id_to_names,
+            //         "  "
+            //     )?
+            //     .trim_end()
+            // )?;
         }
     }
 
@@ -258,7 +258,7 @@ fn diagnose_dag(
     dag: &Dag,
     id_to_names: &HashMap<NodeId, Cow<'static, str>>,
     prefix: &str,
-) -> Result<String, std::fmt::Error> {
+) -> Result<String, core::fmt::Error> {
     let mut result = "".to_string();
     writeln!(result, "{prefix}{name}:")?;
 
@@ -269,7 +269,7 @@ fn diagnose_dag(
     }
 
     writeln!(result, "{prefix}  edges:")?;
-    for (l, r, _) in dag.graph().all_edges() {
+    for (l, r) in dag.graph().all_edges() {
         let l_name = id_to_names.get(&l).unwrap();
         let r_name = id_to_names.get(&r).unwrap();
         writeln!(result, "{prefix}    {l:?}({l_name}) -> {r:?}({r_name})")?;
@@ -299,39 +299,24 @@ fn main() {
 
     {
         let mut diagnostic_shedule = Schedule::default();
-        diagnostic_shedule.add_system(diagnostic_world_system);
-        world.add_schedule(diagnostic_shedule, DiagnosticLabel);
+        diagnostic_shedule.add_systems(diagnostic_world_system);
+        world.add_schedule(diagnostic_shedule);
     }
 
     let mut schedule = Schedule::default();
-    schedule.configure_set(MySet::Set1);
-    schedule.configure_set(MySet::Set2);
-    schedule.configure_set(MyBaseSet::BaseSet1);
-    schedule.configure_set(MyBaseSet::BaseSet2);
+    schedule.configure_sets(MySet::Set1);
+    schedule.configure_sets(MySet::Set2);
 
-    schedule.add_system(
-        empty_system
-            .in_set(MySet::Set1)
-            .in_base_set(MyBaseSet::BaseSet1),
-    );
-    schedule.add_system(
+    schedule.add_systems(empty_system.in_set(MySet::Set1));
+    schedule.add_systems(
         increase_game_state_count
             .in_set(MySet::Set1)
             .before(sync_counter),
     );
-    schedule.add_system(sync_counter);
-    schedule.add_system(
-        first_system
-            .before(second_system)
-            .in_set(MySet::Set2)
-            .in_base_set(MyBaseSet::BaseSet2),
-    );
-    schedule.add_system(
-        second_system
-            .in_set(MySet::Set2)
-            .in_base_set(MyBaseSet::BaseSet2),
-    );
-    world.add_schedule(schedule, ScheduleLabel::Bar);
+    schedule.add_systems(sync_counter);
+    schedule.add_systems(first_system.before(second_system).in_set(MySet::Set2));
+    schedule.add_systems(second_system.in_set(MySet::Set2));
+    world.add_schedule(schedule);
 
     world.init_resource::<GameState>();
 
@@ -339,7 +324,7 @@ fn main() {
     world.run_schedule(DiagnosticLabel);
 
     let player = world.spawn(HitPoint(100)).id();
-    // create an achetype with 2 table components and 1 sparse set
+    // create an archetype with 2 table components and 1 sparse set
     world.spawn((HitPoint(100), Counter(1), HighlightFlag));
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);

@@ -4266,7 +4266,7 @@ mod tests {
 
         let bundle = bundles[0];
         assert_eq!(bundle.id().index(), 0);
-        assert!(bundle.components().is_empty());
+        assert!(bundle.contributed_components().is_empty());
     }
 
     #[test]
