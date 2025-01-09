@@ -37,6 +37,7 @@ mod render;
 mod stack;
 mod ui_node;
 
+pub use actions::*;
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
