@@ -140,7 +140,7 @@ fn setup_ui(
         .spawn(Node {
             display: Display::Grid,
             // Allow the grid to take up the full height and the rest of the width of the window
-            width: Val::Percent(60.),
+            width: Val::Percent(100.),
             height: Val::Percent(100.),
             // Set the number of rows and columns in the grid
             // allowing the grid to automatically size the cells
