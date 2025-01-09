@@ -162,6 +162,9 @@ pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
     Auto,
+    /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
+    /// Otherwise no scaling will be applied.
+    ScaleMode(TextureScale),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -185,6 +188,49 @@ impl SpriteImageMode {
             SpriteImageMode::Sliced(..) | SpriteImageMode::Tiled { .. }
         )
     }
+
+    /// Returns [`TextureScale`] if scale is presented or [`Option::None`] otherwise
+    #[inline]
+    #[must_use]
+    pub const fn scale(&self) -> Option<TextureScale> {
+        if let SpriteImageMode::ScaleMode(scale) = self {
+            Some(*scale)
+        } else {
+            None
+        }
+    }
+}
+
+/// Represents various modes for proportional scaling of a texture
+#[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Debug)]
+pub enum TextureScale {
+    /// Scale the texture uniformly (maintain the texture's aspect ratio)
+    /// so that both dimensions (width and height) of the texture will be equal
+    /// to or larger than the corresponding dimension of the rect.
+    /// Fill rect with a centered texture.
+    #[default]
+    FillCenter,
+    /// Scale the texture to fill the rect with a start of the texture,
+    /// maintaining the aspect ratio.
+    FillStart,
+    /// Scale the texture to fill the rect with a end of the texture,
+    /// maintaining the aspect ratio.
+    FillEnd,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside the rect.
+    /// At least one axis (X or Y) will fit exactly. The result is centered inside the rect.
+    FitCenter,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside rect.
+    /// At least one axis (X or Y) will fit exactly.
+    /// Aligns the result to the left and top edges of rect.
+    FitStart,
+    /// Scaling the texture will maintain the original aspect ratio
+    /// and ensure that the original texture fits entirely inside rect.
+    /// At least one axis (X or Y) will fit exactly.
+    /// Aligns the result to the right and bottom edges of rect.
+    FitEnd,
 }
 
 /// How a sprite is positioned relative to its [`Transform`].

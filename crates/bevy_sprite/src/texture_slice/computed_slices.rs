@@ -53,6 +53,7 @@ impl ComputedTextureSlices {
                 flip_y,
                 image_handle_id: sprite.image.id(),
                 anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
+                texture_scale: sprite.image_mode.scale(),
             }
         })
     }
@@ -120,8 +121,8 @@ fn compute_sprite_slices(
             };
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
-        SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for SpriteImageMode::Stretch")
+        SpriteImageMode::Auto | SpriteImageMode::ScaleMode(_) => {
+            unreachable!("Slices should not be computed for SpriteImageMode::Stretch or SpriteImageMode::ScaleMode")
         }
     };
     Some(ComputedTextureSlices(slices))

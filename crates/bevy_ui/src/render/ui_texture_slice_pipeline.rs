@@ -799,8 +799,8 @@ fn compute_texture_slices(
             let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
-        SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
+        SpriteImageMode::Auto | SpriteImageMode::ScaleMode(_) => {
+            unreachable!("Slices should not be computed for SpriteImageMode::Stretch or SpriteImageMode::ScaleMode")
         }
     }
 }

@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE};
+use crate::{ComputedTextureSlices, Sprite, TextureScale, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -339,6 +339,7 @@ pub struct ExtractedSprite {
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
+    pub texture_scale: Option<TextureScale>,
 }
 
 #[derive(Resource, Default)]
@@ -430,6 +431,7 @@ pub fn extract_sprites(
                     image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
+                    texture_scale: sprite.image_mode.scale(),
                 },
             );
         }
@@ -699,21 +701,37 @@ pub fn prepare_sprite_image_bind_groups(
             // By default, the size of the quad is the size of the texture
             let mut quad_size = batch_image_size;
 
-            // Calculate vertex data for this item
-            let mut uv_offset_scale: Vec4;
-
             // If a rect is specified, adjust UVs and the size of the quad
-            if let Some(rect) = extracted_sprite.rect {
+            let mut uv_offset_scale = if let Some(rect) = extracted_sprite.rect {
                 let rect_size = rect.size();
-                uv_offset_scale = Vec4::new(
+                quad_size = rect_size;
+                Vec4::new(
                     rect.min.x / batch_image_size.x,
                     rect.max.y / batch_image_size.y,
                     rect_size.x / batch_image_size.x,
                     -rect_size.y / batch_image_size.y,
-                );
-                quad_size = rect_size;
+                )
             } else {
-                uv_offset_scale = Vec4::new(0.0, 1.0, 1.0, -1.0);
+                Vec4::new(0.0, 1.0, 1.0, -1.0)
+            };
+
+            // Override the size if a custom one is specified
+            if let Some(custom_size) = extracted_sprite.custom_size {
+                quad_size = custom_size;
+            }
+
+            // Used for translation of the quad if `TextureScale::Fit...` is specified.
+            let mut quad_translation = Vec2::ZERO;
+
+            // Scales the texture based on the `texture_scale` field.
+            if let Some(texture_scale) = extracted_sprite.texture_scale {
+                scale_texture(
+                    texture_scale,
+                    batch_image_size,
+                    &mut quad_size,
+                    &mut quad_translation,
+                    &mut uv_offset_scale,
+                );
             }
 
             if extracted_sprite.flip_x {
@@ -725,15 +743,13 @@ pub fn prepare_sprite_image_bind_groups(
                 uv_offset_scale.w *= -1.0;
             }
 
-            // Override the size if a custom one is specified
-            if let Some(custom_size) = extracted_sprite.custom_size {
-                quad_size = custom_size;
-            }
             let transform = extracted_sprite.transform.affine()
                 * Affine3A::from_scale_rotation_translation(
                     quad_size.extend(1.0),
                     Quat::IDENTITY,
-                    (quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5))).extend(0.0),
+                    ((quad_size + quad_translation)
+                        * (-extracted_sprite.anchor - Vec2::splat(0.5)))
+                    .extend(0.0),
                 );
 
             // Store the vertex data and add the item to the render phase
@@ -872,5 +888,98 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         );
         pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
+    }
+}
+
+/// Scales a texture to fit within a given quad size with keeping the aspect ratio.
+fn scale_texture(
+    texture_scale: TextureScale,
+    texture_size: Vec2,
+    quad_size: &mut Vec2,
+    quad_translation: &mut Vec2,
+    uv_offset_scale: &mut Vec4,
+) {
+    let quad_ratio = quad_size.x / quad_size.y;
+    let texture_ratio = texture_size.x / texture_size.y;
+
+    match texture_scale {
+        TextureScale::FillCenter => {
+            let scale = if quad_ratio > texture_ratio {
+                // Quad is wider than the image
+                Vec2::new(1., -texture_ratio / quad_ratio)
+            } else {
+                // Quad is taller than the image
+                Vec2::new(quad_ratio / texture_ratio, -1.)
+            };
+            let offset = (1.0 - scale) * 0.5;
+
+            // override all previous scaling and offset
+            *uv_offset_scale = Vec4::new(offset.x, offset.y, scale.x, scale.y);
+        }
+        TextureScale::FillStart => {
+            if quad_ratio > texture_ratio {
+                let scale = Vec2::new(1., -texture_ratio / quad_ratio);
+                let offset = (1.0 - scale) * 0.5;
+                *uv_offset_scale = Vec4::new(offset.x, scale.y.abs(), scale.x, scale.y);
+            } else {
+                let scale = Vec2::new(quad_ratio / texture_ratio, -1.);
+                let offset = (1.0 - scale) * 0.5;
+                *uv_offset_scale = Vec4::new(0.0, offset.y, scale.x, scale.y);
+            }
+        }
+        TextureScale::FillEnd => {
+            if quad_ratio > texture_ratio {
+                let scale = Vec2::new(1., -texture_ratio / quad_ratio);
+                let offset = (1.0 - scale) * 0.5;
+                *uv_offset_scale = Vec4::new(offset.x, 1.0, scale.x, scale.y);
+            } else {
+                let scale = Vec2::new(quad_ratio / texture_ratio, -1.);
+                let offset = (1.0 - scale) * 0.5;
+                *uv_offset_scale = Vec4::new(1.0 - scale.x, offset.y, scale.x, scale.y);
+            }
+        }
+        TextureScale::FitCenter => {
+            let scale = if texture_ratio > quad_ratio {
+                // Scale based on width
+                Vec2::new(1.0, quad_ratio / texture_ratio)
+            } else {
+                // Scale based on height
+                Vec2::new(texture_ratio / quad_ratio, 1.0)
+            };
+
+            *quad_size *= scale;
+        }
+        TextureScale::FitStart => {
+            if texture_ratio > quad_ratio {
+                // The quad is scaled to match the image ratio, and the quad translation is adjusted
+                // to start of the quad within the original quad size.
+                let scale = Vec2::new(1.0, quad_ratio / texture_ratio);
+                let new_quad = *quad_size * scale;
+                let offset = *quad_size - new_quad;
+                *quad_translation = Vec2::new(0.0, -offset.y);
+                *quad_size = new_quad;
+            } else {
+                let scale = Vec2::new(texture_ratio / quad_ratio, 1.0);
+                let new_quad = *quad_size * scale;
+                let offset = *quad_size - new_quad;
+                *quad_translation = Vec2::new(offset.x, 0.0);
+                *quad_size = new_quad;
+            }
+        }
+        TextureScale::FitEnd => {
+            if texture_ratio > quad_ratio {
+                let scale = Vec2::new(1.0, quad_ratio / texture_ratio);
+                let new_quad = *quad_size * scale;
+                let offset = *quad_size - new_quad;
+                *quad_translation = Vec2::new(0.0, offset.y);
+                *quad_size = new_quad;
+            } else {
+                let scale = Vec2::new(texture_ratio / quad_ratio, 1.0);
+                let new_quad = *quad_size * scale;
+                let offset = *quad_size - new_quad;
+                *quad_translation = Vec2::new(-offset.x, 0.0);
+                *quad_size = new_quad;
+            }
+        }
     }
 }
