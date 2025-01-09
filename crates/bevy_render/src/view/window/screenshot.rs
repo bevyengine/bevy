@@ -581,7 +581,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
 
 #[expect(
     clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+    reason = "Used in systems to reduce the amount of code duplication"
 )]
 fn render_screenshot(
     encoder: &mut CommandEncoder,
