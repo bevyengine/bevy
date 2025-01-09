@@ -92,7 +92,9 @@ fn setup(
 
     // create a minimal UI explaining how to interact with the example
     commands.spawn((
-        Text::new("Press ArrowLeft to Animate Left Sprite\nPress ArrowRight to Animate Right Sprite"),
+        Text::new(
+            "Press ArrowLeft to Animate Left Sprite\nPress ArrowRight to Animate Right Sprite",
+        ),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

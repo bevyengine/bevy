@@ -100,5 +100,4 @@ fn setup(
         })),
         Transform::from_xyz(400.0, 0.0, -1.0),
     ));
-
 }

@@ -59,5 +59,4 @@ fn setup(
         MeshMaterial2d(materials.add(texture_handle)),
         Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
-
 }

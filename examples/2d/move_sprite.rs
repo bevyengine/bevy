@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
     ));
-    
+
     commands.spawn((
         Sprite::from_image(asset_server.load("branding/icon.png")),
         Transform::from_xyz(0., 0., 0.),

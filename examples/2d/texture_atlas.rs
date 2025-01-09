@@ -95,7 +95,7 @@ fn setup(
 
     // setup 2d scene
     commands.spawn(Camera2d);
-    
+
     // Create a minimal UI explaining how to interact with the example
     commands.spawn((
         Text::new("Generating four texture atlases (sprite sheets) from a folder containing individual sprites."),

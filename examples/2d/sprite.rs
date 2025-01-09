@@ -13,7 +13,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a camera
     commands.spawn(Camera2d);
 
-     // Create a minimal UI explaining how to interact with the example
+    // Create a minimal UI explaining how to interact with the example
     commands.spawn((
         Text::new("Displays a single [`Sprite`], created from an image."),
         Node {

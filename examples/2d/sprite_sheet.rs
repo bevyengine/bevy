@@ -49,7 +49,7 @@ fn setup(
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 1, last: 6 };
-    
+
     // Spawn a camera
     commands.spawn(Camera2d);
 
