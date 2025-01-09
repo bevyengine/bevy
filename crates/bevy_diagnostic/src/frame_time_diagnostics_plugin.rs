@@ -19,9 +19,16 @@ pub struct FrameTimeDiagnosticsPlugin {
 }
 impl Default for FrameTimeDiagnosticsPlugin {
     fn default() -> Self {
+        Self::new(DEFAULT_MAX_HISTORY_LENGTH)
+    }
+}
+impl FrameTimeDiagnosticsPlugin {
+    /// Creates a new `FrameTimeDiagnosticsPlugin` wth the specified `max_history_length` and a
+    /// reasonable `smoothing_factor`.
+    pub fn new(max_history_length: usize) -> Self {
         Self {
-            max_history_length: DEFAULT_MAX_HISTORY_LENGTH,
-            smoothing_factor: (DEFAULT_MAX_HISTORY_LENGTH as f64 + 1.0) / 2.0,
+            max_history_length,
+            smoothing_factor: (max_history_length as f64 + 1.0) / 2.0,
         }
     }
 }
