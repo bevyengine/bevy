@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::Assets;
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasPlugin};
-use bevy_math::{Rect, URect, UVec2, Vec2};
+use bevy_math::{ops, Rect, URect, UVec2, Vec2};
 use wgpu_types::TextureFormat;
 
 use crate::state::CustomCursorCache;
@@ -88,7 +88,7 @@ pub(crate) fn extract_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
                 .map(|chunk| {
                     let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
-                    (num * 255.0) as u8
+                    ops::round(num.clamp(0.0, 1.0) * 255.0) as u8
                 })
                 .collect(),
         ),
