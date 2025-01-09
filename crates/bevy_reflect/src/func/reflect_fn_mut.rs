@@ -123,7 +123,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect + TypePath,
+            Receiver: Reflect + Send + Sync + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`
@@ -153,7 +153,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &mut ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &mut ReturnType> for Function
         where
-            Receiver: Reflect + TypePath,
+            Receiver: Reflect + Send + Sync + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&mut ReturnType` into `Return`
@@ -183,7 +183,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect + TypePath,
+            Receiver: Reflect + Send + Sync + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`

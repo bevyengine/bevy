@@ -47,7 +47,7 @@ fn list_apply<M, LBase, LPatch, F1, F2, F3>(
 ) where
     M: Measurement,
     LBase: List,
-    LPatch: List,
+    LPatch: List + Send + Sync,
     F1: Fn(usize) -> F2,
     F2: Fn() -> LBase,
     F3: Fn(usize) -> LPatch,

@@ -654,8 +654,8 @@ mod tests {
                     "Inserting the asset should result in a strong count of 1"
                 );
 
-                let reflected: &dyn Reflect = &handle;
-                let cloned_handle: Box<dyn PartialReflect> = reflected.clone_value();
+                let reflected: &(dyn Reflect + Send + Sync) = &handle;
+                let cloned_handle: Box<dyn PartialReflect + Send + Sync> = reflected.clone_value();
 
                 assert_eq!(
                     Arc::strong_count(strong),

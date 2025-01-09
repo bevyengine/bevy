@@ -154,7 +154,7 @@ pub trait DynamicTypePath {
     fn reflect_module_path(&self) -> Option<&str>;
 }
 
-impl<T: TypePath> DynamicTypePath for T {
+impl<T: TypePath + Send + Sync> DynamicTypePath for T {
     #[inline]
     fn reflect_type_path(&self) -> &str {
         Self::type_path()

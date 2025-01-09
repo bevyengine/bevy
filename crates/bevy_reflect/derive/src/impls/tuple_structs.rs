@@ -64,14 +64,14 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
-            fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, index: usize) -> #FQOption<&(dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match index {
                     #(#field_indices => #fqoption::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, index: usize) -> #FQOption<&mut (dyn #bevy_reflect_path::PartialReflect + Send + Sync)> {
                 match index {
                     #(#field_indices => #fqoption::Some(#fields_mut),)*
                     _ => #FQOption::None,
@@ -100,14 +100,14 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
             #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect + Send + Sync> {
                 #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
             }
 
             #[inline]
             fn try_apply(
                 &mut self,
-                value: &dyn #bevy_reflect_path::PartialReflect
+                value: &(dyn #bevy_reflect_path::PartialReflect + Send + Sync)
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) =
                     #bevy_reflect_path::PartialReflect::reflect_ref(value) {

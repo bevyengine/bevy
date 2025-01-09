@@ -17,16 +17,17 @@ pub struct ReflectAsset {
     handle_type_id: TypeId,
     assets_resource_type_id: TypeId,
 
-    get: fn(&World, UntypedHandle) -> Option<&dyn Reflect>,
+    get: fn(&World, UntypedHandle) -> Option<&(dyn Reflect + Send + Sync)>,
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
+    get_unchecked_mut:
+        unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut (dyn Reflect + Send + Sync)>,
+    add: fn(&mut World, &(dyn PartialReflect + Send + Sync)) -> UntypedHandle,
+    insert: fn(&mut World, UntypedHandle, &(dyn PartialReflect + Send + Sync)),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
-    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
+    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect + Send + Sync>>,
 }
 
 impl ReflectAsset {
@@ -41,7 +42,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get`]
-    pub fn get<'w>(&self, world: &'w World, handle: UntypedHandle) -> Option<&'w dyn Reflect> {
+    pub fn get<'w>(
+        &self,
+        world: &'w World,
+        handle: UntypedHandle,
+    ) -> Option<&'w (dyn Reflect + Send + Sync)> {
         (self.get)(world, handle)
     }
 
@@ -50,7 +55,7 @@ impl ReflectAsset {
         &self,
         world: &'w mut World,
         handle: UntypedHandle,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Option<&'w mut (dyn Reflect + Send + Sync)> {
         // SAFETY: unique world access
         #[expect(
             unsafe_code,
@@ -96,22 +101,35 @@ impl ReflectAsset {
         &self,
         world: UnsafeWorldCell<'w>,
         handle: UntypedHandle,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Option<&'w mut (dyn Reflect + Send + Sync)> {
         // SAFETY: requirements are deferred to the caller
         unsafe { (self.get_unchecked_mut)(world, handle) }
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
+    pub fn add(
+        &self,
+        world: &mut World,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn PartialReflect) {
+    pub fn insert(
+        &self,
+        world: &mut World,
+        handle: UntypedHandle,
+        value: &(dyn PartialReflect + Send + Sync),
+    ) {
         (self.insert)(world, handle, value);
     }
 
     /// Equivalent of [`Assets::remove`]
-    pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> Option<Box<dyn Reflect>> {
+    pub fn remove(
+        &self,
+        world: &mut World,
+        handle: UntypedHandle,
+    ) -> Option<Box<dyn Reflect + Send + Sync>> {
         (self.remove)(world, handle)
     }
 
@@ -139,7 +157,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get: |world, handle| {
                 let assets = world.resource::<Assets<A>>();
                 let asset = assets.get(&handle.typed_debug_checked());
-                asset.map(|asset| asset as &dyn Reflect)
+                asset.map(|asset| asset as &(dyn Reflect + Send + Sync))
             },
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
@@ -147,7 +165,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
-                asset.map(|asset| asset as &mut dyn Reflect)
+                asset.map(|asset| asset as &mut (dyn Reflect + Send + Sync))
             },
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
@@ -172,7 +190,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value = assets.remove(&handle.typed_debug_checked());
-                value.map(|value| Box::new(value) as Box<dyn Reflect>)
+                value.map(|value| Box::new(value) as Box<dyn Reflect + Send + Sync>)
             },
         }
     }
@@ -180,7 +198,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 
 /// Reflect type data struct relating a [`Handle<T>`] back to the `T` asset type.
 ///
-/// Say you want to look up the asset values of a list of handles when you have access to their `&dyn Reflect` form.
+/// Say you want to look up the asset values of a list of handles when you have access to their `&(dyn Reflect + Send + Sync)` form.
 /// Assets can be looked up in the world using [`ReflectAsset`], but how do you determine which [`ReflectAsset`] to use when
 /// only looking at the handle? [`ReflectHandle`] is stored in the type registry on each `Handle<T>` type, so you can use [`ReflectHandle::asset_type_id`] to look up
 /// the [`ReflectAsset`] type data on the corresponding `T` asset type:
@@ -193,7 +211,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///
 /// # let world: &World = unimplemented!();
 /// # let type_registry: TypeRegistry = unimplemented!();
-/// let handles: Vec<&dyn Reflect> = unimplemented!();
+/// let handles: Vec<&(dyn Reflect + Send + Sync)> = unimplemented!();
 /// for handle in handles {
 ///     let reflect_handle = type_registry.get_type_data::<ReflectHandle>(handle.type_id()).unwrap();
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
@@ -207,7 +225,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 pub struct ReflectHandle {
     asset_type_id: TypeId,
     downcast_handle_untyped: fn(&dyn Any) -> Option<UntypedHandle>,
-    typed: fn(UntypedHandle) -> Box<dyn Reflect>,
+    typed: fn(UntypedHandle) -> Box<dyn Reflect + Send + Sync>,
 }
 impl ReflectHandle {
     /// The [`TypeId`] of the asset
@@ -220,9 +238,9 @@ impl ReflectHandle {
         (self.downcast_handle_untyped)(handle)
     }
 
-    /// A way to go from a [`UntypedHandle`] to a [`Handle<T>`] in a `Box<dyn Reflect>`.
+    /// A way to go from a [`UntypedHandle`] to a [`Handle<T>`] in a `Box<dyn Reflect + Send + Sync>`.
     /// Equivalent of [`UntypedHandle::typed`].
-    pub fn typed(&self, handle: UntypedHandle) -> Box<dyn Reflect> {
+    pub fn typed(&self, handle: UntypedHandle) -> Box<dyn Reflect + Send + Sync> {
         (self.typed)(handle)
     }
 }

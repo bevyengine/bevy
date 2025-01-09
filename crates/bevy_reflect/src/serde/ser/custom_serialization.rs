@@ -12,7 +12,7 @@ use serde::{Serialize, Serializer};
 /// On success, returns the result of the serialization.
 /// On failure, returns the original serializer and the error that occurred.
 pub(super) fn try_custom_serialize<S: Serializer>(
-    value: &dyn PartialReflect,
+    value: &(dyn PartialReflect + Send + Sync),
     type_registry: &TypeRegistry,
     serializer: S,
 ) -> Result<Result<S::Ok, S::Error>, (S, S::Error)> {

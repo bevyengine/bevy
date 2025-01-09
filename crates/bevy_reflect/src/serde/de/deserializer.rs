@@ -32,11 +32,11 @@ use super::ReflectDeserializerProcessor;
 ///
 /// # Output
 ///
-/// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
+/// This deserializer will return a [`Box<dyn Reflect + Send + Sync>`] containing the deserialized data.
 ///
 /// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
-/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
+/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect + Send + Sync>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.
 /// For example, a deserialized struct might return a [`Box<DynamicStruct>`]
@@ -73,7 +73,7 @@ use super::ReflectDeserializerProcessor;
 /// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
 /// let reflect_deserializer = ReflectDeserializer::new(&registry);
 ///
-/// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+/// let output: Box<dyn PartialReflect + Send + Sync> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
 /// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
@@ -87,14 +87,14 @@ use super::ReflectDeserializerProcessor;
 /// // We can also do this dynamically with `ReflectFromReflect`.
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
+/// let value: Box<dyn Reflect + Send + Sync> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
 ///
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [type path]: crate::TypePath::type_path
-/// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`Box<dyn Reflect + Send + Sync>`]: crate::Reflect
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
@@ -138,7 +138,7 @@ impl<'a, P: ReflectDeserializerProcessor> ReflectDeserializer<'a, P> {
 }
 
 impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeserializer<'_, P> {
-    type Value = Box<dyn PartialReflect>;
+    type Value = Box<dyn PartialReflect + Send + Sync>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -152,7 +152,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
         impl<'de, P: ReflectDeserializerProcessor> Visitor<'de>
             for UntypedReflectDeserializerVisitor<'_, P>
         {
-            type Value = Box<dyn PartialReflect>;
+            type Value = Box<dyn PartialReflect + Send + Sync>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter
@@ -200,11 +200,11 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 ///
 /// # Output
 ///
-/// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
+/// This deserializer will return a [`Box<dyn Reflect + Send + Sync>`] containing the deserialized data.
 ///
 /// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
-/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
+/// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect + Send + Sync>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.
 /// For example, a deserialized struct might return a [`Box<DynamicStruct>`]
@@ -241,7 +241,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
 /// let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
 ///
-/// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+/// let output: Box<dyn PartialReflect + Send + Sync> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
 /// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
@@ -255,13 +255,13 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// // We can also do this dynamically with `ReflectFromReflect`.
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
+/// let value: Box<dyn Reflect + Send + Sync> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
 ///
 /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
-/// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`Box<dyn Reflect + Send + Sync>`]: crate::Reflect
 /// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
@@ -351,7 +351,7 @@ impl<'a, P: ReflectDeserializerProcessor> TypedReflectDeserializer<'a, P> {
 impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
     for TypedReflectDeserializer<'_, P>
 {
-    type Value = Box<dyn PartialReflect>;
+    type Value = Box<dyn PartialReflect + Send + Sync>;
 
     fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
     where

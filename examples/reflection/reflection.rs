@@ -101,7 +101,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a `Box<dyn PartialReflect>` value.
+    // Deserializing returns a `Box<dyn PartialReflect + Send + Sync>` value.
     // Generally, deserializing a value will return the "dynamic" variant of a type.
     // For example, deserializing a struct will return the DynamicStruct type.
     // "Opaque types" will be deserialized as themselves.

@@ -37,14 +37,14 @@ fn main() {
     // This trait object also gives us access to all the methods in the `PartialReflect` trait too.
     // The underlying type is still the same (in this case, `Player`),
     // but now we've hidden that information from the compiler.
-    let reflected: Box<dyn Reflect> = Box::new(player);
+    let reflected: Box<dyn Reflect + Send + Sync> = Box::new(player);
 
     // Because it's the same type under the hood, we can still downcast it back to the original type.
     assert!(reflected.downcast_ref::<Player>().is_some());
 
     // But now let's "clone" our type using `PartialReflect::clone_value`.
     // Notice here we bind it as a `dyn PartialReflect`.
-    let cloned: Box<dyn PartialReflect> = reflected.clone_value();
+    let cloned: Box<dyn PartialReflect + Send + Sync> = reflected.clone_value();
 
     // If we try and convert it to a `dyn Reflect` trait object, we'll get an error.
     assert!(cloned.try_as_reflect().is_none());
@@ -109,7 +109,7 @@ fn main() {
             .data::<ReflectDefault>()
             .expect("`ReflectDefault` should be registered");
 
-        let mut value: Box<dyn Reflect> = reflect_default.default();
+        let mut value: Box<dyn Reflect + Send + Sync> = reflect_default.default();
         value.apply(deserialized.as_ref());
 
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
@@ -129,7 +129,7 @@ fn main() {
             .data::<ReflectFromReflect>()
             .expect("`ReflectFromReflect` should be registered");
 
-        let value: Box<dyn Reflect> = reflect_from_reflect
+        let value: Box<dyn Reflect + Send + Sync> = reflect_from_reflect
             .from_reflect(deserialized.as_ref())
             .unwrap();
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
