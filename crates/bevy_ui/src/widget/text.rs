@@ -190,7 +190,7 @@ impl Measure for TextMeasure {
 
 #[expect(
     clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+    reason = "Used in measure_text_system to make the function body easier to read"
 )]
 #[inline]
 fn create_text_measure<'a>(
@@ -318,7 +318,7 @@ pub fn measure_text_system(
 
 #[expect(
     clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+    reason = "Used in text_system to make the function body easier to read"
 )]
 #[inline]
 fn queue_text(
