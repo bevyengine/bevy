@@ -95,14 +95,10 @@ use crate::{
 /// an error handler. Error handlers are functions/closures of the form
 /// `fn(&mut World, CommandError)`.
 ///
-/// Fallible commands should generally be passed to [`Commands::queue_fallible`], which will
-/// use the default error handler.
-///
 /// The default error handler panics. It can be configured by enabling the `configurable_error_handler`
 /// cargo feature, then setting the `GLOBAL_ERROR_HANDLER`.
 ///
-/// Alternatively, you can customize the error handler for a specific command by calling [`HandleError::handle_error_with`]
-/// on it, then passing the result to [`Commands::queue`].
+/// Alternatively, you can customize the error handler for a specific command by calling [`Commands::queue_handled`].
 ///
 /// The [`error_handler`] module provides some simple error handlers for convenience.
 ///
@@ -1153,14 +1149,10 @@ impl<'w, 's> Commands<'w, 's> {
 /// an error handler. Error handlers are functions/closures of the form
 /// `fn(&mut World, CommandError)`.
 ///
-/// Fallible commands should generally be passed to [`EntityCommands::queue_fallible`], which will
-/// use the default error handler.
-///
 /// The default error handler panics. It can be configured by enabling the `configurable_error_handler`
 /// cargo feature, then setting the `GLOBAL_ERROR_HANDLER`.
 ///
-/// Alternatively, you can customize the error handler for a specific command by calling [`HandleError::handle_error_with`]
-/// on it, then passing the result to [`EntityCommands::queue`].
+/// Alternatively, you can customize the error handler for a specific command by calling [`EntityCommands::queue_handled`].
 ///
 /// The [`error_handler`] module provides some simple error handlers for convenience.
 pub struct EntityCommands<'a> {

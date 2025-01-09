@@ -1,7 +1,5 @@
 //! This module contains convenience functions that return simple error handlers
-//! for use with [`HandleError::handle_error_with`](super::HandleError::handle_error_with) on instances of
-//! [`Command`](super::Command) and [`EntityCommand`](super::EntityCommand) that return a Result with an
-//! [`Error`].
+//! for use with [`Commands::queue_handled`](super::Commands::queue_handled) and [`EntityCommands::queue_handled`](super::EntityCommands::queue_handled).
 
 use crate::{result::Error, world::World};
 use log::{error, warn};
@@ -27,7 +25,7 @@ pub fn panic() -> fn(&mut World, Error) {
     |_, error| panic!("{error}")
 }
 
-/// The default error handler. This defaults to [`panic`]. If the
+/// The default error handler. This defaults to [`panic()`]. If the
 /// `configurable_error_handler` cargo feature is enabled, then
 /// `GLOBAL_ERROR_HANDLER` will be used instead, enabling error handler customization.
 #[cfg(not(feature = "configurable_error_handler"))]
@@ -45,7 +43,7 @@ pub fn default() -> fn(&mut World, Error) {
 pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, Error)> =
     std::sync::OnceLock::new();
 
-/// The default error handler. This defaults to [`panic`]. If the
+/// The default error handler. This defaults to [`panic()`]. If the
 /// `configurable_error_handler` cargo feature is enabled, then
 /// [`GLOBAL_ERROR_HANDLER`] will be used instead, enabling error handler customization.
 #[cfg(feature = "configurable_error_handler")]
