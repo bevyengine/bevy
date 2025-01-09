@@ -197,6 +197,7 @@ impl TextPipeline {
         // See https://github.com/pop-os/cosmic-text/issues/343
         if bounds.width.is_none() && justify != JustifyText::Left {
             let dimensions = buffer_dimensions(buffer);
+            // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);
         }
 
