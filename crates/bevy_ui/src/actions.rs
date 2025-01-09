@@ -26,7 +26,7 @@ use bevy_reflect::prelude::*;
 /// the enter key press on the focused element,
 /// or the "A" button on a gamepad.
 ///
-/// Buttons should respond to this action via an observer to perform their primary action.
+/// [`Button`](crate::widget::Button)s should respond to this action via an observer to perform their primary action.
 ///
 /// # Bubbling
 ///
