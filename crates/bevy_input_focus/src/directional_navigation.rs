@@ -25,6 +25,7 @@ use bevy_math::{CompassOctant, IVec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
 use bevy_utils::{hashbrown, HashMap};
+use core::ops::Deref;
 use thiserror::Error;
 
 use crate::InputFocus;
@@ -402,7 +403,7 @@ impl Default for NavGrid {
     }
 }
 
-impl core::ops::Deref for NavGrid {
+impl Deref for NavGrid {
     type Target = HashMap<IVec2, Entity>;
 
     fn deref(&self) -> &Self::Target {
