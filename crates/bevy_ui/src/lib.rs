@@ -214,7 +214,12 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Prepare)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
-                widget::update_viewport_render_target_size.in_set(UiSystem::PostLayout),
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since this system will only ever update viewport images.
+                widget::update_viewport_render_target_size
+                    .in_set(UiSystem::PostLayout)
+                    .in_set(AmbiguousWithTextSystem)
+                    .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         )
         .add_observer(widget::on_viewport_added);
