@@ -22,6 +22,7 @@ pub trait DynEq: Any {
     fn dyn_eq(&self, other: &dyn DynEq) -> bool;
 }
 
+// Tests that this trait is dyn-compatible
 const _: Option<Box<dyn DynEq>> = None;
 
 impl<T> DynEq for T
@@ -50,6 +51,7 @@ pub trait DynHash: DynEq {
     fn dyn_hash(&self, state: &mut dyn Hasher);
 }
 
+// Tests that this trait is dyn-compatible
 const _: Option<Box<dyn DynHash>> = None;
 
 impl<T> DynHash for T
