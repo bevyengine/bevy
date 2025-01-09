@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
     world::OnAdd,
 };
-use bevy_hierarchy::{BuildChildren, Children, HierarchyQueryExt};
+use bevy_hierarchy::{BuildChildren, Children};
 use bevy_image::Image;
 use bevy_math::Rect;
 #[cfg(feature = "bevy_ui_picking_backend")]
