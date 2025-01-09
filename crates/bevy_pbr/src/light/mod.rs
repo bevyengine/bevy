@@ -824,7 +824,6 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(

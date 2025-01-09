@@ -504,7 +504,6 @@ impl BundleInfo {
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    #[allow(clippy::too_many_arguments)]
     unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
@@ -594,7 +593,6 @@ impl BundleInfo {
     /// This method _should not_ be called outside of [`BundleInfo::write_components`].
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn initialize_required_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,
