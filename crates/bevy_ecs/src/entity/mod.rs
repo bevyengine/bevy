@@ -995,28 +995,47 @@ impl Entities {
         &self,
         _entity: Entity,
     ) -> EntityDoesNotExistDetails {
-        EntityDoesNotExistDetails {
-            #[cfg(feature = "track_location")]
-            location: self.entity_get_spawned_or_despawned_by(_entity),
+        #[cfg(feature = "track_location")]
+        if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
+            if self.resolve_from_id(_entity.index()).is_some() {
+                EntityDoesNotExistDetails::Reused
+            } else {
+                EntityDoesNotExistDetails::DespawnedBy(location)
+            }
+        } else {
+            EntityDoesNotExistDetails::None
         }
+        #[cfg(not(feature = "track_location"))]
+        EntityDoesNotExistDetails::None
     }
 }
 
 /// Helper struct that, when printed, will write the appropriate details
 /// regarding an entity that did not exist.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct EntityDoesNotExistDetails {
+pub enum EntityDoesNotExistDetails {
+    /// No information available.
+    None,
+    /// Entity was despawned by following code.
     #[cfg(feature = "track_location")]
-    location: Option<&'static Location<'static>>,
+    DespawnedBy(&'static Location<'static>),
+    /// Entity does not exist, but no information is available because its
+    /// index has been reused.
+    #[cfg(feature = "track_location")]
+    Reused,
 }
 
 impl fmt::Display for EntityDoesNotExistDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[cfg(feature = "track_location")]
-        if let Some(location) = self.location {
-            write!(f, "was despawned by {}", location)
-        } else {
-            write!(f, "was never spawned")
+        match self {
+            EntityDoesNotExistDetails::None => write!(f, "was never spawned"),
+            EntityDoesNotExistDetails::DespawnedBy(location) => {
+                write!(f, "was despawned by {}", location)
+            }
+            EntityDoesNotExistDetails::Reused => {
+                write!(f, "does not exist (its index has been reused)")
+            }
         }
         #[cfg(not(feature = "track_location"))]
         write!(
