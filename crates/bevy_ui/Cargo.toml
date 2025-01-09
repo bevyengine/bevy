@@ -43,6 +43,11 @@ smallvec = "1.11"
 accesskit = "0.17"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[dev-dependencies]
+# This is currently a dev dependency for documentation purposes,
+# but it will likely be used as a full dependency in the future.
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
+
 [features]
 default = []
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
