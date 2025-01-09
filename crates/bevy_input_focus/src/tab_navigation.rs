@@ -146,7 +146,6 @@ pub enum TabNavigationError {
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
 #[derive(SystemParam)]
-#[allow(clippy::type_complexity)]
 pub struct TabNavigation<'w, 's> {
     // Query for tab groups.
     tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
