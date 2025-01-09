@@ -19,6 +19,8 @@ pub mod widget;
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_picking::PickSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
@@ -212,13 +214,17 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Prepare)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
+                widget::update_viewport_render_target_size.in_set(UiSystem::PostLayout),
             ),
-        );
+        )
+        .add_observer(widget::on_viewport_added);
+
         build_text_interop(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
         if self.add_picking {
-            app.add_plugins(picking_backend::UiPickingPlugin);
+            app.add_plugins(picking_backend::UiPickingPlugin)
+                .add_systems(PreUpdate, widget::viewport_picking.in_set(PickSet::Last));
         }
 
         if !self.enable_rendering {

@@ -37,6 +37,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 # other
 taffy = { version = "0.7" }
 serde = { version = "1", features = ["derive"], optional = true }
+uuid = { version = "1.1", features = ["v4"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
@@ -53,7 +54,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_platform_support/serialize",
 ]
-bevy_ui_picking_backend = ["bevy_picking"]
+bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
 bevy_ui_debug = []
 
 # Experimental features
