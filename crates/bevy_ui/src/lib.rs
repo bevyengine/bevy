@@ -26,7 +26,6 @@ pub mod picking_backend;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
-mod actions;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -37,7 +36,8 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub use actions::*;
+pub mod actions;
+
 pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
@@ -164,7 +164,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .register_type::<Activate>()
+            .register_type::<actions::Activate>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ComputedNode>()
@@ -209,9 +209,9 @@ impl Plugin for UiPlugin {
             app.add_systems(
                 PreUpdate,
                 (
-                    activate_focus_on_enter,
-                    activate_ui_elements_on_click,
-                    activate_focus_on_gamepad_south,
+                    actions::activate_focus_on_enter,
+                    actions::activate_ui_elements_on_click,
+                    actions::activate_focus_on_gamepad_south,
                 )
                     .in_set(UiSystem::Actions),
             );
