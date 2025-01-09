@@ -45,7 +45,7 @@ impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
     #[expect(
         clippy::too_many_arguments,
-        reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+        reason = "Used by the `bevy_winit::system::create_windows()` system to create a new window any time a `Window` component is added to an entity. Additionally, while this is a publicly-visible API, it only barely hits the threshold for `clippy::too_many_arguments`."
     )]
     pub fn create_window(
         &mut self,
