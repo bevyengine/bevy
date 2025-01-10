@@ -176,6 +176,11 @@ impl World {
     /// This function will return a clone if all components and resources in this world
     /// can be cloned. If that is not possible, [`WorldCloneError`] will be returned instead.
     pub fn try_clone(&self) -> Result<World, WorldCloneError> {
+        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
+        if !unsafe { self.command_queue.is_empty() } {
+            return Err(WorldCloneError::UnappliedCommands);
+        }
+
         let id = WorldId::new().ok_or(WorldCloneError::WorldIdExhausted)?;
         // SAFETY:
         // - storages and type_registry is from self

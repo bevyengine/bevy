@@ -55,6 +55,9 @@ pub enum WorldCloneError {
     /// World id allocation failed.
     #[error("More `bevy` `World`s have been created than is supported.")]
     WorldIdExhausted,
+    /// World has unapplied commands queued.
+    #[error("World cannot be cloned while there are unapplied commands queued.")]
+    UnappliedCommands,
     /// Component clone handler failed to clone component.
     #[error("Component clone handler for component with ID {0:?} failed to clone the component.")]
     FailedToCloneComponent(ComponentId),
