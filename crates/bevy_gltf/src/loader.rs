@@ -1805,7 +1805,7 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     }
 }
 
-/// Maps the texture address mode form glTF to wgpu.
+/// Maps the texture address mode from glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
@@ -1814,7 +1814,7 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     }
 }
 
-/// Maps the `primitive_topology` form glTF to `wgpu`.
+/// Maps the `primitive_topology` from glTF to `wgpu`.
 #[expect(
     clippy::result_large_err,
     reason = "`GltfError` is only barely past the threshold for large errors."

@@ -1202,7 +1202,7 @@ pub trait SortedPhaseItem: PhaseItem {
     /// Sorts a slice of phase items into render order. Generally if the same type
     /// is batched this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
-    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
+    /// which uses an unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
     ///
     /// Implementers can optionally not sort the list at all. This is generally advisable if and

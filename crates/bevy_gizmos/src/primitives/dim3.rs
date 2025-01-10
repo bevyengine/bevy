@@ -413,7 +413,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of lines used to approximate the top an bottom of the cylinder geometry.
+    /// Set the number of lines used to approximate the top and bottom of the cylinder geometry.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
