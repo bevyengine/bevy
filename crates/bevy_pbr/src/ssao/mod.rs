@@ -753,8 +753,15 @@ fn prepare_ssao_bind_groups(
 }
 
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
-    use core::array::from_fn;
-    from_fn(|x| from_fn(|y| hilbert_index(x as u16, y as u16)))
+    let mut t = [[0; 64]; 64];
+
+    for (x, array) in t.iter_mut().enumerate() {
+        for (y, item) in array.iter_mut().enumerate() {
+            *item = hilbert_index(x as u16, y as u16);
+        }
+    }
+
+    t
 }
 
 // https://www.shadertoy.com/view/3tB3z3
