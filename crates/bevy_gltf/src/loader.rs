@@ -1729,7 +1729,10 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-#[cfg(feature = "pbr_multi_layer_material_textures")]
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures"
+))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
