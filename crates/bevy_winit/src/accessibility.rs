@@ -15,15 +15,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    entity::EntityHashMap,
-    prelude::{Entity, EventReader, EventWriter},
-    query::With,
-    schedule::IntoSystemConfigs,
-    system::{NonSendMut, Query, Res, ResMut, Resource},
-};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.

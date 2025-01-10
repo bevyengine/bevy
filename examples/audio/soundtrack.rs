@@ -134,7 +134,7 @@ fn fade_out(
         let current_volume = audio.volume();
         audio.set_volume(current_volume - time.delta_secs() / FADE_TIME);
         if audio.volume() <= 0.0 {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

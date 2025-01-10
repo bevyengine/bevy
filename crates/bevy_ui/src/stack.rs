@@ -133,8 +133,7 @@ mod tests {
         system::Commands,
         world::{CommandQueue, World},
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
-
+    
     use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;

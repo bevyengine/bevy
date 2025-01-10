@@ -202,11 +202,11 @@ mod tests {
         entity::{
             Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
         },
+        hierarchy::Parent,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;

@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn spawn_bar(parent: &mut ChildBuilder) {
+fn spawn_bar(parent: &mut ChildSpawnerCommands) {
     parent
         .spawn((
             Node {
@@ -137,7 +137,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
 }
 
 fn spawn_button_row(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
     text_style: (TextFont, TextColor),
 ) {
@@ -204,7 +204,7 @@ fn spawn_button_row(
 }
 
 fn spawn_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
     action: ButtonValue,
     label: String,

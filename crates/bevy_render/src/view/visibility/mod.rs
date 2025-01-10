@@ -14,19 +14,18 @@ pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
-use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
 use super::NoCpuCulling;
-use crate::{camera::Projection, sync_world::MainEntity};
 use crate::{
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraProjection, Projection},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
+    sync_world::MainEntity,
 };
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -113,6 +112,7 @@ impl PartialEq<&Visibility> for Visibility {
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
+#[component(on_insert = validate_parent_has_component::<Self>)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -669,7 +669,6 @@ where
 mod test {
     use super::*;
     use bevy_app::prelude::*;
-    use bevy_hierarchy::BuildChildren;
 
     #[test]
     fn visibility_propagation() {

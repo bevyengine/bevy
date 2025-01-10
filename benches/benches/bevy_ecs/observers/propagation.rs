@@ -1,10 +1,6 @@
 use core::hint::black_box;
 
-use bevy_ecs::{
-    component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
-};
-use bevy_hierarchy::{BuildChildren, Parent};
-
+use bevy_ecs::prelude::*;
 use criterion::Criterion;
 use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};

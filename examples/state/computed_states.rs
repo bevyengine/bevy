@@ -409,7 +409,7 @@ mod ui {
     }
 
     pub fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-        commands.entity(menu_data.root_entity).despawn_recursive();
+        commands.entity(menu_data.root_entity).despawn();
     }
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

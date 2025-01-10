@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
-use bevy_hierarchy::ValidParentCheckPlugin;
 
 use crate::{
     components::GlobalTransform,
@@ -32,36 +31,35 @@ impl Plugin for TransformPlugin {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>();
 
-        app.add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
-            .configure_sets(
-                PostStartup,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
-            )
-            // add transform systems to startup so the first update is "correct"
-            .add_systems(
-                PostStartup,
-                (
-                    sync_simple_transforms
-                        .in_set(TransformSystem::TransformPropagate)
-                        // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                        // These systems cannot access the same entities,
-                        // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-                        .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
-                ),
-            )
-            .configure_sets(
-                PostUpdate,
-                PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    sync_simple_transforms
-                        .in_set(TransformSystem::TransformPropagate)
-                        .ambiguous_with(PropagateTransformsSet),
-                    propagate_transforms.in_set(PropagateTransformsSet),
-                ),
-            );
+        app.configure_sets(
+            PostStartup,
+            PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+        )
+        // add transform systems to startup so the first update is "correct"
+        .add_systems(
+            PostStartup,
+            (
+                sync_simple_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
+                    // These systems cannot access the same entities,
+                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
+                    .ambiguous_with(PropagateTransformsSet),
+                propagate_transforms.in_set(PropagateTransformsSet),
+            ),
+        )
+        .configure_sets(
+            PostUpdate,
+            PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                sync_simple_transforms
+                    .in_set(TransformSystem::TransformPropagate)
+                    .ambiguous_with(PropagateTransformsSet),
+                propagate_transforms.in_set(PropagateTransformsSet),
+            ),
+        );
     }
 }

@@ -6,8 +6,6 @@ use bevy_ecs::{
     event::EventReader,
     system::{Commands, Query},
 };
-#[cfg(feature = "bevy_hierarchy")]
-use bevy_hierarchy::DespawnRecursiveExt;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -83,9 +81,6 @@ pub fn clear_state_scoped_entities<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
-            #[cfg(feature = "bevy_hierarchy")]
-            commands.entity(entity).despawn_recursive();
-            #[cfg(not(feature = "bevy_hierarchy"))]
             commands.entity(entity).despawn();
         }
     }

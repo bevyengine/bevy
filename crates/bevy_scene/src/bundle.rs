@@ -116,9 +116,9 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        hierarchy::Children,
         prelude::{AppTypeRegistry, ReflectComponent, World},
     };
-    use bevy_hierarchy::{Children, HierarchyPlugin};
     use bevy_reflect::Reflect;
 
     #[derive(Component, Reflect, Default)]
@@ -133,7 +133,6 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
-            .add_plugins(HierarchyPlugin)
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>();

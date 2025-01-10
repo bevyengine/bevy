@@ -8,7 +8,6 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
@@ -168,7 +167,6 @@ impl TextLayout {
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-/// # use bevy_hierarchy::BuildChildren;
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -470,7 +468,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             );
             continue;
         };
-        let mut parent: Entity = **span_parent;
+        let mut parent: Entity = span_parent.0;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
@@ -501,7 +499,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 );
                 break;
             };
-            parent = **next_parent;
+            parent = next_parent.0;
         }
     }
 }

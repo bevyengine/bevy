@@ -27,11 +27,11 @@ use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    hierarchy::{Children, Parent},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
@@ -346,7 +346,6 @@ pub fn handle_tab_navigation(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
 
     use super::*;
 

@@ -1,7 +1,6 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
@@ -168,8 +167,7 @@ mod tests {
         system::{Query, SystemState},
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
-
+    
     use super::{GhostNode, Node, UiChildren, UiRootNodes};
 
     #[derive(Component, PartialEq, Debug)]

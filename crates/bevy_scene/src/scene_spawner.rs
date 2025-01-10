@@ -3,11 +3,11 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
+    hierarchy::Parent,
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -194,9 +194,8 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.despawn();
                 };
             }
         }
@@ -736,7 +735,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                 },
             )

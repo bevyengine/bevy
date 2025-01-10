@@ -135,7 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_image(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     asset_server: &Res<AssetServer>,
     update_transform: impl UpdateTransform + Component,
 ) {
@@ -154,7 +154,7 @@ fn spawn_image(
 }
 
 fn spawn_text(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     asset_server: &Res<AssetServer>,
     update_transform: impl UpdateTransform + Component,
 ) {
@@ -171,9 +171,9 @@ fn spawn_text(
 }
 
 fn spawn_container(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     update_transform: impl UpdateTransform + Component,
-    spawn_children: impl FnOnce(&mut ChildBuilder),
+    spawn_children: impl FnOnce(&mut ChildSpawnerCommands),
 ) {
     let mut transform = Transform::default();
 
