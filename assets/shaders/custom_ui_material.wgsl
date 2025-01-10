@@ -12,8 +12,8 @@
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let r = in.uv - 0.5;
     let b = vec2(
-        select(in.border_widths.x, in.border_widths.y, r.x < 0.),
-        select(in.border_widths.z, in.border_widths.w, r.y < 0.)
+        select(in.border_widths.x, in.border_widths.y, 0. < r.x),
+        select(in.border_widths.z, in.border_widths.w, 0. < r.y)
     );
 
     if any(0.5 - b < abs(r)) {
