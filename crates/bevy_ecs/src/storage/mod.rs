@@ -27,18 +27,11 @@ mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
-use core::ptr::NonNull;
-
-use bevy_ptr::{OwningPtr, Ptr};
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-use crate::{
-    component::{ComponentInfo, Components},
-    entity::ComponentCloneCtx,
-    world::{error::WorldCloneError, World},
-};
+use crate::world::{error::WorldCloneError, World};
 
 /// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]
@@ -53,9 +46,12 @@ pub struct Storages {
     pub non_send_resources: Resources<false>,
 }
 
-// &impl Fn(&ComponentInfo, Ptr, NonNull<u8>);
-
 impl Storages {
+    /// Try to clone [`Storages`]. This is only possible if all components and resources can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Storages`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         world: &World,

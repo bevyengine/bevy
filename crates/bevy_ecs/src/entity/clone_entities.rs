@@ -55,7 +55,14 @@ pub struct ComponentCloneCtx<'a, 'b> {
 }
 
 impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
-    pub unsafe fn new_for_component(
+    /// Create a new [`ComponentCloneCtx`] for specified component.
+    ///
+    /// # Safety
+    /// - `component_info` must be from the `world`.
+    /// - `source_component_ptr` must point to a valid component described by `component_info`.
+    /// - `target_component_ptr` must have enough space allocated to write component described by `component_info`.
+    /// - `type_registry` must be from the `world`.
+    pub(crate) unsafe fn new_for_component(
         component_info: &'a ComponentInfo,
         source_component_ptr: Ptr<'a>,
         target_component_ptr: NonNull<u8>,
@@ -84,12 +91,12 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.target_component_written
     }
 
-    /// Returns the current source entity.
+    /// Returns the current source entity (if available in current context).
     pub fn source(&self) -> Option<Entity> {
         self.entity_cloner.map(|c| c.source)
     }
 
-    /// Returns the current target entity.
+    /// Returns the current target entity (if available in current context).
     pub fn target(&self) -> Option<Entity> {
         self.entity_cloner.map(|c| c.target)
     }
@@ -109,10 +116,12 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.components
     }
 
+    /// Returns an instance of [`Commands`] (if available for current context).
     pub fn commands(&self) -> Option<Commands<'a, '_>> {
-        self.command_queue
-            .as_ref()
-            .map(|queue| unsafe { Commands::new_raw_from_entities(queue.clone(), self.entities) })
+        self.command_queue.as_ref().map(|queue| {
+            // SAFETY: queue outlives 'a
+            unsafe { Commands::new_raw_from_entities(queue.clone(), self.entities) }
+        })
     }
 
     /// Returns a reference to the component on the source entity.
@@ -194,6 +203,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         {
             panic!("TypeId of component '{short_name}' does not match source component TypeId")
         };
+        // SAFETY:
+        // - target_ptr and component have layout described by component_info
         unsafe {
             self.write_target_component_impl(|target_ptr| {
                 target_ptr.cast::<T>().write(component);
@@ -230,7 +241,6 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// # Panics
     /// This will panic if:
     /// - World does not have [`AppTypeRegistry`](`crate::reflect::AppTypeRegistry`).
-    /// - Component does not implement [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr).
     /// - Source component does not have [`TypeId`].
     /// - Passed component's [`TypeId`] does not match source component [`TypeId`].
     /// - Component has already been written once.
@@ -249,6 +259,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
         let layout = self.component_info.layout();
         let component_data_ptr = Box::into_raw(component).cast::<u8>();
+        // SAFETY:
+        // - component_data_ptr and target_ptr don't overlap
+        // - target_ptr and component_data_ptr point to data with layout described by component_info
         unsafe {
             self.write_target_component_impl(|target_ptr| {
                 core::ptr::copy_nonoverlapping(
@@ -262,18 +275,23 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
     }
 
-    /// Return a reference to this context's `EntityCloner` instance.
+    /// Return a reference to this context's `EntityCloner` instance (if available for current context).
     ///
     /// This can be used to issue clone commands using the same cloning configuration:
     /// ```
-    /// # use bevy_ecs::world::{DeferredWorld, World};
+    /// # use bevy_ecs::world::World;
     /// # use bevy_ecs::entity::ComponentCloneCtx;
-    /// fn clone_handler(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
-    ///     let another_target = world.commands().spawn_empty().id();
-    ///     let mut entity_cloner = ctx
-    ///         .entity_cloner()
-    ///         .with_source_and_target(ctx.source(), another_target);
-    ///     world.commands().queue(move |world: &mut World| {
+    /// fn clone_handler(_world: &World, ctx: &mut ComponentCloneCtx) {
+    ///     let Some(commands) = ctx.commands() else { return };
+    ///     let Some(mut entity_cloner) = ctx.entity_cloner()
+    ///         .and_then(|entity_cloner| {
+    ///             let another_target = commands.spawn_empty().id();
+    ///             entity_cloner.with_source_and_target(ctx.source(), another_target))
+    ///         }
+    ///     else {
+    ///         return
+    ///     };
+    ///     commands.queue(move |world: &mut World| {
     ///         entity_cloner.clone_entity(world);
     ///     });
     /// }
@@ -310,6 +328,8 @@ impl EntityCloner {
         let components = world.components();
         let archetype = source_entity.archetype();
         let mut command_queue = CommandQueue::default();
+        #[cfg(feature = "bevy_reflect")]
+        let type_registry = world.get_resource::<crate::reflect::AppTypeRegistry>();
 
         let component_data = Bump::new();
         let mut component_ids: Vec<ComponentId> = Vec::with_capacity(archetype.component_count());
@@ -317,11 +337,15 @@ impl EntityCloner {
 
         fn copy_clone_handler(_world: &World, ctx: &mut ComponentCloneCtx) {
             let count = ctx.component_info().layout().size();
+            // SAFETY:
+            // - This handler is only used for copyable components
+            // - source_ptr and target_ptr don't overlap
+            // - function passed to write_target_component_ptr writes valid data of proper type to target_ptr
             unsafe {
                 ctx.write_target_component_ptr(|source_ptr, target_ptr| {
                     core::ptr::copy_nonoverlapping(source_ptr.as_ptr(), target_ptr.as_ptr(), count);
                     true
-                })
+                });
             }
         }
 
@@ -329,6 +353,7 @@ impl EntityCloner {
             if !self.is_cloning_allowed(&component) {
                 continue;
             }
+            // SAFETY: component is a valid component from the same world as components
             let component_info = unsafe { components.get_info_unchecked(component) };
 
             let handler = match self
@@ -349,26 +374,21 @@ impl EntityCloner {
             let source_component_ptr =
                 unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
 
-            // SAFETY:
-            // - `components` and `component` are from the same world
-            // - `source_component_ptr` is valid and points to the same type as represented by `component`
-            let mut ctx = unsafe {
-                ComponentCloneCtx {
-                    command_queue: Some(command_queue.get_raw()),
-                    component_id: component,
-                    component_info,
-                    components,
-                    entities: world.entities(),
-                    entity_cloner: Some(self),
-                    source_component_ptr,
-                    target_component_written: false,
-                    target_write_buffer: ComponentWriteBuffer::BumpWriteBuffer(BumpWriteBuffer {
-                        target_components_buffer: &component_data,
-                        target_components_ptrs: &mut component_data_ptrs,
-                    }),
-                    #[cfg(feature = "bevy_reflect")]
-                    type_registry: world.get_resource::<crate::reflect::AppTypeRegistry>(),
-                }
+            let mut ctx = ComponentCloneCtx {
+                command_queue: Some(command_queue.get_raw()),
+                component_id: component,
+                component_info,
+                components,
+                entities: world.entities(),
+                entity_cloner: Some(self),
+                source_component_ptr,
+                target_component_written: false,
+                target_write_buffer: ComponentWriteBuffer::BumpWriteBuffer(BumpWriteBuffer {
+                    target_components_buffer: &component_data,
+                    target_components_ptrs: &mut component_data_ptrs,
+                }),
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
             };
 
             (handler)(world, &mut ctx);
@@ -693,8 +713,7 @@ mod tests {
         self as bevy_ecs,
         component::{Component, ComponentCloneHandler, ComponentDescriptor, StorageType},
         entity::EntityCloneBuilder,
-        system::Resource,
-        world::{DeferredWorld, World},
+        world::World,
     };
     use alloc::vec::Vec;
     use bevy_ecs_macros::require;

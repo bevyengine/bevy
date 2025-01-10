@@ -1,7 +1,7 @@
 use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
-    entity::{ComponentCloneCtx, Entity},
+    entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
     world::{error::WorldCloneError, World},
@@ -17,7 +17,6 @@ use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
-    ptr::NonNull,
 };
 mod column;
 
@@ -674,6 +673,11 @@ impl Table {
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
 
+    /// Try to clone [`Table`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Table`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         world: &World,
@@ -686,6 +690,7 @@ impl Table {
             columns.insert(
                 *component_id,
                 column.try_clone(
+                    // SAFETY: component_id is valid because this Table is valid and from the same world as Components.
                     components.get_info_unchecked(*component_id),
                     column_len,
                     world,
@@ -810,6 +815,11 @@ impl Tables {
         }
     }
 
+    /// Try to clone [`Tables`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Tables`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         world: &World,
@@ -821,7 +831,7 @@ impl Tables {
                 world,
                 #[cfg(feature = "bevy_reflect")]
                 type_registry,
-            )?)
+            )?);
         }
         Ok(Self {
             table_ids: self.table_ids.clone(),

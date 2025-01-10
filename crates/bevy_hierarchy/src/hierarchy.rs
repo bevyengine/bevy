@@ -6,7 +6,7 @@ use bevy_ecs::{
     component::ComponentCloneHandler,
     entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
     system::EntityCommands,
-    world::{DeferredWorld, EntityWorldMut, World},
+    world::{EntityWorldMut, World},
 };
 use log::debug;
 

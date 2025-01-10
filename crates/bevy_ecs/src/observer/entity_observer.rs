@@ -2,7 +2,7 @@ use crate::{
     component::{Component, ComponentCloneHandler, ComponentHooks, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
     observer::ObserverState,
-    world::{DeferredWorld, World},
+    world::World,
 };
 use alloc::vec::Vec;
 

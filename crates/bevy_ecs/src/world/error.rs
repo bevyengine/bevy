@@ -49,14 +49,22 @@ impl PartialEq for EntityFetchError {
 
 impl Eq for EntityFetchError {}
 
+/// An error that occurs when cloning world failed.
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorldCloneError {
-    #[error("More `bevy` `World`s have been created than is supported")]
+    /// World id allocation failed.
+    #[error("More `bevy` `World`s have been created than is supported.")]
     WorldIdExhausted,
-    #[error("Component clone handler for component with ID {0:?} failed to clone the component")]
+    /// Component clone handler failed to clone component.
+    #[error("Component clone handler for component with ID {0:?} failed to clone the component.")]
     FailedToCloneComponent(ComponentId),
-    #[error("")]
+    /// Component clone handler failed to clone resource.
+    #[error("Component clone handler for resource with ID {0:?} failed to clone the resource.")]
+    FailedToCloneResource(ComponentId),
+    /// Resource cloned from different thread than the one used to create it.
+    #[error("Tried to clone non-send resource with ID {0:?} from a different thread than the one it was created from.")]
     NonSendResourceCloned(ComponentId),
-    #[error("")]
+    /// Component clone handler is set to `Ignore`.
+    #[error("Component clone handler for component or resource with ID {0:?} is set to Ignore and can't be cloned.")]
     ComponentCantBeCloned(ComponentId),
 }

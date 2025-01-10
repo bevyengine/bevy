@@ -1,8 +1,6 @@
-use core::ptr::NonNull;
-
 use super::*;
 use crate::{
-    component::{self, ComponentCloneHandlerKind, TickCells},
+    component::{ComponentCloneHandlerKind, TickCells},
     entity::ComponentCloneCtx,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
     world::{error::WorldCloneError, World},
@@ -331,6 +329,13 @@ impl ThinColumn {
         self.changed_by.as_slice(len)
     }
 
+    /// Try to clone [`ThinColumn`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`ThinColumn`].
+    /// - [`ThinColumn`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
@@ -758,14 +763,20 @@ impl Column {
         self.changed_by.get_unchecked(row.as_usize())
     }
 
+    /// Try to clone [`Column`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`Column`].
+    /// - [`Column`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
         world: &World,
         #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
     ) -> Result<Self, WorldCloneError> {
-        let len = self.added_ticks.len();
-        let mut column = Self::with_capacity(component_info, len);
+        let mut column = Self::with_capacity(component_info, self.len());
         column.added_ticks = self
             .added_ticks
             .iter()
@@ -795,6 +806,9 @@ impl Column {
                 return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
             }
             ComponentCloneHandlerKind::Copy => {
+                // SAFETY:
+                // - column.data layout is from the same ComponentInfo as the one used to create self
+                // - column.data has capacity of at least self.len
                 column.data.copy_from_unchecked(&self.data);
                 return Ok(column);
             }

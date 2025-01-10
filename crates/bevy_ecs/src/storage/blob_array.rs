@@ -476,10 +476,19 @@ impl BlobArray {
         }
     }
 
+    /// Copy data from other [`BlobArray`].
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - `other` stores data of the same layout as `self`.
+    /// - `other`'s length is `len`.
+    /// - `self` has enough `capacity` to store `len` elements.
     pub unsafe fn copy_from_unchecked(&mut self, other: &Self, len: usize) {
         if other.is_zst() {
             return;
         }
+        // SAFETY:
+        // - other is a valid BlobArray, so it must have a valid array layout
         let num_bytes_to_copy = array_layout_unchecked(&other.layout(), len).size();
         debug_assert!(
             num_bytes_to_copy

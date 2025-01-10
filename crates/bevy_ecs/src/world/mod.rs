@@ -25,6 +25,7 @@ pub use entity_ref::{
     DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
     Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
 };
+use error::WorldCloneError;
 pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -38,7 +39,7 @@ use crate::{
         ComponentId, ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
         RequiredComponentsError, Tick,
     },
-    entity::{AllocAtWithoutReplacement, ComponentCloneCtx, Entities, Entity, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -205,8 +206,14 @@ impl World {
         self.id
     }
 
-    pub fn try_clone(&self) -> Result<World, error::WorldCloneError> {
-        let id = WorldId::new().ok_or(error::WorldCloneError::WorldIdExhausted)?;
+    /// Try to perform full world cloning.
+    ///
+    /// This function will return a clone if all components and resources in this world
+    /// can be cloned. If that is not possible, [`WorldCloneError`] will be returned instead.
+    pub fn try_clone(&self) -> Result<World, WorldCloneError> {
+        let id = WorldId::new().ok_or(WorldCloneError::WorldIdExhausted)?;
+        // SAFETY:
+        // - storages and type_registry is from self
         let storages = unsafe {
             self.storages.try_clone(
                 self,
@@ -3188,16 +3195,18 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
+    /// Sets custom [`ComponentCloneFn`] as default clone handler for this world's components.
     pub fn set_default_component_clone_handler(&mut self, handler: ComponentCloneFn) {
         self.components.set_default_clone_handler(handler);
     }
 
+    /// Sets custom [`ComponentCloneHandler`] as clone handler for component with provided [`ComponentId`].
     pub fn set_component_clone_handler(
         &mut self,
         component_id: ComponentId,
         handler: ComponentCloneHandler,
     ) {
-        self.components.set_clone_handler(component_id, handler)
+        self.components.set_clone_handler(component_id, handler);
     }
 }
 

@@ -13,7 +13,7 @@ use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
-use core::{cell::UnsafeCell, mem::ManuallyDrop, ptr::NonNull};
+use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
 #[cfg(feature = "std")]
 use std::thread::ThreadId;
@@ -88,14 +88,15 @@ impl<const SEND: bool> ResourceData<SEND> {
     }
 
     #[inline]
+    /// Returns `true` if access to `!Send` resources is done on the thread they were created from or resources are `Send`.
     fn try_validate_access(&self) -> bool {
         #[cfg(feature = "std")]
         {
-            return if SEND {
+            if SEND {
                 true
             } else {
                 self.origin_thread_id == Some(std::thread::current().id())
-            };
+            }
         }
 
         // TODO: Handle no_std non-send.
@@ -321,6 +322,13 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.changed_ticks.get_mut().check_tick(change_tick);
     }
 
+    /// Try to clone [`ResourceData`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`ResourceData`].
+    /// - [`ResourceData`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
@@ -373,9 +381,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             added_ticks: UnsafeCell::new(self.added_ticks.read()),
             changed_ticks: UnsafeCell::new(self.changed_ticks.read()),
             type_name: self.type_name.clone(),
-            id: self.id.clone(),
+            id: self.id,
             #[cfg(feature = "std")]
-            origin_thread_id: self.origin_thread_id.clone(),
+            origin_thread_id: self.origin_thread_id,
             #[cfg(feature = "track_location")]
             changed_by: UnsafeCell::new(self.changed_by.read()),
         })
@@ -480,6 +488,11 @@ impl<const SEND: bool> Resources<SEND> {
         }
     }
 
+    /// Try to clone [`Resources`]. This is only possible if all resources can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Resources`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         world: &World,
@@ -491,6 +504,7 @@ impl<const SEND: bool> Resources<SEND> {
             resources.insert(
                 *component_id,
                 res.try_clone(
+                    // SAFETY: component_id is valid because this Table is valid and from the same world as Components.
                     components.get_info_unchecked(*component_id),
                     world,
                     #[cfg(feature = "bevy_reflect")]

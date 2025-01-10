@@ -1,7 +1,7 @@
 use crate::{
     change_detection::MaybeUnsafeCellLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
-    entity::{ComponentCloneCtx, Entity},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
+    entity::Entity,
     storage::{Column, TableRow},
     world::{error::WorldCloneError, World},
 };
@@ -9,7 +9,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, ptr::NonNull};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
@@ -141,6 +141,13 @@ impl ComponentSparseSet {
         }
     }
 
+    /// Try to clone [`ComponentSparseSet`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`ComponentSparseSet`].
+    /// - [`ComponentSparseSet`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         component_info: &ComponentInfo,
@@ -148,14 +155,12 @@ impl ComponentSparseSet {
         #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
     ) -> Result<Self, WorldCloneError> {
         Ok(Self {
-            dense: unsafe {
-                self.dense.try_clone(
-                    component_info,
-                    world,
-                    #[cfg(feature = "bevy_reflect")]
-                    type_registry,
-                )?
-            },
+            dense: self.dense.try_clone(
+                component_info,
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
             entities: self.entities.clone(),
             sparse: self.sparse.clone(),
         })
@@ -631,6 +636,11 @@ impl SparseSets {
         self.sets.is_empty()
     }
 
+    /// Try to clone [`SparseSets`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`SparseSets`] and `AppTypeRegistry` are from `world`.
     pub(crate) unsafe fn try_clone(
         &self,
         world: &World,
@@ -639,6 +649,7 @@ impl SparseSets {
         let mut sets = SparseSet::with_capacity(self.sets.len());
         let components = world.components();
         for (component_id, set) in self.sets.iter() {
+            // SAFETY: component_id is valid because this SparseSets is valid and from the same world as Components.
             let component_info = components.get_info_unchecked(*component_id);
             let set = set.try_clone(
                 component_info,

@@ -874,12 +874,12 @@ impl Clone for ComponentDescriptor {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
-            storage_type: self.storage_type.clone(),
-            is_send_and_sync: self.is_send_and_sync.clone(),
-            type_id: self.type_id.clone(),
-            layout: self.layout.clone(),
-            drop: self.drop.clone(),
-            mutable: self.mutable.clone(),
+            storage_type: self.storage_type,
+            is_send_and_sync: self.is_send_and_sync,
+            type_id: self.type_id,
+            layout: self.layout,
+            drop: self.drop,
+            mutable: self.mutable,
             // SAFETY: This clone handler will be used with the same component
             clone_handler: unsafe { self.clone_handler.clone_unchecked() },
         }
@@ -1006,6 +1006,8 @@ impl ComponentDescriptor {
         self.mutable
     }
 
+    /// Return currently set [`ComponentCloneHandler`] for this component.
+    #[inline]
     pub fn clone_handler(&self) -> &ComponentCloneHandler {
         &self.clone_handler
     }
@@ -1056,6 +1058,10 @@ impl ComponentCloneHandler {
         }
     }
 
+    /// Set clone handler to use copy.
+    ///
+    /// # Safety
+    /// - Must ensure that this handler is used only with the same type as T
     pub unsafe fn copy_handler<T: Copy>() -> Self {
         Self {
             entity_handler: ComponentCloneHandlerKind::Copy,
@@ -1080,6 +1086,9 @@ impl ComponentCloneHandler {
         }
     }
 
+    /// Set a different component clone handler when performing world cloning instead of entity cloning.
+    ///
+    /// Provided handler should generally be infallible and access only source component data.
     pub fn with_world_clone_handler(self, handler: Self) -> Self {
         Self {
             entity_handler: self.entity_handler,
@@ -1095,10 +1104,12 @@ impl ComponentCloneHandler {
         self.world_handler
     }
 
+    /// # Safety
+    /// - Cloned handler can be used only with the same component as the one used to get this handler.
     pub(crate) unsafe fn clone_unchecked(&self) -> Self {
         Self {
-            entity_handler: self.entity_handler.clone(),
-            world_handler: self.world_handler.clone(),
+            entity_handler: self.entity_handler,
+            world_handler: self.world_handler,
         }
     }
 }
@@ -1707,6 +1718,7 @@ impl Components {
         self.default_component_clone_handler
     }
 
+    /// Sets [`ComponentCloneHandler`] for component with specified [`ComponentId`]
     pub fn set_clone_handler(&mut self, component_id: ComponentId, handler: ComponentCloneHandler) {
         if let Some(info) = self.components.get_mut(component_id.0) {
             info.descriptor.clone_handler = handler;
