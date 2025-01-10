@@ -664,7 +664,7 @@ impl World {
 
     /// # Safety
     ///
-    /// See [`trigger_targets_dynamic_ref`]
+    /// See `trigger_targets_dynamic_ref`
     unsafe fn trigger_targets_dynamic_ref_with_caller<E: Event, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
