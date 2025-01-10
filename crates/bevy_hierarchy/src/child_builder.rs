@@ -783,7 +783,10 @@ mod tests {
         );
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "The inner field is used to differentiate the different instances of this struct."
+    )]
     #[derive(Component)]
     struct C(u32);
 
