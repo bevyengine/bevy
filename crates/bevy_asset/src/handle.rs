@@ -551,8 +551,11 @@ mod tests {
     }
 
     /// Typed and Untyped `Handles` should be orderable amongst each other and themselves
-    #[allow(clippy::cmp_owned)]
     #[test]
+    #[expect(
+        clippy::cmp_owned,
+        reason = "This lints on the assertion that a typed handle converted to an untyped handle maintains its ordering compared to an untyped handle. While the conversion would normally be useless, we need to ensure that converted handles maintain their ordering, making the conversion necessary here."
+    )]
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 

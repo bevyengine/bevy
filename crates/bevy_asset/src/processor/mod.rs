@@ -478,7 +478,6 @@ impl AssetProcessor {
         self.set_state(ProcessorState::Finished).await;
     }
 
-    #[allow(unused)]
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,

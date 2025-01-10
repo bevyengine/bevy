@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -264,9 +262,10 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -378,7 +377,6 @@ pub fn queue_ui_slices(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

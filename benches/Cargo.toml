@@ -47,6 +47,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -59,6 +60,13 @@ too_long_first_doc_paragraph = "allow"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
+
+[lib]
+# This fixes the "Unrecognized Option" error when running commands like
+# `cargo bench -- --save-baseline before` by disabling the default benchmark harness.
+# See <https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options>
+# for more information.
+bench = false
 
 [[bench]]
 name = "ecs"

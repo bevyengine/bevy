@@ -896,7 +896,6 @@ impl RenderMeshInstanceGpuQueue {
 impl RenderMeshInstanceGpuBuilder {
     /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
-    #[allow(clippy::too_many_arguments)]
     fn update(
         mut self,
         entity: MainEntity,
@@ -957,7 +956,8 @@ impl RenderMeshInstanceGpuBuilder {
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
-                let previous_mesh_input_uniform = current_input_buffer.get(current_uniform_index);
+                let previous_mesh_input_uniform =
+                    current_input_buffer.get_unchecked(current_uniform_index);
                 let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
                 mesh_input_uniform.previous_input_index = previous_input_index;
 
@@ -1169,7 +1169,6 @@ pub fn extract_meshes_for_cpu_building(
 ///
 /// This is the variant of the system that runs when we're using GPU
 /// [`MeshUniform`] building.
-#[allow(clippy::too_many_arguments)]
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
@@ -1350,7 +1349,6 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
-#[allow(clippy::too_many_arguments)]
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
     batched_instance_buffers: ResMut<
@@ -2410,7 +2408,6 @@ impl MeshBindGroupPair {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<RenderMesh>>,
     mut groups: ResMut<MeshBindGroups>,

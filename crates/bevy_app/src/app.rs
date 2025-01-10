@@ -5,6 +5,7 @@ use crate::{
 use alloc::{
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -28,9 +29,6 @@ use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-
-#[cfg(feature = "downcast")]
-use alloc::vec::Vec;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -522,7 +520,6 @@ impl App {
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,

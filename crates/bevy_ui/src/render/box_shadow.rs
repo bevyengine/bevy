@@ -251,14 +251,15 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -325,7 +326,7 @@ pub fn extract_shadows(
                     color: drop_shadow.color.into(),
                     bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    camera_entity: render_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
@@ -379,7 +380,6 @@ pub fn queue_shadows(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

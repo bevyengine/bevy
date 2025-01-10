@@ -43,7 +43,6 @@ pub struct WinitWindows {
 
 impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_window(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -147,6 +146,8 @@ impl WinitWindows {
             use winit::platform::ios::WindowAttributesExtIOS;
             winit_window_attributes = winit_window_attributes
                 .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
         }
 
         let display_info = DisplayInfo {
@@ -241,7 +242,11 @@ impl WinitWindows {
                 winit_window_attributes.with_min_inner_size(min_inner_size)
             };
 
-        #[allow(unused_mut)]
+        #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+        #[allow(
+            unused_mut,
+            reason = "This variable needs to be mutable if `cfg(target_arch = \"wasm32\")`"
+        )]
         let mut winit_window_attributes = winit_window_attributes.with_title(window.title.as_str());
 
         #[cfg(target_arch = "wasm32")]

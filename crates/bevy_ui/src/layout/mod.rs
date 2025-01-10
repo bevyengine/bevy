@@ -96,7 +96,6 @@ struct CameraLayoutInfo {
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,

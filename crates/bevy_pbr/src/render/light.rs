@@ -206,7 +206,6 @@ impl FromWorld for ShadowSamplers {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
@@ -515,7 +514,7 @@ pub(crate) fn extracted_light_removed(
     mut commands: Commands,
 ) {
     if let Some(mut v) = commands.get_entity(trigger.target()) {
-        v.remove::<LightViewEntities>();
+        v.try_remove::<LightViewEntities>();
     }
 }
 
@@ -684,7 +683,6 @@ pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -1532,15 +1530,12 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 /// For each shadow cascade, iterates over all the meshes "visible" from it and
 /// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
 /// appropriate.
-#[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    (render_meshes, render_mesh_instances): (
+    (render_meshes, render_mesh_instances, render_materials, render_material_instances): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
-    ),
-    (render_materials, render_material_instances): (
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances<M>>,
     ),
@@ -1549,6 +1544,7 @@ pub fn queue_shadows<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
@@ -1670,18 +1666,23 @@ pub fn queue_shadows<M: Material>(
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
+                let batch_set_key = ShadowBatchSetKey {
+                    pipeline: pipeline_id,
+                    draw_function: draw_shadow_mesh,
+                    vertex_slab: vertex_slab.unwrap_or_default(),
+                    index_slab,
+                };
+
                 shadow_phase.add(
+                    batch_set_key,
                     ShadowBinKey {
-                        batch_set_key: ShadowBatchSetKey {
-                            pipeline: pipeline_id,
-                            draw_function: draw_shadow_mesh,
-                            vertex_slab: vertex_slab.unwrap_or_default(),
-                            index_slab,
-                        },
                         asset_id: mesh_instance.mesh_asset_id.into(),
                     },
                     (entity, main_entity),
-                    BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
+                    BinnedRenderPhaseType::mesh(
+                        mesh_instance.should_batch(),
+                        &gpu_preprocessing_support,
+                    ),
                 );
             }
         }
@@ -1689,7 +1690,13 @@ pub fn queue_shadows<M: Material>(
 }
 
 pub struct Shadow {
-    pub key: ShadowBinKey,
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: ShadowBatchSetKey,
+    /// Information that separates items into bins.
+    pub bin_key: ShadowBinKey,
     pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -1723,22 +1730,8 @@ pub struct ShadowBatchSetKey {
 /// Data used to bin each object in the shadow map phase.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
-    /// The key of the *batch set*.
-    ///
-    /// As batches belong to a batch set, meshes in a batch must obviously be
-    /// able to be placed in a single batch set.
-    pub batch_set_key: ShadowBatchSetKey,
-
     /// The object.
     pub asset_id: UntypedAssetId,
-}
-
-impl PhaseItemBinKey for ShadowBinKey {
-    type BatchSetKey = ShadowBatchSetKey;
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        Some(self.batch_set_key.clone())
-    }
 }
 
 impl PhaseItem for Shadow {
@@ -1753,7 +1746,7 @@ impl PhaseItem for Shadow {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.batch_set_key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -1778,17 +1771,20 @@ impl PhaseItem for Shadow {
 }
 
 impl BinnedPhaseItem for Shadow {
+    type BatchSetKey = ShadowBatchSetKey;
     type BinKey = ShadowBinKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Shadow {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -1799,7 +1795,7 @@ impl BinnedPhaseItem for Shadow {
 impl CachedRenderPipelinePhaseItem for Shadow {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.batch_set_key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
