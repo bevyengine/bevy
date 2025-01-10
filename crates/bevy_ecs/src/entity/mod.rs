@@ -986,8 +986,6 @@ impl Entities {
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
-        let meta = self.meta.get(entity.index() as usize);
-        std::println!("{entity} → {meta:?}");
         self.meta.get(entity.index() as usize).and_then(|meta| {
             // Generation is incremented immediately upon despawn
             if (meta.generation == entity.generation)
@@ -1006,7 +1004,6 @@ impl Entities {
         &self,
         _entity: Entity,
     ) -> EntityDoesNotExistDetails {
-        #[cfg(feature = "track_location")]
         EntityDoesNotExistDetails {
             #[cfg(feature = "track_location")]
             location: self.entity_get_spawned_or_despawned_by(_entity),
