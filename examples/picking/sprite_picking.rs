@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let i = (anchor_index % 3) as f32;
                 let j = (anchor_index / 3) as f32;
 
-                // spawn black square behind sprite to show anchor point
+                // Spawn black square behind sprite to show anchor point
                 commands
                     .spawn((
                         Sprite::from_color(Color::BLACK, sprite_size),
