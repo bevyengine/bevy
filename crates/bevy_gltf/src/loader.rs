@@ -454,7 +454,10 @@ async fn load_gltf<'a, 'b, 'c>(
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                #[expect(
+                                    clippy::unnecessary_map_on_constructor,
+                                    reason = "While the mapping is unnecessary, it is much more readable at this level of indentation. Additionally, mapping makes it more consistent with the other branches."
+                                )]
                                 Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
@@ -1368,7 +1371,10 @@ fn warn_on_differing_texture_transforms(
 }
 
 /// Loads a glTF node.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn load_node(
     gltf_node: &Node,
     world_builder: &mut WorldChildBuilder,
@@ -1723,7 +1729,10 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-#[allow(dead_code)]
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures"
+))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
@@ -1806,7 +1815,10 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
 }
 
 /// Maps the `primitive_topology` form glTF to `wgpu`.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -1876,7 +1888,10 @@ struct GltfTreeIterator<'a> {
 }
 
 impl<'a> GltfTreeIterator<'a> {
-    #[allow(clippy::result_large_err)]
+    #[expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )]
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
@@ -2088,7 +2103,14 @@ struct ClearcoatExtension {
 }
 
 impl ClearcoatExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2171,7 +2193,14 @@ struct AnisotropyExtension {
 }
 
 impl AnisotropyExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2305,7 +2334,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
-        #[expect(unused)]
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
         #[derive(Resource)]
         struct GltfHandle(Handle<Gltf>);
 
