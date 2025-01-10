@@ -1,6 +1,5 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::color::palettes::css::YELLOW;
 use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
 
 /// This example uses a shader source file from the assets subdirectory
