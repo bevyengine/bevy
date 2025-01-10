@@ -2,8 +2,13 @@
 
 #import bevy_pbr::mesh_bindings::mesh
 
+#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+@group(1) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
+@group(1) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
+#else   // MULTIPLE_LIGHTMAPS_IN_ARRAY
 @group(1) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(1) @binding(5) var lightmaps_sampler: sampler;
+#endif  // MULTIPLE_LIGHTMAPS_IN_ARRAY
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
@@ -21,9 +26,20 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     // control flow uniformity problems.
     //
     // TODO(pcwalton): Consider bicubic filtering.
+#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+    let lightmap_slot = mesh[instance_index].material_and_lightmap_bind_group_slot >> 16u;
+    return textureSampleLevel(
+        lightmaps_textures[lightmap_slot],
+        lightmaps_samplers[lightmap_slot],
+        lightmap_uv,
+        0.0
+    ).rgb * exposure;
+#else   // MULTIPLE_LIGHTMAPS_IN_ARRAY
     return textureSampleLevel(
         lightmaps_texture,
         lightmaps_sampler,
         lightmap_uv,
-        0.0).rgb * exposure;
+        0.0
+    ).rgb * exposure;
+#endif  // MULTIPLE_LIGHTMAPS_IN_ARRAY
 }

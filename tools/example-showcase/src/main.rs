@@ -353,7 +353,7 @@ fn main() {
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
                         if let Err(err) = renamed_screenshot {
-                            println!("Failed to rename screenshot: {:?}", err);
+                            println!("Failed to rename screenshot: {}", err);
                             no_screenshot_examples.push((to_run, duration));
                         } else {
                             successful_examples.push((to_run, duration));
@@ -505,7 +505,7 @@ header_message = \"Examples (WebGL2)\"
                     continue;
                 }
 
-                // This beautifys the category name
+                // This beautifies the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't

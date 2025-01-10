@@ -1,13 +1,15 @@
-use bevy_utils::all_tuples;
+use alloc::{boxed::Box, vec, vec::Vec};
+use variadics_please::all_tuples;
 
 use crate::{
+    result::Result,
     schedule::{
         condition::{BoxedCondition, Condition},
-        graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
+        graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
         Chain,
     },
-    system::{BoxedSystem, IntoSystem, System},
+    system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
@@ -47,7 +49,7 @@ pub struct NodeConfig<T> {
 }
 
 /// Stores configuration for a single system.
-pub type SystemConfig = NodeConfig<BoxedSystem>;
+pub type SystemConfig = NodeConfig<ScheduleSystem>;
 
 /// A collections of generic [`NodeConfig`]s.
 pub enum NodeConfigs<T> {
@@ -65,10 +67,10 @@ pub enum NodeConfigs<T> {
 }
 
 /// A collection of [`SystemConfig`].
-pub type SystemConfigs = NodeConfigs<BoxedSystem>;
+pub type SystemConfigs = NodeConfigs<ScheduleSystem>;
 
 impl SystemConfigs {
-    fn new_system(system: BoxedSystem) -> Self {
+    fn new_system(system: ScheduleSystem) -> Self {
         // include system in its default sets
         let sets = system.default_system_sets().into_iter().collect();
         Self::NodeConfig(SystemConfig {
@@ -293,7 +295,7 @@ where
     /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
@@ -305,7 +307,7 @@ where
     /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
@@ -429,7 +431,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// If the preceding node on a edge has deferred parameters, a [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {
@@ -440,7 +442,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemConfigs {
         self.into_configs().chain_ignore_deferred()
     }
@@ -517,16 +519,35 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
+#[doc(hidden)]
+pub struct Infallible;
+
+impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
     fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
+        let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
+        SystemConfigs::new_system(Box::new(wrapper))
     }
 }
 
-impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
+/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
+#[doc(hidden)]
+pub struct Fallible;
+
+impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F
+where
+    F: IntoSystem<(), Result, Marker>,
+{
+    fn into_configs(self) -> SystemConfigs {
+        let boxed_system = Box::new(IntoSystem::into_system(self));
+        SystemConfigs::new_system(boxed_system)
+    }
+}
+
+impl IntoSystemConfigs<()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> SystemConfigs {
         SystemConfigs::new_system(self)
     }
@@ -610,16 +631,16 @@ where
     /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
     }
 
-    /// Runs before all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
+    /// Runs after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
-    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// If automatically inserting [`ApplyDeferred`](crate::schedule::ApplyDeferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
@@ -672,7 +693,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemSetConfigs {
         self.into_configs().chain_ignore_deferred()
     }

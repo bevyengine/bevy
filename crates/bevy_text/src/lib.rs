@@ -29,8 +29,6 @@
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
 
-#![allow(clippy::type_complexity)]
-
 extern crate alloc;
 
 mod bounds;
@@ -62,16 +60,13 @@ pub use text_access::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::Text2dBundle;
-    #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
         TextFont, TextLayout, TextSpan,
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, Animation};
 use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
@@ -113,11 +108,13 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
             .register_type::<TextFont>()
+            .register_type::<LineHeight>()
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .register_type::<TextLayout>()
             .register_type::<ComputedTextBlock>()
+            .register_type::<TextEntity>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
@@ -138,7 +135,8 @@ impl Plugin for TextPlugin {
                     calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
                 )
                     .chain()
-                    .in_set(Update2dText),
+                    .in_set(Update2dText)
+                    .after(Animation),
             )
             .add_systems(Last, trim_cosmic_cache);
 

@@ -432,7 +432,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -585,7 +584,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 }
 
 pub struct PreparedUiMaterial<T: UiMaterial> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub key: T::Data,
 }
@@ -597,6 +596,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
@@ -613,7 +613,6 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -622,7 +621,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<&ExtractedView>,
+    views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -632,7 +631,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
-        let Ok(view) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok(view) = views.get(extracted_uinode.camera_entity) else {
             continue;
         };
         let Some(transparent_phase) =
@@ -663,7 +662,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }

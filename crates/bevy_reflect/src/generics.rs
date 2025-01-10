@@ -1,7 +1,6 @@
 use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
-use alloc::borrow::Cow;
-use alloc::sync::Arc;
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::ops::Deref;
 use derive_more::derive::From;
 
@@ -242,6 +241,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{Reflect, Typed};
+    use alloc::string::String;
     use core::fmt::Debug;
 
     #[test]

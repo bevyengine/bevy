@@ -11,16 +11,12 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_tasks::Task;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::EntryRef,
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
 use core::{future::Future, hash::Hash, mem, ops::Deref};
-use derive_more::derive::{Display, Error, From};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
+use thiserror::Error;
+use tracing::{debug, error};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
@@ -214,7 +210,6 @@ impl ShaderCache {
         Ok(())
     }
 
-    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -264,7 +259,7 @@ impl ShaderCache {
                 ));
 
                 debug!(
-                    "processing shader {:?}, with shader defs {:?}",
+                    "processing shader {}, with shader defs {:?}",
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
@@ -329,7 +324,7 @@ impl ShaderCache {
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_utils::futures::now_or_never(error)
+                    bevy_tasks::futures::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
@@ -874,7 +869,7 @@ impl PipelineCache {
             }
 
             CachedPipelineState::Creating(ref mut task) => {
-                match bevy_utils::futures::check_ready(task) {
+                match bevy_tasks::futures::check_ready(task) {
                     Some(Ok(pipeline)) => {
                         cached_pipeline.state = CachedPipelineState::Ok(pipeline);
                         return;
@@ -921,7 +916,10 @@ impl PipelineCache {
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
-            #[allow(clippy::match_same_arms)]
+            #[expect(
+                clippy::match_same_arms,
+                reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+            )]
             match event {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
@@ -974,19 +972,17 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum PipelineCacheError {
-    #[display(
-        "Pipeline could not be compiled because the following shader could not be loaded: {_0:?}"
+    #[error(
+        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
     )]
-    #[error(ignore)]
     ShaderNotLoaded(AssetId<Shader>),
-
-    ProcessShaderError(naga_oil::compose::ComposerError),
-    #[display("Shader import not yet available.")]
+    #[error(transparent)]
+    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
+    #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
-    #[display("Could not create shader module: {_0}")]
-    #[error(ignore)]
+    #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
 }
 

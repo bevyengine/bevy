@@ -42,6 +42,14 @@ struct Args {
     /// use the grid layout model
     #[argh(switch)]
     grid: bool,
+
+    /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
+    #[argh(switch)]
+    respawn: bool,
+
+    /// set the root node to display none, removing all nodes from the layout.
+    #[argh(switch)]
+    display_none: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -51,6 +59,8 @@ fn main() {
     let args: Args = argh::from_env();
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
+
+    warn!(include_str!("warning_string.txt"));
 
     let mut app = App::new();
 
@@ -72,6 +82,10 @@ fn main() {
     })
     .add_systems(Update, (button_system, set_text_colors_changed));
 
+    app.add_systems(Startup, |mut commands: Commands| {
+        commands.spawn(Camera2d);
+    });
+
     if args.grid {
         app.add_systems(Startup, setup_grid);
     } else {
@@ -90,6 +104,14 @@ fn main() {
                 .iter_mut()
                 .for_each(|mut text| text.set_changed());
         });
+    }
+
+    if args.respawn {
+        if args.grid {
+            app.add_systems(Update, (despawn_ui, setup_grid).chain());
+        } else {
+            app.add_systems(Update, (despawn_ui, setup_flex).chain());
+        }
     }
 
     app.insert_resource(args).run();
@@ -119,7 +141,6 @@ fn button_system(
 }
 
 fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
     } else {
@@ -134,9 +155,13 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2d);
     commands
         .spawn(Node {
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Flex
+            },
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -171,7 +196,6 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 }
 
 fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
     } else {
@@ -186,10 +210,13 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2d);
     commands
         .spawn(Node {
-            display: Display::Grid,
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Grid
+            },
             width: Val::Percent(100.),
             height: Val::Percent(100.0),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
@@ -220,7 +247,6 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_button(
     commands: &mut ChildBuilder,
     background_color: Color,
@@ -267,4 +293,8 @@ fn spawn_button(
             ));
         });
     }
+}
+
+fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<Parent>)>) {
+    commands.entity(*root_node).despawn_recursive();
 }

@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -237,6 +235,7 @@ pub struct ExtractedUiTextureSlice {
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub inverse_scale_factor: f32,
     pub main_entity: MainEntity,
 }
 
@@ -263,9 +262,10 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -331,6 +331,7 @@ pub fn extract_ui_texture_slices(
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
+                inverse_scale_factor: uinode.inverse_scale_factor,
                 main_entity: entity.into(),
             },
         );
@@ -342,13 +343,13 @@ pub fn queue_ui_slices(
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
+        let Ok((view_entity, view)) = views.get(extracted_slicer.camera_entity) else {
             continue;
         };
 
@@ -371,12 +372,11 @@ pub fn queue_ui_slices(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
         });
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -440,7 +440,7 @@ pub fn prepare_ui_slices(
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
@@ -473,7 +473,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
@@ -608,7 +608,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size(),
+                        uinode_rect.size() * texture_slices.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 
@@ -764,20 +764,20 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
-            let target_side_height = target_size.x * (border[2] - border[0]);
-            let target_side_width = target_size.y * (border[3] - border[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
+            let target_side_width = target_size.x * (border[2] - border[0]);
+            let target_side_height = target_size.y * (border[3] - border[1]);
 
             // compute the number of times to repeat the side and center slices when tiling along each axis
             // if the returned value is `1.` the slice will be stretched to fill the axis.
             let repeat_side_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, sides_scale_mode);
             let repeat_center_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, center_scale_mode);
             let repeat_center_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, center_scale_mode);
 
             [
                 slices,

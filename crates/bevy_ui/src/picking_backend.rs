@@ -19,8 +19,6 @@
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 
-#![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
@@ -29,7 +27,7 @@ use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::hashbrown::HashMap;
+use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -65,13 +63,14 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
 ) {
     // For each camera, the pointer and its position
-    let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::new();
+    let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
+
+    let default_camera_entity = default_ui_camera.get();
 
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
@@ -95,20 +94,20 @@ pub fn ui_picking(
             let Ok((_, camera_data, _)) = camera_query.get(camera) else {
                 continue;
             };
-            let mut pointer_pos = pointer_location.position;
-            if let Some(viewport) = camera_data.logical_viewport_rect() {
-                pointer_pos -= viewport.min;
+            let mut pointer_pos =
+                pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
+            if let Some(viewport) = camera_data.physical_viewport_rect() {
+                pointer_pos -= viewport.min.as_vec2();
             }
-            let scaled_pointer_pos = pointer_pos / **ui_scale;
             pointer_pos_by_camera
                 .entry(camera)
                 .or_default()
-                .insert(pointer_id, scaled_pointer_pos);
+                .insert(pointer_id, pointer_pos);
         }
     }
 
     // The list of node entities hovered for each (camera, pointer) combo
-    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::new();
+    let mut hit_nodes = HashMap::<(Entity, PointerId), Vec<Entity>>::default();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -134,7 +133,7 @@ pub fn ui_picking(
         let Some(camera_entity) = node
             .target_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -190,7 +189,7 @@ pub fn ui_picking(
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
+                .or(default_camera_entity)
             else {
                 continue;
             };

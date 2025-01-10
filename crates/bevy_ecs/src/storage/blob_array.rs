@@ -77,6 +77,8 @@ impl BlobArray {
     /// # Safety
     /// - The element at index `index` is safe to access.
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///
+    /// [`Vec::len`]: alloc::vec::Vec::len
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         #[cfg(debug_assertions)]
@@ -98,6 +100,8 @@ impl BlobArray {
     /// # Safety
     /// - The element with at index `index` is safe to access.
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///
+    /// [`Vec::len`]: alloc::vec::Vec::len
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         #[cfg(debug_assertions)]
@@ -134,6 +138,8 @@ impl BlobArray {
     /// # Safety
     /// - The type `T` must be the type of the items in this [`BlobArray`].
     /// - `slice_len` <= `len`
+    ///
+    /// [`Vec::len`]: alloc::vec::Vec::len
     pub unsafe fn get_sub_slice<T>(&self, slice_len: usize) -> &[UnsafeCell<T>] {
         #[cfg(debug_assertions)]
         debug_assert!(slice_len <= self.capacity);
@@ -151,6 +157,8 @@ impl BlobArray {
     /// # Safety
     /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
+    ///
+    /// [`Vec::clear`]: alloc::vec::Vec::clear
     pub unsafe fn clear(&mut self, len: usize) {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity >= len);
@@ -413,7 +421,7 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
-    /// This method will can [`Self::swap_remove_unchecked`] and drop the result.
+    /// This method will call [`Self::swap_remove_unchecked`] and drop the result.
     ///
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).

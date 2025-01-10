@@ -4,7 +4,12 @@ use crate::{
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
+
+#[cfg(not(feature = "portable-atomic"))]
 use core::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicUsize, Ordering};
 
 use super::unsafe_world_cell::UnsafeWorldCell;
 
@@ -94,6 +99,7 @@ impl SparseSetIndex for WorldId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn world_ids_unique() {

@@ -1,7 +1,7 @@
 use core::ops::Range;
 
 use super::{ImageNodeBindGroups, UiBatch, UiMeta};
-use crate::DefaultCameraView;
+use crate::UiCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -16,26 +16,27 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
-    default_camera_view_query: QueryState<&'static DefaultCameraView>,
+    camera_view_query:
+        QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
+    ui_camera_view_query: QueryState<&'static UiCameraView>,
 }
 
 impl UiPassNode {
     pub fn new(world: &mut World) -> Self {
         Self {
-            ui_view_query: world.query_filtered(),
-            default_camera_view_query: world.query(),
+            camera_view_query: world.query_filtered(),
+            ui_camera_view_query: world.query(),
         }
     }
 }
 
 impl Node for UiPassNode {
     fn update(&mut self, world: &mut World) {
-        self.ui_view_query.update_archetypes(world);
-        self.default_camera_view_query.update_archetypes(world);
+        self.camera_view_query.update_archetypes(world);
+        self.ui_camera_view_query.update_archetypes(world);
     }
 
     fn run(
@@ -56,19 +57,20 @@ impl Node for UiPassNode {
             return Ok(());
         };
 
-        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
+        let Ok((target, camera)) = self.camera_view_query.get_manual(world, input_view_entity)
+        else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
 
-        // use the "default" view entity if it is defined
-        let view_entity = if let Ok(default_view) = self
-            .default_camera_view_query
+        // use the UI view entity if it is defined
+        let view_entity = if let Ok(ui_camera_view) = self
+            .ui_camera_view_query
             .get_manual(world, input_view_entity)
         {
-            default_view.0
+            ui_camera_view.0
         } else {
             input_view_entity
         };
@@ -126,7 +128,7 @@ impl PhaseItem for TransparentUi {
 
     #[inline]
     fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index
+        self.extra_index.clone()
     }
 
     #[inline]
@@ -206,6 +208,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
         RenderCommandResult::Success
     }
 }
+
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;

@@ -9,10 +9,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{ResMut, Resource},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
@@ -81,7 +80,6 @@ impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
-    #[allow(clippy::too_many_arguments)]
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
@@ -98,6 +96,7 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
+        let mut line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -107,6 +106,12 @@ impl TextPipeline {
         computed.entities.clear();
 
         for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+            // Save this span entity in the computed text block.
+            computed.entities.push(TextEntity { entity, depth });
+
+            if span.is_empty() {
+                continue;
+            }
             // Return early if a font is not loaded yet.
             if !fonts.contains(text_font.font.id()) {
                 spans.clear();
@@ -122,11 +127,9 @@ impl TextPipeline {
                 return Err(TextError::NoSuchFont);
             }
 
-            // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
-
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
+            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -143,7 +146,6 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let line_height = font_size * 1.2;
         let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
@@ -168,8 +170,7 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics(font_system, metrics);
-        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -204,7 +205,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
-    #[allow(clippy::too_many_arguments)]
     pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
@@ -338,7 +338,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,
@@ -483,7 +482,13 @@ fn get_attrs<'a>(
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
-        .metrics(Metrics::relative(text_font.font_size, 1.2).scale(scale_factor as f32))
+        .metrics(
+            Metrics {
+                font_size: text_font.font_size,
+                line_height: text_font.line_height.eval(text_font.font_size),
+            }
+            .scale(scale_factor as f32),
+        )
         .color(cosmic_text::Color(color.to_linear().as_u32()));
     attrs
 }

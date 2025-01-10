@@ -1,57 +1,269 @@
-use alloc::borrow::Cow;
-
-use bevy_utils::all_tuples;
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
+use core::fmt::{Debug, Formatter};
 
 use crate::{
-    func::args::{ArgInfo, GetOwnership, Ownership},
+    func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
+    func::signature::ArgumentSignature,
+    func::FunctionOverloadError,
     type_info::impl_type_methods,
     Type, TypePath,
 };
+
+use variadics_please::all_tuples;
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// This information can be retrieved directly from certain functions and closures
 /// using the [`TypedFunction`] trait, and manually constructed otherwise.
 ///
+/// It is compromised of one or more [`SignatureInfo`] structs,
+/// allowing it to represent functions with multiple sets of arguments (i.e. "overloaded functions").
+///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
-    args: Vec<ArgInfo>,
-    return_info: ReturnInfo,
+    arg_count: ArgCount,
+    signatures: Box<[SignatureInfo]>,
 }
 
 impl FunctionInfo {
-    /// Create a new [`FunctionInfo`] for a function with the given name.
+    /// Create a new [`FunctionInfo`] for a function with the given signature.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
+    pub fn new(signature: SignatureInfo) -> Self {
+        Self {
+            name: signature.name.clone(),
+            arg_count: ArgCount::new(signature.arg_count()).unwrap(),
+            signatures: vec![signature].into(),
+        }
+    }
+
+    /// Create a new [`FunctionInfo`] from a set of signatures.
+    ///
+    /// Returns an error if the given iterator is empty or contains duplicate signatures.
+    pub fn try_from_iter(
+        signatures: impl IntoIterator<Item = SignatureInfo>,
+    ) -> Result<Self, FunctionOverloadError> {
+        let mut iter = signatures.into_iter();
+
+        let base = iter.next().ok_or(FunctionOverloadError::MissingSignature)?;
+
+        if base.arg_count() > ArgCount::MAX_COUNT {
+            return Err(FunctionOverloadError::TooManyArguments(
+                ArgumentSignature::from(&base),
+            ));
+        }
+
+        let mut info = Self::new(base);
+
+        for signature in iter {
+            if signature.arg_count() > ArgCount::MAX_COUNT {
+                return Err(FunctionOverloadError::TooManyArguments(
+                    ArgumentSignature::from(&signature),
+                ));
+            }
+
+            info = info.with_overload(signature).map_err(|sig| {
+                FunctionOverloadError::DuplicateSignature(ArgumentSignature::from(&sig))
+            })?;
+        }
+
+        Ok(info)
+    }
+
+    /// The base signature for this function.
+    ///
+    /// All functions—including overloaded functions—are guaranteed to have at least one signature.
+    /// The first signature used to define the [`FunctionInfo`] is considered the base signature.
+    pub fn base(&self) -> &SignatureInfo {
+        &self.signatures[0]
+    }
+
+    /// Whether this function is overloaded.
+    ///
+    /// This is determined by the existence of multiple signatures.
+    pub fn is_overloaded(&self) -> bool {
+        self.signatures.len() > 1
+    }
+
+    /// Set the name of the function.
+    pub fn with_name(mut self, name: Option<impl Into<Cow<'static, str>>>) -> Self {
+        self.name = name.map(Into::into);
+        self
+    }
+
+    /// The name of the function.
+    ///
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
+    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// unless the function is a closure, anonymous function, or function pointer,
+    /// in which case the name will be `None`.
+    ///
+    /// For overloaded functions, this will be the name of the base signature,
+    /// unless manually overwritten using [`Self::with_name`].
+    ///
+    /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
+    }
+
+    /// Add a signature to this function.
+    ///
+    /// If a signature with the same [`ArgumentSignature`] already exists,
+    /// an error is returned with the given signature.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
+    pub fn with_overload(mut self, signature: SignatureInfo) -> Result<Self, SignatureInfo> {
+        let is_duplicate = self.signatures.iter().any(|s| {
+            s.arg_count() == signature.arg_count()
+                && ArgumentSignature::from(s) == ArgumentSignature::from(&signature)
+        });
+
+        if is_duplicate {
+            return Err(signature);
+        }
+
+        self.arg_count.add(signature.arg_count());
+        self.signatures = IntoIterator::into_iter(self.signatures)
+            .chain(Some(signature))
+            .collect();
+        Ok(self)
+    }
+
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will contain the full set of counts for all signatures.
+    ///
+    /// [overloaded]: crate::func#overloading-functions
+    pub fn arg_count(&self) -> ArgCount {
+        self.arg_count
+    }
+
+    /// The signatures of the function.
+    ///
+    /// This is guaranteed to always contain at least one signature.
+    /// Overloaded functions will contain two or more.
+    pub fn signatures(&self) -> &[SignatureInfo] {
+        &self.signatures
+    }
+
+    /// Returns a wrapper around this info that implements [`Debug`] for pretty-printing the function.
+    ///
+    /// This can be useful for more readable debugging and logging.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{FunctionInfo, TypedFunction};
+    /// #
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let info = add.get_function_info();
+    ///
+    /// let pretty = info.pretty_printer();
+    /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+    /// ```
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+        PrettyPrintFunctionInfo::new(self)
+    }
+
+    /// Extend this [`FunctionInfo`] with another without checking for duplicates.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given signature has more than the maximum number of arguments
+    /// as specified by [`ArgCount::MAX_COUNT`].
+    pub(super) fn extend_unchecked(&mut self, other: FunctionInfo) {
+        if self.name.is_none() {
+            self.name = other.name;
+        }
+
+        let signatures = core::mem::take(&mut self.signatures);
+        self.signatures = IntoIterator::into_iter(signatures)
+            .chain(IntoIterator::into_iter(other.signatures))
+            .collect();
+        self.arg_count = self
+            .signatures
+            .iter()
+            .fold(ArgCount::default(), |mut count, sig| {
+                count.add(sig.arg_count());
+                count
+            });
+    }
+}
+
+impl TryFrom<SignatureInfo> for FunctionInfo {
+    type Error = ArgCountOutOfBoundsError;
+
+    fn try_from(signature: SignatureInfo) -> Result<Self, Self::Error> {
+        let count = signature.arg_count();
+        if count > ArgCount::MAX_COUNT {
+            return Err(ArgCountOutOfBoundsError(count));
+        }
+
+        Ok(Self::new(signature))
+    }
+}
+
+impl TryFrom<Vec<SignatureInfo>> for FunctionInfo {
+    type Error = FunctionOverloadError;
+
+    fn try_from(signatures: Vec<SignatureInfo>) -> Result<Self, Self::Error> {
+        Self::try_from_iter(signatures)
+    }
+}
+
+impl<const N: usize> TryFrom<[SignatureInfo; N]> for FunctionInfo {
+    type Error = FunctionOverloadError;
+
+    fn try_from(signatures: [SignatureInfo; N]) -> Result<Self, Self::Error> {
+        Self::try_from_iter(signatures)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SignatureInfo {
+    name: Option<Cow<'static, str>>,
+    args: Box<[ArgInfo]>,
+    return_info: ReturnInfo,
+}
+
+impl SignatureInfo {
+    /// Create a new [`SignatureInfo`] for a function with the given name.
     pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: Some(name.into()),
-            args: Vec::new(),
+            args: Box::new([]),
             return_info: ReturnInfo::new::<()>(),
         }
     }
 
-    /// Create a new [`FunctionInfo`] with no name.
+    /// Create a new [`SignatureInfo`] with no name.
     ///
     /// For the purposes of debugging and [registration],
-    /// it's recommended to use [`FunctionInfo::named`] instead.
+    /// it's recommended to use [`Self::named`] instead.
     ///
     /// [registration]: crate::func::FunctionRegistry
     pub fn anonymous() -> Self {
         Self {
             name: None,
-            args: Vec::new(),
+            args: Box::new([]),
             return_info: ReturnInfo::new::<()>(),
         }
-    }
-
-    /// Create a new [`FunctionInfo`] from the given function.
-    pub fn from<F, Marker>(function: &F) -> Self
-    where
-        F: TypedFunction<Marker>,
-    {
-        function.get_function_info()
     }
 
     /// Set the name of the function.
@@ -69,7 +281,9 @@ impl FunctionInfo {
         name: impl Into<Cow<'static, str>>,
     ) -> Self {
         let index = self.args.len();
-        self.args.push(ArgInfo::new::<T>(index).with_name(name));
+        self.args = IntoIterator::into_iter(self.args)
+            .chain(Some(ArgInfo::new::<T>(index).with_name(name)))
+            .collect();
         self
     }
 
@@ -80,7 +294,7 @@ impl FunctionInfo {
     /// It's preferable to use [`Self::with_arg`] to add arguments to the function
     /// as it will automatically set the index of the argument.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.args = args;
+        self.args = IntoIterator::into_iter(self.args).chain(args).collect();
         self
     }
 
@@ -109,7 +323,7 @@ impl FunctionInfo {
     /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// the default name will always be the full path to the function as returned by [`core::any::type_name`],
     /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
@@ -164,6 +378,161 @@ impl ReturnInfo {
     }
 }
 
+/// A wrapper around [`FunctionInfo`] that implements [`Debug`] for pretty-printing function information.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::func::{FunctionInfo, PrettyPrintFunctionInfo, TypedFunction};
+/// #
+/// fn add(a: i32, b: i32) -> i32 {
+///     a + b
+/// }
+///
+/// let info = add.get_function_info();
+///
+/// let pretty = PrettyPrintFunctionInfo::new(&info);
+/// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+/// ```
+pub struct PrettyPrintFunctionInfo<'a> {
+    info: &'a FunctionInfo,
+    include_fn_token: bool,
+    include_name: bool,
+}
+
+impl<'a> PrettyPrintFunctionInfo<'a> {
+    /// Create a new pretty-printer for the given [`FunctionInfo`].
+    pub fn new(info: &'a FunctionInfo) -> Self {
+        Self {
+            info,
+            include_fn_token: false,
+            include_name: false,
+        }
+    }
+
+    /// Include the function name in the pretty-printed output.
+    pub fn include_name(mut self) -> Self {
+        self.include_name = true;
+        self
+    }
+
+    /// Include the `fn` token in the pretty-printed output.
+    pub fn include_fn_token(mut self) -> Self {
+        self.include_fn_token = true;
+        self
+    }
+}
+
+impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if self.include_fn_token {
+            write!(f, "fn")?;
+
+            if self.include_name {
+                write!(f, " ")?;
+            }
+        }
+
+        match (self.include_name, self.info.name()) {
+            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, None) => write!(f, "_")?,
+            _ => {}
+        }
+
+        if self.info.is_overloaded() {
+            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            let mut set = f.debug_set();
+            for signature in self.info.signatures() {
+                set.entry(&PrettyPrintSignatureInfo::new(signature));
+            }
+            set.finish()
+        } else {
+            // `(arg0: i32, arg1: i32) -> ()`
+            PrettyPrintSignatureInfo::new(self.info.base()).fmt(f)
+        }
+    }
+}
+
+/// A wrapper around [`SignatureInfo`] that implements [`Debug`] for pretty-printing function signature information.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::func::{FunctionInfo, PrettyPrintSignatureInfo, TypedFunction};
+/// #
+/// fn add(a: i32, b: i32) -> i32 {
+///     a + b
+/// }
+///
+/// let info = add.get_function_info();
+///
+/// let pretty = PrettyPrintSignatureInfo::new(info.base());
+/// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+/// ```
+pub struct PrettyPrintSignatureInfo<'a> {
+    info: &'a SignatureInfo,
+    include_fn_token: bool,
+    include_name: bool,
+}
+
+impl<'a> PrettyPrintSignatureInfo<'a> {
+    /// Create a new pretty-printer for the given [`SignatureInfo`].
+    pub fn new(info: &'a SignatureInfo) -> Self {
+        Self {
+            info,
+            include_fn_token: false,
+            include_name: false,
+        }
+    }
+
+    /// Include the function name in the pretty-printed output.
+    pub fn include_name(mut self) -> Self {
+        self.include_name = true;
+        self
+    }
+
+    /// Include the `fn` token in the pretty-printed output.
+    pub fn include_fn_token(mut self) -> Self {
+        self.include_fn_token = true;
+        self
+    }
+}
+
+impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if self.include_fn_token {
+            write!(f, "fn")?;
+
+            if self.include_name {
+                write!(f, " ")?;
+            }
+        }
+
+        match (self.include_name, self.info.name()) {
+            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, None) => write!(f, "_")?,
+            _ => {}
+        }
+
+        write!(f, "(")?;
+
+        // We manually write the args instead of using `DebugTuple` to avoid trailing commas
+        // and (when used with `{:#?}`) unnecessary newlines
+        for (index, arg) in self.info.args().iter().enumerate() {
+            if index > 0 {
+                write!(f, ", ")?;
+            }
+
+            let name = arg.name().unwrap_or("_");
+            let ty = arg.type_path();
+            write!(f, "{name}: {ty}")?;
+        }
+
+        let ret = self.info.return_info().type_path();
+        write!(f, ") -> {ret}")
+    }
+}
+
 /// A static accessor to compile-time type information for functions.
 ///
 /// This is the equivalent of [`Typed`], but for function.
@@ -191,7 +560,7 @@ impl ReturnInfo {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFnMut, TypedFunction};
+/// # use bevy_reflect::func::{ArgList, ReflectFnMut, TypedFunction};
 /// #
 /// fn print(value: String) {
 ///   println!("{}", value);
@@ -199,9 +568,9 @@ impl ReturnInfo {
 ///
 /// let info = print.get_function_info();
 /// assert!(info.name().unwrap().ends_with("print"));
-/// assert_eq!(info.arg_count(), 1);
-/// assert_eq!(info.args()[0].type_path(), "alloc::string::String");
-/// assert_eq!(info.return_info().type_path(), "()");
+/// assert!(info.arg_count().contains(1));
+/// assert_eq!(info.base().args()[0].type_path(), "alloc::string::String");
+/// assert_eq!(info.base().return_info().type_path(), "()");
 /// ```
 ///
 /// # Trait Parameters
@@ -240,18 +609,19 @@ macro_rules! impl_typed_function {
             Function: FnMut($($Arg),*) -> ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                create_info::<Function>()
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 0;
-                        vec![
-                            $(ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info(ReturnInfo::new::<ReturnType>())
+                FunctionInfo::new(
+                    create_info::<Function>()
+                        .with_args({
+                            let mut _index = 0;
+                            vec![
+                                $(ArgInfo::new::<$Arg>({
+                                    _index += 1;
+                                    _index - 1
+                                }),)*
+                            ]
+                        })
+                        .with_return_info(ReturnInfo::new::<ReturnType>())
+                )
             }
         }
 
@@ -263,20 +633,21 @@ macro_rules! impl_typed_function {
             for<'a> &'a ReturnType: TypePath + GetOwnership,
             Function: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a ReturnType,
         {
-            fn function_info() -> $crate::func::FunctionInfo {
-                create_info::<Function>()
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            ArgInfo::new::<&Receiver>(0),
-                            $($crate::func::args::ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info(ReturnInfo::new::<&ReturnType>())
+            fn function_info() -> FunctionInfo {
+                FunctionInfo::new(
+                    create_info::<Function>()
+                        .with_args({
+                            let mut _index = 1;
+                            vec![
+                                ArgInfo::new::<&Receiver>(0),
+                                $($crate::func::args::ArgInfo::new::<$Arg>({
+                                    _index += 1;
+                                    _index - 1
+                                }),)*
+                            ]
+                        })
+                        .with_return_info(ReturnInfo::new::<&ReturnType>())
+                )
             }
         }
 
@@ -289,19 +660,20 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                create_info::<Function>()
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            ArgInfo::new::<&mut Receiver>(0),
-                            $(ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info(ReturnInfo::new::<&mut ReturnType>())
+                FunctionInfo::new(
+                    create_info::<Function>()
+                        .with_args({
+                            let mut _index = 1;
+                            vec![
+                                ArgInfo::new::<&mut Receiver>(0),
+                                $(ArgInfo::new::<$Arg>({
+                                    _index += 1;
+                                    _index - 1
+                                }),)*
+                            ]
+                        })
+                        .with_return_info(ReturnInfo::new::<&mut ReturnType>())
+                )
             }
         }
 
@@ -314,19 +686,20 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                create_info::<Function>()
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            ArgInfo::new::<&mut Receiver>(0),
-                            $(ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info(ReturnInfo::new::<&ReturnType>())
+                FunctionInfo::new(
+                    create_info::<Function>()
+                        .with_args({
+                            let mut _index = 1;
+                            vec![
+                                ArgInfo::new::<&mut Receiver>(0),
+                                $(ArgInfo::new::<$Arg>({
+                                    _index += 1;
+                                    _index - 1
+                                }),)*
+                            ]
+                        })
+                        .with_return_info(ReturnInfo::new::<&ReturnType>())
+                )
             }
         }
     };
@@ -351,14 +724,14 @@ all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 /// | Anonymous function | `foo::bar::{{closure}}` | `None`                  |
 /// | Function pointer   | `fn() -> String`        | `None`                  |
 ///
-/// [`type_name`]: std::any::type_name
-fn create_info<F>() -> FunctionInfo {
+/// [`type_name`]: core::any::type_name
+fn create_info<F>() -> SignatureInfo {
     let name = core::any::type_name::<F>();
 
     if name.ends_with("{{closure}}") || name.starts_with("fn(") {
-        FunctionInfo::anonymous()
+        SignatureInfo::anonymous()
     } else {
-        FunctionInfo::named(name)
+        SignatureInfo::named(name)
     }
 }
 
@@ -383,10 +756,10 @@ mod tests {
             info.name().unwrap(),
             "bevy_reflect::func::info::tests::should_create_function_info::add"
         );
-        assert_eq!(info.arg_count(), 2);
-        assert_eq!(info.args()[0].type_path(), "i32");
-        assert_eq!(info.args()[1].type_path(), "i32");
-        assert_eq!(info.return_info().type_path(), "i32");
+        assert_eq!(info.base().arg_count(), 2);
+        assert_eq!(info.base().args()[0].type_path(), "i32");
+        assert_eq!(info.base().args()[1].type_path(), "i32");
+        assert_eq!(info.base().return_info().type_path(), "i32");
     }
 
     #[test]
@@ -402,10 +775,10 @@ mod tests {
 
         let info = add.get_function_info();
         assert!(info.name().is_none());
-        assert_eq!(info.arg_count(), 2);
-        assert_eq!(info.args()[0].type_path(), "i32");
-        assert_eq!(info.args()[1].type_path(), "i32");
-        assert_eq!(info.return_info().type_path(), "i32");
+        assert_eq!(info.base().arg_count(), 2);
+        assert_eq!(info.base().args()[0].type_path(), "i32");
+        assert_eq!(info.base().args()[1].type_path(), "i32");
+        assert_eq!(info.base().return_info().type_path(), "i32");
     }
 
     #[test]
@@ -420,10 +793,10 @@ mod tests {
 
         let info = add.get_function_info();
         assert!(info.name().is_none());
-        assert_eq!(info.arg_count(), 2);
-        assert_eq!(info.args()[0].type_path(), "i32");
-        assert_eq!(info.args()[1].type_path(), "i32");
-        assert_eq!(info.return_info().type_path(), "i32");
+        assert_eq!(info.base().arg_count(), 2);
+        assert_eq!(info.base().args()[0].type_path(), "i32");
+        assert_eq!(info.base().args()[1].type_path(), "i32");
+        assert_eq!(info.base().return_info().type_path(), "i32");
     }
 
     #[test]
@@ -439,9 +812,30 @@ mod tests {
 
         let info = add.get_function_info();
         assert!(info.name().is_none());
-        assert_eq!(info.arg_count(), 2);
-        assert_eq!(info.args()[0].type_path(), "i32");
-        assert_eq!(info.args()[1].type_path(), "i32");
-        assert_eq!(info.return_info().type_path(), "()");
+        assert_eq!(info.base().arg_count(), 2);
+        assert_eq!(info.base().args()[0].type_path(), "i32");
+        assert_eq!(info.base().args()[1].type_path(), "i32");
+        assert_eq!(info.base().return_info().type_path(), "()");
+    }
+
+    #[test]
+    fn should_pretty_print_info() {
+        // fn add(a: i32, b: i32) -> i32 {
+        //     a + b
+        // }
+        //
+        // let info = add.get_function_info().with_name("add");
+        //
+        // let pretty = info.pretty_printer();
+        // assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+        //
+        // let pretty = info.pretty_printer().include_fn_token();
+        // assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
+        //
+        // let pretty = info.pretty_printer().include_name();
+        // assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
+        //
+        // let pretty = info.pretty_printer().include_fn_token().include_name();
+        // assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
     }
 }
