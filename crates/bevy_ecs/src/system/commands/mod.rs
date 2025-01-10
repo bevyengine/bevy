@@ -1402,7 +1402,7 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         self.queue_handled(
             entity_command::insert_by_id(component_id, value),
-            error_handler::warn(),
+            error_handler::silent(),
         )
     }
 
@@ -1456,7 +1456,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle), error_handler::warn())
+        self.queue_handled(entity_command::insert(bundle), error_handler::silent())
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1555,7 +1555,10 @@ impl<'a> EntityCommands<'a> {
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert_if_new(bundle), error_handler::warn())
+        self.queue_handled(
+            entity_command::insert_if_new(bundle),
+            error_handler::silent(),
+        )
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1597,7 +1600,53 @@ impl<'a> EntityCommands<'a> {
     where
         T: Bundle,
     {
-        self.queue(entity_command::remove::<T>())
+        self.queue_handled(entity_command::remove::<T>(), error_handler::warn())
+    }
+
+    /// Removes a [`Bundle`] of components from the entity.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::remove`], this will not panic if the associated entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can remove individual components:
+    ///         .try_remove::<Defense>()
+    ///         // You can also remove pre-defined Bundles of components:
+    ///         .try_remove::<CombatBundle>()
+    ///         // You can also remove tuples of components and bundles.
+    ///         // This is equivalent to the calls above:
+    ///         .try_remove::<(Defense, CombatBundle)>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
+    /// ```
+    pub fn try_remove<T>(&mut self) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.queue_handled(entity_command::remove::<T>(), error_handler::silent())
     }
 
     /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
