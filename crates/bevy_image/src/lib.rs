@@ -1,5 +1,9 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![allow(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 
 extern crate alloc;
 
