@@ -123,7 +123,7 @@ impl ImageFormat {
             )]
             #[allow(
                 unreachable_patterns,
-                reason = "The wildcard pattern will be unreachable if all formats are enabled, but otherwise it will be reachable"
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
             )]
             _ => &[],
         }
@@ -178,7 +178,7 @@ impl ImageFormat {
             )]
             #[allow(
                 unreachable_patterns,
-                reason = "The wildcard pattern will be unreachable if all formats are enabled, but otherwise it will be reachable"
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
             )]
             _ => &[],
         }
@@ -296,7 +296,7 @@ impl ImageFormat {
             )]
             #[allow(
                 unreachable_patterns,
-                reason = "The wildcard pattern will be unreachable if all formats are enabled, but otherwise it will be reachable"
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
             )]
             _ => return None,
         })
