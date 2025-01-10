@@ -41,7 +41,7 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "wgpu-types",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", features = [
-  "bevy_reflect"
+  "bevy_reflect",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
