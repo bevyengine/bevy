@@ -2,11 +2,7 @@
 //! while preserving [`GlobalTransform`].
 
 use crate::prelude::{GlobalTransform, Transform};
-use bevy_ecs::{
-    entity::Entity,
-    system::EntityCommands,
-    world::{EntityWorldMut, World},
-};
+use bevy_ecs::{entity::Entity, system::EntityCommands, world::EntityWorldMut};
 use bevy_hierarchy::BuildChildren;
 
 /// Collection of methods similar to [`BuildChildren`], but preserving each
@@ -35,18 +31,14 @@ pub trait BuildChildrenTransformExt {
 
 impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.set_parent_in_place(parent);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.set_parent_in_place(parent);
         })
     }
 
     fn remove_parent_in_place(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_parent_in_place();
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_parent_in_place();
         })
     }
 }

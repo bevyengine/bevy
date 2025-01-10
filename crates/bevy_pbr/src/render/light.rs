@@ -514,7 +514,7 @@ pub(crate) fn extracted_light_removed(
     mut commands: Commands,
 ) {
     if let Some(mut v) = commands.get_entity(trigger.target()) {
-        v.remove::<LightViewEntities>();
+        v.try_remove::<LightViewEntities>();
     }
 }
 
