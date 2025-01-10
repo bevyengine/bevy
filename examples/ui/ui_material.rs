@@ -46,9 +46,9 @@ fn setup(
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
-                    corner_color: YELLOW.to_f32_array().into(),
+                    corner_color: LinearRgba::NONE.to_f32_array().into(),
                 })),
-                BorderRadius::all(Val::Px(10.)),
+                BorderRadius::bottom_right(Val::Px(15.)),
             ));
         });
 }

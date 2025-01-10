@@ -20,10 +20,10 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     );
 
     // select the corner radii of either the left side corners or the right side corners depending on the current horizontal position compared to the center of the target rectangle
-    let rx = select(in.border_radius.xw, in.border_radius.yz, point.x < 0.);
+    let rx = select(in.border_radius.xw, in.border_radius.yz, 0. < point.x);
 
     // select the correct radii from the remaining corners according to the vertical position relative to the center
-    let r = select(rx.x, rx.y, point.y < 0.);
+    let r = select(rx.x, rx.y, 0. < point.y);
 
     // distance of the current pixel from the nearest corner.
     let d = 0.5 * in.size - abs(point);
@@ -31,7 +31,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // is the pixel inside the border on either the x or y axis
     if any(d < b) {
         // is the pixel distance along either the x and y axis less than the corner radius
-        if all(d < vec2(r)) {
+        if length(d) < r {
             return corner_color;
         } else {
             return border_color;
