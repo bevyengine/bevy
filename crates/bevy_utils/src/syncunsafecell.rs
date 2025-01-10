@@ -115,7 +115,7 @@ impl<T> SyncUnsafeCell<[T]> {
 }
 
 impl<T: Default> Default for SyncUnsafeCell<T> {
-    /// Creates an `SyncUnsafeCell`, with the `Default` value for T.
+    /// Creates a new `SyncUnsafeCell` with the `Default` value for T.
     fn default() -> SyncUnsafeCell<T> {
         SyncUnsafeCell::new(Default::default())
     }
