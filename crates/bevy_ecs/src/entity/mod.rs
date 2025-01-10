@@ -979,67 +979,59 @@ impl Entities {
     }
 
     /// Returns the source code location from which this entity has last been spawned
-    /// or despawned. Returns `None` if this entity has never existed.
+    /// or despawned. Returns `None` if its index has been reused by another entity
+    /// or if this entity has never existed.
     #[cfg(feature = "track_location")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
-        self.meta
-            .get(entity.index() as usize)
-            .and_then(|meta| meta.spawned_or_despawned_by)
+        let meta = self.meta.get(entity.index() as usize);
+        std::println!("{entity} → {meta:?}");
+        self.meta.get(entity.index() as usize).and_then(|meta| {
+            // Generation is incremented immediately upon despawn
+            if (meta.generation == entity.generation)
+                | (meta.location.archetype_id == ArchetypeId::INVALID)
+                    & (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1))
+            {
+                meta.spawned_or_despawned_by
+            } else {
+                None
+            }
+        })
     }
 
     /// Constructs a message explaining why an entity does not exists, if known.
-    pub(crate) fn entity_does_not_exist_error_details_message(
+    pub(crate) fn entity_does_not_exist_error_details(
         &self,
         _entity: Entity,
     ) -> EntityDoesNotExistDetails {
         #[cfg(feature = "track_location")]
-        if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
-            if let Some(found) = self.resolve_from_id(_entity.index()) {
-                if found.generation > _entity.generation {
-                    EntityDoesNotExistDetails::None
-                } else {
-                    EntityDoesNotExistDetails::Reused
-                }
-            } else {
-                EntityDoesNotExistDetails::DespawnedBy(location)
-            }
-        } else {
-            EntityDoesNotExistDetails::None
+        EntityDoesNotExistDetails {
+            #[cfg(feature = "track_location")]
+            location: self.entity_get_spawned_or_despawned_by(_entity),
         }
-        #[cfg(not(feature = "track_location"))]
-        EntityDoesNotExistDetails::None
     }
 }
 
 /// Helper struct that, when printed, will write the appropriate details
 /// regarding an entity that did not exist.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum EntityDoesNotExistDetails {
-    /// No information available.
-    None,
-    /// Entity was despawned by following code.
+pub struct EntityDoesNotExistDetails {
     #[cfg(feature = "track_location")]
-    DespawnedBy(&'static Location<'static>),
-    /// Entity does not exist, but no information is available because its
-    /// index has been reused.
-    #[cfg(feature = "track_location")]
-    Reused,
+    location: Option<&'static Location<'static>>,
 }
 
 impl fmt::Display for EntityDoesNotExistDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[cfg(feature = "track_location")]
-        match self {
-            EntityDoesNotExistDetails::None => write!(f, "was never spawned"),
-            EntityDoesNotExistDetails::DespawnedBy(location) => {
-                write!(f, "was despawned by {}", location)
-            }
-            EntityDoesNotExistDetails::Reused => {
-                write!(f, "does not exist (its index has been reused)")
-            }
+        if let Some(location) = self.location {
+            write!(f, "was despawned by {location}")
+        } else {
+            write!(
+                f,
+                "does not exist (index has been reused or was never spawned)"
+            )
         }
         #[cfg(not(feature = "track_location"))]
         write!(

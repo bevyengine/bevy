@@ -125,7 +125,7 @@ unsafe impl WorldEntityFetch for Entity {
             .ok_or(EntityFetchError::NoSuchEntity(
                 self,
                 cell.entities()
-                    .entity_does_not_exist_error_details_message(self),
+                    .entity_does_not_exist_error_details(self),
             ))?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
@@ -140,7 +140,7 @@ unsafe impl WorldEntityFetch for Entity {
         let ecell = cell.get_entity(self).ok_or(EntityFetchError::NoSuchEntity(
             self,
             cell.entities()
-                .entity_does_not_exist_error_details_message(self),
+                .entity_does_not_exist_error_details(self),
         ))?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         Ok(unsafe { EntityMut::new(ecell) })
@@ -216,7 +216,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
             let ecell = cell.get_entity(id).ok_or(EntityFetchError::NoSuchEntity(
                 id,
                 cell.entities()
-                    .entity_does_not_exist_error_details_message(id),
+                    .entity_does_not_exist_error_details(id),
             ))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             *r = MaybeUninit::new(unsafe { EntityMut::new(ecell) });
@@ -276,7 +276,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
             let ecell = cell.get_entity(id).ok_or(EntityFetchError::NoSuchEntity(
                 id,
                 cell.entities()
-                    .entity_does_not_exist_error_details_message(id),
+                    .entity_does_not_exist_error_details(id),
             ))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             refs.push(unsafe { EntityMut::new(ecell) });
@@ -323,7 +323,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
             let ecell = cell.get_entity(id).ok_or(EntityFetchError::NoSuchEntity(
                 id,
                 cell.entities()
-                    .entity_does_not_exist_error_details_message(id),
+                    .entity_does_not_exist_error_details(id),
             ))?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             refs.insert(id, unsafe { EntityMut::new(ecell) });

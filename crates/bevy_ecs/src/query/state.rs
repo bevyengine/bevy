@@ -1020,7 +1020,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 entity,
                 world
                     .entities()
-                    .entity_does_not_exist_error_details_message(entity),
+                    .entity_does_not_exist_error_details(entity),
             ))?;
         if !self
             .matched_archetypes
