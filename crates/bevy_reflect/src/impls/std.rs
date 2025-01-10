@@ -10,10 +10,11 @@ use crate::{
     set_apply, set_partial_eq, set_try_apply,
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
     ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
-    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
-    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    FromReflectError, FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map,
+    MapInfo, MapIter, MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize,
+    ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    ReflectSerialize, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
+    TypeRegistry, Typed,
 };
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -347,9 +348,14 @@ macro_rules! impl_reflect_for_atomic {
             where
                 $ty: Any + Send + Sync,
             {
-                fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                    Some(<$ty>::new(
-                        reflect.try_downcast_ref::<$ty>()?.load($ordering),
+                fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+                    Ok(<$ty>::new(
+                        reflect.try_downcast_ref::<$ty>()
+                            .ok_or_else(|| FromReflectError::MismatchedTypes {
+                                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                                to_type: Into::into(<Self as TypePath>::type_path()),
+                            })?
+                            .load($ordering),
                     ))
                 }
             }
@@ -421,7 +427,7 @@ macro_rules! impl_reflect_for_veclike {
 
             fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
                 let value = value.try_take::<T>().unwrap_or_else(|value| {
-                    T::from_reflect(&*value).unwrap_or_else(|| {
+                    T::from_reflect(&*value).unwrap_or_else(|_| {
                         panic!(
                             "Attempted to insert invalid value of type {}.",
                             value.reflect_type_path()
@@ -436,7 +442,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn push(&mut self, value: Box<dyn PartialReflect>) {
-                let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+                let value = T::take_from_reflect(value).unwrap_or_else(|(_, value)| {
                     panic!(
                         "Attempted to push invalid value of type {}.",
                         value.reflect_type_path()
@@ -568,8 +574,8 @@ macro_rules! impl_reflect_for_veclike {
         }
 
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> FromReflect for $ty {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let ref_list = reflect.reflect_ref().as_list().ok()?;
+            fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+                let ref_list = reflect.reflect_ref().as_list()?;
 
                 let mut new_list = Self::with_capacity(ref_list.len());
 
@@ -577,7 +583,7 @@ macro_rules! impl_reflect_for_veclike {
                     $push(&mut new_list, T::from_reflect(field)?);
                 }
 
-                Some(new_list)
+                Ok(new_list)
             }
         }
     };
@@ -658,7 +664,7 @@ macro_rules! impl_reflect_for_hashmap {
                 let mut dynamic_map = DynamicMap::default();
                 dynamic_map.set_represented_type(self.get_represented_type_info());
                 for (k, v) in self {
-                    let key = K::from_reflect(k).unwrap_or_else(|| {
+                    let key = K::from_reflect(k).unwrap_or_else(|_| {
                         panic!(
                             "Attempted to clone invalid key of type {}.",
                             k.reflect_type_path()
@@ -674,13 +680,13 @@ macro_rules! impl_reflect_for_hashmap {
                 key: Box<dyn PartialReflect>,
                 value: Box<dyn PartialReflect>,
             ) -> Option<Box<dyn PartialReflect>> {
-                let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+                let key = K::take_from_reflect(key).unwrap_or_else(|(_, key)| {
                     panic!(
                         "Attempted to insert invalid key of type {}.",
                         key.reflect_type_path()
                     )
                 });
-                let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                let value = V::take_from_reflect(value).unwrap_or_else(|(_, value)| {
                     panic!(
                         "Attempted to insert invalid value of type {}.",
                         value.reflect_type_path()
@@ -694,7 +700,7 @@ macro_rules! impl_reflect_for_hashmap {
                 let mut from_reflect = None;
                 key.try_downcast_ref::<K>()
                     .or_else(|| {
-                        from_reflect = K::from_reflect(key);
+                        from_reflect = K::from_reflect(key).ok();
                         from_reflect.as_ref()
                     })
                     .and_then(|key| self.remove(key))
@@ -823,8 +829,8 @@ macro_rules! impl_reflect_for_hashmap {
             V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Default + Send + Sync,
         {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let ref_map = reflect.reflect_ref().as_map().ok()?;
+            fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+                let ref_map = reflect.reflect_ref().as_map()?;
 
                 let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
 
@@ -834,7 +840,7 @@ macro_rules! impl_reflect_for_hashmap {
                     new_map.insert(new_key, new_value);
                 }
 
-                Some(new_map)
+                Ok(new_map)
             }
         }
     };
@@ -906,7 +912,7 @@ macro_rules! impl_reflect_for_hashset {
             }
 
             fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
-                let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                let value = V::take_from_reflect(value).unwrap_or_else(|(_, value)| {
                     panic!(
                         "Attempted to insert invalid value of type {}.",
                         value.reflect_type_path()
@@ -920,7 +926,7 @@ macro_rules! impl_reflect_for_hashset {
                 value
                     .try_downcast_ref::<V>()
                     .or_else(|| {
-                        from_reflect = V::from_reflect(value);
+                        from_reflect = V::from_reflect(value).ok();
                         from_reflect.as_ref()
                     })
                     .is_some_and(|value| self.remove(value))
@@ -931,7 +937,7 @@ macro_rules! impl_reflect_for_hashset {
                 value
                     .try_downcast_ref::<V>()
                     .or_else(|| {
-                        from_reflect = V::from_reflect(value);
+                        from_reflect = V::from_reflect(value).ok();
                         from_reflect.as_ref()
                     })
                     .is_some_and(|value| self.contains(value))
@@ -1053,8 +1059,8 @@ macro_rules! impl_reflect_for_hashset {
             V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
             S: TypePath + BuildHasher + Default + Send + Sync,
         {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let ref_set = reflect.reflect_ref().as_set().ok()?;
+            fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+                let ref_set = reflect.reflect_ref().as_set()?;
 
                 let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
 
@@ -1063,7 +1069,7 @@ macro_rules! impl_reflect_for_hashset {
                     new_set.insert(new_value);
                 }
 
-                Some(new_set)
+                Ok(new_set)
             }
         }
     };
@@ -1152,7 +1158,7 @@ where
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_represented_type(self.get_represented_type_info());
         for (k, v) in self {
-            let key = K::from_reflect(k).unwrap_or_else(|| {
+            let key = K::from_reflect(k).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to clone invalid key of type {}.",
                     k.reflect_type_path()
@@ -1168,13 +1174,13 @@ where
         key: Box<dyn PartialReflect>,
         value: Box<dyn PartialReflect>,
     ) -> Option<Box<dyn PartialReflect>> {
-        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+        let key = K::take_from_reflect(key).unwrap_or_else(|(_, key)| {
             panic!(
                 "Attempted to insert invalid key of type {}.",
                 key.reflect_type_path()
             )
         });
-        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+        let value = V::take_from_reflect(value).unwrap_or_else(|(_, value)| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.reflect_type_path()
@@ -1188,7 +1194,7 @@ where
         let mut from_reflect = None;
         key.try_downcast_ref::<K>()
             .or_else(|| {
-                from_reflect = K::from_reflect(key);
+                from_reflect = K::from_reflect(key).ok();
                 from_reflect.as_ref()
             })
             .and_then(|key| self.remove(key))
@@ -1303,8 +1309,8 @@ where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_map = reflect.reflect_ref().as_map().ok()?;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        let ref_map = reflect.reflect_ref().as_map()?;
 
         let mut new_map = Self::new();
 
@@ -1314,7 +1320,7 @@ where
             new_map.insert(new_key, new_value);
         }
 
-        Some(new_map)
+        Ok(new_map)
     }
 }
 
@@ -1474,8 +1480,8 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
 impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
     for [T; N]
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_array = reflect.reflect_ref().as_array().ok()?;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        let ref_array = reflect.reflect_ref().as_array()?;
 
         let mut temp_vec = Vec::with_capacity(ref_array.len());
 
@@ -1483,7 +1489,13 @@ impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usiz
             temp_vec.push(T::from_reflect(field)?);
         }
 
-        temp_vec.try_into().ok()
+        let length = temp_vec.len();
+        temp_vec
+            .try_into()
+            .map_err(|_| FromReflectError::DifferentSize {
+                from_size: length,
+                to_size: N,
+            })
     }
 }
 
@@ -1664,8 +1676,14 @@ impl GetTypeRegistration for Cow<'static, str> {
 }
 
 impl FromReflect for Cow<'static, str> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<Cow<'static, str>>()?.clone())
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        Ok(reflect
+            .try_downcast_ref::<Cow<'static, str>>()
+            .ok_or_else(|| FromReflectError::MismatchedTypes {
+                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                to_type: Into::into(<Self as TypePath>::type_path()),
+            })?
+            .clone())
     }
 }
 
@@ -1701,7 +1719,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     }
 
     fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
-        let value = T::take_from_reflect(element).unwrap_or_else(|value| {
+        let value = T::take_from_reflect(element).unwrap_or_else(|(_, value)| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.reflect_type_path()
@@ -1715,7 +1733,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     }
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
-        let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+        let value = T::take_from_reflect(value).unwrap_or_else(|(_, value)| {
             panic!(
                 "Attempted to push invalid value of type {}.",
                 value.reflect_type_path()
@@ -1845,8 +1863,8 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> GetTy
 impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromReflect
     for Cow<'static, [T]>
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_list = reflect.reflect_ref().as_list().ok()?;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        let ref_list = reflect.reflect_ref().as_list()?;
 
         let mut temp_vec = Vec::with_capacity(ref_list.len());
 
@@ -1854,7 +1872,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromR
             temp_vec.push(T::from_reflect(field)?);
         }
 
-        Some(temp_vec.into())
+        Ok(temp_vec.into())
     }
 }
 
@@ -1987,8 +2005,14 @@ impl GetTypeRegistration for &'static str {
 }
 
 impl FromReflect for &'static str {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        reflect
+            .try_downcast_ref::<Self>()
+            .ok_or(FromReflectError::MismatchedTypes {
+                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                to_type: Into::into(<Self as TypePath>::type_path()),
+            })
+            .copied()
     }
 }
 
@@ -2125,8 +2149,14 @@ impl GetTypeRegistration for &'static Path {
 
 #[cfg(feature = "std")]
 impl FromReflect for &'static Path {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        reflect
+            .try_downcast_ref::<Self>()
+            .ok_or(FromReflectError::MismatchedTypes {
+                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                to_type: Into::into(<Self as TypePath>::type_path()),
+            })
+            .copied()
     }
 }
 
@@ -2262,8 +2292,14 @@ impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
 #[cfg(feature = "std")]
 impl FromReflect for Cow<'static, Path> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<Self>()?.clone())
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        Ok(reflect
+            .try_downcast_ref::<Self>()
+            .ok_or(FromReflectError::MismatchedTypes {
+                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                to_type: Into::into(<Self as TypePath>::type_path()),
+            })?
+            .clone())
     }
 }
 
@@ -2417,8 +2453,14 @@ impl GetTypeRegistration for &'static Location<'static> {
 }
 
 impl FromReflect for &'static Location<'static> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        reflect
+            .try_downcast_ref::<Self>()
+            .ok_or(FromReflectError::MismatchedTypes {
+                from_type: Into::into(DynamicTypePath::reflect_type_path(reflect)),
+                to_type: Into::into(<Self as TypePath>::type_path()),
+            })
+            .copied()
     }
 }
 

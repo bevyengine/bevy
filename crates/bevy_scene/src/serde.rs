@@ -496,7 +496,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 .registry
                 .get(registration.type_id())
                 .and_then(|tr| tr.data::<ReflectFromReflect>())
-                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
+                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()).ok())
                 .map(PartialReflect::into_partial_reflect)
                 .unwrap_or(value);
 

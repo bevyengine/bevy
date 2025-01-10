@@ -4,9 +4,9 @@ use variadics_please::all_tuples;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
-    FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField,
+    FromReflect, FromReflectError, Generics, GetTypeRegistration, MaybeTyped, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{
@@ -651,13 +651,14 @@ macro_rules! impl_reflect_tuple {
 
         impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
+            fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+                let _ref_tuple = reflect.reflect_ref().as_tuple()?;
 
-                Some(
+                Ok(
                     (
                         $(
-                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index).ok_or_else(|| FromReflectError::MissingTupleIndex($index))?)
+                                .map_err(|err| FromReflectError::TupleIndexError($index, Box::new(err)))?,
                         )*
                     )
                 )

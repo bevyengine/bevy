@@ -2,7 +2,7 @@ use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
     ident::ident_or_index,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
@@ -205,17 +205,48 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
     }
 
     fn unwrap_field(&self, field: VariantField) -> TokenStream {
-        let alias = field.alias;
-        quote!(#alias?)
+        let VariantField {
+            alias,
+            variant_name,
+            field,
+            ..
+        } = field;
+
+        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
+
+        let error = if let Some(field_name) = &field.data.ident {
+            let field_name = field_name.to_string();
+            quote!(#bevy_reflect_path::FromReflectError::MissingField(::core::convert::Into::into(#field_name)))
+        } else {
+            let index = field.declaration_index;
+            quote!(#bevy_reflect_path::FromReflectError::MissingTupleIndex(#index))
+        };
+
+        quote!(#alias.ok_or_else(|| #bevy_reflect_path::FromReflectError::VariantError(::core::convert::Into::into(#variant_name), #FQBox::new(#error)))?)
     }
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
+        let VariantField {
+            alias,
+            variant_name,
+            field,
+            ..
+        } = field;
+
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-        let field_ty = field.field.reflected_type();
-        let alias = field.alias;
+        let field_ty = field.reflected_type();
+
+        let error = if let Some(field_name) = &field.data.ident {
+            let field_name = field_name.to_string();
+            quote!(#bevy_reflect_path::FromReflectError::FieldError(::core::convert::Into::into(#field_name), #FQBox::new(err)))
+        } else {
+            let index = field.declaration_index;
+            quote!(#bevy_reflect_path::FromReflectError::TupleIndexError(#index, #FQBox::new(err)))
+        };
 
         quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)?
+            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
+                .map_err(|err| #bevy_reflect_path::FromReflectError::VariantError(::core::convert::Into::into(#variant_name), #FQBox::new(#error)))?
         }
     }
 }
@@ -266,7 +297,7 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
 
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
-                .ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
+                .map_err(|_| #bevy_reflect_path::ApplyError::MismatchedTypes {
                     from_type: ::core::convert::Into::into(
                         #bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias)
                     ),

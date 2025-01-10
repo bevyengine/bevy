@@ -1036,7 +1036,7 @@ mod tests {
         dyn_tuple_struct.insert(3_i32);
         let my_tuple_struct = <MyTupleStruct as FromReflect>::from_reflect(&dyn_tuple_struct);
 
-        assert_eq!(Some(expected), my_tuple_struct);
+        assert_eq!(Ok(expected), my_tuple_struct);
 
         #[derive(Reflect, Eq, PartialEq, Debug)]
         enum MyEnum {
@@ -1054,7 +1054,7 @@ mod tests {
 
         let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
 
-        assert_eq!(Some(expected), my_enum);
+        assert_eq!(Ok(expected), my_enum);
     }
 
     #[test]
@@ -1092,7 +1092,7 @@ mod tests {
         let dyn_struct = DynamicStruct::default();
         let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
 
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(Ok(expected), my_struct);
     }
 
     #[test]
@@ -1116,7 +1116,7 @@ mod tests {
         let dyn_enum = DynamicEnum::new("Foo", DynamicTuple::default());
         let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
 
-        assert_eq!(Some(expected), my_enum);
+        assert_eq!(Ok(expected), my_enum);
 
         let expected = MyEnum::Bar {
             baz: get_baz_default(),
@@ -1125,7 +1125,7 @@ mod tests {
         let dyn_enum = DynamicEnum::new("Bar", DynamicStruct::default());
         let my_enum = <MyEnum as FromReflect>::from_reflect(&dyn_enum);
 
-        assert_eq!(Some(expected), my_enum);
+        assert_eq!(Ok(expected), my_enum);
     }
 
     #[test]
@@ -1155,7 +1155,7 @@ mod tests {
         let dyn_struct = DynamicStruct::default();
         let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
 
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(Ok(expected), my_struct);
     }
 
     #[test]
