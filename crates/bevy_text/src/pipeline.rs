@@ -170,8 +170,7 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics(font_system, metrics);
-        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
