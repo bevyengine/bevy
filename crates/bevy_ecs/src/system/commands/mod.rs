@@ -15,10 +15,8 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use log::error;
-
-#[cfg(feature = "track_location")]
 use core::panic::Location;
+use log::error;
 
 use crate::{
     self as bevy_ecs,

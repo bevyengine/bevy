@@ -1089,7 +1089,14 @@ impl World {
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) }
+            unsafe {
+                bundle_spawner.spawn_non_existent(
+                    entity,
+                    bundle,
+                    #[cfg(feature = "track_location")]
+                    caller,
+                )
+            }
         };
 
         #[cfg(feature = "track_location")]

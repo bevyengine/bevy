@@ -22,9 +22,11 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    panic::Location,
 };
 use smallvec::SmallVec;
+
+#[cfg(feature = "track_location")]
+use core::panic::Location;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
