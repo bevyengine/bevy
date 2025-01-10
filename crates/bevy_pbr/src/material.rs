@@ -195,7 +195,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -207,7 +206,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -219,7 +217,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
