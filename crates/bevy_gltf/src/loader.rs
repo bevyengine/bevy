@@ -2106,10 +2106,10 @@ struct ClearcoatExtension {
 impl ClearcoatExtension {
     #[expect(
         clippy::allow_attributes,
-        reason = "`unused_variable` is not always linted"
+        reason = "`unused_variables` is not always linted"
     )]
     #[allow(
-        unused_variable,
+        unused_variables,
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
     fn parse(
@@ -2196,10 +2196,10 @@ struct AnisotropyExtension {
 impl AnisotropyExtension {
     #[expect(
         clippy::allow_attributes,
-        reason = "`unused_variable` is not always linted"
+        reason = "`unused_variables` is not always linted"
     )]
     #[allow(
-        unused_variable,
+        unused_variables,
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
     fn parse(
