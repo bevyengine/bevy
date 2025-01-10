@@ -1729,6 +1729,11 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
+#[expect(clippy::allow_attributes, reason = "`dead_code` is not always linted")]
+#[allow(
+    dead_code,
+    reason = "Depending on what features are used to compile this crate, this function may end up uncalled."
+)]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
@@ -2099,6 +2104,14 @@ struct ClearcoatExtension {
 }
 
 impl ClearcoatExtension {
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variable` is not always linted"
+    )]
+    #[allow(
+        unused_variable,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2181,6 +2194,14 @@ struct AnisotropyExtension {
 }
 
 impl AnisotropyExtension {
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variable` is not always linted"
+    )]
+    #[allow(
+        unused_variable,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
