@@ -39,6 +39,14 @@ pub fn default() -> fn(&mut World, Error) {
 ///
 /// If the `configurable_error_handler` cargo feature is enabled, this will be used
 /// by default.
+///
+/// This should be set in the following way:
+///
+/// ```
+/// # use bevy_ecs::system::error_handler::{GLOBAL_ERROR_HANDLER, warn};
+/// GLOBAL_ERROR_HANDLER.set(warn());
+/// // initialize Bevy App here
+/// ```
 #[cfg(feature = "configurable_error_handler")]
 pub static GLOBAL_ERROR_HANDLER: std::sync::OnceLock<fn(&mut World, Error)> =
     std::sync::OnceLock::new();

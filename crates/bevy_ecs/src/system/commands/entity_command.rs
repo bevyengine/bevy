@@ -21,7 +21,11 @@ use crate::{
 };
 use bevy_ptr::OwningPtr;
 
-/// A [`Command`] which gets executed for a given [`Entity`].
+/// A command which gets executed for a given [`Entity`].
+
+/// Should be used with [`EntityCommands::queue`](crate::system::EntityCommands::queue).
+///
+/// The `Out` generic parameter is the returned "output" of the command.
 ///
 /// # Examples
 ///
@@ -76,17 +80,22 @@ use bevy_ptr::OwningPtr;
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand<T = ()>: Send + 'static {
+pub trait EntityCommand<Out = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`] and
     /// returns a [`Result`] for error handling.
-    fn apply(self, entity: EntityWorldMut) -> T;
+    fn apply(self, entity: EntityWorldMut) -> Out;
 }
 /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
 /// internally runs the [`EntityCommand`] on that entity.
-pub trait CommandWithEntity<T> {
+///
+// NOTE: This is a separate trait from `EntityCommand` because "result-returning entity commands" and
+// "non-result returning entity commands" require different implementations, so they cannot be automatically
+// implemented. And this isn't the type of implementation that we want to thrust on people implementing
+// EntityCommand.
+pub trait CommandWithEntity<Out> {
     /// Passes in a specific entity to an [`EntityCommand`], resulting in a [`Command`] that
     /// internally runs the [`EntityCommand`] on that entity.
-    fn with_entity(self, entity: Entity) -> impl Command<T> + HandleError<T>;
+    fn with_entity(self, entity: Entity) -> impl Command<Out> + HandleError<Out>;
 }
 
 impl<C: EntityCommand> CommandWithEntity<Result<(), EntityFetchError>> for C {
@@ -116,7 +125,8 @@ impl<
     {
         move |world: &mut World| {
             let entity = world.get_entity_mut(entity)?;
-            self.apply(entity).map_err(EntityCommandError::Error)
+            self.apply(entity)
+                .map_err(EntityCommandError::CommandFailed)
         }
     }
 }
@@ -129,14 +139,14 @@ pub enum EntityCommandError<E> {
     EntityFetchError(#[from] EntityFetchError),
     /// An error that occurred while running the [`EntityCommand`].
     #[error("{0}")]
-    Error(E),
+    CommandFailed(E),
 }
 
-impl<T, F> EntityCommand<T> for F
+impl<Out, F> EntityCommand<Out> for F
 where
-    F: FnOnce(EntityWorldMut) -> T + Send + 'static,
+    F: FnOnce(EntityWorldMut) -> Out + Send + 'static,
 {
-    fn apply(self, entity: EntityWorldMut) -> T {
+    fn apply(self, entity: EntityWorldMut) -> Out {
         self(entity)
     }
 }

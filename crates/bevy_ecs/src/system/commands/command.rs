@@ -22,6 +22,8 @@ use crate::{
 ///
 /// Should be used with [`Commands::queue`](crate::system::Commands::queue).
 ///
+/// The `Out` generic parameter is the returned "output" of the command.
+///
 /// # Usage
 ///
 /// ```
@@ -44,27 +46,27 @@ use crate::{
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-pub trait Command<T = ()>: Send + 'static {
+pub trait Command<Out = ()>: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World) -> T;
+    fn apply(self, world: &mut World) -> Out;
 }
 
-impl<F, T> Command<T> for F
+impl<F, Out> Command<Out> for F
 where
-    F: FnOnce(&mut World) -> T + Send + 'static,
+    F: FnOnce(&mut World) -> Out + Send + 'static,
 {
-    fn apply(self, world: &mut World) -> T {
+    fn apply(self, world: &mut World) -> Out {
         self(world)
     }
 }
 
 /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleError<T = ()> {
+pub trait HandleError<Out = ()> {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command;
