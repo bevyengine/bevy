@@ -22,7 +22,7 @@ use crate::{
 use bevy_ptr::OwningPtr;
 
 /// A command which gets executed for a given [`Entity`].
-
+///
 /// Should be used with [`EntityCommands::queue`](crate::system::EntityCommands::queue).
 ///
 /// The `Out` generic parameter is the returned "output" of the command.
