@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::{
     component::ComponentCloneHandler,
-    entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
+    entity::{ComponentCloneCtx, Entity, EntityCloneBuilder, EntityCloner},
     system::{error_handler, EntityCommands},
     world::{EntityWorldMut, World},
 };
@@ -249,7 +249,7 @@ fn component_clone_children(_world: &World, ctx: &mut ComponentCloneCtx) {
     let Some(entity_cloner) = ctx.entity_cloner() else {
         return;
     };
-    let Some(parent) = ctx.target() else { return };
+    let parent = entity_cloner.target();
     let children = ctx
         .read_source_component::<Children>()
         .expect("Source entity must have Children component")
@@ -266,7 +266,9 @@ fn component_clone_children(_world: &World, ctx: &mut ComponentCloneCtx) {
 
 /// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
 fn component_clone_parent(_world: &World, ctx: &mut ComponentCloneCtx) {
-    let Some(target) = ctx.target() else { return };
+    let Some(target) = ctx.entity_cloner().map(EntityCloner::target) else {
+        return;
+    };
     let Some(mut commands) = ctx.commands() else {
         return;
     };

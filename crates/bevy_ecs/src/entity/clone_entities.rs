@@ -91,16 +91,6 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.target_component_written
     }
 
-    /// Returns the current source entity (if available in current context).
-    pub fn source(&self) -> Option<Entity> {
-        self.entity_cloner.map(|c| c.source)
-    }
-
-    /// Returns the current target entity (if available in current context).
-    pub fn target(&self) -> Option<Entity> {
-        self.entity_cloner.map(|c| c.target)
-    }
-
     /// Returns the [`ComponentId`] of the component being cloned.
     pub fn component_id(&self) -> ComponentId {
         self.component_id
@@ -282,15 +272,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     /// # use bevy_ecs::world::World;
     /// # use bevy_ecs::entity::ComponentCloneCtx;
     /// fn clone_handler(_world: &World, ctx: &mut ComponentCloneCtx) {
-    ///     let Some(commands) = ctx.commands() else { return };
-    ///     let Some(mut entity_cloner) = ctx.entity_cloner()
-    ///         .and_then(|entity_cloner| {
-    ///             let another_target = commands.spawn_empty().id();
-    ///             entity_cloner.with_source_and_target(ctx.source(), another_target))
-    ///         }
-    ///     else {
+    ///     let Some(entity_cloner) = ctx.entity_cloner() else {
     ///         return
     ///     };
+    ///     let Some(mut commands) = ctx.commands() else {
+    ///         return
+    ///     };
+    ///     let another_target = commands.spawn_empty().id();
+    ///     let mut entity_cloner = entity_cloner.with_source_and_target(entity_cloner.source(), another_target);
     ///     commands.queue(move |world: &mut World| {
     ///         entity_cloner.clone_entity(world);
     ///     });
@@ -431,6 +420,16 @@ impl EntityCloner {
             clone_handlers_overrides: self.clone_handlers_overrides.clone(),
             ..*self
         }
+    }
+
+    /// Returns the current source entity.
+    pub fn source(&self) -> Entity {
+        self.source
+    }
+
+    /// Returns the current target entity.
+    pub fn target(&self) -> Entity {
+        self.target
     }
 }
 

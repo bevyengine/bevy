@@ -2280,7 +2280,9 @@ pub fn component_clone_via_reflect(_world: &World, ctx: &mut ComponentCloneCtx) 
         let Some(mut commands) = ctx.commands() else {
             return;
         };
-        let Some(target) = ctx.target() else { return };
+        let Some(target) = ctx.entity_cloner().map(crate::entity::EntityCloner::target) else {
+            return;
+        };
         let reflect_from_world = reflect_from_world.clone();
         let source_component_cloned = source_component_reflect.clone_value();
         drop(registry);
