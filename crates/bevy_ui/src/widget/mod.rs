@@ -2,10 +2,12 @@
 
 mod button;
 mod image;
-#[cfg(feature = "bevy_text")]
+mod label;
+
 mod text;
 
 pub use button::*;
 pub use image::*;
-#[cfg(feature = "bevy_text")]
+pub use label::*;
+
 pub use text::*;

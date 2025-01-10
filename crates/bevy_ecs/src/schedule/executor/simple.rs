@@ -1,14 +1,23 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
+
 use crate::{
-    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{
+        executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
+    },
     world::World,
 };
 
+use super::__rust_begin_short_backtrace;
+
 /// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
-/// [`apply_buffers`](crate::system::System::apply_buffers) immediately after running each system.
+/// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running each system.
 #[derive(Default)]
 pub struct SimpleExecutor {
     /// Systems sets whose conditions have been evaluated.
@@ -22,10 +31,6 @@ impl SystemExecutor for SimpleExecutor {
         ExecutorKind::Simple
     }
 
-    fn set_apply_final_buffers(&mut self, _: bool) {
-        // do nothing. simple executor does not do a final sync
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
@@ -33,7 +38,20 @@ impl SystemExecutor for SimpleExecutor {
         self.completed_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
+    ) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -65,6 +83,12 @@ impl SystemExecutor for SimpleExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -75,22 +99,47 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
-            #[cfg(feature = "trace")]
-            let system_span = info_span!("system", name = &*name).entered();
-            system.run((), world);
-            #[cfg(feature = "trace")]
-            system_span.exit();
+            if is_apply_deferred(system) {
+                continue;
+            }
 
-            system.apply_buffers(world);
+            let f = AssertUnwindSafe(|| {
+                // TODO: implement an error-handling API instead of panicking.
+                if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    panic!(
+                        "Encountered an error in system `{}`: {:?}",
+                        &*system.name(),
+                        err
+                    );
+                }
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
+            }
         }
 
         self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
+
+    fn set_apply_final_deferred(&mut self, _: bool) {
+        // do nothing. simple executor does not do a final sync
+    }
 }
 
 impl SimpleExecutor {
+    /// Creates a new simple executor for use in a [`Schedule`](crate::schedule::Schedule).
+    /// This calls each system in order and immediately calls [`System::apply_deferred`](crate::system::System).
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),
@@ -105,9 +154,23 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })
         .fold(true, |acc, res| acc && res)
+}
+
+#[cfg(test)]
+#[test]
+fn skip_automatic_sync_points() {
+    // Schedules automatically insert ApplyDeferred systems, but these should
+    // not be executed as they only serve as markers and are not initialized
+    use crate::prelude::*;
+    let mut sched = Schedule::default();
+    sched.set_executor_kind(ExecutorKind::Simple);
+    sched.add_systems((|_: Commands| (), || ()).chain());
+    let mut world = World::new();
+    sched.run(&mut world);
 }

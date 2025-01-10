@@ -55,8 +55,9 @@ impl<'w> Benchmark<'w> {
         Self(world, query)
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
-        self.1.for_each_mut(&mut self.0, |mut data| {
+        self.1.iter_mut(&mut self.0).for_each(|mut data| {
             data.0 .0 *= 2.0;
             data.1 .0 *= 2.0;
             data.2 .0 *= 2.0;

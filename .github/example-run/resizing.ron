@@ -1,4 +1,0 @@
-(
-    // Ensures that the full cycle will run
-    exit_after: Some(410)
-)

@@ -5,16 +5,16 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 fn main() {
     App::new()
         .insert_resource(PlayerCount(0))
-        .add_startup_system(spawn)
-        .add_system(count_players)
+        .add_systems(Startup, spawn)
+        .add_systems(Update, count_players)
         .run();
 }
 
 #[derive(Component)]
-pub struct Player;
+struct Player;
 
 #[derive(Resource)]
-pub struct PlayerCount(usize);
+struct PlayerCount(usize);
 
 /// The [`SystemParam`] struct can contain any types that can also be included in a
 /// system function signature.

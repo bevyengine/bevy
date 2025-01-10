@@ -1,9 +1,17 @@
 use crate::{
+    component::Tick,
     storage::SparseSetIndex,
-    system::{ReadOnlySystemParam, SystemParam},
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(not(feature = "portable-atomic"))]
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic::{AtomicUsize, Ordering};
+
+use super::unsafe_world_cell::UnsafeWorldCell;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
@@ -41,24 +49,38 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: Has read-only access to shared World metadata
+// SAFETY: No world data is accessed.
 unsafe impl ReadOnlySystemParam for WorldId {}
 
-// SAFETY: A World's ID is immutable and fetching it from the World does not borrow anything
+// SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut super::World, _: &mut crate::system::SystemMeta) -> Self::State {}
+    fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
 
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
-        _: &crate::system::SystemMeta,
-        world: &'world super::World,
-        _: u32,
+        _: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _: Tick,
     ) -> Self::Item<'world, 'state> {
-        world.id
+        world.id()
+    }
+}
+
+impl ExclusiveSystemParam for WorldId {
+    type State = WorldId;
+    type Item<'s> = WorldId;
+
+    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        world.id()
+    }
+
+    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
+        *state
     }
 }
 
@@ -68,6 +90,7 @@ impl SparseSetIndex for WorldId {
         self.0
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
@@ -76,10 +99,11 @@ impl SparseSetIndex for WorldId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn world_ids_unique() {
-        let ids = std::iter::repeat_with(WorldId::new)
+        let ids = core::iter::repeat_with(WorldId::new)
             .take(50)
             .map(Option::unwrap)
             .collect::<Vec<_>>();
@@ -91,12 +115,36 @@ mod tests {
         }
     }
 
+    #[test]
+    fn world_id_system_param() {
+        fn test_system(world_id: WorldId) -> WorldId {
+            world_id
+        }
+
+        let mut world = World::default();
+        let system_id = world.register_system(test_system);
+        let world_id = world.run_system(system_id).unwrap();
+        assert_eq!(world.id(), world_id);
+    }
+
+    #[test]
+    fn world_id_exclusive_system_param() {
+        fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
+            world_id
+        }
+
+        let mut world = World::default();
+        let system_id = world.register_system(test_system);
+        let world_id = world.run_system(system_id).unwrap();
+        assert_eq!(world.id(), world_id);
+    }
+
     // We cannot use this test as-is, as it causes other tests to panic due to using the same atomic variable.
     // #[test]
     // #[should_panic]
     // fn panic_on_overflow() {
     //     MAX_WORLD_ID.store(usize::MAX - 50, Ordering::Relaxed);
-    //     std::iter::repeat_with(WorldId::new)
+    //     core::iter::repeat_with(WorldId::new)
     //         .take(500)
     //         .for_each(|_| ());
     // }

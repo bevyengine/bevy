@@ -1,8 +1,10 @@
+//! This example demonstrates how to generate a mesh.
+
 #![allow(clippy::bool_assert_comparison, clippy::useless_conversion)]
 
 use glam::{Vec2, Vec3};
 
-pub type Face = [u32; 3];
+type Face = [u32; 3];
 
 #[derive(Debug)]
 struct Vertex {

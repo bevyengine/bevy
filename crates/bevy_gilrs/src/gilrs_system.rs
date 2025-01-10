@@ -1,86 +1,112 @@
-use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::system::{NonSend, NonSendMut, Res};
-use bevy_input::gamepad::{
-    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
-    GamepadSettings,
+use crate::{
+    converter::{convert_axis, convert_button},
+    Gilrs, GilrsGamepads,
 };
-use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
-use bevy_input::prelude::{GamepadAxis, GamepadButton};
-use bevy_input::Axis;
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
+use bevy_ecs::event::EventWriter;
+use bevy_ecs::prelude::Commands;
+#[cfg(target_arch = "wasm32")]
+use bevy_ecs::system::NonSendMut;
+use bevy_ecs::system::ResMut;
+use bevy_input::gamepad::{
+    GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
+    RawGamepadButtonChangedEvent, RawGamepadEvent,
+};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    gilrs: NonSend<Gilrs>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
+    mut commands: Commands,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    mut gamepads: ResMut<GilrsGamepads>,
+    mut events: EventWriter<GamepadConnectionEvent>,
 ) {
-    for (id, gamepad) in gilrs.gamepads() {
-        let info = GamepadInfo {
-            name: gamepad.name().into(),
-        };
+    for (id, gamepad) in gilrs.0.get().gamepads() {
+        // Create entity and add to mapping
+        let entity = commands.spawn_empty().id();
+        gamepads.id_to_entity.insert(id, entity);
+        gamepads.entity_to_id.insert(entity, id);
 
-        connection_events.send(GamepadConnectionEvent {
-            gamepad: convert_gamepad_id(id),
-            connection: GamepadConnection::Connected(info),
+        events.send(GamepadConnectionEvent {
+            gamepad: entity,
+            connection: GamepadConnection::Connected {
+                name: gamepad.name().to_string(),
+                vendor_id: gamepad.vendor_id(),
+                product_id: gamepad.product_id(),
+            },
         });
     }
 }
 
 pub fn gilrs_event_system(
-    mut gilrs: NonSendMut<Gilrs>,
-    mut events: EventWriter<GamepadEvent>,
-    gamepad_axis: Res<Axis<GamepadAxis>>,
-    gamepad_buttons: Res<Axis<GamepadButton>>,
-    gamepad_settings: Res<GamepadSettings>,
+    mut commands: Commands,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    mut gamepads: ResMut<GilrsGamepads>,
+    mut events: EventWriter<RawGamepadEvent>,
+    mut connection_events: EventWriter<GamepadConnectionEvent>,
+    mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
+    mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
 ) {
-    while let Some(gilrs_event) = gilrs
-        .next_event()
-        .filter_ev(&axis_dpad_to_button, &mut gilrs)
-    {
+    let gilrs = gilrs.0.get();
+    while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
-
-        let gamepad = convert_gamepad_id(gilrs_event.id);
         match gilrs_event.event {
             EventType::Connected => {
                 let pad = gilrs.gamepad(gilrs_event.id);
-                let info = GamepadInfo {
-                    name: pad.name().into(),
-                };
+                let entity = gamepads.get_entity(gilrs_event.id).unwrap_or_else(|| {
+                    let entity = commands.spawn_empty().id();
+                    gamepads.id_to_entity.insert(gilrs_event.id, entity);
+                    gamepads.entity_to_id.insert(entity, gilrs_event.id);
+                    entity
+                });
 
-                events.send(
-                    GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
+                let event = GamepadConnectionEvent::new(
+                    entity,
+                    GamepadConnection::Connected {
+                        name: pad.name().to_string(),
+                        vendor_id: pad.vendor_id(),
+                        product_id: pad.product_id(),
+                    },
                 );
-            }
-            EventType::Disconnected => events
-                .send(GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into()),
-            EventType::ButtonChanged(gilrs_button, raw_value, _) => {
-                if let Some(button_type) = convert_button(gilrs_button) {
-                    let button = GamepadButton::new(gamepad, button_type);
-                    let old_value = gamepad_buttons.get(button);
-                    let button_settings = gamepad_settings.get_button_axis_settings(button);
 
-                    // Only send events that pass the user-defined change threshold
-                    if let Some(filtered_value) = button_settings.filter(raw_value, old_value) {
-                        events.send(
-                            GamepadButtonChangedEvent::new(gamepad, button_type, filtered_value)
-                                .into(),
-                        );
-                    }
-                }
+                events.send(event.clone().into());
+                connection_events.send(event);
+            }
+            EventType::Disconnected => {
+                let gamepad = gamepads
+                    .id_to_entity
+                    .get(&gilrs_event.id)
+                    .copied()
+                    .expect("mapping should exist from connection");
+                let event = GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected);
+                events.send(event.clone().into());
+                connection_events.send(event);
+            }
+            EventType::ButtonChanged(gilrs_button, raw_value, _) => {
+                let Some(button) = convert_button(gilrs_button) else {
+                    continue;
+                };
+                let gamepad = gamepads
+                    .id_to_entity
+                    .get(&gilrs_event.id)
+                    .copied()
+                    .expect("mapping should exist from connection");
+                events.send(RawGamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
+                button_events.send(RawGamepadButtonChangedEvent::new(
+                    gamepad, button, raw_value,
+                ));
             }
             EventType::AxisChanged(gilrs_axis, raw_value, _) => {
-                if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    let axis = GamepadAxis::new(gamepad, axis_type);
-                    let old_value = gamepad_axis.get(axis);
-                    let axis_settings = gamepad_settings.get_axis_settings(axis);
-
-                    // Only send events that pass the user-defined change threshold
-                    if let Some(filtered_value) = axis_settings.filter(raw_value, old_value) {
-                        events.send(
-                            GamepadAxisChangedEvent::new(gamepad, axis_type, filtered_value).into(),
-                        );
-                    }
-                }
+                let Some(axis) = convert_axis(gilrs_axis) else {
+                    continue;
+                };
+                let gamepad = gamepads
+                    .id_to_entity
+                    .get(&gilrs_event.id)
+                    .copied()
+                    .expect("mapping should exist from connection");
+                events.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
+                axis_event.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value));
             }
             _ => (),
         };
