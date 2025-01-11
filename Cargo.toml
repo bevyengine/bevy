@@ -41,6 +41,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -82,6 +83,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -1281,34 +1283,34 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox"
-path = "examples/animation/animated_fox.rs"
+name = "animated_mesh"
+path = "examples/animation/animated_mesh.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox]
-name = "Animated Fox"
+[package.metadata.example.animated_mesh]
+name = "Animated Mesh"
 description = "Plays an animation from a skinned glTF"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_control"
-path = "examples/animation/animated_fox_control.rs"
+name = "animated_mesh_control"
+path = "examples/animation/animated_mesh_control.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_control]
-name = "Animated Fox Control"
+[package.metadata.example.animated_mesh_control]
+name = "Animated Mesh Control"
 description = "Plays an animation from a skinned glTF with keyboard controls"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_events"
-path = "examples/animation/animated_fox_events.rs"
+name = "animated_mesh_events"
+path = "examples/animation/animated_mesh_events.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_events]
-name = "Animated Fox Events"
+[package.metadata.example.animated_mesh_events]
+name = "Animated Mesh Events"
 description = "Plays an animation from a skinned glTF with events"
 category = "Animation"
 wasm = true
@@ -4012,6 +4014,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.tab_navigation]
 name = "Tab Navigation"
-description = "Demonstration of Tab Navigation"
+description = "Demonstration of Tab Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "directional_navigation"
+path = "examples/ui/directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.directional_navigation]
+name = "Directional Navigation"
+description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true

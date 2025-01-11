@@ -68,7 +68,6 @@ impl Plugin for MeshPickingPlugin {
 }
 
 /// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
-#[allow(clippy::too_many_arguments)]
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,

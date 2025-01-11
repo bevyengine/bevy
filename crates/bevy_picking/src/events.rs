@@ -402,7 +402,6 @@ pub struct PickingEventWriters<'w> {
 /// determined only by the pointer's *final position*. Since the hover state
 /// ultimately determines which entities receive events, this may mean that an
 /// entity can receive events from before or after it was actually hovered.
-#[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
     mut input_events: EventReader<PointerInput>,
@@ -662,6 +661,9 @@ pub fn pointer_events(
             }
             // Moved
             PointerAction::Moved { delta } => {
+                if delta == Vec2::ZERO {
+                    continue; // If delta is zero, the following events will not be triggered.
+                }
                 // Triggers during movement even if not over an entity
                 for button in PointerButton::iter() {
                     let state = pointer_state.get_mut(pointer_id, button);

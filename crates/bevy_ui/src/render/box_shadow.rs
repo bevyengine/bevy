@@ -381,7 +381,6 @@ pub fn queue_shadows(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

@@ -221,7 +221,6 @@ pub fn extract_text2d_sprite(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.

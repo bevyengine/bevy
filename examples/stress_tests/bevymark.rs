@@ -216,7 +216,6 @@ struct BirdResources {
 #[derive(Component)]
 struct StatsText;
 
-#[allow(clippy::too_many_arguments)]
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
@@ -323,7 +322,6 @@ fn setup(
     commands.insert_resource(scheduled);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
@@ -387,7 +385,6 @@ fn bird_velocity_transform(
 
 const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_birds(
     commands: &mut Commands,
     args: &Args,
