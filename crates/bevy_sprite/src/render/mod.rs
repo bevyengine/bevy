@@ -328,6 +328,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 pub struct ExtractedGroupSprite {
     pub position: Vec2,
     pub rect: Rect,
+    pub size: Vec2,
 }
 
 pub struct ExtractedSprite {
@@ -398,10 +399,33 @@ pub fn extract_sprites(
         }
 
         if let Some(slices) = slices {
-            extracted_sprites.sprites.extend(
-                slices
-                    .extract_sprites(transform, original_entity, render_entity, sprite)
-                    .map(|e| (original_entity.into(), e)),
+            let start = extracted_sprites.grouped_sprites.len();
+            // extracted_sprites.sprites.extend(
+            //     slices
+            //         .extract_sprites(transform, original_entity, render_entity, sprite)
+            //         .map(|e| (original_entity.into(), e)),
+            // );
+
+            extracted_sprites
+                .grouped_sprites
+                .extend(slices.extract_sprites(transform, original_entity, render_entity, sprite));
+            let end = extracted_sprites.grouped_sprites.len();
+            extracted_sprites.sprites.insert(
+                original_entity.into(),
+                ExtractedSprite {
+                    color: sprite.color.into(),
+                    transform: *transform,
+                    rect: None,
+                    // Pass the custom size
+                    custom_size: sprite.custom_size,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: sprite.image.id(),
+                    anchor: sprite.anchor.as_vec(),
+                    original_entity: Some(original_entity),
+                    render_entity,
+                    group_indices: start..end,
+                },
             );
         } else {
             let atlas_rect = sprite
@@ -792,9 +816,9 @@ pub fn prepare_sprite_image_bind_groups(
 
                     let transform = extracted_sprite.transform.affine()
                         * Affine3A::from_scale_rotation_translation(
-                            rect_size.extend(1.0),
+                            sprite.size.extend(1.0),
                             Quat::IDENTITY,
-                            (rect_size * (-extracted_sprite.anchor - Vec2::splat(0.5))
+                            (sprite.size * (-extracted_sprite.anchor - Vec2::splat(0.5))
                                 + sprite.position)
                                 .extend(0.0),
                         );

@@ -1,4 +1,4 @@
-use crate::{ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
+use crate::{ExtractedGroupSprite, ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
 
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets};
@@ -30,7 +30,7 @@ impl ComputedTextureSlices {
         original_entity: Entity,
         render_entity: Entity,
         sprite: &'a Sprite,
-    ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
+    ) -> impl ExactSizeIterator<Item = ExtractedGroupSprite> + 'a {
         let mut flip = Vec2::ONE;
         let [mut flip_x, mut flip_y] = [false; 2];
         if sprite.flip_x {
@@ -42,20 +42,25 @@ impl ComputedTextureSlices {
             flip_y = true;
         }
         self.0.iter().map(move |slice| {
-            let offset = (slice.offset * flip).extend(0.0);
-            let transform = transform.mul_transform(Transform::from_translation(offset));
-            ExtractedSprite {
-                original_entity: Some(original_entity),
-                color: sprite.color.into(),
-                transform,
-                rect: Some(slice.texture_rect),
-                custom_size: Some(slice.draw_size),
-                flip_x,
-                flip_y,
-                image_handle_id: sprite.image.id(),
-                anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
-                render_entity,
-                group_indices: 0..0,
+            // let offset = (slice.offset * flip).extend(0.0);
+            // let transform = transform.mul_transform(Transform::from_translation(offset));
+            // ExtractedSprite {
+            //     original_entity: Some(original_entity),
+            //     color: sprite.color.into(),
+            //     transform,
+            //     rect: Some(slice.texture_rect),
+            //     custom_size: Some(slice.draw_size),
+            //     flip_x,
+            //     flip_y,
+            //     image_handle_id: sprite.image.id(),
+            //     anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
+            //     render_entity,
+            //     group_indices: 0..0,
+            // }
+            ExtractedGroupSprite {
+                position: slice.offset * flip,
+                rect: slice.texture_rect,
+                size: slice.draw_size,
             }
         })
     }

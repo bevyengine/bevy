@@ -19,7 +19,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::{RenderEntity, TemporaryRenderEntity};
+use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
@@ -158,8 +158,8 @@ pub fn extract_text2d_sprite(
     >,
     text_styles: Extract<Query<(&TextFont, &TextColor)>>,
 ) {
-    let mut start = 0;
-    let mut end = 1;
+    let mut start = extracted_sprites.grouped_sprites.len();
+    let mut end = start + 1;
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
@@ -222,6 +222,7 @@ pub fn extract_text2d_sprite(
                 .push(ExtractedGroupSprite {
                     position: *position,
                     rect,
+                    size: rect.size(),
                 });
 
             if text_layout_info
