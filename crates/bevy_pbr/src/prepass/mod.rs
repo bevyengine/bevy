@@ -918,10 +918,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
             }
 
             // Even though we don't use the lightmap in the forward prepass, the deferred gbuffer prepass uses it,
-            // and the `SetMeshBindGroup` render command will bind the data for it. So
-            // we need to include the appropriate flag in the mesh pipeline key
-            // to ensure that the necessary bind group layout entries are
-            // present.
+            // and the `SetMeshBindGroup` render command will bind the data for it. So we need to include the appropriate flag in
+            // the mesh pipeline key to ensure that the necessary bind group layout entries are present.
             let lightmap_slab_index = render_lightmaps
                 .render_lightmaps
                 .get(visible_entity)
