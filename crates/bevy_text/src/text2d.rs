@@ -142,7 +142,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_styles: Extract<Query<(&TextFont, &TextColor)>>,
+    text_color: Extract<Query<&TextColor>>,
 ) {
     let mut start = extracted_sprites.slices.len();
     let mut end = start + 1;
@@ -185,17 +185,13 @@ pub fn extract_text2d_sprite(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            let entity = computed_block.entities[*span_index].entity;
             if *span_index != current_span {
-                color = text_styles
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*span_index)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
-                    .map(|(_, text_color)| LinearRgba::from(text_color.0))
-                    .unwrap_or_default();
+                color = text_color
+                    .get(entity)
+                    .map(|text_color| text_color.0)
+                    .unwrap_or_default()
+                    .into();
                 current_span = *span_index;
             }
             let rect = texture_atlases
@@ -218,12 +214,7 @@ pub fn extract_text2d_sprite(
                 .unwrap_or(true)
             {
                 extracted_sprites.sprites.insert(
-                    if current_span == 0 {
-                        original_entity
-                    } else {
-                        commands.spawn(TemporaryRenderEntity).id()
-                    }
-                    .into(),
+                    entity.into(),
                     ExtractedSprite {
                         transform,
                         color,
