@@ -68,7 +68,7 @@ pub struct ForwardDecal;
 
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
 ///
-/// Make sure to register the material [`MaterialPlugin`] for this material in your app setup.
+/// Make sure to register the [`MaterialPlugin`] for this material in your app setup.
 ///
 /// [`StandardMaterial`] comes with out of the box support for forward decals.
 #[expect(type_alias_bounds, reason = "Type alias generics not yet stable")]
