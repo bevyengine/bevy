@@ -270,7 +270,7 @@ pub fn extract_shadows(
                 c.physical_viewport_size()
                     .map(|size| Vec2::new(size.x as f32, size.y as f32))
             })
-            .unwrap_or_else(|| Vec2::ZERO);
+            .unwrap_or(Vec2::ZERO);
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
