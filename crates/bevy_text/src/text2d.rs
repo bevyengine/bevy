@@ -211,14 +211,9 @@ pub fn extract_text2d_sprite(
                 size: rect.size(),
             });
 
-            if text_layout_info
-                .glyphs
-                .get(i + 1)
-                .map(|info| {
-                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-                })
-                .unwrap_or(true)
-            {
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.insert(
                     entities_iter
