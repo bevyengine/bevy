@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
-use bevy_ecs::component::Component;
+use bevy_ecs::component::{require, Component};
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
@@ -16,8 +16,8 @@ use bevy_render::{
     },
 };
 
-const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> = Handle::weak_from_u128(09376620402995522466);
-const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(19376620402995522466);
+const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> = Handle::weak_from_u128(19376620402995522466);
+const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(29376620402995522466);
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
@@ -71,7 +71,7 @@ pub struct ForwardDecal;
 /// Make sure to register the material [`MaterialPlugin`] for this material in your app setup.
 ///
 /// [`StandardMaterial`] comes with out of the box support for forward decals.
-#[expect(type_alias_bounds)]
+#[expect(type_alias_bounds, reason = "Type alias generics not yet stable")]
 pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
 
 /// Material extension for a [`ForwardDecal`].
