@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
-const FOX_PATH: &str = "models/animated/Fox.glb";
+const GLTF_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
@@ -35,7 +35,7 @@ fn setup_mesh_and_animation(
     let (graph, index) = AnimationGraph::from_clip(
         // We want the "run" animation from our example asset, which has an
         // index of two.
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
     );
 
     // Keep our animation graph in a Resource so that it can be inserted onto
@@ -48,7 +48,7 @@ fn setup_mesh_and_animation(
 
     // Fox
     commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)),
     ));
 }
 
