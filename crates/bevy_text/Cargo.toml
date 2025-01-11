@@ -1,6 +1,6 @@
 [package]
 name = "bevy_text"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Provides text functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -13,22 +13,22 @@ default_font = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.15.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.16.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.15.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.16.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 
 # other
 cosmic-text = { version = "0.12", features = ["shape-run-cache"] }
@@ -37,6 +37,7 @@ serde = { version = "1", features = ["derive"] }
 smallvec = "1.13"
 unicode-bidi = "0.3.13"
 sys-locale = "0.3.0"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 approx = "0.5.1"

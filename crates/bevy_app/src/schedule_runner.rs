@@ -3,14 +3,14 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_utils::Duration;
+use core::time::Duration;
 
 #[cfg(any(target_arch = "wasm32", feature = "std"))]
 use bevy_utils::Instant;
 
 #[cfg(target_arch = "wasm32")]
 use {
-    alloc::rc::Rc,
+    alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
     wasm_bindgen::{prelude::*, JsCast},
 };

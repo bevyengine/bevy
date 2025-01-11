@@ -3,14 +3,13 @@ use bevy_ecs::{
     event::EventReader,
     system::{ResMut, Resource},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
@@ -179,22 +178,15 @@ impl FontAtlasSet {
         self.font_atlases
             .get(&FontAtlasKey(cache_key.font_size_bits, font_smoothing))
             .and_then(|font_atlases| {
-                font_atlases
-                    .iter()
-                    .find_map(|atlas| {
-                        atlas.get_glyph_index(cache_key).map(|location| {
-                            (
-                                location,
-                                atlas.texture_atlas.clone_weak(),
-                                atlas.texture.clone_weak(),
-                            )
+                font_atlases.iter().find_map(|atlas| {
+                    atlas
+                        .get_glyph_index(cache_key)
+                        .map(|location| GlyphAtlasInfo {
+                            location,
+                            texture_atlas: atlas.texture_atlas.clone_weak(),
+                            texture: atlas.texture.clone_weak(),
                         })
-                    })
-                    .map(|(location, texture_atlas, texture)| GlyphAtlasInfo {
-                        texture_atlas,
-                        location,
-                        texture,
-                    })
+                })
             })
     }
 

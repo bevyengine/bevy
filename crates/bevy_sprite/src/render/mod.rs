@@ -1,8 +1,6 @@
 use core::ops::Range;
 
-use crate::{
-    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
-};
+use crate::{ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -17,7 +15,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
@@ -516,7 +514,6 @@ pub struct ImageBindGroups {
     values: HashMap<AssetId<Image>, BindGroup>,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
@@ -525,7 +522,7 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &RenderVisibleEntities,
         &ExtractedView,
@@ -536,7 +533,7 @@ pub fn queue_sprites(
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -607,7 +604,6 @@ pub fn queue_sprites(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -641,7 +637,6 @@ pub fn prepare_sprite_view_bind_groups(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_sprite_image_bind_groups(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -696,8 +691,7 @@ pub fn prepare_sprite_image_bind_groups(
                 continue;
             };
 
-            let batch_image_changed = batch_image_handle != extracted_sprite.image_handle_id;
-            if batch_image_changed {
+            if batch_image_handle != extracted_sprite.image_handle_id {
                 let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                     continue;
                 };

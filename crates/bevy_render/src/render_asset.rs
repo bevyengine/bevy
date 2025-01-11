@@ -11,12 +11,10 @@ use bevy_ecs::{
     world::{FromWorld, Mut},
 };
 use bevy_render_macros::ExtractResource;
-use bevy_utils::{
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use core::marker::PhantomData;
 use thiserror::Error;
+use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -55,7 +53,10 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// Size of the data the asset will upload to the gpu. Specifying a return value
     /// will allow the asset to be throttled via [`RenderAssetBytesPerFrame`].
     #[inline]
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     fn byte_len(source_asset: &Self::SourceAsset) -> Option<usize> {
         None
     }
@@ -237,7 +238,10 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let mut removed = <HashSet<_>>::default();
 
             for event in events.read() {
-                #[allow(clippy::match_same_arms)]
+                #[expect(
+                    clippy::match_same_arms,
+                    reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+                )]
                 match event {
                     AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                         changed_assets.insert(*id);

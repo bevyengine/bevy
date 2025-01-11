@@ -1,11 +1,11 @@
 //! [DirectDraw Surface](https://en.wikipedia.org/wiki/DirectDraw_Surface) functionality.
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
 use wgpu::TextureViewDescriptor;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
+#[cfg(debug_assertions)]
+use {bevy_utils::once, tracing::warn};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -53,10 +53,10 @@ pub fn dds_buffer_to_image(
     let mip_map_level = match dds.get_num_mipmap_levels() {
         0 => {
             #[cfg(debug_assertions)]
-            warn_once!(
+            once!(warn!(
                 "Mipmap levels for texture {} are 0, bumping them to 1",
                 name
-            );
+            ));
             1
         }
         t => t,

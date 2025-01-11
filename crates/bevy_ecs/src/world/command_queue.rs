@@ -1,19 +1,16 @@
-use crate::system::{SystemBuffer, SystemMeta};
-
+use crate::{
+    system::{Command, SystemBuffer, SystemMeta},
+    world::{DeferredWorld, World},
+};
+use alloc::{boxed::Box, vec::Vec};
+use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
 };
-
-use alloc::{boxed::Box, vec::Vec};
-use bevy_ptr::{OwningPtr, Unaligned};
 use log::warn;
-
-use crate::world::{Command, World};
-
-use super::DeferredWorld;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -75,10 +72,7 @@ unsafe impl Sync for CommandQueue {}
 impl CommandQueue {
     /// Push a [`Command`] onto the queue.
     #[inline]
-    pub fn push<C>(&mut self, command: C)
-    where
-        C: Command,
-    {
+    pub fn push(&mut self, command: impl Command) {
         // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
             self.get_raw().push(command);
@@ -154,17 +148,14 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub unsafe fn push<C>(&mut self, command: C)
-    where
-        C: Command,
-    {
+    pub unsafe fn push<C: Command>(&mut self, command: C) {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
         #[repr(C, packed)]
-        struct Packed<T: Command> {
+        struct Packed<C: Command> {
             meta: CommandMeta,
-            command: T,
+            command: C,
         }
 
         let meta = CommandMeta {
@@ -344,13 +335,15 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_ecs;
-    use crate::system::Resource;
-    use alloc::sync::Arc;
+    use crate::{self as bevy_ecs, system::Resource};
+    use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},
     };
+
+    #[cfg(miri)]
+    use alloc::format;
 
     struct DropCheck(Arc<AtomicU32>);
 

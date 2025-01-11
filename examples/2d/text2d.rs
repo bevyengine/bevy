@@ -111,10 +111,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Demonstrate font smoothing off
     commands.spawn((
-        Text2d::new("FontSmoothing::None"),
+        Text2d::new("This text has\nFontSmoothing::None\nAnd JustifyText::Center"),
         slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
+        TextLayout::new_with_justify(JustifyText::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 

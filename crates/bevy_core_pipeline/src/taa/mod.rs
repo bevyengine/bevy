@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -10,7 +8,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
-    prelude::{require, Bundle, Component, Entity, ReflectComponent},
+    prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -39,7 +37,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
@@ -90,19 +88,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         render_app.init_resource::<TaaPipeline>();
     }
-}
-
-/// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `TemporalAntiAlias` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct TemporalAntiAliasBundle {
-    pub settings: TemporalAntiAliasing,
-    pub jitter: TemporalJitter,
-    pub depth_prepass: DepthPrepass,
-    pub motion_vector_prepass: MotionVectorPrepass,
 }
 
 /// Component to apply temporal anti-aliasing to a 3D perspective camera.
@@ -158,9 +143,6 @@ pub struct TemporalAntiAliasing {
     /// back to false at the end of the frame.
     pub reset: bool,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `TemporalAntiAliasing`")]
-pub type TemporalAntiAliasSettings = TemporalAntiAliasing;
 
 impl Default for TemporalAntiAliasing {
     fn default() -> Self {

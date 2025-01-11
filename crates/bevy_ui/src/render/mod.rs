@@ -20,7 +20,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -42,7 +42,6 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
@@ -138,7 +137,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view,
+                extract_ui_camera_view,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -226,7 +225,6 @@ pub enum ExtractedUiItem {
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
-        atlas_scaling: Vec2,
         /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
     },
@@ -250,7 +248,6 @@ impl ExtractedUiNodes {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -268,11 +265,11 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -312,7 +309,6 @@ pub fn extract_uinode_background_colors(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -331,9 +327,9 @@ pub fn extract_uinode_images(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -424,7 +420,7 @@ pub fn extract_uinode_borders(
     ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
-
+    let default_camera_entity = default_ui_camera.get();
     for (
         entity,
         node,
@@ -438,7 +434,7 @@ pub fn extract_uinode_borders(
     {
         let Some(camera_entity) = maybe_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -534,10 +530,11 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+/// Entity id of the temporary render entity with the corresponding extracted UI view.
+pub struct UiCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
-pub fn extract_default_ui_camera_view(
+pub fn extract_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     query: Extract<
@@ -555,13 +552,13 @@ pub fn extract_default_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
+                .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
@@ -575,7 +572,7 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
-            let default_camera_view = commands
+            let ui_camera_view = commands
                 .spawn((
                     ExtractedView {
                         clip_from_view: projection_matrix,
@@ -596,25 +593,24 @@ pub fn extract_default_ui_camera_view(
                 ))
                 .id();
             let mut entity_commands = commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
-            entity_commands.insert(DefaultCameraView(default_camera_view));
+            entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(entity);
+            transparent_render_phases.insert_or_clear(render_entity);
 
-            live_entities.insert(entity);
+            live_entities.insert(render_entity);
         }
     }
 
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -702,14 +698,9 @@ pub fn extract_text_sections(
                 rect,
             });
 
-            if text_layout_info
-                .glyphs
-                .get(i + 1)
-                .map(|info| {
-                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-                })
-                .unwrap_or(true)
-            {
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
                 let id = commands.spawn(TemporaryRenderEntity).id();
 
                 extracted_uinodes.uinodes.insert(
@@ -721,10 +712,7 @@ pub fn extract_text_sections(
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
                         rect,
-                        item: ExtractedUiItem::Glyphs {
-                            atlas_scaling: Vec2::ONE,
-                            range: start..end,
-                        },
+                        item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                     },
                 );
@@ -799,19 +787,18 @@ pub mod shader_flags {
     pub const BORDER: u32 = 8;
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, ui_anti_alias)) = views.get(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -848,7 +835,6 @@ pub struct ImageNodeBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -1119,15 +1105,12 @@ pub fn prepare_uinodes(
                             vertices_index += 6;
                             indices_index += 4;
                         }
-                        ExtractedUiItem::Glyphs {
-                            atlas_scaling,
-                            range,
-                        } => {
+                        ExtractedUiItem::Glyphs { range } => {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
 
-                            let atlas_extent = image.size_2d().as_vec2() * *atlas_scaling;
+                            let atlas_extent = image.size_2d().as_vec2();
 
                             let color = extracted_uinode.color.to_f32_array();
                             for glyph in &extracted_uinodes.glyphs[range.clone()] {

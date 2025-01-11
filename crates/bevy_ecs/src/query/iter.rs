@@ -126,7 +126,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an storage.
+    /// from a storage.
     ///
     ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
@@ -187,7 +187,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an table.
+    /// from a table.
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
@@ -2950,6 +2950,9 @@ impl<T> Ord for NeutralOrd<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+    use std::println;
+
     #[allow(unused_imports)]
     use crate::component::Component;
     #[allow(unused_imports)]

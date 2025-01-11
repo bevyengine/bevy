@@ -1,13 +1,16 @@
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
+
 #[cfg(feature = "trace")]
 use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
 
 use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    system::System,
     world::World,
 };
 
@@ -136,7 +139,7 @@ impl SystemExecutor for SimpleExecutor {
 
 impl SimpleExecutor {
     /// Creates a new simple executor for use in a [`Schedule`](crate::schedule::Schedule).
-    /// This calls each system in order and immediately calls [`System::apply_deferred`].
+    /// This calls each system in order and immediately calls [`System::apply_deferred`](crate::system::System).
     pub const fn new() -> Self {
         Self {
             evaluated_sets: FixedBitSet::new(),

@@ -51,10 +51,12 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
-        #[allow(clippy::nonminimal_bool)]
-        if !inverted && angle >= right_angle && angle <= left_angle
-            || inverted && (angle >= right_angle || angle <= left_angle)
-        {
+        let angle_within_parameters = if inverted {
+            angle >= right_angle || angle <= left_angle
+        } else {
+            angle >= right_angle && angle <= left_angle
+        };
+        if angle_within_parameters {
             bounds.push(extremum * arc.radius);
         }
     }
@@ -441,6 +443,7 @@ impl Bounded2d for Capsule2d {
 #[cfg(test)]
 mod tests {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use std::println;
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
@@ -475,7 +478,6 @@ mod tests {
     // Arcs and circular segments have the same bounding shapes so they share test cases.
     fn arc_and_segment() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -629,7 +631,6 @@ mod tests {
     #[test]
     fn circular_sector() {
         struct TestCase {
-            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -650,7 +651,7 @@ mod tests {
         let apothem = ops::sqrt(3.0) / 2.0;
         let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
-            // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            // Test case: A sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
                 arc: Arc2d::from_radians(1.0, TAU / 3.0),

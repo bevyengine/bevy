@@ -17,9 +17,9 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
+use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -96,7 +96,6 @@ struct CameraLayoutInfo {
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
@@ -215,8 +214,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.is_changed() || c.measure.is_some())
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.is_changed() || c.measure.is_some())
                 {
                     let layout_context = LayoutContext::new(
                         camera.scale_factor,
@@ -489,10 +487,7 @@ mod tests {
     };
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_render::{
-        camera::{ManualTextureViews, OrthographicProjection},
-        prelude::Camera,
-    };
+    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
@@ -544,7 +539,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,
@@ -1188,7 +1183,7 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
                 ApplyDeferred,
                 ui_layout_system,
