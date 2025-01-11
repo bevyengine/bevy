@@ -28,7 +28,7 @@ use core::{
 };
 use thiserror::Error;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeEntityCell, OnRemove, OnReplace, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -2123,11 +2123,19 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: All components in the archetype exist in world
         unsafe {
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    TypeId::of::<OnReplace>(),
+                    self.entity,
+                    archetype.components(),
+                );
             }
             deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    TypeId::of::<OnRemove>(),
+                    self.entity,
+                    archetype.components(),
+                );
             }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
         }
@@ -2553,14 +2561,18 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
 ) {
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
-            ON_REPLACE,
+            TypeId::of::<OnReplace>(),
             entity,
             bundle_info.iter_explicit_components(),
         );
     }
     deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
     if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
+        deferred_world.trigger_observers(
+            TypeId::of::<OnRemove>(),
+            entity,
+            bundle_info.iter_explicit_components(),
+        );
     }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
 }

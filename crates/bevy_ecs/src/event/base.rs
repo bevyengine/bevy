@@ -1,4 +1,4 @@
-use crate::{component::Component, traversal::Traversal};
+use crate::traversal::Traversal;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(feature = "track_location")]
@@ -36,7 +36,7 @@ use core::{
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
-pub trait Event: Component {
+pub trait Event: Send + Sync + 'static {
     /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate

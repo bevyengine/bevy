@@ -17,8 +17,9 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_ptr::Ptr;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, TypeIdMap};
 use core::{
+    any::TypeId,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -47,7 +48,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the event type of this trigger.
-    pub fn event_type(&self) -> ComponentId {
+    pub fn event_type(&self) -> TypeId {
         self.trigger.event_type
     }
 
@@ -262,7 +263,7 @@ impl TriggerTargets for &Vec<Entity> {
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
-    events: Vec<ComponentId>,
+    events: Vec<TypeId>,
 
     /// The components the observer is watching.
     components: Vec<ComponentId>,
@@ -276,7 +277,7 @@ impl ObserverDescriptor {
     /// # Safety
     /// The type of each [`ComponentId`] in `events` _must_ match the actual value
     /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, events: Vec<ComponentId>) -> Self {
+    pub unsafe fn with_events(mut self, events: Vec<TypeId>) -> Self {
         self.events = events;
         self
     }
@@ -307,7 +308,7 @@ pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
     /// The [`Event`] the trigger targeted.
-    pub event_type: ComponentId,
+    pub event_type: TypeId,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
@@ -353,34 +354,42 @@ pub struct Observers {
     on_replace: CachedObservers,
     on_remove: CachedObservers,
     // Map from trigger type to set of observers
-    cache: HashMap<ComponentId, CachedObservers>,
+    cache: TypeIdMap<CachedObservers>,
 }
 
 impl Observers {
-    pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
-        match event_type {
-            ON_ADD => &mut self.on_add,
-            ON_INSERT => &mut self.on_insert,
-            ON_REPLACE => &mut self.on_replace,
-            ON_REMOVE => &mut self.on_remove,
-            _ => self.cache.entry(event_type).or_default(),
+    pub(crate) fn get_observers(&mut self, event_type: TypeId) -> &mut CachedObservers {
+        if event_type == TypeId::of::<OnAdd>() {
+            &mut self.on_add
+        } else if event_type == TypeId::of::<OnInsert>() {
+            &mut self.on_insert
+        } else if event_type == TypeId::of::<OnReplace>() {
+            &mut self.on_replace
+        } else if event_type == TypeId::of::<OnRemove>() {
+            &mut self.on_remove
+        } else {
+            self.cache.entry(event_type).or_default()
         }
     }
 
-    pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
-        match event_type {
-            ON_ADD => Some(&self.on_add),
-            ON_INSERT => Some(&self.on_insert),
-            ON_REPLACE => Some(&self.on_replace),
-            ON_REMOVE => Some(&self.on_remove),
-            _ => self.cache.get(&event_type),
+    pub(crate) fn try_get_observers(&self, event_type: TypeId) -> Option<&CachedObservers> {
+        if event_type == TypeId::of::<OnAdd>() {
+            Some(&self.on_add)
+        } else if event_type == TypeId::of::<OnInsert>() {
+            Some(&self.on_insert)
+        } else if event_type == TypeId::of::<OnReplace>() {
+            Some(&self.on_replace)
+        } else if event_type == TypeId::of::<OnRemove>() {
+            Some(&self.on_remove)
+        } else {
+            self.cache.get(&event_type)
         }
     }
 
     /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
-        event_type: ComponentId,
+        event_type: TypeId,
         target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
@@ -441,13 +450,17 @@ impl Observers {
         });
     }
 
-    pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
-        match event_type {
-            ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
-            ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            ON_REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
-            ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
-            _ => None,
+    pub(crate) fn is_archetype_cached(event_type: TypeId) -> Option<ArchetypeFlags> {
+        if event_type == TypeId::of::<OnAdd>() {
+            Some(ArchetypeFlags::ON_ADD_OBSERVER)
+        } else if event_type == TypeId::of::<OnInsert>() {
+            Some(ArchetypeFlags::ON_INSERT_OBSERVER)
+        } else if event_type == TypeId::of::<OnReplace>() {
+            Some(ArchetypeFlags::ON_REPLACE_OBSERVER)
+        } else if event_type == TypeId::of::<OnRemove>() {
+            Some(ArchetypeFlags::ON_REMOVE_OBSERVER)
+        } else {
+            None
         }
     }
 
@@ -522,9 +535,8 @@ impl World {
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     pub fn trigger<E: Event>(&mut self, mut event: E) {
-        let event_id = self.register_component::<E>();
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, ()) };
+        unsafe { self.trigger_targets_dynamic_ref(TypeId::of::<E>(), &mut event, ()) };
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
@@ -532,9 +544,8 @@ impl World {
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
-        let event_id = self.register_component::<E>();
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
+        unsafe { self.trigger_targets_dynamic_ref(TypeId::of::<E>(), event, ()) };
     }
 
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -543,9 +554,8 @@ impl World {
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     pub fn trigger_targets<E: Event>(&mut self, mut event: E, targets: impl TriggerTargets) {
-        let event_id = self.register_component::<E>();
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, targets) };
+        unsafe { self.trigger_targets_dynamic_ref(TypeId::of::<E>(), &mut event, targets) };
     }
 
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
@@ -554,9 +564,8 @@ impl World {
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
-        let event_id = self.register_component::<E>();
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
+        unsafe { self.trigger_targets_dynamic_ref(TypeId::of::<E>(), event, targets) };
     }
 
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -570,7 +579,7 @@ impl World {
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_id: TypeId,
         mut event_data: E,
         targets: Targets,
     ) {
@@ -591,7 +600,7 @@ impl World {
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
     pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
         &mut self,
-        event_id: ComponentId,
+        event_id: TypeId,
         event_data: &mut E,
         targets: Targets,
     ) {
@@ -744,6 +753,8 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use core::any::TypeId;
+
     use alloc::{vec, vec::Vec};
 
     use bevy_ptr::OwningPtr;
@@ -996,14 +1007,13 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.register_component::<OnRemove>();
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
                 Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(on_remove)
+                .with_event(TypeId::of::<OnRemove>())
             },
         );
 
@@ -1155,11 +1165,12 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = world.register_component::<EventA>();
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
-            descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
+            descriptor: unsafe {
+                ObserverDescriptor::default().with_events(vec![TypeId::of::<EventA>()])
+            },
             runner: |mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             },
@@ -1168,7 +1179,7 @@ mod tests {
 
         world.commands().queue(move |world: &mut World| {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
-            unsafe { world.trigger_targets_dynamic(event_a, EventA, ()) };
+            unsafe { world.trigger_targets_dynamic(TypeId::of::<EventA>(), EventA, ()) };
         });
         world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);

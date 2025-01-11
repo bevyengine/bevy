@@ -5,15 +5,6 @@ use crate::{self as bevy_ecs};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-/// [`ComponentId`] for [`OnAdd`]
-pub const ON_ADD: ComponentId = ComponentId::new(0);
-/// [`ComponentId`] for [`OnInsert`]
-pub const ON_INSERT: ComponentId = ComponentId::new(1);
-/// [`ComponentId`] for [`OnReplace`]
-pub const ON_REPLACE: ComponentId = ComponentId::new(2);
-/// [`ComponentId`] for [`OnRemove`]
-pub const ON_REMOVE: ComponentId = ComponentId::new(3);
-
 /// Trigger emitted when a component is added to an entity. See [`crate::component::ComponentHooks::on_add`]
 /// for more information.
 #[derive(Event, Debug)]

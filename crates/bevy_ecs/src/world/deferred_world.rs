@@ -1,4 +1,4 @@
-use core::ops::Deref;
+use core::{any::TypeId, ops::Deref};
 
 use crate::{
     archetype::Archetype,
@@ -14,7 +14,7 @@ use crate::{
     world::{error::EntityFetchError, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, OnInsert, OnReplace, World};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
@@ -128,7 +128,11 @@ impl<'w> DeferredWorld<'w> {
             let archetype = &*archetype;
             self.trigger_on_replace(archetype, entity, [component_id].into_iter());
             if archetype.has_replace_observer() {
-                self.trigger_observers(ON_REPLACE, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    TypeId::of::<OnReplace>(),
+                    entity,
+                    [component_id].into_iter(),
+                );
             }
         }
 
@@ -157,7 +161,11 @@ impl<'w> DeferredWorld<'w> {
             let archetype = &*archetype;
             self.trigger_on_insert(archetype, entity, [component_id].into_iter());
             if archetype.has_insert_observer() {
-                self.trigger_observers(ON_INSERT, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    TypeId::of::<OnInsert>(),
+                    entity,
+                    [component_id].into_iter(),
+                );
             }
         }
 
@@ -588,7 +596,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
+        event: TypeId,
         target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
     ) {
@@ -609,7 +617,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
+        event: TypeId,
         mut target: Entity,
         components: &[ComponentId],
         data: &mut E,

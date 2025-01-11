@@ -18,7 +18,7 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
+    world::{unsafe_world_cell::UnsafeWorldCell, OnAdd, OnInsert, OnReplace},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{ConstNonNull, OwningPtr};
@@ -1033,7 +1033,7 @@ impl<'w> BundleInserter<'w> {
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
-                        ON_REPLACE,
+                        TypeId::of::<OnReplace>(),
                         entity,
                         archetype_after_insert.iter_existing(),
                     );
@@ -1215,7 +1215,7 @@ impl<'w> BundleInserter<'w> {
             );
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    TypeId::of::<OnAdd>(),
                     entity,
                     archetype_after_insert.iter_added(),
                 );
@@ -1230,7 +1230,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            TypeId::of::<OnInsert>(),
                             entity,
                             archetype_after_insert.iter_inserted(),
                         );
@@ -1246,7 +1246,7 @@ impl<'w> BundleInserter<'w> {
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
-                            ON_INSERT,
+                            TypeId::of::<OnInsert>(),
                             entity,
                             archetype_after_insert.iter_added(),
                         );
@@ -1374,7 +1374,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
-                    ON_ADD,
+                    TypeId::of::<OnAdd>(),
                     entity,
                     bundle_info.iter_contributed_components(),
                 );
@@ -1386,7 +1386,7 @@ impl<'w> BundleSpawner<'w> {
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
-                    ON_INSERT,
+                    TypeId::of::<OnInsert>(),
                     entity,
                     bundle_info.iter_contributed_components(),
                 );

@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use core::any::Any;
+use core::any::{Any, TypeId};
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, Mutable, StorageType},
@@ -34,14 +34,14 @@ impl Default for ObserverState {
 impl ObserverState {
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
-    pub fn with_event(mut self, event: ComponentId) -> Self {
+    pub fn with_event(mut self, event: TypeId) -> Self {
         self.descriptor.events.push(event);
         self
     }
 
     /// Observe the given event list. This will cause the [`Observer`] to run whenever an event with any of the given [`ComponentId`]s
     /// is triggered.
-    pub fn with_events(mut self, events: impl IntoIterator<Item = ComponentId>) -> Self {
+    pub fn with_events(mut self, events: impl IntoIterator<Item = TypeId>) -> Self {
         self.descriptor.events.extend(events);
         self
     }
@@ -305,10 +305,11 @@ impl Observer {
 
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
+    ///
     /// # Safety
     /// The type of the `event` [`ComponentId`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+    pub unsafe fn with_event(mut self, event: TypeId) -> Self {
         self.descriptor.events.push(event);
         self
     }
@@ -398,13 +399,12 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     _: ComponentId,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_type = world.register_component::<E>();
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
-            events: vec![event_type],
+            events: vec![TypeId::of::<E>()],
             components,
             ..Default::default()
         };

@@ -107,7 +107,7 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        let mut world = Self {
+        Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
@@ -123,9 +123,7 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
-        };
-        world.bootstrap();
-        world
+        }
     }
 }
 
@@ -143,15 +141,6 @@ impl Drop for World {
 }
 
 impl World {
-    /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
-    /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
-    #[inline]
-    fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
-    }
     /// Creates a new empty [`World`].
     ///
     /// # Panics
