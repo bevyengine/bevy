@@ -324,7 +324,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 }
 
 pub struct ExtractedSlice {
-    pub position: Vec2,
+    pub offset: Vec2,
     pub rect: Rect,
     pub size: Vec2,
 }
@@ -807,7 +807,7 @@ pub fn prepare_sprite_image_bind_groups(
                             sprite.size.extend(1.0),
                             Quat::IDENTITY,
                             (sprite.size * (-extracted_sprite.anchor - Vec2::splat(0.5))
-                                + sprite.position)
+                                + sprite.offset)
                                 .extend(0.0),
                         );
 

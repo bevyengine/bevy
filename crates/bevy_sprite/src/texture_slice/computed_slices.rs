@@ -33,7 +33,7 @@ impl ComputedTextureSlices {
             flip.y *= -1.0;
         }
         self.0.iter().map(move |slice| ExtractedSlice {
-            position: slice.offset * flip,
+            offset: slice.offset * flip,
             rect: slice.texture_rect,
             size: slice.draw_size,
         })

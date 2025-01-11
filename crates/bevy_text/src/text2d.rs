@@ -204,7 +204,7 @@ pub fn extract_text2d_sprite(
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
             extracted_sprites.slices.push(ExtractedSlice {
-                position: *position,
+                offset: *position,
                 rect,
                 size: rect.size(),
             });
