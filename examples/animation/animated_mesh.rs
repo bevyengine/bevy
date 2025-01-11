@@ -33,8 +33,9 @@ fn setup_mesh_and_animation(
 ) {
     // Build the animation graph
     let (graph, index) = AnimationGraph::from_clip(
-        // We specifically want the "walk" animation, which is the first one.
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
+        // We want the "run" animation from our example asset, which has an
+        // index of two.
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
     );
 
     // Keep our animation graph in a Resource so that it can be inserted onto
