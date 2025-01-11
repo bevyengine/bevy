@@ -1,7 +1,13 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use std::{env, path::PathBuf, sync::LazyLock};
+use std::{
+    collections::HashMap,
+    env,
+    ffi::OsString,
+    path::PathBuf,
+    sync::{LazyLock, Mutex},
+};
 use toml_edit::{DocumentMut, Item};
 
 /// The path to the `Cargo.toml` file for the Bevy project.
@@ -13,29 +19,36 @@ const BEVY: &str = "bevy";
 const BEVY_INTERNAL: &str = "bevy_internal";
 
 impl BevyManifest {
-    /// Returns a global shared instance of the [`BevyManifest`] struct.
-    pub fn shared() -> &'static LazyLock<Self> {
-        static LAZY_SELF: LazyLock<BevyManifest> = LazyLock::new(|| BevyManifest {
-            manifest: env::var_os("CARGO_MANIFEST_DIR")
-                .map(PathBuf::from)
-                .map(|mut path| {
-                    path.push("Cargo.toml");
-                    if !path.exists() {
-                        panic!(
-                            "No Cargo manifest found for crate. Expected: {}",
-                            path.display()
-                        );
-                    }
-                    let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
-                        panic!("Unable to read cargo manifest: {}", path.display())
-                    });
-                    manifest.parse::<DocumentMut>().unwrap_or_else(|_| {
+    /// Returns a shared instance of the [`BevyManifest`] struct. All callers invoking this function
+    /// with the same value of the `CARGO_MANIFEST_DIR` environment variable receive the same
+    /// instance.
+    pub fn shared() -> &'static Self {
+        static BEVY_MANIFESTS: LazyLock<Mutex<HashMap<OsString, &'static BevyManifest>>> =
+            LazyLock::new(|| Mutex::new(HashMap::new()));
+        let manifest_dir =
+            env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not defined.");
+        BEVY_MANIFESTS
+            .lock()
+            .unwrap()
+            .entry(manifest_dir)
+            .or_insert_with_key(|manifest_dir| {
+                let mut path = PathBuf::from(manifest_dir);
+                path.push("Cargo.toml");
+                if !path.exists() {
+                    panic!(
+                        "No Cargo manifest found for crate. Expected: {}",
+                        path.display()
+                    );
+                }
+                let manifest = std::fs::read_to_string(path.clone()).unwrap_or_else(|_| {
+                    panic!("Unable to read cargo manifest: {}", path.display())
+                });
+                Box::leak(Box::new(BevyManifest {
+                    manifest: manifest.parse::<DocumentMut>().unwrap_or_else(|_| {
                         panic!("Failed to parse cargo manifest: {}", path.display())
-                    })
-                })
-                .expect("CARGO_MANIFEST_DIR is not defined."),
-        });
-        &LAZY_SELF
+                    }),
+                }))
+            })
     }
 
     /// Attempt to retrieve the [path](syn::Path) of a particular package in
