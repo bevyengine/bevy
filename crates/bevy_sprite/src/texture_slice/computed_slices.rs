@@ -19,7 +19,6 @@ impl ComputedTextureSlices {
     /// # Arguments
     ///
     /// * `sprite` - The sprite component
-
     #[must_use]
     pub(crate) fn extract_slices<'a>(
         &'a self,
