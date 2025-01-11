@@ -1,11 +1,10 @@
-use crate::{ExtractedSlice, ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
+use crate::{ExtractedSlice, Sprite, SpriteImageMode, TextureAtlasLayout};
 
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
-use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
 /// Component storing texture slices for tiled or sliced sprite entities
@@ -38,17 +37,6 @@ impl ComputedTextureSlices {
             rect: slice.texture_rect,
             size: slice.draw_size,
         })
-    }
-
-    fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
-        let sprite_size = sprite
-            .custom_size
-            .unwrap_or(sprite.rect.unwrap_or_default().size());
-        if sprite_size == Vec2::ZERO {
-            sprite.anchor.as_vec()
-        } else {
-            sprite.anchor.as_vec() * sprite_size / slice.draw_size
-        }
     }
 }
 

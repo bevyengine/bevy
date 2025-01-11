@@ -19,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -32,7 +32,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -375,7 +375,6 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
