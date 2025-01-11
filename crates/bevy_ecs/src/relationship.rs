@@ -62,10 +62,9 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_sources.collection_mut().remove(entity);
                 if relationship_sources.len() == 0 {
-                    world
-                        .commands()
-                        .entity(parent)
-                        .remove::<Self::RelationshipSources>();
+                    if let Some(mut entity) = world.commands().get_entity(parent) {
+                        entity.remove::<Self::RelationshipSources>();
+                    }
                 }
             }
         }
@@ -98,19 +97,40 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
 
     // TODO: this should probably be an on_despawn hook to avoid accidentally despawning on removal
     // on_despawn could also take a &mut EntityWorldMut, which would allow doing this without commands
-    fn on_remove(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-        let entities = world
-            .entity_mut(entity)
-            .get_mut::<Self>()
-            .unwrap()
-            .collection_mut()
-            .take();
-        let mut commands = world.commands();
-        for entity in entities {
-            if let Some(mut entity) = commands.get_entity(entity) {
-                entity.despawn();
-            } else {
-                warn!("Tried to despawn non-existent entity {}", entity);
+    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+        unsafe {
+            let world = world.as_unsafe_world_cell();
+            let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
+            let mut commands = world.get_raw_command_queue();
+            for source_entity in sources.iter() {
+                if world.get_entity(source_entity).is_some() {
+                    commands.push(
+                        entity_commands::remove(Self::Relationship)
+                            .with_entity(source_entity)
+                            .with_error_handler(error_handler::silent()),
+                    );
+                } else {
+                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                }
+            }
+        }
+    }
+
+    fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+        unsafe {
+            let world = world.as_unsafe_world_cell();
+            let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
+            let mut commands = world.get_raw_command_queue();
+            for source_entity in sources.iter() {
+                if world.has_entity(source_entity) {
+                    commands.push(
+                        entity_commands::despawn()
+                            .with_entity(source_entity)
+                            .with_error_handler(error_handler::silent()),
+                    );
+                } else {
+                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                }
             }
         }
     }

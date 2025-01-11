@@ -12,7 +12,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, DeferredWorld, Mut, World},
+    world::{error::EntityComponentError, DeferredWorld, Mut, World, ON_DESPAWN},
 };
 use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
@@ -2056,6 +2056,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            if archetype.has_despawn_observer() {
+                deferred_world.trigger_observers(ON_DESPAWN, self.entity, archetype.components());
+            }
+            deferred_world.trigger_on_despawn(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
