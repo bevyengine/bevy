@@ -24,7 +24,7 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/111/0/2
 #ifdef LIGHTMAP_BICUBIC_SAMPLING
-    let texture_size = vec2<f32>(textureDimensions(lightmaps_texture));
+    let texture_size = vec2<f32>(lightmap_size(lightmap_slot));
     let texel_size = 1.0 / texture_size;
     let puv = lightmap_uv * texture_size + 0.5;
     let iuv = floor(puv);
@@ -39,12 +39,20 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
     let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
     let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
-    let color = g0(fuv.y) * (g0x * sample(p0, lightmap_slot) + g1x * sample(p1, lightmap_slot)) + g1(fuv.y, lightmap_slot) * (g0x * sample(p2, lightmap_slot) + g1x * sample(p3, lightmap_slot));
+    let color = g0(fuv.y) * (g0x * sample(p0, lightmap_slot) + g1x * sample(p1, lightmap_slot)) + g1(fuv.y) * (g0x * sample(p2, lightmap_slot) + g1x * sample(p3, lightmap_slot));
 #else
     let color = sample(lightmap_uv, lightmap_slot);
 #endif
 
     return color * exposure;
+}
+
+fn lightmap_size(lightmap_slot: u32) -> vec2<u32> {
+#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+    return textureDimensions(lightmaps_textures[lightmap_slot]);
+#else
+    return textureDimensions(lightmaps_texture);
+#endif
 }
 
 fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
