@@ -33,19 +33,30 @@ use crate::{ComputedNode, Node, PositionType, Val};
 
 use super::ImageNode;
 
+/// Component used to render a [`Camera::target`]  to a node.
+///
+/// # See Also
+///
+/// [`on_viewport_added`]
+/// [`update_viewport_render_target_size`]
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug)]
 pub struct Viewport {
-    camera: Entity,
+    /// The entity representing the [`Camera`] associated with this viewport.
+    pub camera: Entity,
 }
 
 impl Viewport {
+    /// Creates a new [`Viewport`] with a given `camera`.
     pub fn new(camera: Entity) -> Self {
         Self { camera }
     }
 }
 
 #[cfg(feature = "bevy_ui_picking_backend")]
+/// Handles viewport picking logic.
+///
+/// Viewport entities that are being hovered or dragged will have all pointer inputs sent to them.
 #[expect(
     clippy::too_many_arguments,
     reason = "Won't have too many arguments when `dragged_last_frame` is removed"
@@ -58,18 +69,17 @@ pub fn viewport_picking(
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
-    // TODO: Remove when #17230 is resolved
+    // TODO: Is this needed?
     mut dragged_last_frame: Local<HashSet<(Entity, PointerId)>>,
 ) {
-    let mut viewport_picks: HashSet<(Entity, PointerId)> = dragged_last_frame.drain().collect();
-
-    for (hover_pointer_id, hits) in hover_map.iter() {
-        for (entity, _hit_data) in hits.iter() {
-            if viewport_query.contains(*entity) {
-                viewport_picks.insert((*entity, *hover_pointer_id));
-            }
-        }
-    }
+    let mut viewport_picks: HashSet<(Entity, PointerId)> = dragged_last_frame
+        .drain()
+        .chain(hover_map.iter().flat_map(|(hover_pointer_id, hits)| {
+            hits.iter()
+                .filter(|(entity, _)| viewport_query.contains(**entity))
+                .map(|(entity, _)| (*entity, *hover_pointer_id))
+        }))
+        .collect();
 
     // Currently, we have only retrieved viewport entities if they are being hovered. However, this
     // does not allow dragging in-and-out of viewports.
@@ -90,7 +100,8 @@ pub fn viewport_picking(
         let Ok((&viewport, &viewport_pointer_id, viewport_children)) =
             viewport_query.get(viewport_entity)
         else {
-            // TODO: Error?
+            // This can only happen if entities in `dragged_last_frame` had one of these
+            // components removed since we last queried them
             continue;
         };
 
@@ -110,10 +121,12 @@ pub fn viewport_picking(
             continue;
         };
 
+        // Create a `Rect` in *physical* coordinates centered at the node's GlobalTransform
         let node_rect = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
         );
+        // Location::position uses *logical* coordinates
         let top_left = node_rect.min * computed_node.inverse_scale_factor();
         let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
 
@@ -138,6 +151,8 @@ pub fn viewport_picking(
     }
 }
 
+/// Adds a [`PointerId`] and [`ImageNode`] child to entities that have a [`Viewport`] component
+/// added to them.
 pub fn on_viewport_added(
     trigger: Trigger<OnAdd, Viewport>,
     mut commands: Commands,
@@ -177,6 +192,7 @@ pub fn on_viewport_added(
         .insert(PointerId::Custom(Uuid::new_v4()));
 }
 
+/// Updates the size of the associated render target for viewports when the node size changes.
 pub fn update_viewport_render_target_size(
     viewport_query: Query<(&Viewport, &Children)>,
     node_query: Query<&ComputedNode, Changed<ComputedNode>>,
