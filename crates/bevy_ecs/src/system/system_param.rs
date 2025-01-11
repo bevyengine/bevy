@@ -846,14 +846,6 @@ pub trait Resource: Send + Sync + 'static {
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::default_handler()
     }
-
-    /// Called when registering this resource, can be set to `true` for components that are [`Copy`] to enable optimizations
-    /// when performing resource cloning.
-    /// # Safety
-    /// Must return `true` **only** if resource is actually [`Copy`]
-    unsafe fn is_copy() -> bool {
-        false
-    }
 }
 
 // SAFETY: Res only reads a single World resource

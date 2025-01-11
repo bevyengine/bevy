@@ -57,14 +57,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
                 (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
                     .get_component_clone_handler()
             }
-
-            unsafe fn is_copy() -> bool {
-                use #bevy_ecs_path::component::{IsCopyBase, IsCopySpec};
-
-                // Safety: IsCopyWrapper use autoderef specialization to determine if type implements [`Copy`]
-                (&&&#bevy_ecs_path::component::IsCopyWrapper::<Self>::default())
-                    .is_copy()
-            }
         }
     })
 }
@@ -186,14 +178,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
                 (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
                     .get_component_clone_handler()
-            }
-
-            unsafe fn is_copy() -> bool {
-                use #bevy_ecs_path::component::{IsCopyBase, IsCopySpec};
-
-                // Safety: IsCopyWrapper use autoderef specialization to determine if type implements [`Copy`]
-                (&&&#bevy_ecs_path::component::IsCopyWrapper::<Self>::default())
-                    .is_copy()
             }
         }
     })

@@ -423,14 +423,6 @@ pub trait Component: Send + Sync + 'static {
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::default_handler()
     }
-
-    /// Called when registering this component, can be set to `true` for components that are [`Copy`] to enable optimizations
-    /// when performing component cloning.
-    /// # Safety
-    /// Must return `true` **only** if component is actually [`Copy`]
-    unsafe fn is_copy() -> bool {
-        false
-    }
 }
 
 mod private {
@@ -925,8 +917,8 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
-            // Safety: is_copy will be true only if component is actually Copy
-            is_copy: unsafe { T::is_copy() },
+            // Safety: is_copy<T>() will be true only if T is actually Copy
+            is_copy: is_copy::<T>(),
             clone_handler: T::get_component_clone_handler(),
         }
     }
@@ -973,8 +965,8 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
-            // Safety: is_copy will be true only if resource is actually Copy
-            is_copy: unsafe { T::is_copy() },
+            // Safety: is_copy<T>() will be true only if T is actually Copy
+            is_copy: is_copy::<T>(),
             clone_handler: T::get_component_clone_handler(),
         }
     }
@@ -988,7 +980,8 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
-            is_copy: false,
+            // Safety: is_copy<T>() will be true only if T is actually Copy
+            is_copy: is_copy::<T>(),
             clone_handler: ComponentCloneHandler::default_handler(),
         }
     }
@@ -2368,32 +2361,65 @@ impl<T: Copy + 'static> ComponentCloneViaCopy for &&ComponentCloneSpecialization
     }
 }
 
-/// Wrapper to determine if `T` implements [`Copy`] using autoderef.
-#[doc(hidden)]
-pub struct IsCopyWrapper<T>(PhantomData<T>);
+/// HACK: Determine if T is [`Copy`] by (ab)using array copy specialization.
+/// This utilizes a maybe bug in std which is maybe unsound when used with lifetimes (see: <https://github.com/rust-lang/rust/issues/132442>).
+/// At the same time there doesn't seem to be any timeline on when (or if) this will be fixed, so maybe it is ok to use?
+/// Either way, we can always fall back to autoderef-based specialization if this ever gets fixed
+/// (or maybe proper specialization will be available by that time?).
+/// This hack is used mostly to avoid forcing users to write unsafe code to indicate if component if actually `Copy`
+/// when implementing [`Component`] trait by hand.
+#[inline]
+fn is_copy<T>() -> bool {
+    struct MaybeCopy<'a, T>(&'a core::cell::Cell<bool>, PhantomData<T>);
 
-impl<T> Default for IsCopyWrapper<T> {
-    fn default() -> Self {
-        Self(PhantomData)
+    impl<T> Clone for MaybeCopy<'_, T> {
+        fn clone(&self) -> Self {
+            self.0.set(false);
+            Self(self.0, self.1)
+        }
     }
+
+    impl<T: Copy> Copy for MaybeCopy<'_, T> {}
+
+    let is_copy = core::cell::Cell::new(true);
+
+    _ = [MaybeCopy::<T>(&is_copy, Default::default()); 1].clone();
+
+    is_copy.get()
 }
-/// Base trait for is copy specialization using autoderef.
-#[doc(hidden)]
-pub trait IsCopyBase {
-    fn is_copy(&self) -> bool;
-}
-impl<T: 'static> IsCopyBase for IsCopyWrapper<T> {
-    fn is_copy(&self) -> bool {
-        false
-    }
-}
-/// Specialized trait for is copy specialization using autoderef.
-#[doc(hidden)]
-pub trait IsCopySpec {
-    fn is_copy(&self) -> bool;
-}
-impl<T: Copy + 'static> IsCopySpec for &IsCopyWrapper<T> {
-    fn is_copy(&self) -> bool {
-        true
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn is_copy_working() {
+        struct A;
+
+        #[derive(Clone, Copy)]
+        struct B;
+
+        #[derive(Clone)]
+        struct C;
+
+        impl Copy for C {}
+
+        struct D;
+
+        impl Clone for D {
+            fn clone(&self) -> Self {
+                *self
+            }
+        }
+
+        impl Copy for D {}
+
+        #[derive(Clone)]
+        struct E;
+
+        assert!(!is_copy::<A>());
+        assert!(is_copy::<B>());
+        assert!(is_copy::<C>());
+        assert!(is_copy::<D>());
+        assert!(!is_copy::<E>());
     }
 }
