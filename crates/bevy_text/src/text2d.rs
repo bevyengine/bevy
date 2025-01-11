@@ -142,7 +142,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_color: Extract<Query<&TextColor>>,
+    text_colors: Extract<Query<&TextColor>>,
 ) {
     let mut start = extracted_sprites.slices.len();
     let mut end = start + 1;
@@ -175,6 +175,8 @@ pub fn extract_text2d_sprite(
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 
+        let mut entities_iter = computed_block.entities.iter();
+
         for (
             i,
             PositionedGlyph {
@@ -185,13 +187,17 @@ pub fn extract_text2d_sprite(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            let entity = computed_block.entities[*span_index].entity;
             if *span_index != current_span {
-                color = text_color
-                    .get(entity)
-                    .map(|text_color| text_color.0)
-                    .unwrap_or_default()
-                    .into();
+                color = text_colors
+                    .get(
+                        computed_block
+                            .entities()
+                            .get(*span_index)
+                            .map(|t| t.entity)
+                            .unwrap_or(Entity::PLACEHOLDER),
+                    )
+                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .unwrap_or_default();
                 current_span = *span_index;
             }
             let rect = texture_atlases
@@ -213,8 +219,13 @@ pub fn extract_text2d_sprite(
                 })
                 .unwrap_or(true)
             {
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.insert(
-                    entity.into(),
+                    entities_iter
+                        .next()
+                        .map(|t| t.entity)
+                        .unwrap_or_else(|| render_entity)
+                        .into(),
                     ExtractedSprite {
                         transform,
                         color,
@@ -225,7 +236,7 @@ pub fn extract_text2d_sprite(
                         flip_y: false,
                         anchor: Anchor::Center.as_vec(),
                         original_entity: Some(original_entity),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        render_entity,
                         slice_indices: start..end,
                     },
                 );
