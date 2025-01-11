@@ -8,7 +8,8 @@ use crate::{
 };
 use atomicow::CowArc;
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use bevy_utils::{HashMap, HashSet};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
@@ -443,8 +444,7 @@ impl<'a> LoadContext<'a> {
         !self.asset_server.get_handles_untyped(&path).is_empty()
     }
 
-    /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
-    /// The relevant asset metadata collected in this context will be stored in the returned [`LoadedAsset`].
+    /// "Finishes" this context by populating the final [`Asset`] value.
     pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
         LoadedAsset {
             value,

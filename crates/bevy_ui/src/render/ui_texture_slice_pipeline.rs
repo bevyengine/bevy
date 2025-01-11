@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -264,9 +262,10 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
@@ -344,13 +343,13 @@ pub fn queue_ui_slices(
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
+        let Ok((view_entity, view)) = views.get(extracted_slicer.camera_entity) else {
             continue;
         };
 
@@ -378,7 +377,6 @@ pub fn queue_ui_slices(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -442,7 +440,7 @@ pub fn prepare_ui_slices(
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
@@ -475,7 +473,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups

@@ -2,8 +2,13 @@
 
 #import bevy_pbr::mesh_bindings::mesh
 
+#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+@group(1) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
+@group(1) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
+#else   // MULTIPLE_LIGHTMAPS_IN_ARRAY
 @group(1) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(1) @binding(5) var lightmaps_sampler: sampler;
+#endif  // MULTIPLE_LIGHTMAPS_IN_ARRAY
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
@@ -12,8 +17,8 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
         unpack2x16unorm(packed_uv_rect.x),
         unpack2x16unorm(packed_uv_rect.y),
     );
-
     let lightmap_uv = mix(uv_rect.xy, uv_rect.zw, uv);
+    let lightmap_slot = mesh[instance_index].material_and_lightmap_bind_group_slot >> 16u;
 
     // Bicubic 4-tap
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
@@ -34,20 +39,23 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
     let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
     let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
-    let color = g0(fuv.y) * (g0x * sample(p0) + g1x * sample(p1)) +
-                g1(fuv.y) * (g0x * sample(p2) + g1x * sample(p3));
+    let color = g0(fuv.y) * (g0x * sample(p0, lightmap_slot) + g1x * sample(p1, lightmap_slot)) + g1(fuv.y, lightmap_slot) * (g0x * sample(p2, lightmap_slot) + g1x * sample(p3, lightmap_slot));
 #else
-    let color = sample(lightmap_uv);
+    let color = sample(lightmap_uv, lightmap_slot);
 #endif
 
     return color * exposure;
 }
 
-fn sample(uv: vec2<f32>) -> vec3<f32> {
+fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
     // Mipmapping lightmaps is usually a bad idea due to leaking across UV
     // islands, so there's no harm in using mip level 0 and it lets us avoid
     // control flow uniformity problems.
+#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+    return textureSampleLevel(lightmaps_textures[lightmap_slot], lightmaps_samplers[lightmap_slot], uv, 0.0).rgb;
+#else
     return textureSampleLevel(lightmaps_texture, lightmaps_sampler, uv, 0.0).rgb;
+#endif
 }
 
 fn w0(a: f32) -> f32 {

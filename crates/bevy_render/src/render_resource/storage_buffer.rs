@@ -156,6 +156,8 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
+/// This is just a [`StorageBuffer`], but also allows you to set dynamic offsets.
+///
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
 /// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
 /// storage buffers support multiple separate bindings at dynamic byte offsets and so have a

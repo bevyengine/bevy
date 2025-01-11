@@ -37,7 +37,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the base material mesh fragment shader
     /// will be used.
-    #[allow(unused_variables)]
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -50,7 +49,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material prepass fragment shader
     /// will be used.
-    #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -63,14 +61,12 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material deferred fragment shader
     /// will be used.
-    #[allow(unused_variables)]
     fn deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh fragment shader will be used.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -78,7 +74,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh prepass fragment shader will be used.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -86,7 +81,6 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
     /// the default meshlet mesh deferred fragment shader will be used.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -95,7 +89,10 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     /// Specialization for the base material is applied before this function is called.
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(
         pipeline: &MaterialExtensionPipeline,
@@ -150,6 +147,15 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
+    fn bindless_slot_count() -> Option<u32> {
+        match (B::bindless_slot_count(), E::bindless_slot_count()) {
+            (Some(base_bindless_slot_count), Some(extension_bindless_slot_count)) => {
+                Some(base_bindless_slot_count.min(extension_bindless_slot_count))
+            }
+            _ => None,
+        }
+    }
+
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
@@ -159,9 +165,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // Only allow bindless mode if both the base material and the extension
         // support it.
-        force_no_bindless = force_no_bindless
-            || B::BINDLESS_SLOT_COUNT.is_none()
-            || E::BINDLESS_SLOT_COUNT.is_none();
+        force_no_bindless = force_no_bindless || Self::bindless_slot_count().is_none();
 
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
@@ -199,9 +203,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     {
         // Only allow bindless mode if both the base material and the extension
         // support it.
-        force_no_bindless = force_no_bindless
-            || B::BINDLESS_SLOT_COUNT.is_none()
-            || E::BINDLESS_SLOT_COUNT.is_none();
+        force_no_bindless = force_no_bindless || Self::bindless_slot_count().is_none();
 
         // add together the bindings of the standard material and the user material
         let mut entries = B::bind_group_layout_entries(render_device, force_no_bindless);

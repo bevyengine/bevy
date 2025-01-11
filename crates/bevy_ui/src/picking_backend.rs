@@ -19,8 +19,6 @@
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 
-#![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
@@ -71,6 +69,8 @@ pub fn ui_picking(
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
+
+    let default_camera_entity = default_ui_camera.get();
 
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
@@ -133,7 +133,7 @@ pub fn ui_picking(
         let Some(camera_entity) = node
             .target_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -189,7 +189,7 @@ pub fn ui_picking(
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
+                .or(default_camera_entity)
             else {
                 continue;
             };

@@ -68,7 +68,6 @@ impl Plugin for MeshPickingPlugin {
 }
 
 /// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
-#[allow(clippy::too_many_arguments)]
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
@@ -99,10 +98,7 @@ pub fn update_hits(
                 let entity_layers = layers.get(entity).cloned().unwrap_or_default();
                 let render_layers_match = cam_layers.intersects(&entity_layers);
 
-                let is_pickable = pickables
-                    .get(entity)
-                    .map(|p| p.is_hoverable)
-                    .unwrap_or(true);
+                let is_pickable = pickables.get(entity).ok().is_none_or(|p| p.is_hoverable);
 
                 marker_requirement && render_layers_match && is_pickable
             },

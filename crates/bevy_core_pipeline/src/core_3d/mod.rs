@@ -68,7 +68,6 @@ use core::ops::Range;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     mesh::allocator::SlabId,
-    render_phase::PhaseItemBinKey,
     view::NoIndirectDrawing,
 };
 pub use camera_3d::*;
@@ -76,10 +75,10 @@ pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetId, UntypedAssetId};
+use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
-use bevy_image::{BevyDefault, Image};
+use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -101,7 +100,9 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::HashMap;
+use nonmax::NonMaxU32;
+use tracing::warn;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -113,8 +114,8 @@ use crate::{
     dof::DepthOfFieldNode,
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
-        MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+        ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
     tonemapping::TonemappingNode,
@@ -217,8 +218,13 @@ impl Plugin for Core3dPlugin {
 
 /// Opaque 3D [`BinnedPhaseItem`]s.
 pub struct Opaque3d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: Opaque3dBatchSetKey,
     /// The key, which determines which can be batched.
-    pub key: Opaque3dBinKey,
+    pub bin_key: Opaque3dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
     pub representative_entity: (Entity, MainEntity),
@@ -258,8 +264,9 @@ pub struct Opaque3dBatchSetKey {
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
 
-    /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
+    /// Index of the slab that the lightmap resides in, if a lightmap is
+    /// present.
+    pub lightmap_slab: Option<NonMaxU32>,
 }
 
 /// Data that must be identical in order to *batch* phase items together.
@@ -267,25 +274,11 @@ pub struct Opaque3dBatchSetKey {
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
-    /// The key of the *batch set*.
-    ///
-    /// As batches belong to a batch set, meshes in a batch must obviously be
-    /// able to be placed in a single batch set.
-    pub batch_set_key: Opaque3dBatchSetKey,
-
     /// The asset that this phase item is associated with.
     ///
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-}
-
-impl PhaseItemBinKey for Opaque3dBinKey {
-    type BatchSetKey = Opaque3dBatchSetKey;
-
-    fn get_batch_set_key(&self) -> Option<Self::BatchSetKey> {
-        Some(self.batch_set_key.clone())
-    }
 }
 
 impl PhaseItem for Opaque3d {
@@ -301,7 +294,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.batch_set_key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -324,17 +317,20 @@ impl PhaseItem for Opaque3d {
 }
 
 impl BinnedPhaseItem for Opaque3d {
+    type BatchSetKey = Opaque3dBatchSetKey;
     type BinKey = Opaque3dBinKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3d {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -345,12 +341,18 @@ impl BinnedPhaseItem for Opaque3d {
 impl CachedRenderPipelinePhaseItem for Opaque3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.batch_set_key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
 pub struct AlphaMask3d {
-    pub key: OpaqueNoLightmap3dBinKey,
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: OpaqueNoLightmap3dBatchSetKey,
+    /// The key, which determines which can be batched.
+    pub bin_key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -368,7 +370,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.key.batch_set_key.draw_function
+        self.batch_set_key.draw_function
     }
 
     #[inline]
@@ -394,16 +396,19 @@ impl PhaseItem for AlphaMask3d {
 
 impl BinnedPhaseItem for AlphaMask3d {
     type BinKey = OpaqueNoLightmap3dBinKey;
+    type BatchSetKey = OpaqueNoLightmap3dBatchSetKey;
 
     #[inline]
     fn new(
-        key: Self::BinKey,
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
-            key,
+            batch_set_key,
+            bin_key,
             representative_entity,
             batch_range,
             extra_index,
@@ -414,7 +419,7 @@ impl BinnedPhaseItem for AlphaMask3d {
 impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.key.batch_set_key.pipeline
+        self.batch_set_key.pipeline
     }
 }
 
@@ -604,7 +609,6 @@ pub fn extract_core_3d_camera_phases(
 
 // Extract the render phases for the prepass
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
@@ -684,7 +688,6 @@ pub fn extract_camera_prepass_phase(
     alpha_mask_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -775,7 +778,6 @@ pub struct ViewTransmissionTexture {
     pub sampler: Sampler,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -875,7 +877,6 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
 }
 
 // Prepares the textures used by the prepass
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,

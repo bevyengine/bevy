@@ -338,7 +338,6 @@ fn move_camera(
 }
 
 // Adjusts app settings per user input.
-#[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,

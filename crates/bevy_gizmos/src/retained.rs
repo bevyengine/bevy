@@ -3,7 +3,10 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
-use bevy_ecs::component::{require, Component};
+use bevy_ecs::{
+    component::{require, Component},
+    reflect::ReflectComponent,
+};
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 
@@ -73,6 +76,7 @@ impl DerefMut for GizmoAsset {
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
 #[require(Transform)]
 pub struct Gizmo {
     /// The handle to the gizmo to draw.
@@ -102,6 +106,10 @@ pub(crate) fn extract_linegizmos(
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
+    use bevy_utils::once;
+    use tracing::warn;
+
+    use crate::config::GizmoLineStyle;
 
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, gizmo, transform, render_layers) in &query {
@@ -111,6 +119,21 @@ pub(crate) fn extract_linegizmos(
         } else {
             0
         };
+        let (gap_scale, line_scale) = if let GizmoLineStyle::Dashed {
+            gap_scale,
+            line_scale,
+        } = gizmo.line_config.style
+        {
+            if gap_scale <= 0.0 {
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero"));
+            }
+            if line_scale <= 0.0 {
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero"));
+            }
+            (gap_scale, line_scale)
+        } else {
+            (1.0, 1.0)
+        };
 
         values.push((
             LineGizmoUniform {
@@ -118,6 +141,8 @@ pub(crate) fn extract_linegizmos(
                 line_width: gizmo.line_config.width,
                 depth_bias: gizmo.depth_bias,
                 joints_resolution,
+                gap_scale,
+                line_scale,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },

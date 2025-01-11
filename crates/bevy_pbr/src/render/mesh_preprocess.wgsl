@@ -8,6 +8,7 @@
 // so that TAA works.
 
 #import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
+#import bevy_pbr::mesh_preprocess_types::IndirectParameters
 #import bevy_render::maths
 #import bevy_render::view::View
 
@@ -25,8 +26,9 @@ struct MeshInput {
     first_vertex_index: u32,
     current_skin_index: u32,
     previous_skin_index: u32,
-    // Index of the material inside the bind group data.
-    material_bind_group_slot: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
 }
 
 // Information about each mesh instance needed to cull it on GPU.
@@ -46,26 +48,11 @@ struct PreprocessWorkItem {
     // The index of the `MeshInput` in the `current_input` buffer that we read
     // from.
     input_index: u32,
-    // In direct mode, the index of the `Mesh` in `output` that we write to. In
-    // indirect mode, the index of the `IndirectParameters` in
-    // `indirect_parameters` that we write to.
+    // The index of the `Mesh` in `output` that we write to.
     output_index: u32,
-}
-
-// The `wgpu` indirect parameters structure. This is a union of two structures.
-// For more information, see the corresponding comment in
-// `gpu_preprocessing.rs`.
-struct IndirectParameters {
-    // `vertex_count` or `index_count`.
-    data0: u32,
-    // `instance_count` in both structures.
-    instance_count: atomic<u32>,
-    // `first_vertex` in both structures.
-    first_vertex: u32,
-    // `first_instance` or `base_vertex`.
-    data1: u32,
-    // A read-only copy of `instance_index`.
-    instance_index: u32,
+    // The index of the `IndirectParameters` in `indirect_parameters` that we
+    // write to.
+    indirect_parameters_index: u32,
 }
 
 // The current frame's `MeshInput`.
@@ -137,9 +124,12 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         return;
     }
 
-    // Unpack.
+    // Unpack the work item.
     let input_index = work_items[instance_index].input_index;
     let output_index = work_items[instance_index].output_index;
+    let indirect_parameters_index = work_items[instance_index].indirect_parameters_index;
+
+    // Unpack the input matrix.
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
     let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
@@ -180,11 +170,28 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // instance index in the indirect parameters structure. Otherwise, this
     // index was directly supplied to us.
 #ifdef INDIRECT
-    let mesh_output_index = indirect_parameters[output_index].instance_index +
-        atomicAdd(&indirect_parameters[output_index].instance_count, 1u);
-#else
+    let batch_output_index =
+        atomicAdd(&indirect_parameters[indirect_parameters_index].instance_count, 1u);
+    let mesh_output_index = output_index + batch_output_index;
+
+    // If this is the first mesh in the batch, write the first instance index
+    // into the indirect parameters.
+    //
+    // We could have done this on CPU, but when we start retaining indirect
+    // parameters that will no longer be desirable, as the index of the first
+    // instance will change from frame to frame and we won't want the CPU to
+    // have to keep updating it.
+    if (batch_output_index == 0u) {
+        if (indirect_parameters[indirect_parameters_index].first_instance == 0xffffffffu) {
+            indirect_parameters[indirect_parameters_index].base_vertex_or_first_instance =
+                mesh_output_index;
+        } else {
+            indirect_parameters[indirect_parameters_index].first_instance = mesh_output_index;
+        }
+    }
+#else   // INDIRECT
     let mesh_output_index = output_index;
-#endif
+#endif  // INDIRECT
 
     // Write the output.
     output[mesh_output_index].world_from_local = world_from_local_affine_transpose;
@@ -196,6 +203,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].current_skin_index = current_input[input_index].current_skin_index;
     output[mesh_output_index].previous_skin_index = current_input[input_index].previous_skin_index;
-    output[mesh_output_index].material_bind_group_slot =
-        current_input[input_index].material_bind_group_slot;
+    output[mesh_output_index].material_and_lightmap_bind_group_slot =
+        current_input[input_index].material_and_lightmap_bind_group_slot;
 }
