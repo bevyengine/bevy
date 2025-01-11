@@ -1,5 +1,4 @@
 #import bevy_pbr::{
-    fast_math::fast_acos,
     mesh_view_types::Lights,
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
