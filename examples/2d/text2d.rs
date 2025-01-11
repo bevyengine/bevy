@@ -124,13 +124,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         (Anchor::BottomRight, Color::Srgba(BLUE)),
         (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {
-        commands.spawn((
-            Text2d::new(format!(" Anchor::{text_anchor:?} ")),
-            slightly_smaller_text_font.clone(),
-            TextColor(color),
-            Transform::from_translation(250. * Vec3::Y),
-            text_anchor,
-        ));
+        commands
+            .spawn((
+                Text2d::new(" Anchor::".to_string()),
+                slightly_smaller_text_font.clone(),
+                Transform::from_translation(250. * Vec3::Y),
+                text_anchor,
+            ))
+            .with_child((
+                TextSpan(format!("{text_anchor:?} ")),
+                slightly_smaller_text_font.clone(),
+                TextColor(color),
+            ));
     }
 }
 
