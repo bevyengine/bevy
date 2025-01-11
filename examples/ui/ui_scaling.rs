@@ -1,6 +1,7 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{color::palettes::css::*, prelude::*, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*};
+use core::time::Duration;
 
 const SCALE_TIME: u64 = 400;
 

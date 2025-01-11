@@ -6,10 +6,14 @@
 //! provided methods all maintain the invariants, so this is only a concern if you manually mutate
 //! the fields.
 
+use crate::ops;
+
 use super::interval::Interval;
 use core::fmt::Debug;
-use derive_more::derive::{Display, Error};
-use itertools::Itertools;
+use thiserror::Error;
+
+#[cfg(feature = "alloc")]
+use {alloc::vec::Vec, itertools::Itertools};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -112,6 +116,7 @@ impl<T> InterpolationDatum<T> {
 ///     }
 /// }
 /// ```
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -131,21 +136,22 @@ pub struct EvenCore<T> {
 }
 
 /// An error indicating that an [`EvenCore`] could not be constructed.
-#[derive(Debug, Error, Display)]
-#[display("Could not construct an EvenCore")]
+#[derive(Debug, Error)]
+#[error("Could not construct an EvenCore")]
 pub enum EvenCoreError {
     /// Not enough samples were provided.
-    #[display("Need at least two samples to create an EvenCore, but {samples} were provided")]
+    #[error("Need at least two samples to create an EvenCore, but {samples} were provided")]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[display("Cannot create a EvenCore over an unbounded domain")]
+    #[error("Cannot create an EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 
+#[cfg(feature = "alloc")]
 impl<T> EvenCore<T> {
     /// Create a new [`EvenCore`] from the specified `domain` and `samples`. The samples are
     /// regarded to be evenly spaced within the given domain interval, so that the outermost
@@ -243,11 +249,11 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
         // To the right side of all the samples
         InterpolationDatum::RightTail(samples - 1)
     } else {
-        let lower_index = steps_taken.floor() as usize;
+        let lower_index = ops::floor(steps_taken) as usize;
         // This upper index is always valid because `steps_taken` is a finite value
         // strictly less than `samples - 1`, so its floor is at most `samples - 2`
         let upper_index = lower_index + 1;
-        let s = steps_taken.fract();
+        let s = ops::fract(steps_taken);
         InterpolationDatum::Between(lower_index, upper_index, s)
     }
 }
@@ -314,6 +320,7 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 /// [`domain`]: UnevenCore::domain
 /// [`sample_with`]: UnevenCore::sample_with
 /// [the provided constructor]: UnevenCore::new
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -333,11 +340,11 @@ pub struct UnevenCore<T> {
 }
 
 /// An error indicating that an [`UnevenCore`] could not be constructed.
-#[derive(Debug, Error, Display)]
-#[display("Could not construct an UnevenCore")]
+#[derive(Debug, Error)]
+#[error("Could not construct an UnevenCore")]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
-    #[display(
+    #[error(
         "Need at least two unique samples to create an UnevenCore, but {samples} were provided"
     )]
     NotEnoughSamples {
@@ -346,6 +353,7 @@ pub enum UnevenCoreError {
     },
 }
 
+#[cfg(feature = "alloc")]
 impl<T> UnevenCore<T> {
     /// Create a new [`UnevenCore`]. The given samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
@@ -424,14 +432,14 @@ impl<T> UnevenCore<T> {
     }
 
     /// This core, but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the set of sample times, otherwise
     /// data will be deleted.
     ///
-    /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
+    /// [`CurveExt::reparametrize`]: crate::curve::CurveExt::reparametrize
     #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
         let mut timed_samples = self
@@ -453,6 +461,7 @@ impl<T> UnevenCore<T> {
 /// if the sample type can effectively be encoded as a fixed-length slice of values.
 ///
 /// [sampling width]: ChunkedUnevenCore::width
+#[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -472,15 +481,15 @@ pub struct ChunkedUnevenCore<T> {
 }
 
 /// An error that indicates that a [`ChunkedUnevenCore`] could not be formed.
-#[derive(Debug, Error, Display)]
-#[display("Could not create a ChunkedUnevenCore")]
+#[derive(Debug, Error)]
+#[error("Could not create a ChunkedUnevenCore")]
 pub enum ChunkedUnevenCoreError {
     /// The width of a `ChunkedUnevenCore` cannot be zero.
-    #[display("Chunk width must be at least 1")]
+    #[error("Chunk width must be at least 1")]
     ZeroWidth,
 
     /// At least two sample times are necessary to interpolate in `ChunkedUnevenCore`.
-    #[display(
+    #[error(
         "Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided"
     )]
     NotEnoughSamples {
@@ -489,7 +498,7 @@ pub enum ChunkedUnevenCoreError {
     },
 
     /// The length of the value buffer is supposed to be the `width` times the number of samples.
-    #[display("Expected {expected} total values based on width, but {actual} were provided")]
+    #[error("Expected {expected} total values based on width, but {actual} were provided")]
     MismatchedLengths {
         /// The expected length of the value buffer.
         expected: usize,
@@ -498,7 +507,7 @@ pub enum ChunkedUnevenCoreError {
     },
 
     /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
-    #[display("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
+    #[error("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
     NonDivisibleLengths {
         /// The length of the value buffer.
         values_len: usize,
@@ -507,6 +516,7 @@ pub enum ChunkedUnevenCoreError {
     },
 }
 
+#[cfg(feature = "alloc")]
 impl<T> ChunkedUnevenCore<T> {
     /// Create a new [`ChunkedUnevenCore`]. The given `times` are sorted, filtered to finite times,
     /// and deduplicated. See the [type-level documentation] for more information about this type.
@@ -644,6 +654,7 @@ impl<T> ChunkedUnevenCore<T> {
 }
 
 /// Sort the given times, deduplicate them, and filter them to only finite times.
+#[cfg(feature = "alloc")]
 fn filter_sort_dedup_times(times: impl IntoIterator<Item = f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
     let mut times = times.into_iter().filter(|t| t.is_finite()).collect_vec();
@@ -682,10 +693,11 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "alloc"))]
 mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
     use crate::curve::{cores::InterpolationDatum, interval};
+    use alloc::vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool

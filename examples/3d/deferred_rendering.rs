@@ -280,7 +280,6 @@ enum DefaultRenderMode {
     ForwardPrepass,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn switch_mode(
     mut text: Single<&mut Text>,
     mut commands: Commands,

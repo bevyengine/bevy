@@ -8,10 +8,10 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
-use derive_more::derive::{Display, Error, From};
 use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
+use thiserror::Error;
 
 /// Unique identifier for the [`MeshletMesh`] asset format.
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
@@ -31,7 +31,6 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
 ///   * If additional detail is needed, a smaller tiling normal map not baked from a mesh is ok.
 /// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
-///   * Use `pbr_functions::sample_texture` to sample textures instead.
 ///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
@@ -211,16 +210,16 @@ impl AssetLoader for MeshletMeshLoader {
     }
 }
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum MeshletMeshSaveOrLoadError {
-    #[display("file was not a MeshletMesh asset")]
+    #[error("file was not a MeshletMesh asset")]
     WrongFileType,
-    #[display("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
-    #[display("failed to compress or decompress asset data")]
-    CompressionOrDecompression(lz4_flex::frame::Error),
-    #[display("failed to read or write asset data")]
-    Io(std::io::Error),
+    #[error("failed to compress or decompress asset data")]
+    CompressionOrDecompression(#[from] lz4_flex::frame::Error),
+    #[error("failed to read or write asset data")]
+    Io(#[from] std::io::Error),
 }
 
 async fn async_read_u64(reader: &mut dyn Reader) -> Result<u64, std::io::Error> {

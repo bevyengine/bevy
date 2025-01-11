@@ -620,10 +620,21 @@ impl From<ColorGrading> for ColorGradingUniform {
     }
 }
 
-#[derive(Component)]
-pub struct GpuCulling;
+/// Add this component to a camera to disable *indirect mode*.
+///
+/// Indirect mode, automatically enabled on supported hardware, allows Bevy to
+/// offload transform and cull operations to the GPU, reducing CPU overhead.
+/// Doing this, however, reduces the amount of control that your app has over
+/// instancing decisions. In certain circumstances, you may want to disable
+/// indirect drawing so that your app can manually instance meshes as it sees
+/// fit. See the `custom_shader_instancing` example.
+///
+/// The vast majority of applications will not need to use this component, as it
+/// generally reduces rendering performance.
+#[derive(Component, Default)]
+pub struct NoIndirectDrawing;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoCpuCulling;
 
 impl ViewTarget {
@@ -923,7 +934,7 @@ pub fn prepare_view_targets(
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {

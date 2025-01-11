@@ -9,9 +9,9 @@ use bevy_render::{
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use crate::prepass::ViewPrepassTextures;
 
@@ -143,7 +143,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.batchable_mesh_keys.is_empty()
+            if !opaque_deferred_phase.multidrawable_mesh_keys.is_empty()
+                || !opaque_deferred_phase.batchable_mesh_keys.is_empty()
                 || !opaque_deferred_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]

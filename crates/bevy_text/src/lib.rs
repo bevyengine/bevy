@@ -28,8 +28,11 @@
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
-
-#![allow(clippy::type_complexity)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 
 extern crate alloc;
 
@@ -61,9 +64,6 @@ pub use text_access::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[doc(hidden)]
-    #[allow(deprecated)]
-    pub use crate::Text2dBundle;
     #[doc(hidden)]
     pub use crate::{
         Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
@@ -113,11 +113,13 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
             .register_type::<TextFont>()
+            .register_type::<LineHeight>()
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .register_type::<TextLayout>()
             .register_type::<ComputedTextBlock>()
+            .register_type::<TextEntity>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()

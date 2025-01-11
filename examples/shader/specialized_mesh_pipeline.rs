@@ -7,7 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -28,7 +28,7 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
+        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
 };
@@ -97,15 +97,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct CustomRenderedMeshPipelinePlugin;
 impl Plugin for CustomRenderedMeshPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
-            .add_systems(
-                PostUpdate,
-                // Make sure to tell Bevy to check our entity for visibility. Bevy won't
-                // do this by default, for efficiency reasons.
-                // This will do things like frustum culling and hierarchy visibility
-                view::check_visibility::<WithCustomRenderedEntity>
-                    .in_set(VisibilitySystems::CheckVisibility),
-            );
+        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default());
 
         // We make sure to add these to the render app, not the main app.
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -132,9 +124,13 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 /// A marker component that represents an entity that is to be rendered using
 /// our specialized pipeline.
 ///
-/// Note the [`ExtractComponent`] trait implementation. This is necessary to
-/// tell Bevy that this object should be pulled into the render world.
+/// Note the [`ExtractComponent`] trait implementation: this is necessary to
+/// tell Bevy that this object should be pulled into the render world. Also note
+/// the `on_add` hook, which is needed to tell Bevy's `check_visibility` system
+/// that entities with this component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
+#[require(VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
@@ -150,11 +146,7 @@ type DrawSpecializedPipelineCommands = (
     DrawMesh,
 );
 
-/// A query filter that tells [`view::check_visibility`] about our custom
-/// rendered entity.
-type WithCustomRenderedEntity = With<CustomRenderedEntity>;
-
-// This contains the state needed to speciazlize a mesh pipeline
+// This contains the state needed to specialize a mesh pipeline
 #[derive(Resource)]
 struct CustomMeshPipeline {
     /// The base mesh pipeline defined by bevy
@@ -269,7 +261,6 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
 
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
-#[allow(clippy::too_many_arguments)]
 fn queue_custom_mesh_pipeline(
     pipeline_cache: Res<PipelineCache>,
     custom_mesh_pipeline: Res<CustomMeshPipeline>,
@@ -299,9 +290,8 @@ fn queue_custom_mesh_pipeline(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &(render_entity, visible_entity) in view_visible_entities
-            .get::<WithCustomRenderedEntity>()
-            .iter()
+        for &(render_entity, visible_entity) in
+            view_visible_entities.get::<CustomRenderedEntity>().iter()
         {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(visible_entity)
@@ -334,15 +324,19 @@ fn queue_custom_mesh_pipeline(
 
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
-                Opaque3dBinKey {
+                Opaque3dBatchSetKey {
                     draw_function: draw_function_id,
                     pipeline: pipeline_id,
-                    // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
-                    // but you can use anything you like. Note that the asset ID need
-                    // not be the ID of a [`Mesh`].
+                    material_bind_group_index: None,
+                    vertex_slab: default(),
+                    index_slab: None,
+                    lightmap_slab: None,
+                },
+                // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
+                // but you can use anything you like. Note that the asset ID need
+                // not be the ID of a [`Mesh`].
+                Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
-                    material_bind_group_id: None,
-                    lightmap_image: None,
                 },
                 (render_entity, visible_entity),
                 // This example supports batching, but if your pipeline doesn't

@@ -58,21 +58,18 @@ use crate::{
 };
 use alloc::{collections::VecDeque, sync::Arc};
 use bevy_ecs::prelude::*;
-use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{debug, error, trace, warn},
-    HashMap, HashSet,
-};
 #[cfg(feature = "trace")]
-use bevy_utils::{
-    tracing::{info_span, instrument::Instrument},
-    ConditionalSendFuture,
-};
-use derive_more::derive::{Display, Error};
+use bevy_tasks::ConditionalSendFuture;
+use bevy_tasks::IoTaskPool;
+use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+use tracing::{debug, error, trace, warn};
+#[cfg(feature = "trace")]
+use tracing::{info_span, instrument::Instrument};
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -381,7 +378,7 @@ impl AssetProcessor {
         // Therefore, we shouldn't automatically delete the asset ... that is a
         // user-initiated action.
         debug!(
-            "Meta for asset {:?} was removed. Attempting to re-process",
+            "Meta for asset {} was removed. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
         self.process_asset(source, path).await;
@@ -389,7 +386,10 @@ impl AssetProcessor {
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
     async fn handle_removed_folder(&self, source: &AssetSource, path: &Path) {
-        debug!("Removing folder {:?} because source was removed", path);
+        debug!(
+            "Removing folder {} because source was removed",
+            path.display()
+        );
         let processed_reader = source.processed_reader().unwrap();
         match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
@@ -478,7 +478,6 @@ impl AssetProcessor {
         self.set_state(ProcessorState::Finished).await;
     }
 
-    #[allow(unused)]
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,
@@ -739,7 +738,7 @@ impl AssetProcessor {
     ) -> Result<ProcessResult, ProcessError> {
         // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
-        debug!("Processing {:?}", asset_path);
+        debug!("Processing {}", asset_path);
         let server = &self.server;
         let path = asset_path.path();
         let reader = source.reader();
@@ -1237,7 +1236,7 @@ impl ProcessorAssetInfos {
     ) {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
-                debug!("Finished processing \"{:?}\"", asset_path);
+                debug!("Finished processing \"{}\"", asset_path);
                 // clean up old dependents
                 let old_processed_info = self
                     .infos
@@ -1260,7 +1259,7 @@ impl ProcessorAssetInfos {
                 }
             }
             Ok(ProcessResult::SkippedNotChanged) => {
-                debug!("Skipping processing (unchanged) \"{:?}\"", asset_path);
+                debug!("Skipping processing (unchanged) \"{}\"", asset_path);
                 let info = self.get_mut(&asset_path).expect("info should exist");
                 // NOTE: skipping an asset on a given pass doesn't mean it won't change in the future as a result
                 // of a dependency being re-processed. This means apps might receive an "old" (but valid) asset first.
@@ -1271,7 +1270,7 @@ impl ProcessorAssetInfos {
                 info.update_status(ProcessStatus::Processed).await;
             }
             Ok(ProcessResult::Ignored) => {
-                debug!("Skipping processing (ignored) \"{:?}\"", asset_path);
+                debug!("Skipping processing (ignored) \"{}\"", asset_path);
             }
             Err(ProcessError::ExtensionRequired) => {
                 // Skip assets without extensions
@@ -1413,10 +1412,12 @@ pub enum ProcessorState {
 }
 
 /// An error that occurs when initializing the [`AssetProcessor`].
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum InitializeError {
+    #[error(transparent)]
     FailedToReadSourcePaths(AssetReaderError),
+    #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[display("Failed to validate asset log: {_0}")]
-    ValidateLogError(ValidateLogError),
+    #[error("Failed to validate asset log: {0}")]
+    ValidateLogError(#[from] ValidateLogError),
 }

@@ -27,10 +27,10 @@ use bevy_ecs::{
 #[cfg(feature = "custom_cursor")]
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "custom_cursor")]
-use bevy_utils::tracing::warn;
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
+#[cfg(feature = "custom_cursor")]
+use tracing::warn;
 #[cfg(feature = "custom_cursor")]
 use wgpu_types::TextureFormat;
 
@@ -185,7 +185,7 @@ fn update_cursors(
 fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
-        .entity(trigger.entity())
+        .entity(trigger.target())
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));

@@ -22,8 +22,9 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
+use tracing::debug;
 
 use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
@@ -152,8 +153,8 @@ pub fn mouse_pick_events(
                     MouseButton::Other(_) | MouseButton::Back | MouseButton::Forward => continue,
                 };
                 let direction = match input.state {
-                    ButtonState::Pressed => PressDirection::Down,
-                    ButtonState::Released => PressDirection::Up,
+                    ButtonState::Pressed => PressDirection::Pressed,
+                    ButtonState::Released => PressDirection::Released,
                 };
                 pointer_events.send(PointerInput::new(
                     PointerId::Mouse,
@@ -198,7 +199,7 @@ pub fn touch_pick_events(
                         pointer,
                         location,
                         PointerAction::Pressed {
-                            direction: PressDirection::Down,
+                            direction: PressDirection::Pressed,
                             button: PointerButton::Primary,
                         },
                     ));
@@ -226,7 +227,7 @@ pub fn touch_pick_events(
                         pointer,
                         location,
                         PointerAction::Pressed {
-                            direction: PressDirection::Up,
+                            direction: PressDirection::Released,
                             button: PointerButton::Primary,
                         },
                     ));

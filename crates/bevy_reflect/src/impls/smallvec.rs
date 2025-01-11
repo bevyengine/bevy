@@ -1,7 +1,7 @@
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
-use smallvec::{Array as SmallArray, SmallVec};
-
 use core::any::Any;
+use smallvec::{Array as SmallArray, SmallVec};
 
 use crate::{
     self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,

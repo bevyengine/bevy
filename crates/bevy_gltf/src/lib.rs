@@ -1,5 +1,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -284,7 +289,7 @@ pub struct GltfSkin {
     pub name: String,
     /// All the nodes that form this skin.
     pub joints: Vec<Handle<GltfNode>>,
-    /// Inverse-bind matricy of this skin.
+    /// Inverse-bind matrices of this skin.
     pub inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
