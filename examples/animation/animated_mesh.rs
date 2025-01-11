@@ -1,6 +1,6 @@
 //! Plays animations from a skinned glTF.
 
-use std::{f32::consts::PI, time::Duration};
+use std::f32::consts::PI;
 
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 
@@ -41,14 +41,13 @@ fn setup_mesh_and_animation(
     // the correct entity once the scene actually loads.
     let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {
-        graph_handle: graph_handle.clone(),
+        graph_handle,
         index,
     });
 
     // Fox
-    commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
-        AnimationGraphHandle(graph_handle),
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
     ));
 }
 
@@ -59,19 +58,14 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
-
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.index, Duration::ZERO)
-            .repeat();
+        // Start the animation player and tell it to repeat forever.
+        //
+        // If you want to try stopping and switching animations, see the
+        // `animated_mesh_control.rs` example.
+        player.play(animations.index).repeat();
 
         commands
             .entity(entity)
-            .insert(transitions)
             .insert(AnimationGraphHandle(animations.graph_handle.clone()));
     }
 }
