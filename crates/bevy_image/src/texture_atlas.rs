@@ -15,7 +15,7 @@ pub struct TextureAtlasPlugin;
 impl Plugin for TextureAtlasPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<TextureAtlasLayout>();
-        
+
         #[cfg(feature = "bevy_reflect")]
         app.register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<TextureAtlas>();
