@@ -490,6 +490,7 @@ impl BlobArray {
         // SAFETY:
         // - other is a valid BlobArray, so it must have a valid array layout
         let num_bytes_to_copy = array_layout_unchecked(&other.layout(), len).size();
+        #[cfg(debug_assertions)]
         debug_assert!(
             num_bytes_to_copy
                 <= array_layout(&other.layout(), self.capacity)
