@@ -232,7 +232,12 @@ pub fn extract_text2d_sprite(
                 .unwrap_or(true)
             {
                 extracted_sprites.sprites.insert(
-                    original_entity.into(),
+                    if current_span == 0 {
+                        original_entity
+                    } else {
+                        commands.spawn(TemporaryRenderEntity).id()
+                    }
+                    .into(),
                     ExtractedSprite {
                         transform,
                         color,
