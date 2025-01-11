@@ -353,7 +353,13 @@ impl EntityCloner {
             {
                 ComponentCloneHandlerKind::Default => components.get_default_clone_handler(),
                 ComponentCloneHandlerKind::Ignore => continue,
-                ComponentCloneHandlerKind::Copy => copy_clone_handler,
+                ComponentCloneHandlerKind::Copy => {
+                    if component_info.is_copy() {
+                        copy_clone_handler
+                    } else {
+                        continue;
+                    }
+                }
                 ComponentCloneHandlerKind::Custom(handler) => handler,
             };
 
@@ -1147,6 +1153,7 @@ mod tests {
                 StorageType::Table,
                 layout,
                 None,
+                true,
                 true,
                 ComponentCloneHandler::custom_handler(test_handler),
             )

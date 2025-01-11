@@ -93,6 +93,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable
+                        false,
                         ComponentCloneHandler::default_handler(),
                     )
                 },

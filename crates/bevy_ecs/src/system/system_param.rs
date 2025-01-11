@@ -840,11 +840,19 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
 pub trait Resource: Send + Sync + 'static {
-    /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
+    /// Called when registering this resource, allowing to override clone function (or disable cloning altogether) for this resource.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::default_handler()
+    }
+
+    /// Called when registering this resource, can be set to `true` for components that are [`Copy`] to enable optimizations
+    /// when performing resource cloning.
+    /// # Safety
+    /// Must return `true` **only** if resource is actually [`Copy`]
+    unsafe fn is_copy() -> bool {
+        false
     }
 }
 

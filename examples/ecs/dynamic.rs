@@ -93,6 +93,7 @@ fn main() {
                             Layout::array::<u64>(size).unwrap(),
                             None,
                             true,
+                            false,
                             ComponentCloneHandler::default_handler(),
                         )
                     });

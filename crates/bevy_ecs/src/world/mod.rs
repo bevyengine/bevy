@@ -3162,17 +3162,40 @@ impl World {
     }
 
     /// Sets custom [`ComponentCloneFn`] as default clone handler for this world's components.
+    /// All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
+    /// explicitly registered clone function will use this handler.
+    ///
+    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
     pub fn set_default_component_clone_handler(&mut self, handler: ComponentCloneFn) {
         self.components.set_default_clone_handler(handler);
     }
 
+    /// Get default clone handler set for this world's components.
+    pub fn get_default_component_clone_handler(&self) -> ComponentCloneFn {
+        self.components.get_default_clone_handler()
+    }
+
     /// Sets custom [`ComponentCloneHandler`] as clone handler for component with provided [`ComponentId`].
+    ///
+    /// If component with provided [`ComponentId`] is not registered, this does nothing.
+    ///
+    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
     pub fn set_component_clone_handler(
         &mut self,
         component_id: ComponentId,
         handler: ComponentCloneHandler,
     ) {
         self.components.set_clone_handler(component_id, handler);
+    }
+
+    /// Get [`ComponentCloneHandler`] set for component with provided [`ComponentId`]
+    ///
+    /// Returns `None` if component with provided [`ComponentId`] is not registered.
+    pub fn get_component_clone_handler(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentCloneHandler> {
+        self.components.get_clone_handler(component_id)
     }
 }
 
@@ -3993,6 +4016,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                false,
                 ComponentCloneHandler::default_handler(),
             )
         };

@@ -379,6 +379,9 @@ impl ThinColumn {
                 return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
             }
             ComponentCloneHandlerKind::Copy => {
+                if !component_info.is_copy() {
+                    return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+                }
                 column.data.copy_from_unchecked(&self.data, len);
                 return Ok(column);
             }
@@ -806,6 +809,9 @@ impl Column {
                 return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
             }
             ComponentCloneHandlerKind::Copy => {
+                if !component_info.is_copy() {
+                    return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+                }
                 // SAFETY:
                 // - column.data layout is from the same ComponentInfo as the one used to create self
                 // - column.data has capacity of at least self.len

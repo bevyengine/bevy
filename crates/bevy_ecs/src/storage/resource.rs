@@ -352,6 +352,9 @@ impl<const SEND: bool> ResourceData<SEND> {
                 return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
             }
             ComponentCloneHandlerKind::Copy => {
+                if !component_info.is_copy() {
+                    return Err(WorldCloneError::FailedToCloneResource(component_info.id()));
+                }
                 data.copy_from_unchecked(&self.data);
                 None
             }

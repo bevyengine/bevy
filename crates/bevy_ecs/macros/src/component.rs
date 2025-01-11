@@ -52,20 +52,18 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
             fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
-                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
-
-                trait ComponentCloneViaCopy {
-                    fn get_component_clone_handler(&self) -> #bevy_ecs_path::component::ComponentCloneHandler;
-                }
-                impl<T: Copy + 'static> ComponentCloneViaCopy for &&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper<T> {
-                    fn get_component_clone_handler(&self) -> #bevy_ecs_path::component::ComponentCloneHandler {
-                        // SAFETY: T is Self and this handler will only be set for Self
-                        unsafe { #bevy_ecs_path::component::ComponentCloneHandler::copy_handler::<T>() }
-                    }
-                }
+                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneViaCopy, ComponentCloneBase};
 
                 (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
                     .get_component_clone_handler()
+            }
+
+            unsafe fn is_copy() -> bool {
+                use #bevy_ecs_path::component::{IsCopyBase, IsCopySpec};
+
+                // Safety: IsCopyWrapper use autoderef specialization to determine if type implements [`Copy`]
+                (&&&#bevy_ecs_path::component::IsCopyWrapper::<Self>::default())
+                    .is_copy()
             }
         }
     })
@@ -184,20 +182,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
-                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneBase};
-
-                trait ComponentCloneViaCopy {
-                    fn get_component_clone_handler(&self) -> #bevy_ecs_path::component::ComponentCloneHandler;
-                }
-                impl<T: Copy + 'static> ComponentCloneViaCopy for &&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper<T> {
-                    fn get_component_clone_handler(&self) -> #bevy_ecs_path::component::ComponentCloneHandler {
-                        // SAFETY: T is Self and this handler will only be set for Self
-                        unsafe { #bevy_ecs_path::component::ComponentCloneHandler::copy_handler::<T>() }
-                    }
-                }
+                use #bevy_ecs_path::component::{ComponentCloneViaClone, ComponentCloneViaCopy, ComponentCloneBase};
 
                 (&&&#bevy_ecs_path::component::ComponentCloneSpecializationWrapper::<Self>::default())
                     .get_component_clone_handler()
+            }
+
+            unsafe fn is_copy() -> bool {
+                use #bevy_ecs_path::component::{IsCopyBase, IsCopySpec};
+
+                // Safety: IsCopyWrapper use autoderef specialization to determine if type implements [`Copy`]
+                (&&&#bevy_ecs_path::component::IsCopyWrapper::<Self>::default())
+                    .is_copy()
             }
         }
     })
