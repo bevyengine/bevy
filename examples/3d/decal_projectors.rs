@@ -20,7 +20,7 @@ use widgets::{
 #[path = "../helpers/widgets.rs"]
 mod widgets;
 
-/// The speed at which the cube rotats, in radians per frame.
+/// The speed at which the cube rotates, in radians per frame.
 const CUBE_ROTATION_SPEED: f32 = 0.02;
 
 /// The speed at which the selection can be moved, in spherical coordinate
