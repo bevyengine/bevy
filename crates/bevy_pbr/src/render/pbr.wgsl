@@ -86,9 +86,9 @@ fn fragment(
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // The fragments will only be drawn during the oit resolve pass.
-            oit_draw(in.position, out.color);
+        oit_draw(in.position, out.color);
         discard;
-        }
+    }
 #endif // OIT_ENABLED
 
 #ifdef FORWARD_DECAL
