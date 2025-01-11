@@ -396,6 +396,7 @@ impl ThinColumn {
                 source_component_ptr,
                 target_component_ptr,
                 world,
+                #[cfg(feature = "bevy_reflect")]
                 type_registry,
             );
             handler(world, &mut ctx);
@@ -830,6 +831,7 @@ impl Column {
                     source_component_ptr,
                     target_component_ptr,
                     world,
+                    #[cfg(feature = "bevy_reflect")]
                     type_registry,
                 );
                 handler(world, &mut ctx);

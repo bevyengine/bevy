@@ -27,10 +27,6 @@ pub struct ResourceData<const SEND: bool> {
     data: ManuallyDrop<BlobVec>,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
     type_name: String,
     id: ArchetypeComponentId,
     #[cfg(feature = "std")]
@@ -79,6 +75,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
 
         // Panic in tests, as testing for aborting is nearly impossible
+        #[cfg(feature = "std")]
         panic!(
                 "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.type_name,
@@ -369,6 +366,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                     source_component_ptr,
                     target_component_ptr,
                     world,
+                    #[cfg(feature = "bevy_reflect")]
                     type_registry,
                 );
                 handler(world, &mut ctx);
