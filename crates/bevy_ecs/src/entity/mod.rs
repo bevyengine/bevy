@@ -986,17 +986,14 @@ impl Entities {
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
-        self.meta.get(entity.index() as usize).and_then(|meta| {
-            // Generation is incremented immediately upon despawn
-            if (meta.generation == entity.generation)
-                | (meta.location.archetype_id == ArchetypeId::INVALID)
-                    & (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1))
-            {
-                meta.spawned_or_despawned_by
-            } else {
-                None
-            }
-        })
+        self.meta
+            .get(entity.index() as usize)
+            .filter(|meta|
+                // Generation is incremented immediately upon despawn
+                (meta.generation == entity.generation)
+                || (meta.location.archetype_id == ArchetypeId::INVALID)
+                && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
+            .and_then(|meta| meta.spawned_or_despawned_by)
     }
 
     /// Constructs a message explaining why an entity does not exists, if known.
