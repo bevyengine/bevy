@@ -892,6 +892,8 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("is_copy", &self.is_copy)
+            .field("clone_handler", &self.clone_handler)
             .finish()
     }
 }
