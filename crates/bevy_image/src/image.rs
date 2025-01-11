@@ -117,7 +117,14 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
@@ -165,13 +172,27 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["image/webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
@@ -197,7 +218,14 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match extension.to_ascii_lowercase().as_str() {
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
@@ -220,7 +248,14 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match self {
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
@@ -255,13 +290,27 @@ impl ImageFormat {
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match format {
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
@@ -874,7 +923,15 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unused_variables` may not always lint"
+        )]
+        #[allow(
+            unused_variables,
+            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        )]
+        supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
@@ -904,7 +961,14 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern may be unreachable if only the specially-handled formats are enabled; however, the wildcard pattern is needed for any formats not specially handled"
+            )]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()
