@@ -19,7 +19,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::sync_world::{RenderEntity, TemporaryRenderEntity};
 use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
@@ -233,10 +233,7 @@ pub fn extract_text2d_sprite(
                 .unwrap_or(true)
             {
                 extracted_sprites.sprites.insert(
-                    (
-                        commands.spawn(TemporaryRenderEntity).id(),
-                        original_entity.into(),
-                    ),
+                    original_entity.into(),
                     ExtractedSprite {
                         transform,
                         color,
@@ -247,6 +244,7 @@ pub fn extract_text2d_sprite(
                         flip_y: false,
                         anchor: Anchor::Center.as_vec(),
                         original_entity: Some(original_entity),
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         group_indices: start..end,
                     },
                 );
