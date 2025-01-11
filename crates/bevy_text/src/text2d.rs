@@ -222,9 +222,7 @@ pub fn extract_text2d_sprite(
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    // True if text computation was skipped the previous frame.
-    mut skipped: Local<bool>,
-    mut last_scale_factor: Local<f32>,
+    mut last_scale_factor: Local<Option<f32>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
@@ -245,26 +243,23 @@ pub fn update_text2d_layout(
     mut swash_cache: ResMut<SwashCache>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let Ok(scale_factor) = windows
+    let scale_factor = windows
         .get_single()
+        .ok()
         .map(|window| window.resolution.scale_factor())
-    else {
-        // Skip text computation if no primary window found.
-        *skipped = true;
-        return;
-    };
+        .or(*last_scale_factor)
+        .unwrap_or(1.);
 
     let inverse_scale_factor = scale_factor.recip();
 
-    let factor_changed = *last_scale_factor != scale_factor;
-    *last_scale_factor = scale_factor;
+    let factor_changed = *last_scale_factor != Some(scale_factor);
+    *last_scale_factor = Some(scale_factor);
 
     for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
-            || *skipped
         {
             let text_bounds = TextBounds {
                 width: if block.linebreak == LineBreak::NoWrap {
@@ -310,8 +305,6 @@ pub fn update_text2d_layout(
             }
         }
     }
-
-    *skipped = false;
 }
 
 /// Scales `value` by `factor`.
