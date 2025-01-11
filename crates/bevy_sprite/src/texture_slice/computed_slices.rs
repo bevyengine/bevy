@@ -1,4 +1,4 @@
-use crate::{ExtractedGroupSprite, ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
+use crate::{ExtractedSlice, ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
 
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets};
@@ -19,49 +19,24 @@ impl ComputedTextureSlices {
     ///
     /// # Arguments
     ///
-    /// * `transform` - the sprite entity global transform
-    /// * `original_entity` - the sprite entity
     /// * `sprite` - The sprite component
-    /// * `handle` - The sprite texture handle
+
     #[must_use]
-    pub(crate) fn extract_sprites<'a>(
+    pub(crate) fn extract_slices<'a>(
         &'a self,
-        transform: &'a GlobalTransform,
-        original_entity: Entity,
-        render_entity: Entity,
         sprite: &'a Sprite,
-    ) -> impl ExactSizeIterator<Item = ExtractedGroupSprite> + 'a {
+    ) -> impl ExactSizeIterator<Item = ExtractedSlice> + 'a {
         let mut flip = Vec2::ONE;
-        let [mut flip_x, mut flip_y] = [false; 2];
         if sprite.flip_x {
             flip.x *= -1.0;
-            flip_x = true;
         }
         if sprite.flip_y {
             flip.y *= -1.0;
-            flip_y = true;
         }
-        self.0.iter().map(move |slice| {
-            // let offset = (slice.offset * flip).extend(0.0);
-            // let transform = transform.mul_transform(Transform::from_translation(offset));
-            // ExtractedSprite {
-            //     original_entity: Some(original_entity),
-            //     color: sprite.color.into(),
-            //     transform,
-            //     rect: Some(slice.texture_rect),
-            //     custom_size: Some(slice.draw_size),
-            //     flip_x,
-            //     flip_y,
-            //     image_handle_id: sprite.image.id(),
-            //     anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
-            //     render_entity,
-            //     group_indices: 0..0,
-            // }
-            ExtractedGroupSprite {
-                position: slice.offset * flip,
-                rect: slice.texture_rect,
-                size: slice.draw_size,
-            }
+        self.0.iter().map(move |slice| ExtractedSlice {
+            position: slice.offset * flip,
+            rect: slice.texture_rect,
+            size: slice.draw_size,
         })
     }
 

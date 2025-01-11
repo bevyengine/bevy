@@ -325,7 +325,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
     }
 }
 
-pub struct ExtractedGroupSprite {
+pub struct ExtractedSlice {
     pub position: Vec2,
     pub rect: Rect,
     pub size: Vec2,
@@ -348,13 +348,13 @@ pub struct ExtractedSprite {
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
     pub render_entity: Entity,
-    pub group_indices: Range<usize>,
+    pub slice_indices: Range<usize>,
 }
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: MainEntityHashMap<ExtractedSprite>,
-    pub grouped_sprites: Vec<ExtractedGroupSprite>,
+    pub slices: Vec<ExtractedSlice>,
 }
 
 #[derive(Resource, Default)]
@@ -390,7 +390,7 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    extracted_sprites.grouped_sprites.clear();
+    extracted_sprites.slices.clear();
     for (original_entity, render_entity, view_visibility, sprite, transform, slices) in
         sprite_query.iter()
     {
@@ -399,17 +399,12 @@ pub fn extract_sprites(
         }
 
         if let Some(slices) = slices {
-            let start = extracted_sprites.grouped_sprites.len();
-            // extracted_sprites.sprites.extend(
-            //     slices
-            //         .extract_sprites(transform, original_entity, render_entity, sprite)
-            //         .map(|e| (original_entity.into(), e)),
-            // );
+            let start = extracted_sprites.slices.len();
 
             extracted_sprites
-                .grouped_sprites
-                .extend(slices.extract_sprites(transform, original_entity, render_entity, sprite));
-            let end = extracted_sprites.grouped_sprites.len();
+                .slices
+                .extend(slices.extract_slices(sprite));
+            let end = extracted_sprites.slices.len();
             extracted_sprites.sprites.insert(
                 original_entity.into(),
                 ExtractedSprite {
@@ -424,7 +419,7 @@ pub fn extract_sprites(
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
                     render_entity,
-                    group_indices: start..end,
+                    slice_indices: start..end,
                 },
             );
         } else {
@@ -459,7 +454,7 @@ pub fn extract_sprites(
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
                     render_entity,
-                    group_indices: 0..0,
+                    slice_indices: 0..0,
                 },
             );
         }
@@ -735,7 +730,7 @@ pub fn prepare_sprite_image_bind_groups(
                 ));
             }
 
-            if extracted_sprite.group_indices.is_empty() {
+            if extracted_sprite.slice_indices.is_empty() {
                 // By default, the size of the quad is the size of the texture
                 let mut quad_size = batch_image_size;
 
@@ -788,8 +783,8 @@ pub fn prepare_sprite_image_bind_groups(
                 batches.last_mut().unwrap().1.range.end += 1;
                 index += 1;
             } else {
-                for i in extracted_sprite.group_indices.clone() {
-                    let sprite = &extracted_sprites.grouped_sprites[i];
+                for i in extracted_sprite.slice_indices.clone() {
+                    let sprite = &extracted_sprites.slices[i];
                     let rect = sprite.rect;
 
                     // Calculate vertex data for this item

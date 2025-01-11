@@ -27,7 +27,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_sprite::{
-    Anchor, ExtractedGroupSprite, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout,
+    Anchor, ExtractedSlice, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout,
 };
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
@@ -158,7 +158,7 @@ pub fn extract_text2d_sprite(
     >,
     text_styles: Extract<Query<(&TextFont, &TextColor)>>,
 ) {
-    let mut start = extracted_sprites.grouped_sprites.len();
+    let mut start = extracted_sprites.slices.len();
     let mut end = start + 1;
 
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
@@ -217,13 +217,11 @@ pub fn extract_text2d_sprite(
                 .unwrap()
                 .textures[atlas_info.location.glyph_index]
                 .as_rect();
-            extracted_sprites
-                .grouped_sprites
-                .push(ExtractedGroupSprite {
-                    position: *position,
-                    rect,
-                    size: rect.size(),
-                });
+            extracted_sprites.slices.push(ExtractedSlice {
+                position: *position,
+                rect,
+                size: rect.size(),
+            });
 
             if text_layout_info
                 .glyphs
@@ -246,7 +244,7 @@ pub fn extract_text2d_sprite(
                         anchor: Anchor::Center.as_vec(),
                         original_entity: Some(original_entity),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                        group_indices: start..end,
+                        slice_indices: start..end,
                     },
                 );
                 start = end;
