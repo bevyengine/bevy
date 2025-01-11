@@ -24,7 +24,7 @@
 @compute
 @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
-    let uv = (vec2<f32>(idx.xy) + vec2(0.5)) / vec2<f32>(settings.sky_view_lut_size);
+    let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
     let r = view_radius();
     var zenith_azimuth = sky_view_lut_uv_to_zenith_azimuth(r, uv);
@@ -56,8 +56,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 }
 
 fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
+    let sin_zenith = sin(zenith);
     let mu = cos(zenith);
     let sin_azimuth = sin(azimuth);
     let cos_azimuth = cos(azimuth);
-    return normalize(vec3(sin_azimuth, mu, -cos_azimuth));
+    return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }

@@ -46,28 +46,29 @@ const ROOT_2: f32 = 1.41421356; // √2
 
 // LUT UV PARAMATERIZATIONS
 
+fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
+    return (val + 0.5f / resolution) * (resolution / (resolution + 1.0f));
+}
+
+fn sub_uvs_to_unit(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
+    return (val - 0.5f / resolution) * (resolution / (resolution - 1.0f));
+}
+
 fn multiscattering_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
     let u = 0.5 + 0.5 * mu;
     let v = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius)); //TODO
-    return vec2(u, v);
+    return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.multiscattering_lut_size));
 }
 
 fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
-    let r = mix(atmosphere.bottom_radius, atmosphere.top_radius, uv.y);
-    let mu = uv.x * 2 - 1;
+    let adj_uv = sub_uvs_to_unit(uv, vec2<f32>(settings.multiscattering_lut_size));
+    let r = mix(atmosphere.bottom_radius, atmosphere.top_radius, adj_uv.y);
+    let mu = adj_uv.x * 2 - 1;
     return vec2(r, mu);
 }
 
-fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
-    let u = long * FRAC_PI + 0.5;
-    let v = sqrt(2 * abs(lat) * FRAC_PI) * -sign(lat) * 0.5 + 0.5;
-    return vec2(u, v);
-}
-
-//Note: I think I took this from the unreal implementation. licensing issue?
-
 fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
-    let x = (azimuth * FRAC_2_PI) + 0.5;
+    let u = (azimuth * FRAC_2_PI) + 0.5;
 
     let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
     let cos_beta = v_horizon / r;
@@ -75,20 +76,21 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     let horizon_zenith = PI - beta;
     let view_zenith = fast_acos(mu);
 
-    var y: f32;
+    var v: f32;
     if !ray_intersects_ground(r, mu) {
         let coord = sqrt(1.0 - view_zenith / horizon_zenith);
-        y = (1.0 - coord) * 0.5;
+        v = (1.0 - coord) * 0.5;
     } else {
         let coord = (view_zenith - horizon_zenith) / beta;
-        y = sqrt(coord) * 0.5 + 0.5;
+        v = sqrt(coord) * 0.5 + 0.5;
     }
 
-    return vec2(x, y);
+    return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.sky_view_lut_size));
 }
 
 fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
-    let azimuth = (uv.x - 0.5) * PI_2;
+    let adj_uv = sub_uvs_to_unit(uv, vec2<f32>(settings.sky_view_lut_size));
+    let azimuth = (adj_uv.x - 0.5) * PI_2;
 
     let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
     let cos_beta = v_horizon / r;
@@ -96,11 +98,11 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
     let horizon_zenith = PI - beta;
 
     var zenith: f32;
-    if uv.y < 0.5 {
-        let coord = 1 - uv.y * 2;
-        zenith = horizon_zenith * (1 - coord * coord);
+    if adj_uv.y < 0.5 {
+        let coord = 1.0 - 2.0 * adj_uv.y;
+        zenith = horizon_zenith * (1.0 - coord * coord);
     } else {
-        let coord = uv.y * 2.0 - 1.0;
+        let coord = 2.0 * adj_uv.y - 1.0;
         zenith = horizon_zenith + beta * coord * coord;
     }
 
@@ -204,7 +206,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
 
         let mu_light = dot((*light).direction_to_light, local_up);
 
-        // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view 
+        // -(L . V) == (L . -V). -V here is our ray direction, which points away from the view
         // instead of towards it (as is the convention for V)
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
