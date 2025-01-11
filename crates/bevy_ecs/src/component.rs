@@ -2221,10 +2221,8 @@ pub fn enforce_no_required_components_recursion(
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using the [`Clone`] trait.
-/// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for the specific component it is implemented for.
+/// Can be [set](World::set_component_clone_handler) as clone handler for the specific component it is implemented for.
 /// It will panic if set as handler for any other component.
-///
-/// See [`ComponentCloneHandlers`] for more details.
 pub fn component_clone_via_clone<T: Clone + 'static>(_world: &World, ctx: &mut ComponentCloneCtx) {
     if let Some(component) = ctx.read_source_component::<T>() {
         ctx.write_target_component(component.clone());
@@ -2232,7 +2230,7 @@ pub fn component_clone_via_clone<T: Clone + 'static>(_world: &World, ctx: &mut C
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
-/// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for any registered component,
+/// Can be [set](World::set_component_clone_handler) as clone handler for any registered component,
 /// but only reflected components will be cloned.
 ///
 /// To clone a component using this handler, the following must be true:

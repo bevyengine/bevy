@@ -469,7 +469,7 @@ impl EntityCloner {
 ///
 /// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
 /// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
-/// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneHandlers::get_default_handler).
+/// the component will be cloned using the [default cloning strategy](World::get_default_component_clone_handler).
 /// To use `Clone`-based handler ([`ComponentCloneHandler::clone_handler`]) in this case it should be set manually using one
 /// of the methods mentioned in the [Handlers](#handlers) section
 ///
@@ -493,9 +493,9 @@ impl EntityCloner {
 /// `EntityCloneBuilder` clones entities by cloning components using [`handlers`](ComponentCloneHandler), and there are multiple layers
 /// to decide which handler to use for which component. The overall hierarchy looks like this (priority from most to least):
 /// 1. local overrides using [`override_component_clone_handler`](Self::override_component_clone_handler)
-/// 2. global overrides using [`set_component_handler`](crate::component::ComponentCloneHandlers::set_component_handler)
+/// 2. global overrides using [`set_component_handler`](World::set_component_clone_handler)
 /// 3. component-defined handler using [`get_component_clone_handler`](Component::get_component_clone_handler)
-/// 4. default handler override using [`set_default_handler`](crate::component::ComponentCloneHandlers::set_default_handler)
+/// 4. default handler override using [`set_default_handler`](World::set_default_component_clone_handler)
 /// 5. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
 #[derive(Debug)]
 pub struct EntityCloneBuilder<'w> {
@@ -649,7 +649,7 @@ impl<'w> EntityCloneBuilder<'w> {
     }
 
     /// Overrides the [`ComponentCloneHandler`] for a component in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by [`ComponentCloneHandlers`](crate::component::ComponentCloneHandlers)
+    /// This handler will be used to clone the component instead of the global one [`World::get_default_component_clone_handler`].
     ///
     /// See [Handlers section of `EntityCloneBuilder`](EntityCloneBuilder#handlers) to understand how this affects handler priority.
     pub fn override_component_clone_handler<T: Component>(

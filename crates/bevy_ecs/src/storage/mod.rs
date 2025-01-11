@@ -33,7 +33,7 @@ pub use table::*;
 
 use crate::world::{error::WorldCloneError, World};
 
-/// The raw data stores of a [`World`](crate::world::World)
+/// The raw data stores of a [`World`]
 #[derive(Default)]
 pub struct Storages {
     /// Backing storage for [`SparseSet`] components.
