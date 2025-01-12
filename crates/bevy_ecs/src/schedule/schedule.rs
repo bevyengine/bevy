@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use alloc::{
     boxed::Box,
     collections::BTreeSet,
@@ -563,6 +564,40 @@ impl Dag {
     /// The order is determined by the ordering dependencies between systems.
     pub fn cached_topsort(&self) -> &[NodeId] {
         &self.topsort
+    }
+
+    /// Returns a string containing information about the Dag.
+    pub fn diagnose(
+        &self,
+        prefix: &str,
+        name: &str,
+        id_to_names: &HashMap<NodeId, Cow<'static, str>>,
+    ) -> Result<String, core::fmt::Error> {
+        let mut result = "".to_string();
+        writeln!(result, "{prefix}{name}:")?;
+
+        writeln!(result, "{prefix}  nodes:")?;
+        for node_id in self.graph().nodes() {
+            let name = id_to_names.get(&node_id).unwrap();
+            writeln!(result, "{prefix}    {node_id:?}({name})")?;
+        }
+
+        writeln!(result, "{prefix}  edges:")?;
+        for (l, r) in self.graph().all_edges() {
+            let l_name = id_to_names.get(&l).unwrap();
+            let r_name = id_to_names.get(&r).unwrap();
+            writeln!(result, "{prefix}    {l:?}({l_name}) -> {r:?}({r_name})")?;
+        }
+
+        writeln!(result, "{prefix}  topsorted:")?;
+        for (node_id, node_name) in self
+            .cached_topsort()
+            .iter()
+            .map(|node_id| (node_id, id_to_names.get(node_id).unwrap()))
+        {
+            writeln!(result, "{prefix}    {node_id:?}({node_name})")?;
+        }
+        Ok(result)
     }
 }
 

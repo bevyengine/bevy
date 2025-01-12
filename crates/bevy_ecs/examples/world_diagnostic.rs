@@ -3,10 +3,7 @@
 #![expect(missing_docs)]
 
 use alloc::borrow::Cow;
-use bevy_ecs::{
-    prelude::*,
-    schedule::{Dag, NodeId},
-};
+use bevy_ecs::{prelude::*, schedule::NodeId};
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::HashMap;
 use core::fmt::Write;
@@ -224,20 +221,19 @@ fn diagnostic_schedules(schedules: &Schedules) -> Result<String, core::fmt::Erro
             writeln!(
                 result,
                 "{}",
-                diagnose_dag("hierarchy", schedule_graph.hierarchy(), &id_to_names, "  ")?
+                schedule_graph
+                    .hierarchy()
+                    .diagnose("  ", "hierarchy", &id_to_names)?
                     .trim_end()
             )?;
 
             writeln!(
                 result,
                 "{}",
-                diagnose_dag(
-                    "dependency",
-                    schedule_graph.dependency(),
-                    &id_to_names,
-                    "  "
-                )?
-                .trim_end()
+                schedule_graph
+                    .dependency()
+                    .diagnose("  ", "dependency", &id_to_names,)?
+                    .trim_end()
             )?;
 
             // Todo
@@ -255,39 +251,6 @@ fn diagnostic_schedules(schedules: &Schedules) -> Result<String, core::fmt::Erro
         }
     }
 
-    Ok(result)
-}
-
-fn diagnose_dag(
-    name: &str,
-    dag: &Dag,
-    id_to_names: &HashMap<NodeId, Cow<'static, str>>,
-    prefix: &str,
-) -> Result<String, core::fmt::Error> {
-    let mut result = "".to_string();
-    writeln!(result, "{prefix}{name}:")?;
-
-    writeln!(result, "{prefix}  nodes:")?;
-    for node_id in dag.graph().nodes() {
-        let name = id_to_names.get(&node_id).unwrap();
-        writeln!(result, "{prefix}    {node_id:?}({name})")?;
-    }
-
-    writeln!(result, "{prefix}  edges:")?;
-    for (l, r) in dag.graph().all_edges() {
-        let l_name = id_to_names.get(&l).unwrap();
-        let r_name = id_to_names.get(&r).unwrap();
-        writeln!(result, "{prefix}    {l:?}({l_name}) -> {r:?}({r_name})")?;
-    }
-
-    writeln!(result, "{prefix}  topsorted:")?;
-    for (node_id, node_name) in dag
-        .cached_topsort()
-        .iter()
-        .map(|node_id| (node_id, id_to_names.get(node_id).unwrap()))
-    {
-        writeln!(result, "{prefix}    {node_id:?}({node_name})")?;
-    }
     Ok(result)
 }
 

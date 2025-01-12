@@ -13,7 +13,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
-use alloc::{borrow::Cow, format, vec::Vec, string::String};
+use alloc::{borrow::Cow, format, string::String, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
