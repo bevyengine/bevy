@@ -219,7 +219,7 @@ pub struct ExtractedBoxShadow {
     pub transform: Mat4,
     pub bounds: Vec2,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
@@ -259,7 +259,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -269,7 +269,7 @@ pub fn extract_shadows(
         }
 
         let ui_physical_viewport_size = camera_query
-            .get(render_camera_entity)
+            .get(extracted_camera_entity)
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -326,7 +326,7 @@ pub fn extract_shadows(
                     color: drop_shadow.color.into(),
                     bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity: render_camera_entity,
+                    extracted_camera_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
@@ -337,7 +337,10 @@ pub fn extract_shadows(
     }
 }
 
-#[expect(clippy::too_many_arguments, reason = "it's a system that needs a lot of them")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
@@ -351,7 +354,7 @@ pub fn queue_shadows(
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
         let Ok((default_camera_view, shadow_samples)) =
-            render_views.get_mut(extracted_shadow.camera_entity)
+            render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
             continue;
         };
@@ -519,7 +522,7 @@ pub fn prepare_shadows(
                         item.entity(),
                         UiShadowsBatch {
                             range: vertices_index..vertices_index + 6,
-                            camera: box_shadow.camera_entity,
+                            camera: box_shadow.extracted_camera_entity,
                         },
                     ));
 
