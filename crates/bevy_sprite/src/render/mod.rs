@@ -1,8 +1,6 @@
 use core::ops::Range;
 
-use crate::{
-    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE,
-};
+use crate::{ComputedTextureSlices, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -17,7 +15,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;
@@ -494,10 +492,6 @@ pub struct ImageBindGroups {
     values: HashMap<AssetId<Image>, BindGroup>,
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn queue_sprites(
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
@@ -585,10 +579,6 @@ pub fn queue_sprites(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -622,10 +612,6 @@ pub fn prepare_sprite_view_bind_groups(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn prepare_sprite_image_bind_groups(
     mut commands: Commands,
     mut previous_len: Local<usize>,

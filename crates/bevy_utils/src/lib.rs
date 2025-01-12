@@ -1,3 +1,8 @@
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -26,8 +31,6 @@ pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod object_safe;
-pub use object_safe::assert_object_safe;
 mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;

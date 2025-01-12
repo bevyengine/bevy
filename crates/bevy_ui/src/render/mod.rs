@@ -20,7 +20,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
@@ -45,7 +45,6 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
@@ -143,7 +142,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
+                extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -266,7 +265,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Fetch the UI view.
-        let Some(mut render_views) = world.try_query::<&DefaultCameraView>() else {
+        let Some(mut render_views) = world.try_query::<&UiCameraView>() else {
             return Ok(());
         };
         let Ok(default_camera_view) = render_views.get(world, graph.view_entity()) else {
@@ -341,7 +340,6 @@ pub fn extract_uinode_background_colors(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -575,7 +573,8 @@ const UI_CAMERA_SUBVIEW: u32 = 1;
 /// For example, if UI is being rendered to a 3D camera, this component lives on
 /// the 3D camera and contains the entity corresponding to the UI view.
 #[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+/// Entity id of the temporary render entity with the corresponding extracted UI view.
+pub struct UiCameraView(pub Entity);
 
 /// A render-world component that lives on the UI view and specifies the
 /// corresponding main render target view.
@@ -583,12 +582,12 @@ pub struct DefaultCameraView(pub Entity);
 /// For example, if the UI is being rendered to a 3D camera, this component
 /// lives on the UI view and contains the entity corresponding to the 3D camera.
 ///
-/// This is the inverse of [`DefaultCameraView`].
+/// This is the inverse of [`UiCameraView`].
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
-pub fn extract_default_ui_camera_view(
+pub fn extract_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     query: Extract<
@@ -607,13 +606,13 @@ pub fn extract_default_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, BoxShadowSamples)>();
+                .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
 
@@ -632,7 +631,7 @@ pub fn extract_default_ui_camera_view(
             let retained_view_entity =
                 RetainedViewEntity::new(main_entity.into(), UI_CAMERA_SUBVIEW);
             // Creates the UI view.
-            let default_camera_view = commands
+            let ui_camera_view = commands
                 .spawn((
                     ExtractedView {
                         retained_view_entity,
@@ -651,16 +650,16 @@ pub fn extract_default_ui_camera_view(
                         color_grading: Default::default(),
                     },
                     // Link to the main camera view.
-                    UiViewTarget(entity),
+                    UiViewTarget(render_entity),
                     TemporaryRenderEntity,
                 ))
                 .id();
 
             let mut entity_commands = commands
-                .get_entity(entity)
+                .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
             // Link from the main 2D/3D camera view to the UI view.
-            entity_commands.insert(DefaultCameraView(default_camera_view));
+            entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
@@ -676,7 +675,6 @@ pub fn extract_default_ui_camera_view(
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -853,13 +851,12 @@ pub mod shader_flags {
     pub const BORDER: u32 = 8;
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<(&DefaultCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -909,7 +906,6 @@ pub struct ImageNodeBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

@@ -155,6 +155,11 @@
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
 #![deny(missing_docs)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 
 extern crate alloc;
 
@@ -188,9 +193,12 @@ pub mod prelude {
     };
 }
 
-/// An optional component that overrides default picking behavior for an entity, allowing you to
-/// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
-/// the fields for more details.
+/// An optional component that marks an entity as usable by a backend, and overrides default
+/// picking behavior for an entity.
+///
+/// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
+///
+/// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct PickingBehavior {

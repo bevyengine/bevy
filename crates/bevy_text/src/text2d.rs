@@ -16,7 +16,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
@@ -26,7 +26,7 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -221,7 +221,6 @@ pub fn extract_text2d_sprite(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
