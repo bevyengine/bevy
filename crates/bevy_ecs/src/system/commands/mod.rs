@@ -446,7 +446,7 @@ impl<'w, 's> Commands<'w, 's> {
         fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
                 "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details_message(entity)
+                entities.entity_does_not_exist_error_details(entity)
             );
         }
 

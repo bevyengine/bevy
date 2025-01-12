@@ -1018,9 +1018,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .get(entity)
             .ok_or(QueryEntityError::NoSuchEntity(
                 entity,
-                world
-                    .entities()
-                    .entity_does_not_exist_error_details_message(entity),
+                world.entities().entity_does_not_exist_error_details(entity),
             ))?;
         if !self
             .matched_archetypes
