@@ -425,7 +425,7 @@ pub struct StandardMaterial {
     /// Alpha values from [0.0, 1.0] in this texture are linearly mapped to
     /// reflectance values of [0.0, 0.5] and multiplied by the constant
     /// [`StandardMaterial::reflectance`] value. This follows the
-    /// [`KHR_materials_specular`] specification. The map will have no effect if
+    /// `KHR_materials_specular` specification. The map will have no effect if
     /// the material is fully metallic.
     ///
     /// When using this map, you may wish to set the
