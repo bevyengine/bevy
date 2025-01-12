@@ -116,7 +116,7 @@ pub unsafe trait WorldQuery {
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
-    /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
+    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
     /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety

@@ -896,7 +896,6 @@ impl RenderMeshInstanceGpuQueue {
 impl RenderMeshInstanceGpuBuilder {
     /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
-    #[allow(clippy::too_many_arguments)]
     fn update(
         mut self,
         entity: MainEntity,
@@ -1170,7 +1169,6 @@ pub fn extract_meshes_for_cpu_building(
 ///
 /// This is the variant of the system that runs when we're using GPU
 /// [`MeshUniform`] building.
-#[allow(clippy::too_many_arguments)]
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
@@ -1351,7 +1349,6 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
-#[allow(clippy::too_many_arguments)]
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
     batched_instance_buffers: ResMut<
@@ -1813,12 +1810,13 @@ bitflags::bitflags! {
         const TEMPORAL_JITTER                   = 1 << 11;
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
-        const IRRADIANCE_VOLUME                 = 1 << 14;
-        const VISIBILITY_RANGE_DITHER           = 1 << 15;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const HAS_PREVIOUS_SKIN                 = 1 << 17;
-        const HAS_PREVIOUS_MORPH                = 1 << 18;
-        const OIT_ENABLED                       = 1 << 19;
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
+        const IRRADIANCE_VOLUME                 = 1 << 15;
+        const VISIBILITY_RANGE_DITHER           = 1 << 16;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
+        const HAS_PREVIOUS_SKIN                 = 1 << 18;
+        const HAS_PREVIOUS_MORPH                = 1 << 19;
+        const OIT_ENABLED                       = 1 << 20;
         const LAST_FLAG                         = Self::OIT_ENABLED.bits();
 
         // Bitfields
@@ -2242,6 +2240,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+        if key.contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING) {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
+        }
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
             shader_defs.push("TEMPORAL_JITTER".into());
@@ -2411,7 +2412,6 @@ impl MeshBindGroupPair {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
     meshes: Res<RenderAssets<RenderMesh>>,
     mut groups: ResMut<MeshBindGroups>,

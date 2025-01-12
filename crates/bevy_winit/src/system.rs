@@ -42,7 +42,6 @@ use crate::{
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-#[allow(clippy::too_many_arguments)]
 pub fn create_windows<F: QueryFilter + 'static>(
     event_loop: &ActiveEventLoop,
     (
@@ -154,16 +153,6 @@ pub fn create_monitors(
                 seen_monitors[idx] = true;
                 continue 'outer;
             }
-            // on iOS, equality doesn't work, so we need to compare the names
-            // otherwise the monitor entity is recreated every time
-            // TODO: remove after https://github.com/rust-windowing/winit/pull/4013 has been released
-            #[cfg(target_os = "ios")]
-            {
-                if monitor.name() == m.name() {
-                    seen_monitors[idx] = true;
-                    continue 'outer;
-                }
-            }
         }
 
         let size = monitor.size();
@@ -213,7 +202,6 @@ pub fn create_monitors(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,

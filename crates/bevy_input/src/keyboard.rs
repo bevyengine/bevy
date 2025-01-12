@@ -238,7 +238,10 @@ pub enum NativeKeyCode {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
+#[expect(
+    clippy::doc_markdown,
+    reason = "We use camel-case words inside `<kbd>` tags to represent keyboard keys, which are not identifiers that we should be putting inside backticks."
+)]
 #[repr(u32)]
 pub enum KeyCode {
     /// This variant is used when the key cannot be translated to any other variant.
@@ -764,7 +767,10 @@ pub enum NativeKey {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
+#[expect(
+    clippy::doc_markdown,
+    reason = "We use camel-case words inside `<kbd>` tags to represent keyboard keys, which are not identifiers that we should be putting inside backticks."
+)]
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in

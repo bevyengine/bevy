@@ -3,8 +3,8 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     event::Events,
-    system::{Commands, EntityCommands},
-    world::{Command, EntityWorldMut, World},
+    system::{Command, Commands, EntityCommands},
+    world::{EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 
@@ -351,15 +351,15 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Entity cannot be a child of itself.");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_children(&children);
         })
     }
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let child = self.commands().spawn(bundle).id();
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_child(child);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_child(child);
         })
     }
 
@@ -369,8 +369,8 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot add entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_children(&children);
         })
     }
 
@@ -380,15 +380,15 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot insert entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).insert_children(index, &children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_children(index, &children);
         })
     }
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).remove_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_children(&children);
         })
     }
 
@@ -397,14 +397,14 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_child(child);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_child(child);
         })
     }
 
     fn clear_children(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).clear_children();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.clear_children();
         })
     }
 
@@ -414,8 +414,8 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot replace entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).replace_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.replace_children(&children);
         })
     }
 
@@ -424,14 +424,16 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(parent).add_child(entity);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.world_scope(|world| {
+                world.entity_mut(parent).add_child(child);
+            });
         })
     }
 
     fn remove_parent(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).remove_parent();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_parent();
         })
     }
 }
@@ -471,8 +473,16 @@ impl ChildBuild for WorldChildBuilder<'_> {
     }
 
     fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
-        command.apply(self.world);
+        self.world.commands().queue(command);
         self
+    }
+}
+
+impl WorldChildBuilder<'_> {
+    /// Calls the world's [`World::flush`] to apply any commands
+    /// queued by [`Self::queue_command`].
+    pub fn flush_world(&mut self) {
+        self.world.flush();
     }
 }
 
@@ -773,7 +783,10 @@ mod tests {
         );
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "The inner field is used to differentiate the different instances of this struct."
+    )]
     #[derive(Component)]
     struct C(u32);
 

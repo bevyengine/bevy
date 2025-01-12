@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -232,7 +230,7 @@ pub struct ExtractedUiTextureSlice {
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
@@ -271,7 +269,7 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -328,7 +326,7 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
-                camera_entity,
+                extracted_camera_entity,
                 image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
@@ -351,7 +349,7 @@ pub fn queue_ui_slices(
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get(extracted_slicer.camera_entity) else {
+        let Ok((view_entity, view)) = views.get(extracted_slicer.extracted_camera_entity) else {
             continue;
         };
 
@@ -379,7 +377,6 @@ pub fn queue_ui_slices(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -438,7 +435,7 @@ pub fn prepare_ui_slices(
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.camera_entity)
+                            != Some(texture_slices.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
@@ -448,7 +445,7 @@ pub fn prepare_ui_slices(
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.camera_entity,
+                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
