@@ -161,7 +161,7 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 ///     .build_state(&mut world)
 ///     .build_system(my_system);
 /// ```
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ParamBuilder;
 
 // SAFETY: Calls `SystemParam::init_state`
@@ -401,7 +401,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 ///     set.for_each(|mut query| for mut health in query.iter_mut() {});
 /// }
 /// ```
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
