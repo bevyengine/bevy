@@ -41,6 +41,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -82,6 +83,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -4012,6 +4014,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.tab_navigation]
 name = "Tab Navigation"
-description = "Demonstration of Tab Navigation"
+description = "Demonstration of Tab Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "directional_navigation"
+path = "examples/ui/directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.directional_navigation]
+name = "Directional Navigation"
+description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
