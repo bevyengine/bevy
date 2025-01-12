@@ -82,7 +82,14 @@ plugin_group! {
 struct IgnoreAmbiguitiesPlugin;
 
 impl Plugin for IgnoreAmbiguitiesPlugin {
-    #[allow(unused_variables)] // Variables are used depending on enabled features
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "The `app` parameter is used only if a combination of crates that contain ambiguities with each other are enabled."
+    )]
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
