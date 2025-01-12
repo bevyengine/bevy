@@ -193,10 +193,8 @@ pub struct ExtractedUiNode {
     pub rect: Rect,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    // Camera to render this UI node to. By the time it is extracted,
-    // it is defaulted to a single camera if only one exists.
-    // Nodes with ambiguous camera will be ignored.
-    pub camera_entity: Entity,
+    /// Render world entity of the extracted camera corresponding to this node's target camera.
+    pub extracted_camera_entity: Entity,
     pub item: ExtractedUiItem,
     pub main_entity: MainEntity,
 }
@@ -273,7 +271,7 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -293,7 +291,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
@@ -333,7 +331,7 @@ pub fn extract_uinode_images(
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -383,7 +381,7 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
-                camera_entity: render_camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling,
                     transform: transform.compute_matrix(),
@@ -439,7 +437,7 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -463,7 +461,7 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity,
+                        extracted_camera_entity,
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
                             transform: global_transform.compute_matrix(),
@@ -501,7 +499,7 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     clip: parent_clip.map(|clip| clip.clip),
-                    camera_entity: render_camera_entity,
+                    extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
                         atlas_scaling: None,
@@ -629,7 +627,7 @@ pub fn extract_text_sections(
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     let mut start = 0;
     let mut end = 1;
@@ -655,7 +653,7 @@ pub fn extract_text_sections(
             continue;
         }
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -710,7 +708,7 @@ pub fn extract_text_sections(
                         color,
                         image: atlas_info.texture.id(),
                         clip: clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity.id(),
+                        extracted_camera_entity,
                         rect,
                         item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
@@ -798,7 +796,8 @@ pub fn queue_uinodes(
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, ui_anti_alias)) =
+            views.get(extracted_uinode.extracted_camera_entity)
         else {
             continue;
         };
@@ -892,7 +891,7 @@ pub fn prepare_uinodes(
                             && extracted_uinode.image != AssetId::default()
                             && batch_image_handle != extracted_uinode.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(extracted_uinode.camera_entity)
+                            != Some(extracted_uinode.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
@@ -901,7 +900,7 @@ pub fn prepare_uinodes(
                             let new_batch = UiBatch {
                                 range: vertices_index..vertices_index,
                                 image: extracted_uinode.image,
-                                camera: extracted_uinode.camera_entity,
+                                camera: extracted_uinode.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
