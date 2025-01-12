@@ -19,9 +19,8 @@ use core::{
 ///
 /// This trait can be derived.
 ///
-/// Events implement the [`Component`] type (and they automatically do when they are derived). Events are (generally)
-/// not directly inserted as components. More often, the [`ComponentId`] is used to identify the event type within the
-/// context of the ECS.
+/// Each event has a unique [`ComponentId`] associated with it, which is used to store the event in the world.
+/// This can be obtained using [`World::generate_component_id<Self>`].
 ///
 /// Events must be thread-safe.
 ///

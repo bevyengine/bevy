@@ -236,6 +236,14 @@ impl World {
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
+    /// Generates a new [`ComponentId`] for the provided Rust type from its [`TypeId`],
+    /// returning any existing [`ComponentId`] if the type has already been registered.
+    ///
+    /// For read-only access, see [`World::component_id`].
+    pub fn generate_component_id<T: ?Sized + 'static>(&mut self) -> ComponentId {
+        self.components.generate_component_id::<T>()
+    }
+
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>(&mut self.storages)

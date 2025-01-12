@@ -1098,6 +1098,20 @@ pub struct Components {
 }
 
 impl Components {
+    /// Generates a new [`ComponentId`] for the provided Rust type from its [`TypeId`],
+    /// returning any existing [`ComponentId`] if the type has already been registered.
+    ///
+    /// For read-only access, see [`Components::component_id`].
+    pub fn generate_component_id<T: ?Sized + 'static>(&mut self) -> ComponentId {
+        if let Some(component_id) = self.indices.get(&TypeId::of::<T>()) {
+            component_id.clone()
+        } else {
+            let id = ComponentId(self.components.len());
+            self.indices.insert(TypeId::of::<T>(), id);
+            id
+        }
+    }
+
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
