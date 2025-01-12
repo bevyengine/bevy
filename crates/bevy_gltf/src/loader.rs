@@ -1750,7 +1750,8 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 /// for an extension, forcing us to parse its texture references manually.
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
-    feature = "pbr_multi_layer_material_textures"
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
 ))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
@@ -2279,10 +2280,9 @@ struct SpecularExtension {
 }
 
 impl SpecularExtension {
-    #[allow(unused_variables)]
     fn parse(
-        load_context: &mut LoadContext,
-        document: &Document,
+        _load_context: &mut LoadContext,
+        _document: &Document,
         material: &Material,
     ) -> Option<Self> {
         let extension = material
@@ -2291,9 +2291,9 @@ impl SpecularExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (specular_channel, specular_texture) = parse_material_extension_texture(
-            load_context,
-            document,
+        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
             material,
             extension,
             "specularTexture",
@@ -2301,9 +2301,9 @@ impl SpecularExtension {
         );
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (specular_color_channel, specular_color_texture) = parse_material_extension_texture(
-            load_context,
-            document,
+        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
             material,
             extension,
             "specularColorTexture",
@@ -2313,9 +2313,9 @@ impl SpecularExtension {
         Some(SpecularExtension {
             specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
             #[cfg(feature = "pbr_specular_textures")]
-            specular_channel,
+            specular_channel: _specular_channel,
             #[cfg(feature = "pbr_specular_textures")]
-            specular_texture,
+            specular_texture: _specular_texture,
             specular_color_factor: extension
                 .get("specularColorFactor")
                 .and_then(Value::as_array)
@@ -2331,9 +2331,9 @@ impl SpecularExtension {
                     }
                 }),
             #[cfg(feature = "pbr_specular_textures")]
-            specular_color_channel,
+            specular_color_channel: _specular_color_channel,
             #[cfg(feature = "pbr_specular_textures")]
-            specular_color_texture,
+            specular_color_texture: _specular_color_texture,
         })
     }
 }
