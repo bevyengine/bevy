@@ -469,7 +469,7 @@ pub enum AnimationEvaluationError {
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
-/// An stopped animation is considered no longer active.
+/// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.

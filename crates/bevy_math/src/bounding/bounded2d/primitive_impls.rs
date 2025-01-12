@@ -651,7 +651,7 @@ mod tests {
         let apothem = ops::sqrt(3.0) / 2.0;
         let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
-            // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            // Test case: A sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
                 name: "1/3rd circle",
                 arc: Arc2d::from_radians(1.0, TAU / 3.0),

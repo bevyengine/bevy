@@ -226,7 +226,7 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Enable support for the Bevy Remote Protocol
-bevy_remote = ["dep:bevy_remote"]
+bevy_remote = ["dep:bevy_remote", "serialize"]
 
 # Provides picking functionality
 bevy_picking = ["dep:bevy_picking"]

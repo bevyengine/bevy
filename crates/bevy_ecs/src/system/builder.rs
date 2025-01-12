@@ -240,7 +240,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     .build_state(&mut world)
 ///     .build_system(|query: Query<()>| {
 ///         for _ in &query {
-///             // This only includes entities with an `Player` component.
+///             // This only includes entities with a `Player` component.
 ///         }
 ///     });
 ///
