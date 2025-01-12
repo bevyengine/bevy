@@ -341,7 +341,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Camera to render this UI node to. By the time it is extracted,
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
 }
 
@@ -384,7 +384,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = render_entity_lookup.get(camera_entity) else {
             continue;
         };
 
@@ -417,7 +417,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                extracted_camera_entity,
                 main_entity: entity.into(),
             },
         );
@@ -622,11 +622,11 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
-        let Ok(view) = views.get(extracted_uinode.camera_entity) else {
+        let Ok(view) = views.get(extracted_uinode.extracted_camera_entity) else {
             continue;
         };
         let Some(transparent_phase) =
-            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+            transparent_render_phases.get_mut(&extracted_uinode.extracted_camera_entity)
         else {
             continue;
         };
