@@ -488,6 +488,12 @@ where
         if key.mesh_key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING)
+        {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
+        }
 
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
@@ -911,12 +917,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            let lightmap_slab_index = render_lightmaps
-                .render_lightmaps
-                .get(visible_entity)
-                .map(|lightmap| lightmap.slab_index);
-            if lightmap_slab_index.is_some() {
+            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
+                // Even though we don't use the lightmap in the forward prepass, the
+                // `SetMeshBindGroup` render command will bind the data for it. So
+                // we need to include the appropriate flag in the mesh pipeline key
+                // to ensure that the necessary bind group layout entries are
+                // present.
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+
+                if lightmap.bicubic_sampling && deferred {
+                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
+                }
             }
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
