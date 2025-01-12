@@ -15,10 +15,10 @@ The goal of this crate is to provide alternatives and extensions to the Rust sta
 
 ## Getting Started
 
-Like any dependency from [crates.io](https://crates.io/), include the following in you `Cargo.toml` `dependencies` table:
+Like any dependency from [crates.io](https://crates.io/), use `cargo` to add it to your `Cargo.toml` file:
 
-```toml
-bevy_platform_support = "0.16.0-dev"
+```sh
+cargo add bevy_platform_support
 ```
 
 Now, instead of importing from `std` you can use `bevy_platform_support` for items it has alternative for.
@@ -30,7 +30,7 @@ By default, `bevy_platform_support` will activate the `std` feature, requiring a
 To use this crate on `no_std` platforms, disable default features:
 
 ```toml
-bevy_platform_support = { version = "0.16.0-dev", default-features = false }
+bevy_platform_support = { version = "x.y.z", default-features = false }
 ```
 
 ## Features
