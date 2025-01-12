@@ -1810,12 +1810,13 @@ bitflags::bitflags! {
         const TEMPORAL_JITTER                   = 1 << 11;
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
-        const IRRADIANCE_VOLUME                 = 1 << 14;
-        const VISIBILITY_RANGE_DITHER           = 1 << 15;
-        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const HAS_PREVIOUS_SKIN                 = 1 << 17;
-        const HAS_PREVIOUS_MORPH                = 1 << 18;
-        const OIT_ENABLED                       = 1 << 19;
+        const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 14;
+        const IRRADIANCE_VOLUME                 = 1 << 15;
+        const VISIBILITY_RANGE_DITHER           = 1 << 16;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
+        const HAS_PREVIOUS_SKIN                 = 1 << 18;
+        const HAS_PREVIOUS_MORPH                = 1 << 19;
+        const OIT_ENABLED                       = 1 << 20;
         const LAST_FLAG                         = Self::OIT_ENABLED.bits();
 
         // Bitfields
@@ -2238,6 +2239,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
+        }
+        if key.contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING) {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
         }
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
