@@ -407,7 +407,7 @@ mod tests {
         let mut total = 0;
         let mut func = (|a: i32, b: i32| total = a + b).into_function_mut();
 
-        let args = ArgList::default().push_owned(25_i32);
+        let args = ArgList::default().with_owned(25_i32);
         let error = func.call(args).unwrap_err();
         assert_eq!(
             error,
@@ -417,7 +417,7 @@ mod tests {
             }
         );
 
-        let args = ArgList::default().push_owned(25_i32);
+        let args = ArgList::default().with_owned(25_i32);
         let error = func.call_once(args).unwrap_err();
         assert_eq!(
             error,
