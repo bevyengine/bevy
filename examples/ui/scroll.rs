@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             flex_direction: FlexDirection::Column,
             ..default()
         })
-        .insert(PickingBehavior::IGNORE)
+        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     align_content: AlignContent::Center,
                                     ..default()
                                 })
-                                .insert(PickingBehavior {
+                                .insert(Pickable {
                                     should_block_lower: false,
                                     ..default()
                                 })
@@ -151,7 +151,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 max_height: Val::Px(LINE_HEIGHT),
                                                 ..default()
                                             })
-                                            .insert(PickingBehavior {
+                                            .insert(Pickable {
                                                 should_block_lower: false,
                                                 ..default()
                                             })
@@ -169,7 +169,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             Role::ListItem,
                                                         )),
                                                     ))
-                                                    .insert(PickingBehavior {
+                                                    .insert(Pickable {
                                                         should_block_lower: false,
                                                         ..default()
                                                     });
@@ -218,7 +218,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 flex_direction: FlexDirection::Row,
                                                 ..default()
                                             })
-                                            .insert(PickingBehavior::IGNORE)
+                                            .insert(Pickable::IGNORE)
                                             .with_children(|parent| {
                                                 // Elements in each row
                                                 for i in 0..25 {
@@ -236,7 +236,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 Role::ListItem,
                                                             )),
                                                         ))
-                                                        .insert(PickingBehavior {
+                                                        .insert(Pickable {
                                                             should_block_lower: false,
                                                             ..default()
                                                         });
@@ -292,7 +292,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
                                             ))
-                                            .insert(PickingBehavior {
+                                            .insert(Pickable {
                                                 should_block_lower: false,
                                                 ..default()
                                             })
@@ -312,7 +312,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 Role::ListItem,
                                                             )),
                                                         ))
-                                                        .insert(PickingBehavior {
+                                                        .insert(Pickable {
                                                             should_block_lower: false,
                                                             ..default()
                                                         });
