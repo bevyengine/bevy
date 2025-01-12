@@ -47,6 +47,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
         0u,
         in.uv,
         Vt,
+        in.material_bind_group_slot,
     );
 
     let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
