@@ -19,8 +19,10 @@ use core::{
 ///
 /// This trait can be derived.
 ///
-/// Each event has a unique [`ComponentId`] associated with it, which is used to store the event in the world.
+/// Each event type has a unique [`ComponentId`] associated with it, which is used to store the event in the world.
 /// This can be obtained using [`World::generate_component_id<Self>`].
+///
+/// Each individual event sent has an [`EventId`] associated with it, which can be used to trace the flow of an event.
 ///
 /// Events must be thread-safe.
 ///
