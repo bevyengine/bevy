@@ -2338,6 +2338,9 @@ impl SpecularExtension {
     }
 }
 
+/// Parses a texture that's part of a material extension block and returns its
+/// UV channel and image reference.
+#[allow(dead_code)]
 fn parse_material_extension_texture(
     load_context: &mut LoadContext,
     document: &Document,
