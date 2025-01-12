@@ -337,7 +337,7 @@ pub fn extract_shadows(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "it's a system that needs a lot of them")]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
