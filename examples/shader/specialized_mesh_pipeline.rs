@@ -267,7 +267,7 @@ fn queue_custom_mesh_pipeline(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
 ) {
@@ -279,8 +279,8 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_entity, view_visible_entities, view, msaa) in views.iter() {
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+    for (view_visible_entities, view, msaa) in views.iter() {
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 

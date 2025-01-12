@@ -132,12 +132,13 @@ fn queue_custom(
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa)>,
+    views: Query<(&ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view_entity, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 

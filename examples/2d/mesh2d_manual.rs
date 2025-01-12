@@ -368,14 +368,15 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (view_entity, visible_entities, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (visible_entities, view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
