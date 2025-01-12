@@ -146,7 +146,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     app.add_plugins(MinimalPlugins)
         .add_plugins(DiagnosticsPlugin)
         .add_plugins(LogPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
             "fps",
         )]));

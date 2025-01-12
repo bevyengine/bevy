@@ -193,7 +193,7 @@ fn main() {
                 exit_condition: ExitCondition::DontExit,
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)

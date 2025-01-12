@@ -37,7 +37,7 @@ fn main() {
                 ..default()
             }),
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, init_cursor_icons)
         .add_systems(
