@@ -64,7 +64,7 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
 }
 
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct RemovedComponentEvents {
     event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
 }

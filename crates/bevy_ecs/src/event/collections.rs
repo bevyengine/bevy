@@ -91,7 +91,7 @@ use {
 /// [`EventReader`]: super::EventReader
 /// [`EventWriter`]: super::EventWriter
 /// [`event_update_system`]: super::event_update_system
-#[derive(Debug, Resource)]
+#[derive(Clone, Debug, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
@@ -331,7 +331,7 @@ impl<E: Event> Extend<E> for Events<E> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub(crate) struct EventSequence<E: Event> {
     pub(crate) events: Vec<EventInstance<E>>,

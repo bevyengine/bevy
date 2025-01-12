@@ -184,6 +184,28 @@ impl BlobVec {
         core::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
+    /// Try to initialize a value at next index in this [`BlobVec`] using passed initialization function.
+    /// If `init_fn` returns `true`, the value will be considered initialized, `len` increased and this function will return `true`.
+    /// Otherwise, `len` will be left as it was before and this function will return `false`
+    ///
+    /// # Safety
+    /// - caller must ensure that if `init_fn` returns `true`, a valid value of the layout stored in this [`BlobVec`]
+    ///     was written to [`NonNull`] passed to `init_fn`.
+    pub(crate) unsafe fn try_initialize_next(
+        &mut self,
+        init_fn: impl Fn(NonNull<u8>) -> bool,
+    ) -> bool {
+        self.reserve(1);
+        let index = self.len;
+        self.len += 1;
+        let ptr = self.get_unchecked_mut(index);
+        if init_fn(ptr.into()) {
+            return true;
+        }
+        self.len = index;
+        false
+    }
+
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
     ///
     /// # Safety
@@ -390,6 +412,33 @@ impl BlobVec {
                 unsafe { drop(item) };
             }
         }
+    }
+
+    /// Copy data from other [`BlobVec`].
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - `other` stores data of the same layout as `self`.
+    /// - `self` has enough `capacity` to store `other.len` elements.
+    pub unsafe fn copy_from_unchecked(&mut self, other: &Self) {
+        // Skip ZSTs
+        if other.item_layout.size() == 0 {
+            return;
+        }
+        let len = other.len();
+        // SAFETY: This must be valid because other is a valid BlobVec
+        let num_bytes_to_copy = array_layout_unchecked(&other.layout(), other.len()).size();
+        debug_assert!(
+            num_bytes_to_copy
+                <= array_layout(&other.layout(), self.capacity)
+                    .expect("Calculating capacity to copy to BlobVec failed")
+                    .size()
+        );
+        debug_assert!(other.layout() == self.layout());
+        let source_ptr = other.get_ptr().as_ptr();
+        let target_ptr = self.get_ptr_mut().as_ptr();
+        core::ptr::copy_nonoverlapping(source_ptr, target_ptr, num_bytes_to_copy);
+        self.len = len;
     }
 }
 

@@ -1,8 +1,13 @@
 use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    component::{
+        ComponentCloneHandlerKind, ComponentId, ComponentInfo, ComponentTicks, Components, Tick,
+        TickCells,
+    },
+    entity::ComponentCloneCtx,
     storage::{blob_vec::BlobVec, SparseSet},
+    world::{error::WorldCloneError, World},
 };
 use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -22,10 +27,6 @@ pub struct ResourceData<const SEND: bool> {
     data: ManuallyDrop<BlobVec>,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
-    #[cfg_attr(
-        not(feature = "std"),
-        expect(dead_code, reason = "currently only used with the std feature")
-    )]
     type_name: String,
     id: ArchetypeComponentId,
     #[cfg(feature = "std")]
@@ -69,24 +70,37 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
     #[inline]
     fn validate_access(&self) {
-        if SEND {
+        if self.try_validate_access() {
             return;
         }
 
+        // Panic in tests, as testing for aborting is nearly impossible
         #[cfg(feature = "std")]
-        if self.origin_thread_id != Some(std::thread::current().id()) {
-            // Panic in tests, as testing for aborting is nearly impossible
-            panic!(
+        panic!(
                 "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                 self.type_name,
                 self.origin_thread_id,
                 std::thread::current().id()
             );
+    }
+
+    #[inline]
+    /// Returns `true` if access to `!Send` resources is done on the thread they were created from or resources are `Send`.
+    fn try_validate_access(&self) -> bool {
+        #[cfg(feature = "std")]
+        {
+            if SEND {
+                true
+            } else {
+                self.origin_thread_id == Some(std::thread::current().id())
+            }
         }
 
         // TODO: Handle no_std non-send.
         // Currently, no_std is single-threaded only, so this is safe to ignore.
         // To support no_std multithreading, an alternative will be required.
+        #[cfg(not(feature = "std"))]
+        true
     }
 
     /// Returns true if the resource is populated.
@@ -304,6 +318,77 @@ impl<const SEND: bool> ResourceData<SEND> {
         self.added_ticks.get_mut().check_tick(change_tick);
         self.changed_ticks.get_mut().check_tick(change_tick);
     }
+
+    /// Try to clone [`ResourceData`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`ResourceData`].
+    /// - [`ResourceData`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        if !self.try_validate_access() {
+            return Err(WorldCloneError::NonSendResourceCloned(component_info.id()));
+        }
+        let mut data = BlobVec::new(component_info.layout(), component_info.drop(), 1);
+
+        let handler = match component_info
+            .clone_handler()
+            .get_world_handler()
+            .unwrap_or_else(|| component_info.clone_handler().get_entity_handler())
+        {
+            ComponentCloneHandlerKind::Default => {
+                Some(world.components.get_default_clone_handler())
+            }
+            ComponentCloneHandlerKind::Ignore => {
+                return Err(WorldCloneError::ComponentCantBeCloned(component_info.id()))
+            }
+            ComponentCloneHandlerKind::Copy => {
+                if !component_info.is_copy() {
+                    return Err(WorldCloneError::FailedToCloneResource(component_info.id()));
+                }
+                data.copy_from_unchecked(&self.data);
+                None
+            }
+            ComponentCloneHandlerKind::Custom(handler) => Some(handler),
+        };
+
+        if let Some(handler) = handler {
+            let is_initialized = data.try_initialize_next(|target_component_ptr| {
+                let source_component_ptr = self.data.get_unchecked(Self::ROW);
+                let mut ctx = ComponentCloneCtx::new_for_component(
+                    component_info,
+                    source_component_ptr,
+                    target_component_ptr,
+                    world,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
+                );
+                handler(world, &mut ctx);
+                ctx.target_component_written()
+            });
+            if !is_initialized {
+                return Err(WorldCloneError::FailedToCloneComponent(component_info.id()));
+            }
+        }
+
+        Ok(Self {
+            data: ManuallyDrop::new(data),
+            added_ticks: UnsafeCell::new(self.added_ticks.read()),
+            changed_ticks: UnsafeCell::new(self.changed_ticks.read()),
+            type_name: self.type_name.clone(),
+            id: self.id,
+            #[cfg(feature = "std")]
+            origin_thread_id: self.origin_thread_id,
+            #[cfg(feature = "track_location")]
+            changed_by: UnsafeCell::new(self.changed_by.read()),
+        })
+    }
 }
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
@@ -402,5 +487,32 @@ impl<const SEND: bool> Resources<SEND> {
         for info in self.resources.values_mut() {
             info.check_change_ticks(change_tick);
         }
+    }
+
+    /// Try to clone [`Resources`]. This is only possible if all resources can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Resources`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        let mut resources = SparseSet::with_capacity(self.resources.len());
+        let components = world.components();
+        for (component_id, res) in self.resources.iter() {
+            resources.insert(
+                *component_id,
+                res.try_clone(
+                    // SAFETY: component_id is valid because this Table is valid and from the same world as Components.
+                    components.get_info_unchecked(*component_id),
+                    world,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
+                )?,
+            );
+        }
+        Ok(Self { resources })
     }
 }

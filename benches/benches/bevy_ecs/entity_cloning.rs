@@ -67,11 +67,9 @@ fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World)
     // this bundle are saved.
     let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
 
-    let clone_handlers = world.get_component_clone_handlers_mut();
-
     // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
     for component in component_ids {
-        clone_handlers.set_component_handler(component, ComponentCloneHandler::reflect_handler());
+        world.set_component_clone_handler(component, ComponentCloneHandler::reflect_handler());
     }
 }
 

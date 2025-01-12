@@ -579,6 +579,17 @@ pub struct Entities {
     len: u32,
 }
 
+impl Clone for Entities {
+    fn clone(&self) -> Self {
+        Self {
+            meta: self.meta.clone(),
+            pending: self.pending.clone(),
+            free_cursor: AtomicIdCursor::new(self.free_cursor.load(Ordering::Relaxed)),
+            len: self.len,
+        }
+    }
+}
+
 impl Entities {
     pub(crate) const fn new() -> Self {
         Entities {

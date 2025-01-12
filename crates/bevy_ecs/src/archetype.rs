@@ -119,6 +119,7 @@ pub(crate) enum ComponentStatus {
 }
 
 /// Used in [`Edges`] to cache the result of inserting a bundle into the source archetype.
+#[derive(Clone)]
 pub(crate) struct ArchetypeAfterBundleInsert {
     /// The target archetype after the bundle is inserted into the source archetype.
     pub archetype_id: ArchetypeId,
@@ -194,7 +195,7 @@ impl BundleComponentStatus for SpawnBundleStatus {
 /// yet.
 ///
 /// [`World`]: crate::world::World
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Edges {
     insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
@@ -306,6 +307,7 @@ impl Edges {
 }
 
 /// Metadata about an [`Entity`] in a [`Archetype`].
+#[derive(Clone)]
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: TableRow,
@@ -339,6 +341,7 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
 ///
 /// [`Component`]: crate::component::Component
+#[derive(Clone)]
 struct ArchetypeComponentInfo {
     storage_type: StorageType,
     archetype_component_id: ArchetypeComponentId,
@@ -367,6 +370,7 @@ bitflags::bitflags! {
 ///
 /// [`World`]: crate::world::World
 /// [module level documentation]: crate::archetype
+#[derive(Clone)]
 pub struct Archetype {
     id: ArchetypeId,
     table_id: TableId,
@@ -720,7 +724,7 @@ impl ArchetypeGeneration {
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 struct ArchetypeComponents {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
@@ -776,6 +780,7 @@ pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRec
 ///
 /// [`World`]: crate::world::World
 /// [module level documentation]: crate::archetype
+#[derive(Clone)]
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
@@ -786,6 +791,7 @@ pub struct Archetypes {
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].
+#[derive(Clone)]
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.

@@ -475,6 +475,33 @@ impl BlobArray {
             drop(value);
         }
     }
+
+    /// Copy data from other [`BlobArray`].
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - `other` stores data of the same layout as `self`.
+    /// - `other`'s length is `len`.
+    /// - `self` has enough `capacity` to store `len` elements.
+    pub unsafe fn copy_from_unchecked(&mut self, other: &Self, len: usize) {
+        if other.is_zst() {
+            return;
+        }
+        // SAFETY:
+        // - other is a valid BlobArray, so it must have a valid array layout
+        let num_bytes_to_copy = array_layout_unchecked(&other.layout(), len).size();
+        #[cfg(debug_assertions)]
+        debug_assert!(
+            num_bytes_to_copy
+                <= array_layout(&other.layout(), self.capacity)
+                    .expect("Calculating capacity to copy to BlobVec failed")
+                    .size()
+        );
+        debug_assert!(other.layout() == self.layout());
+        let source_ptr = other.get_ptr().as_ptr();
+        let target_ptr = self.get_ptr_mut().as_ptr();
+        core::ptr::copy_nonoverlapping(source_ptr, target_ptr, num_bytes_to_copy);
+    }
 }
 
 #[cfg(test)]

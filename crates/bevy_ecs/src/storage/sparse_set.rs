@@ -3,6 +3,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
+    world::{error::WorldCloneError, World},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
@@ -13,7 +14,7 @@ use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
@@ -21,7 +22,7 @@ pub(crate) struct SparseArray<I, V = I> {
 
 /// A space-optimized version of [`SparseArray`] that cannot be changed
 /// after construction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
     marker: PhantomData<I>,
@@ -138,6 +139,31 @@ impl ComponentSparseSet {
             entities: Vec::with_capacity(capacity),
             sparse: Default::default(),
         }
+    }
+
+    /// Try to clone [`ComponentSparseSet`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// Caller must ensure that:
+    /// - [`ComponentInfo`] is the same as the one used to create this [`ComponentSparseSet`].
+    /// - [`ComponentSparseSet`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        component_info: &ComponentInfo,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        Ok(Self {
+            dense: self.dense.try_clone(
+                component_info,
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
+            entities: self.entities.clone(),
+            sparse: self.sparse.clone(),
+        })
     }
 
     /// Removes all of the values stored within.
@@ -368,7 +394,7 @@ impl ComponentSparseSet {
 /// A data structure that blends dense and sparse storage
 ///
 /// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
@@ -377,7 +403,7 @@ pub struct SparseSet<I, V: 'static> {
 
 /// A space-optimized version of [`SparseSet`] that cannot be changed
 /// after construction.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,
     indices: Box<[I]>,
@@ -608,6 +634,32 @@ impl SparseSets {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.sets.is_empty()
+    }
+
+    /// Try to clone [`SparseSets`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`SparseSets`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        let mut sets = SparseSet::with_capacity(self.sets.len());
+        let components = world.components();
+        for (component_id, set) in self.sets.iter() {
+            // SAFETY: component_id is valid because this SparseSets is valid and from the same world as Components.
+            let component_info = components.get_info_unchecked(*component_id);
+            let set = set.try_clone(
+                component_info,
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?;
+            sets.insert(*component_id, set);
+        }
+        Ok(SparseSets { sets })
     }
 
     /// An Iterator visiting all ([`ComponentId`], [`ComponentSparseSet`]) pairs.

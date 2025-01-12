@@ -2,12 +2,12 @@ use crate::{
     component::{Component, ComponentCloneHandler, ComponentHooks, Mutable, StorageType},
     entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
     observer::ObserverState,
-    world::{DeferredWorld, World},
+    world::World,
 };
 use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
@@ -45,6 +45,7 @@ impl Component for ObservedBy {
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
         ComponentCloneHandler::ignore()
+            .with_world_clone_handler(ComponentCloneHandler::clone_handler::<Self>())
     }
 }
 
@@ -66,11 +67,17 @@ impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
     }
 }
 
-fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
-    let target = ctx.target();
-    let source = ctx.source();
+fn component_clone_observed_by(_world: &World, ctx: &mut ComponentCloneCtx) {
+    let Some(entity_cloner) = ctx.entity_cloner() else {
+        return;
+    };
+    let Some(mut commands) = ctx.commands() else {
+        return;
+    };
+    let target = entity_cloner.target();
+    let source = entity_cloner.source();
 
-    world.commands().queue(move |world: &mut World| {
+    commands.queue(move |world: &mut World| {
         let observed_by = world
             .get::<ObservedBy>(source)
             .map(|observed_by| observed_by.0.clone())

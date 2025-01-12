@@ -31,7 +31,9 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-/// The raw data stores of a [`World`](crate::world::World)
+use crate::world::{error::WorldCloneError, World};
+
+/// The raw data stores of a [`World`]
 #[derive(Default)]
 pub struct Storages {
     /// Backing storage for [`SparseSet`] components.
@@ -42,4 +44,40 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+}
+
+impl Storages {
+    /// Try to clone [`Storages`]. This is only possible if all components and resources can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Storages`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Storages, WorldCloneError> {
+        Ok(Storages {
+            sparse_sets: self.sparse_sets.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
+            tables: self.tables.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
+            resources: self.resources.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
+            non_send_resources: self.non_send_resources.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?,
+        })
+    }
 }

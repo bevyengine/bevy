@@ -25,6 +25,7 @@ pub use entity_ref::{
     DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut,
     Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, TryFromFilteredError, VacantEntry,
 };
+use error::WorldCloneError;
 pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -34,8 +35,8 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        Component, ComponentCloneFn, ComponentCloneHandler, ComponentDescriptor, ComponentHooks,
+        ComponentId, ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
         RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
@@ -168,6 +169,46 @@ impl World {
     #[inline]
     pub fn id(&self) -> WorldId {
         self.id
+    }
+
+    /// Try to perform full world cloning.
+    ///
+    /// This function will return a clone if all components and resources in this world
+    /// can be cloned. If that is not possible, [`WorldCloneError`] will be returned instead.
+    pub fn try_clone(&self) -> Result<World, WorldCloneError> {
+        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
+        if !unsafe { self.command_queue.is_empty() } {
+            return Err(WorldCloneError::UnappliedCommands);
+        }
+
+        let id = WorldId::new().ok_or(WorldCloneError::WorldIdExhausted)?;
+        // SAFETY:
+        // - storages and type_registry is from self
+        let storages = unsafe {
+            self.storages.try_clone(
+                self,
+                #[cfg(feature = "bevy_reflect")]
+                self.get_resource::<crate::reflect::AppTypeRegistry>(),
+            )?
+        };
+
+        let world = World {
+            id,
+            entities: self.entities.clone(),
+            components: self.components.clone(),
+            archetypes: self.archetypes.clone(),
+            storages,
+            bundles: self.bundles.clone(),
+            observers: self.observers.clone(),
+            removed_components: self.removed_components.clone(),
+            change_tick: AtomicU32::new(self.change_tick.load(Ordering::Relaxed)),
+            last_change_tick: self.last_change_tick,
+            last_check_tick: self.last_check_tick,
+            last_trigger_id: self.last_trigger_id,
+            command_queue: RawCommandQueue::new(),
+        };
+
+        Ok(world)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
@@ -3120,33 +3161,41 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    /// Sets custom [`ComponentCloneFn`] as default clone handler for this world's components.
+    /// All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
+    /// explicitly registered clone function will use this handler.
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::ComponentCloneCtx;
-    /// use bevy_ecs::world::DeferredWorld;
+    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
+    pub fn set_default_component_clone_handler(&mut self, handler: ComponentCloneFn) {
+        self.components.set_default_clone_handler(handler);
+    }
+
+    /// Get default clone handler set for this world's components.
+    pub fn get_default_component_clone_handler(&self) -> ComponentCloneFn {
+        self.components.get_default_clone_handler()
+    }
+
+    /// Sets custom [`ComponentCloneHandler`] as clone handler for component with provided [`ComponentId`].
     ///
-    /// fn custom_clone_handler(
-    ///     _world: &mut DeferredWorld,
-    ///     _ctx: &mut ComponentCloneCtx,
-    /// ) {
-    ///     // Custom cloning logic for component
-    /// }
+    /// If component with provided [`ComponentId`] is not registered, this does nothing.
     ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
+    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
+    pub fn set_component_clone_handler(
+        &mut self,
+        component_id: ComponentId,
+        handler: ComponentCloneHandler,
+    ) {
+        self.components.set_clone_handler(component_id, handler);
+    }
+
+    /// Get [`ComponentCloneHandler`] set for component with provided [`ComponentId`]
     ///
-    /// let mut world = World::new();
-    ///
-    /// let component_id = world.register_component::<ComponentA>();
-    ///
-    /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
-    /// ```
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
+    /// Returns `None` if component with provided [`ComponentId`] is not registered.
+    pub fn get_component_clone_handler(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<ComponentCloneHandler> {
+        self.components.get_clone_handler(component_id)
     }
 }
 
@@ -3668,8 +3717,8 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
-        entity::EntityHashSet,
+        component::{ComponentCloneHandler, ComponentDescriptor, ComponentInfo, StorageType},
+        entity::{Entity, EntityHashSet},
         ptr::OwningPtr,
         system::Resource,
         world::error::EntityFetchError,
@@ -3967,6 +4016,8 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                false,
+                ComponentCloneHandler::default_handler(),
             )
         };
 
@@ -4320,5 +4371,49 @@ mod tests {
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
             Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+    }
+
+    #[test]
+    fn clone_world() {
+        #[derive(Component, Clone, PartialEq, Eq, Debug)]
+        struct Comp {
+            value: i32,
+            alloc_value: Vec<u32>,
+        }
+
+        #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+        struct CopyComp {
+            value: i32,
+        }
+
+        #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+        struct ZSTComp;
+
+        #[derive(Resource, Clone, PartialEq, Eq, Debug)]
+        struct Res {
+            value: i32,
+            alloc_value: Vec<u32>,
+        }
+
+        let comp = Comp {
+            value: 5,
+            alloc_value: vec![1, 2, 3, 4, 5],
+        };
+        let copy_comp = CopyComp { value: 10 };
+        let zst = ZSTComp;
+        let res = Res {
+            value: 1,
+            alloc_value: vec![7, 8, 9],
+        };
+
+        let mut world = World::default();
+        let e_id = world.spawn((comp.clone(), copy_comp, zst)).id();
+        world.insert_resource(res.clone());
+
+        let mut world2 = world.try_clone().unwrap();
+
+        let mut query = world2.query::<(Entity, &Comp, &CopyComp, &ZSTComp)>();
+        assert_eq!(query.single(&world2), (e_id, &comp, &copy_comp, &zst));
+        assert_eq!(world2.get_resource::<Res>(), Some(&res));
     }
 }

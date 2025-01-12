@@ -4,6 +4,7 @@ use crate::{
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    world::{error::WorldCloneError, World},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -671,6 +672,38 @@ impl Table {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
+
+    /// Try to clone [`Table`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Table`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        let mut columns = SparseSet::with_capacity(self.columns.len());
+        let components = world.components();
+        let column_len = self.entities.len();
+        for (component_id, column) in self.columns.iter() {
+            columns.insert(
+                *component_id,
+                column.try_clone(
+                    // SAFETY: component_id is valid because this Table is valid and from the same world as Components.
+                    components.get_info_unchecked(*component_id),
+                    column_len,
+                    world,
+                    #[cfg(feature = "bevy_reflect")]
+                    type_registry,
+                )?,
+            );
+        }
+        Ok(Self {
+            entities: self.entities.clone(),
+            columns: columns.into_immutable(),
+        })
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
@@ -780,6 +813,30 @@ impl Tables {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
+    }
+
+    /// Try to clone [`Tables`]. This is only possible if all components can be cloned,
+    /// otherwise [`WorldCloneError`] will be returned.
+    ///
+    /// # Safety
+    /// - Caller must ensure that [`Tables`] and `AppTypeRegistry` are from `world`.
+    pub(crate) unsafe fn try_clone(
+        &self,
+        world: &World,
+        #[cfg(feature = "bevy_reflect")] type_registry: Option<&crate::reflect::AppTypeRegistry>,
+    ) -> Result<Self, WorldCloneError> {
+        let mut tables = Vec::with_capacity(self.tables.len());
+        for table in &self.tables {
+            tables.push(table.try_clone(
+                world,
+                #[cfg(feature = "bevy_reflect")]
+                type_registry,
+            )?);
+        }
+        Ok(Self {
+            table_ids: self.table_ids.clone(),
+            tables,
+        })
     }
 }
 
