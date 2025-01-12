@@ -101,7 +101,7 @@ pub struct RenderClusteredDecals {
     binding_index_to_textures: Vec<AssetId<Image>>,
     /// Maps a decal image to the shader binding array.
     ///
-    /// [`Self::binding_index_to_texture`] holds the inverse mapping.
+    /// [`Self::binding_index_to_textures`] holds the inverse mapping.
     texture_to_binding_index: HashMap<AssetId<Image>, u32>,
     /// The information concerning each decal that we provide to the shader.
     decals: Vec<ClusteredDecal>,
@@ -111,7 +111,8 @@ pub struct RenderClusteredDecals {
 }
 
 impl RenderClusteredDecals {
-    /// Clears out this [`RenderDecals`] in preparation for a new frame.
+    /// Clears out this [`RenderClusteredDecals`] in preparation for a new
+    /// frame.
     fn clear(&mut self) {
         self.binding_index_to_textures.clear();
         self.texture_to_binding_index.clear();
@@ -133,8 +134,8 @@ pub(crate) struct RenderViewClusteredDecalBindGroupEntries<'a> {
     pub(crate) sampler: &'a Sampler,
 }
 
-/// A render-world resource that holds the buffer of [`Decal`]s ready to upload
-/// to the GPU.
+/// A render-world resource that holds the buffer of [`ClusteredDecal`]s ready
+/// to upload to the GPU.
 #[derive(Resource, Deref, DerefMut)]
 pub struct DecalsBuffer(RawBufferVec<ClusteredDecal>);
 
@@ -339,7 +340,8 @@ impl RenderClusteredDecals {
     }
 }
 
-/// Uploads the list of decals from [`RenderDecals::decals`] to the GPU.
+/// Uploads the list of decals from [`RenderClusteredDecals::decals`] to the
+/// GPU.
 fn upload_decals(
     render_decals: Res<RenderClusteredDecals>,
     mut decals_buffer: ResMut<DecalsBuffer>,
