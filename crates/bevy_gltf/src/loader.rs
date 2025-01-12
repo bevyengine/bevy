@@ -51,7 +51,12 @@ use gltf::{
     Document, Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{value, Map, Value};
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+use serde_json::Map;
+use serde_json::{value, Value};
 use std::{
     io::Error,
     path::{Path, PathBuf},
