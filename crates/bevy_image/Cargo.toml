@@ -9,6 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["bevy_reflect"]
+
+bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
+
 # Image formats
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
@@ -26,7 +30,7 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = []
+serialize = ["bevy_reflect"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -40,12 +44,10 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_math = { path = "../bevy_math", version = "0.16.0-dev", features = [
-  "bevy_reflect",
-] }
+bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
-] }
+], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 
 # rendering

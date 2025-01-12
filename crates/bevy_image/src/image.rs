@@ -4,12 +4,12 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -331,9 +331,12 @@ impl ImageFormat {
     }
 }
 
-#[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(opaque)]
-#[reflect(Default, Debug)]
+#[derive(Asset, Debug, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque, Default, Debug)
+)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
