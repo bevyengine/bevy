@@ -940,7 +940,7 @@ pub mod common_conditions {
 
     /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entities that match the given [`QueryFilter`].
-    pub fn any_for_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
+    pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
         !query.is_empty()
     }
 
@@ -1404,7 +1404,7 @@ mod tests {
                 .distributive_run_if(resource_removed::<TestResource>)
                 .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
-                .distributive_run_if(any_for_filter::<With<TestComponent>>)
+                .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
     }
