@@ -9,6 +9,7 @@
     view_transformations::depth_ndc_to_view_z,
     parallax_mapping::parallaxed_uv,
 }
+#import bevy_render::maths::project_onto
 
 @group(2) @binding(200)
 var<uniform> depth_fade_factor: f32;
@@ -47,16 +48,11 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
         0u,
         in.uv,
         Vt,
-        in.material_bind_group_slot,
+        0u, // TODO
     );
 
     let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
     let alpha = saturate(1.0 - normal_depth * depth_fade_factor);
 
     return ForwardDecalInformation(world_position, uv, alpha);
-}
-
-fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
-    let other_len_sq_rcp = 1.0 / dot(rhs, rhs);
-    return rhs * dot(lhs, rhs) * other_len_sq_rcp;
 }
