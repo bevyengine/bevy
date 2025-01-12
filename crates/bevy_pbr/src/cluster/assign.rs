@@ -135,7 +135,6 @@ impl ClusterableObjectType {
 }
 
 // NOTE: Run this before update_point_light_frusta!
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_objects_to_clusters(
     mut commands: Commands,
     mut global_clusterable_objects: ResMut<GlobalVisibleClusterableObjects>,
@@ -842,7 +841,6 @@ pub(crate) fn assign_objects_to_clusters(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn compute_aabb_for_cluster(
     z_near: f32,
     z_far: f32,

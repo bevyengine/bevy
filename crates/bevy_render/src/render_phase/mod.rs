@@ -41,6 +41,7 @@ use wgpu::Features;
 use crate::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 use crate::renderer::RenderDevice;
 use crate::sync_world::MainEntity;
+use crate::view::RetainedViewEntity;
 use crate::{
     batching::{
         self,
@@ -52,7 +53,6 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
@@ -65,7 +65,7 @@ use smallvec::SmallVec;
 /// They're cleared out every frame, but storing them in a resource like this
 /// allows us to reuse allocations.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ViewBinnedRenderPhases<BPI>(pub EntityHashMap<BinnedRenderPhase<BPI>>)
+pub struct ViewBinnedRenderPhases<BPI>(pub HashMap<RetainedViewEntity, BinnedRenderPhase<BPI>>)
 where
     BPI: BinnedPhaseItem;
 
@@ -329,8 +329,12 @@ impl<BPI> ViewBinnedRenderPhases<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, entity: Entity, gpu_preprocessing: GpuPreprocessingMode) {
-        match self.entry(entity) {
+    pub fn insert_or_clear(
+        &mut self,
+        retained_view_entity: RetainedViewEntity,
+        gpu_preprocessing: GpuPreprocessingMode,
+    ) {
+        match self.entry(retained_view_entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
                 entry.insert(BinnedRenderPhase::<BPI>::new(gpu_preprocessing));
@@ -810,7 +814,7 @@ where
 /// They're cleared out every frame, but storing them in a resource like this
 /// allows us to reuse allocations.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ViewSortedRenderPhases<SPI>(pub EntityHashMap<SortedRenderPhase<SPI>>)
+pub struct ViewSortedRenderPhases<SPI>(pub HashMap<RetainedViewEntity, SortedRenderPhase<SPI>>)
 where
     SPI: SortedPhaseItem;
 
@@ -827,8 +831,8 @@ impl<SPI> ViewSortedRenderPhases<SPI>
 where
     SPI: SortedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, entity: Entity) {
-        match self.entry(entity) {
+    pub fn insert_or_clear(&mut self, retained_view_entity: RetainedViewEntity) {
+        match self.entry(retained_view_entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
                 entry.insert(default());
@@ -1262,7 +1266,7 @@ pub trait SortedPhaseItem: PhaseItem {
     /// Sorts a slice of phase items into render order. Generally if the same type
     /// is batched this should use a stable sort like [`slice::sort_by_key`].
     /// In almost all other cases, this should not be altered from the default,
-    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
+    /// which uses an unstable sort, as this provides the best balance of CPU and GPU
     /// performance.
     ///
     /// Implementers can optionally not sort the list at all. This is generally advisable if and

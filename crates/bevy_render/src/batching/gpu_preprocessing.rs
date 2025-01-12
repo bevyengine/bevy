@@ -897,7 +897,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
+    mut views: Query<(Entity, &ExtractedView, Has<NoIndirectDrawing>)>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -910,8 +910,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, no_indirect_drawing) in &mut views {
-        let Some(phase) = sorted_render_phases.get_mut(&view) else {
+    for (view, extracted_view, no_indirect_drawing) in &mut views {
+        let Some(phase) = sorted_render_phases.get_mut(&extracted_view.retained_view_entity) else {
             continue;
         };
 
@@ -1034,7 +1034,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<NoIndirectDrawing>), With<ExtractedView>>,
+    mut views: Query<(Entity, &ExtractedView, Has<NoIndirectDrawing>)>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -1048,8 +1048,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, no_indirect_drawing) in &mut views {
-        let Some(phase) = binned_render_phases.get_mut(&view) else {
+    for (view, extracted_view, no_indirect_drawing) in &mut views {
+        let Some(phase) = binned_render_phases.get_mut(&extracted_view.retained_view_entity) else {
             continue;
         };
 

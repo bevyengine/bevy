@@ -4,7 +4,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 use bevy_utils::once;
-use tracing::{error, warn};
 
 use crate::{Extract, ExtractSchedule, RenderApp};
 
@@ -36,7 +35,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
         } else {
-            once!(error!(
+            once!(tracing::error!(
                 "Render app did not exist when trying to add `extract_resource` for <{}>.",
                 core::any::type_name::<R>()
             ));
@@ -58,12 +57,13 @@ pub fn extract_resource<R: ExtractResource>(
         } else {
             #[cfg(debug_assertions)]
             if !main_resource.is_added() {
-                once!(warn!(
+                once!(tracing::warn!(
                     "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
                     core::any::type_name::<R>()
                 ));
             }
+
             commands.insert_resource(R::extract_resource(main_resource));
         }
     }
