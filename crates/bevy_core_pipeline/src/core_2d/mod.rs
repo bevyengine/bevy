@@ -34,7 +34,8 @@ use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
 use bevy_render::{
-    batching::gpu_preprocessing::GpuPreprocessingMode, render_phase::PhaseItemBatchSetKey,
+    batching::gpu_preprocessing::GpuPreprocessingMode,
+    render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
 use bevy_utils::{HashMap, HashSet};
