@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-use core::fmt::Write;
 use bevy_ecs::{
     component::ComponentId,
     prelude::*,
@@ -7,6 +5,8 @@ use bevy_ecs::{
 };
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::HashMap;
+use core::fmt::Write;
+use std::borrow::Cow;
 
 fn empty_system() {}
 
@@ -59,7 +59,7 @@ pub enum ScheduleLabel {
 }
 
 /// A special label for diagnostic.
-/// If the diagnostic system running in a common used label, like the ones
+/// If the diagnostic system running in a commonly used label, like the ones
 /// defined as `bevy_app::CoreSchedule`, it is not able to get the corresponding
 /// [`Schedule`] instance. ([`World::run_schedule_ref`] for reference)
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -219,7 +219,7 @@ fn diagnostic_schedules(schedules: &Schedules) -> Result<String, core::fmt::Erro
             writeln!(
                 result,
                 "{}",
-                diagnose_dag("hierachy", schedule_graph.hierarchy(), &id_to_names, "  ")?
+                diagnose_dag("hierarchy", schedule_graph.hierarchy(), &id_to_names, "  ")?
                     .trim_end()
             )?;
 
@@ -298,7 +298,7 @@ fn main() {
     world.init_resource::<Schedules>();
 
     {
-        let mut diagnostic_schedule  = Schedule::new(DiagnosticLabel);
+        let mut diagnostic_schedule = Schedule::new(DiagnosticLabel);
         diagnostic_schedule.add_systems(diagnostic_world_system);
         world.add_schedule(diagnostic_schedule);
     }
