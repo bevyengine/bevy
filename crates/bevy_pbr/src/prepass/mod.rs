@@ -52,6 +52,8 @@ use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
     MeshletMesh3d,
 };
+#[cfg(feature = "meshlet")]
+use crate::ShadowView;
 
 use bevy_render::view::RenderVisibleEntities;
 use core::{hash::Hash, marker::PhantomData};
