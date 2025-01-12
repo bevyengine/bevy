@@ -1,6 +1,7 @@
 name: Dependencies
 
 on:
+  merge_group:
   pull_request:
     paths:
       - '**/Cargo.toml'
@@ -9,8 +10,6 @@ on:
     paths:
       - '**/Cargo.toml'
       - 'deny.toml'
-    branches:
-      - main
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
