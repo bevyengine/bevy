@@ -749,11 +749,11 @@ impl ScheduleGraph {
         &self.dependency
     }
 
-    /// Todo
-    /// Returns the [`Dag`] of the flatten dependencies in the schedule.
-    ///
-    /// Nodes in this graph are systems and sets, and edges denote that
-    /// a system or set has to run before another system or set.
+    // Todo
+    // /// Returns the [`Dag`] of the flatten dependencies in the schedule.
+    // ///
+    // /// Nodes in this graph are systems and sets, and edges denote that
+    // /// a system or set has to run before another system or set.
     // pub fn dependency_flatten(&self) -> &Dag {
     //     &self.dependency_flattened
     // }

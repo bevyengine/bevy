@@ -1,12 +1,16 @@
+//! In this example, we use a system to print diagnostic information about the world.
+
+#![expect(missing_docs)]
+
+use alloc::borrow::Cow;
 use bevy_ecs::{
-    component::ComponentId,
     prelude::*,
     schedule::{Dag, NodeId},
 };
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use bevy_utils::HashMap;
 use core::fmt::Write;
-use std::borrow::Cow;
+use smallvec::alloc;
 
 fn empty_system() {}
 
@@ -45,6 +49,7 @@ enum MySet {
 #[derive(Component)]
 struct Counter(usize);
 
+#[expect(dead_code)]
 #[derive(Component)]
 struct HitPoint(usize);
 
@@ -106,7 +111,7 @@ fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
                 bundle
                     .explicit_components()
                     .iter()
-                    .map(|id| component_display(*id, world))
+                    .map(|id| id.diagnose(world))
                     .collect::<Vec<_>>()
             )?;
         }
@@ -140,7 +145,7 @@ fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
                 archetype.id(),
                 archetype
                     .components()
-                    .map(|id| component_display(id, world))
+                    .map(|id| id.diagnose(world))
                     .collect::<Vec<_>>(),
                 archetype.table_id(),
                 archetype.len(),
@@ -158,7 +163,7 @@ fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
     if resource_size > 0 {
         writeln!(result, "    resources:")?;
         for (component_id, _resource_data) in world.storages().resources.iter() {
-            writeln!(result, "      {}", component_display(component_id, world))?;
+            writeln!(result, "      {}", component_id.diagnose(world))?;
         }
     }
 
@@ -173,7 +178,7 @@ fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
     if sparse_set_size > 0 {
         writeln!(result, "    sparse_set:")?;
         for (component_id, sparse_set) in world.storages().sparse_sets.iter() {
-            let component_display = component_display(component_id, world);
+            let component_display = component_id.diagnose(world);
             writeln!(
                 result,
                 "      {} entity:{}",
@@ -284,11 +289,6 @@ fn diagnose_dag(
         writeln!(result, "{prefix}    {node_id:?}({node_name})")?;
     }
     Ok(result)
-}
-
-fn component_display(component_id: ComponentId, world: &World) -> String {
-    let component = world.components().get_info(component_id).unwrap();
-    format!("{:?}({})", component_id, component.name())
 }
 
 // In this example, we add a counter resource and increase its value in one system,

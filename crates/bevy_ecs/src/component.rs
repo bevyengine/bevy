@@ -13,7 +13,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
-use alloc::{borrow::Cow, format, vec::Vec};
+use alloc::{borrow::Cow, format, vec::Vec, string::String};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
@@ -832,6 +832,12 @@ impl ComponentId {
     #[inline]
     pub fn index(self) -> usize {
         self.0
+    }
+
+    /// Returns a string containing information about the component in the context of the given [World].
+    pub fn diagnose(self, world: &World) -> String {
+        let component = world.components().get_info(self).unwrap();
+        format!("{:?}({})", self, component.name())
     }
 }
 
