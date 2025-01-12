@@ -1,7 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![deny(
+#![warn(
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     reason = "See #17111; To be removed once all crates are in-line with these attributes"

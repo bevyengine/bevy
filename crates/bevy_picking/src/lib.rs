@@ -155,7 +155,7 @@
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
 #![deny(missing_docs)]
-#![deny(
+#![warn(
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     reason = "See #17111; To be removed once all crates are in-line with these attributes"

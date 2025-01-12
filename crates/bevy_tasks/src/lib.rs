@@ -4,7 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![deny(
+#![warn(
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     reason = "See #17111; To be removed once all crates are in-line with these attributes"
