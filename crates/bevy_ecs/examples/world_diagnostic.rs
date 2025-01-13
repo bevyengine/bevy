@@ -2,12 +2,9 @@
 
 #![expect(missing_docs)]
 
-use alloc::borrow::Cow;
-use bevy_ecs::{prelude::*, schedule::NodeId};
+use bevy_ecs::prelude::*;
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::HashMap;
 use core::fmt::Write;
-use smallvec::alloc;
 
 fn empty_system() {}
 
@@ -186,69 +183,7 @@ fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
     }
 
     if let Some(schedules) = world.get_resource::<Schedules>() {
-        result.push_str(&diagnostic_schedules(schedules)?);
-    }
-
-    Ok(result)
-}
-
-fn diagnostic_schedules(schedules: &Schedules) -> Result<String, core::fmt::Error> {
-    let mut result = "Schedule:\n".to_string();
-
-    let label_with_schedules = schedules.iter().collect::<Vec<_>>();
-    writeln!(result, "  schedules: {}", label_with_schedules.len())?;
-
-    for (label, schedule) in label_with_schedules {
-        let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
-        schedule.systems_for_each(|node_id, system| {
-            id_to_names.insert(node_id, system.name());
-        });
-        for (node_id, set, _) in schedule.graph().system_sets() {
-            id_to_names.insert(node_id, format!("{:?}", set).into());
-        }
-
-        writeln!(
-            result,
-            "    label: {:?} kind:{:?}",
-            label,
-            schedule.get_executor_kind(),
-        )?;
-
-        {
-            // schedule graphs
-            let schedule_graph = schedule.graph();
-
-            writeln!(
-                result,
-                "{}",
-                schedule_graph
-                    .hierarchy()
-                    .diagnose("  ", "hierarchy", &id_to_names)?
-                    .trim_end()
-            )?;
-
-            writeln!(
-                result,
-                "{}",
-                schedule_graph
-                    .dependency()
-                    .diagnose("  ", "dependency", &id_to_names,)?
-                    .trim_end()
-            )?;
-
-            // Todo
-            // writeln!(
-            //     result,
-            //     "{}",
-            //     diagnose_dag(
-            //         "dependency flatten",
-            //         schedule_graph.dependency_flatten(),
-            //         &id_to_names,
-            //         "  "
-            //     )?
-            //     .trim_end()
-            // )?;
-        }
+        result.push_str(&schedules.diagnose()?);
     }
 
     Ok(result)

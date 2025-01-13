@@ -203,6 +203,69 @@ impl Schedules {
 
         self
     }
+
+    /// Returns a string containing information about the systems.
+    pub fn diagnose(&self) -> Result<String, core::fmt::Error> {
+        let mut result = "Schedule:\n".to_string();
+
+        let label_with_schedules = self.iter().collect::<Vec<_>>();
+        writeln!(result, "  schedules: {}", label_with_schedules.len())?;
+
+        for (label, schedule) in label_with_schedules {
+            let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
+            schedule.systems_for_each(|node_id, system| {
+                id_to_names.insert(node_id, system.name());
+            });
+            for (node_id, set, _) in schedule.graph().system_sets() {
+                id_to_names.insert(node_id, format!("{:?}", set).into());
+            }
+
+            writeln!(
+                result,
+                "    label: {:?} kind:{:?}",
+                label,
+                schedule.get_executor_kind(),
+            )?;
+
+            {
+                // schedule graphs
+                let schedule_graph = schedule.graph();
+
+                writeln!(
+                    result,
+                    "{}",
+                    schedule_graph
+                        .hierarchy()
+                        .diagnose("  ", "hierarchy", &id_to_names)?
+                        .trim_end()
+                )?;
+
+                writeln!(
+                    result,
+                    "{}",
+                    schedule_graph
+                        .dependency()
+                        .diagnose("  ", "dependency", &id_to_names)?
+                        .trim_end()
+                )?;
+
+                // Todo
+                // writeln!(
+                //     result,
+                //     "{}",
+                //     diagnose_dag(
+                //         "dependency flatten",
+                //         schedule_graph.dependency_flatten(),
+                //         &id_to_names,
+                //         "  "
+                //     )?
+                //     .trim_end()
+                // )?;
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
