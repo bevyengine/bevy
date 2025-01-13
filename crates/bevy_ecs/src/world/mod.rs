@@ -3648,7 +3648,26 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
-/// [`FromWorld`] is automatically implemented for any type implementing [`Default`].
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
+/// and may also be derived for any struct whose fields all implement `FromWorld`:
+/// ```rs
+/// #[derive(Default)]
+/// struct A;
+///
+/// #[derive(Default)]
+/// struct B(Option<u32>)
+///
+/// struct C;
+///
+/// impl FromWorld for C {
+///     fn from_world(_world: &mut World) -> Self {
+///         Self
+///     }
+/// }
+///
+/// #[derive(FromWorld)]
+/// struct D(A, B, C);
+/// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
