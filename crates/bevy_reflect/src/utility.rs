@@ -2,7 +2,7 @@
 
 use crate::TypeInfo;
 use alloc::boxed::Box;
-use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
+use bevy_utils::{DefaultHasher, FixedHasher, NoOpHash, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -24,6 +24,7 @@ pub trait TypedProperty: sealed::Sealed {
 /// Used to store a [`String`] in a [`GenericTypePathCell`] as part of a [`TypePath`] implementation.
 ///
 /// [`TypePath`]: crate::TypePath
+/// [`String`]: alloc::string::String
 pub struct TypePathComponent;
 
 mod sealed {
@@ -315,6 +316,6 @@ impl<T: TypedProperty> Default for GenericTypeCell<T> {
 ///
 /// [`Reflect::reflect_hash`]: crate::Reflect
 #[inline]
-pub fn reflect_hasher() -> bevy_utils::AHasher {
-    FixedState.build_hasher()
+pub fn reflect_hasher() -> DefaultHasher {
+    FixedHasher.build_hasher()
 }

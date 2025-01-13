@@ -19,14 +19,11 @@ use bevy_render::{
         UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::RenderDevice,
-    settings::WgpuFeatures,
     texture::FallbackImage,
 };
-use bevy_utils::{default, tracing::error, HashMap};
-use core::any;
-use core::iter;
-use core::marker::PhantomData;
-use core::num::NonZero;
+use bevy_utils::{default, HashMap};
+use core::{any, iter, marker::PhantomData, num::NonZero};
+use tracing::error;
 
 /// An object that creates and stores bind groups for a single material type.
 ///
@@ -159,11 +156,17 @@ impl From<u32> for MaterialBindGroupIndex {
 /// non-bindless mode, this slot is always 0.
 #[derive(Clone, Copy, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Default)]
-pub struct MaterialBindGroupSlot(pub u32);
+pub struct MaterialBindGroupSlot(pub u16);
 
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
-        MaterialBindGroupSlot(value)
+        MaterialBindGroupSlot(value as u16)
+    }
+}
+
+impl From<MaterialBindGroupSlot> for u32 {
+    fn from(value: MaterialBindGroupSlot) -> Self {
+        value.0 as u32
     }
 }
 
@@ -199,7 +202,7 @@ where
     M: Material,
 {
     /// Creates or recreates any bind groups that were modified this frame.
-    pub(crate) fn prepare_bind_groups(
+    pub fn prepare_bind_groups(
         &mut self,
         render_device: &RenderDevice,
         fallback_image: &FallbackImage,
@@ -218,12 +221,12 @@ where
 
     /// Returns the bind group with the given index, if it exists.
     #[inline]
-    pub(crate) fn get(&self, index: MaterialBindGroupIndex) -> Option<&MaterialBindGroup<M>> {
+    pub fn get(&self, index: MaterialBindGroupIndex) -> Option<&MaterialBindGroup<M>> {
         self.bind_groups.get(index.0 as usize)
     }
 
     /// Allocates a new binding slot and returns its ID.
-    pub(crate) fn allocate(&mut self) -> MaterialBindingId {
+    pub fn allocate(&mut self) -> MaterialBindingId {
         let group_index = self.free_bind_groups.pop().unwrap_or_else(|| {
             let group_index = self.bind_groups.len() as u32;
             self.bind_groups
@@ -246,7 +249,7 @@ where
 
     /// Assigns an unprepared bind group to the group and slot specified in the
     /// [`MaterialBindingId`].
-    pub(crate) fn init(
+    pub fn init(
         &mut self,
         render_device: &RenderDevice,
         material_binding_id: MaterialBindingId,
@@ -265,7 +268,7 @@ where
     /// This is only a meaningful operation for non-bindless bind groups. It's
     /// rarely used, but see the `texture_binding_array` example for an example
     /// demonstrating how this feature might see use in practice.
-    pub(crate) fn init_custom(
+    pub fn init_custom(
         &mut self,
         material_binding_id: MaterialBindingId,
         bind_group: BindGroup,
@@ -276,7 +279,7 @@ where
     }
 
     /// Marks the slot corresponding to the given [`MaterialBindingId`] as free.
-    pub(crate) fn free(&mut self, material_binding_id: MaterialBindingId) {
+    pub fn free(&mut self, material_binding_id: MaterialBindingId) {
         let bind_group = &mut self.bind_groups[material_binding_id.group.0 as usize];
         let was_full = bind_group.is_full();
 
@@ -443,7 +446,7 @@ where
 {
     /// Returns a new bind group.
     fn new() -> MaterialBindlessBindGroup<M> {
-        let count = M::BINDLESS_SLOT_COUNT.unwrap_or(1);
+        let count = M::bindless_slot_count().unwrap_or(1);
 
         MaterialBindlessBindGroup {
             bind_group: None,
@@ -767,7 +770,7 @@ where
     fn from_world(world: &mut World) -> Self {
         // Create a new bind group allocator.
         let render_device = world.resource::<RenderDevice>();
-        let bind_group_layout_entries = M::bind_group_layout_entries(render_device);
+        let bind_group_layout_entries = M::bind_group_layout_entries(render_device, false);
         let bind_group_layout =
             render_device.create_bind_group_layout(M::label(), &bind_group_layout_entries);
         let fallback_buffers =
@@ -792,10 +795,7 @@ pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,
 {
-    M::BINDLESS_SLOT_COUNT.is_some()
-        && render_device
-            .features()
-            .contains(WgpuFeatures::BUFFER_BINDING_ARRAY | WgpuFeatures::TEXTURE_BINDING_ARRAY)
+    M::bindless_slot_count().is_some() && M::bindless_supported(render_device)
 }
 
 impl FromWorld for FallbackBindlessResources {
@@ -818,7 +818,7 @@ impl MaterialFallbackBuffers {
         render_device: &RenderDevice,
         bind_group_layout_entries: &[BindGroupLayoutEntry],
     ) -> MaterialFallbackBuffers {
-        let mut fallback_buffers = HashMap::new();
+        let mut fallback_buffers = HashMap::default();
         for bind_group_layout_entry in bind_group_layout_entries {
             // Create a dummy buffer of the appropriate size.
             let BindingType::Buffer {

@@ -1,5 +1,8 @@
 use crate::query::DebugCheckedUnwrap;
-use alloc::alloc::{alloc, handle_alloc_error, realloc};
+use alloc::{
+    alloc::{alloc, handle_alloc_error, realloc},
+    boxed::Box,
+};
 use core::{
     alloc::Layout,
     mem::{needs_drop, size_of},
@@ -11,6 +14,8 @@ use core::{
 ///
 /// This type can be treated as a `ManuallyDrop<Box<[T]>>` without a built in length. To avoid
 /// memory leaks, [`drop`](Self::drop) must be called when no longer in use.
+///
+/// [`Vec<T>`]: alloc::vec::Vec
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
     #[cfg(debug_assertions)]

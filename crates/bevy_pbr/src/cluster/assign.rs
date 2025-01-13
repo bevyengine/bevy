@@ -17,7 +17,8 @@ use bevy_render::{
     view::{RenderLayers, ViewVisibility},
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, tracing::warn};
+use bevy_utils::prelude::default;
+use tracing::warn;
 
 use crate::{
     prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight,
@@ -25,8 +26,6 @@ use crate::{
     VisibleClusterableObjects, VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
-
-use super::ClusterableObjectOrderData;
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -136,7 +135,6 @@ impl ClusterableObjectType {
 }
 
 // NOTE: Run this before update_point_light_frusta!
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_objects_to_clusters(
     mut commands: Commands,
     mut global_clusterable_objects: ResMut<GlobalVisibleClusterableObjects>,
@@ -254,16 +252,10 @@ pub(crate) fn assign_objects_to_clusters(
     if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
         && !supports_storage_buffers
     {
-        clusterable_objects.sort_by(|clusterable_object_1, clusterable_object_2| {
-            crate::clusterable_object_order(
-                ClusterableObjectOrderData {
-                    entity: &clusterable_object_1.entity,
-                    object_type: &clusterable_object_1.object_type,
-                },
-                ClusterableObjectOrderData {
-                    entity: &clusterable_object_2.entity,
-                    object_type: &clusterable_object_2.object_type,
-                },
+        clusterable_objects.sort_by_cached_key(|clusterable_object| {
+            (
+                clusterable_object.object_type.ordering(),
+                clusterable_object.entity,
             )
         });
 
@@ -849,7 +841,6 @@ pub(crate) fn assign_objects_to_clusters(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn compute_aabb_for_cluster(
     z_near: f32,
     z_far: f32,

@@ -1,24 +1,29 @@
-use alloc::sync::Arc;
-use core::any::Any;
-use std::sync::{Mutex, MutexGuard};
-
+use alloc::{boxed::Box, vec::Vec};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
-use core::panic::AssertUnwindSafe;
-
 use concurrent_queue::ConcurrentQueue;
+use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
+
+#[cfg(feature = "trace")]
+use tracing::{info_span, Span};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{ScheduleSystem, System},
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -603,11 +608,17 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    // TODO: implement an error-handling API instead of suppressing a possible failure.
-                    let _ = __rust_begin_short_backtrace::run_unsafe(
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
                         system,
                         context.environment.world_cell,
-                    );
+                    ) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 };
             }));
             context.system_completed(system_index, res, system);
@@ -651,8 +662,14 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    // TODO: implement an error-handling API instead of suppressing a possible failure.
-                    let _ = __rust_begin_short_backtrace::run(system, world);
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 }));
                 context.system_completed(system_index, res, system);
             };

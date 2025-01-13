@@ -16,15 +16,13 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashSet, Instant,
-};
+use bevy_utils::{HashSet, Instant};
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
 };
+use tracing::{trace, warn};
 
 use crate::core_3d::{
     graph::{Core3d, Node3d},
@@ -160,7 +158,7 @@ fn configure_depth_texture_usages(
 
     // Find all the render target that potentially uses OIT
     let primary_window = p.get_single().ok();
-    let mut render_target_has_oit = HashSet::new();
+    let mut render_target_has_oit = <HashSet<_>>::default();
     for (camera, has_oit) in &cameras {
         if has_oit {
             render_target_has_oit.insert(camera.target.normalize(primary_window));
@@ -235,7 +233,6 @@ pub struct OrderIndependentTransparencySettingsOffset {
 /// This creates or resizes the oit buffers for each camera.
 /// It will always create one big buffer that's as big as the biggest buffer needed.
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
-#[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

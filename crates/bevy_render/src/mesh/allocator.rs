@@ -15,12 +15,9 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_utils::{
-    default,
-    hashbrown::{HashMap, HashSet},
-    tracing::error,
-};
+use bevy_utils::{default, HashMap, HashSet};
 use offset_allocator::{Allocation, Allocator};
+use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
@@ -159,7 +156,6 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
-#[allow(clippy::large_enum_variant)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -329,10 +325,10 @@ impl FromWorld for MeshAllocator {
             .contains(DownlevelFlags::BASE_VERTEX);
 
         Self {
-            slabs: HashMap::new(),
-            slab_layouts: HashMap::new(),
-            mesh_id_to_vertex_slab: HashMap::new(),
-            mesh_id_to_index_slab: HashMap::new(),
+            slabs: HashMap::default(),
+            slab_layouts: HashMap::default(),
+            mesh_id_to_vertex_slab: HashMap::default(),
+            mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
         }
@@ -530,7 +526,6 @@ impl MeshAllocator {
     }
 
     /// A generic function that copies either vertex or index data into a slab.
-    #[allow(clippy::too_many_arguments)]
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
@@ -600,7 +595,7 @@ impl MeshAllocator {
     }
 
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
-        let mut empty_slabs = HashSet::new();
+        let mut empty_slabs = <HashSet<_>>::default();
         for mesh_id in &extracted_meshes.removed {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {
                 self.free_allocation_in_slab(mesh_id, slab_id, &mut empty_slabs);
@@ -789,7 +784,7 @@ impl MeshAllocator {
         slab_to_grow: SlabToReallocate,
     ) {
         let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
-            error!("Couldn't find slab {:?} to grow", slab_id);
+            error!("Couldn't find slab {} to grow", slab_id);
             return;
         };
 
@@ -866,7 +861,7 @@ impl MeshAllocator {
 }
 
 impl GeneralSlab {
-    /// Creates a new growable slab big enough to hold an single element of
+    /// Creates a new growable slab big enough to hold a single element of
     /// `data_slot_count` size with the given `layout`.
     fn new(
         new_slab_id: SlabId,
@@ -881,8 +876,8 @@ impl GeneralSlab {
         let mut new_slab = GeneralSlab {
             allocator: Allocator::new(slab_slot_capacity),
             buffer: None,
-            resident_allocations: HashMap::new(),
-            pending_allocations: HashMap::new(),
+            resident_allocations: HashMap::default(),
+            pending_allocations: HashMap::default(),
             element_layout: layout,
             slot_capacity: slab_slot_capacity,
         };

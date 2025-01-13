@@ -34,7 +34,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -217,9 +217,9 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
     pub transform: Mat4,
-    pub rect: Rect,
+    pub bounds: Vec2,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
@@ -251,24 +251,25 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
-        // Skip invisible images
+        // Skip if no visible shadows
         if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
         let ui_physical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(extracted_camera_entity)
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -323,12 +324,9 @@ pub fn extract_shadows(
                     transform: transform.compute_matrix()
                         * Mat4::from_translation(offset.extend(0.)),
                     color: drop_shadow.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: shadow_size + 6. * blur_radius,
-                    },
+                    bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    extracted_camera_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
@@ -339,23 +337,34 @@ pub fn extract_shadows(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
+    mut render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
-        let Ok((view_entity, view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity)
+        let Ok((default_camera_view, shadow_samples)) =
+            render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -382,7 +391,6 @@ pub fn queue_shadows(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -415,9 +423,7 @@ pub fn prepare_shadows(
             while item_index < ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity()) {
-                    let uinode_rect = box_shadow.rect;
-
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = box_shadow.bounds.extend(1.0);
 
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
@@ -479,7 +485,23 @@ pub fn prepare_shadows(
                         box_shadow.radius.bottom_left,
                     ];
 
-                    let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
+                    let uvs = [
+                        Vec2::new(positions_diff[0].x, positions_diff[0].y),
+                        Vec2::new(
+                            box_shadow.bounds.x + positions_diff[1].x,
+                            positions_diff[1].y,
+                        ),
+                        Vec2::new(
+                            box_shadow.bounds.x + positions_diff[2].x,
+                            box_shadow.bounds.y + positions_diff[2].y,
+                        ),
+                        Vec2::new(
+                            positions_diff[3].x,
+                            box_shadow.bounds.y + positions_diff[3].y,
+                        ),
+                    ]
+                    .map(|pos| pos / box_shadow.bounds);
+
                     for i in 0..4 {
                         ui_meta.vertices.push(BoxShadowVertex {
                             position: positions_clipped[i].into(),
@@ -500,7 +522,7 @@ pub fn prepare_shadows(
                         item.entity(),
                         UiShadowsBatch {
                             range: vertices_index..vertices_index + 6,
-                            camera: box_shadow.camera_entity,
+                            camera: box_shadow.extracted_camera_entity,
                         },
                     ));
 

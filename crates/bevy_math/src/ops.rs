@@ -8,9 +8,6 @@
 //! It also provides `no_std` compatible alternatives to certain floating-point
 //! operations which are not provided in the [`core`] library.
 
-#![allow(dead_code)]
-#![allow(clippy::disallowed_methods)]
-
 // Note: There are some Rust methods with unspecified precision without a `libm`
 // equivalent:
 // - `f32::powi` (integer powers)
@@ -23,6 +20,10 @@
 // - `f32::ln_gamma`
 
 #[cfg(not(feature = "libm"))]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops {
 
     /// Raises a number to a floating point power.
@@ -143,7 +144,7 @@ mod std_ops {
         f32::atan(x)
     }
 
-    /// Computes the four quadrant arctangent of `self` (`y`) and `other` (`x`) in radians.
+    /// Computes the four-quadrant arctangent of `y` and `x` in radians.
     ///
     /// * `x = 0`, `y = 0`: `0`
     /// * `x >= 0`: `arctan(y/x)` -> `[-pi/2, pi/2]`
@@ -152,8 +153,8 @@ mod std_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
-    pub fn atan2(x: f32, y: f32) -> f32 {
-        f32::atan2(x, y)
+    pub fn atan2(y: f32, x: f32) -> f32 {
+        f32::atan2(y, x)
     }
 
     /// Simultaneously computes the sine and cosine of the number, `x`. Returns
@@ -358,7 +359,7 @@ mod libm_ops {
         libm::atanf(x)
     }
 
-    /// Computes the four quadrant arctangent of `self` (`y`) and `other` (`x`) in radians.
+    /// Computes the four-quadrant arctangent of `y` and `x` in radians.
     ///
     /// * `x = 0`, `y = 0`: `0`
     /// * `x >= 0`: `arctan(y/x)` -> `[-pi/2, pi/2]`
@@ -367,8 +368,8 @@ mod libm_ops {
     ///
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
-    pub fn atan2(x: f32, y: f32) -> f32 {
-        libm::atan2f(x, y)
+    pub fn atan2(y: f32, x: f32) -> f32 {
+        libm::atan2f(y, x)
     }
 
     /// Simultaneously computes the sine and cosine of the number, `x`. Returns
@@ -519,6 +520,10 @@ mod libm_ops_for_no_std {
 }
 
 #[cfg(feature = "std")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops_for_no_std {
     //! Provides standardized names for [`f32`] operations which may not be
     //! supported on `no_std` platforms.

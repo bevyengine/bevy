@@ -138,6 +138,7 @@ mod light {
     }
 }
 
+#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod bloom {
     use bevy::{
         core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -191,6 +192,7 @@ mod bloom {
     }
 }
 
+#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod gltf {
     use bevy::prelude::*;
 
@@ -284,7 +286,7 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.entity()).unwrap()[0];
+        let entity = children.get(trigger.target()).unwrap()[0];
         let entity = children.get(entity).unwrap()[0];
 
         let (entity, mut player) = players.get_mut(entity).unwrap();

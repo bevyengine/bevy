@@ -4,9 +4,6 @@ use thiserror::Error;
 
 use crate::func::args::Ownership;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
 /// An error that occurs when converting an [argument].
 ///
 /// [argument]: crate::func::args::Arg
@@ -32,3 +29,8 @@ pub enum ArgError {
     #[error("expected an argument but received none")]
     EmptyArgList,
 }
+
+/// The given argument count is out of bounds.
+#[derive(Debug, Error, PartialEq)]
+#[error("argument count out of bounds: {0}")]
+pub struct ArgCountOutOfBoundsError(pub usize);
