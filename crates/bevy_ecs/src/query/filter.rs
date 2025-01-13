@@ -98,7 +98,6 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    #[expect(unused_variables)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -381,9 +380,22 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
 macro_rules! impl_or_query_filter {
     ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[expect(unused_variables)]
-        #[expect(non_snake_case)]
-        #[expect(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -498,9 +510,9 @@ macro_rules! impl_or_query_filter {
             }
         }
 
-            $(#[$meta])*
-            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-            unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+        $(#[$meta])*
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -518,9 +530,18 @@ macro_rules! impl_or_query_filter {
 
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
-        #[expect(unused_variables)]
-        #[expect(non_snake_case)]
-        #[expect(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
@@ -529,12 +550,12 @@ macro_rules! impl_tuple_query_filter {
             #[inline(always)]
             unsafe fn filter_fetch(
                 fetch: &mut Self::Fetch<'_>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, _entity, _table_row) })*
+                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
 
