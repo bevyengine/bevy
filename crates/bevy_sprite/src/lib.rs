@@ -61,6 +61,7 @@ use bevy_render::{
 };
 
 /// Adds support for 2D sprite rendering.
+#[derive(Default)]
 pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);

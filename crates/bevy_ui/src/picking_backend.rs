@@ -66,7 +66,9 @@ impl Default for UiPickingSettings {
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
+        app.init_resource::<UiPickingSettings>()
+            .register_type::<(UiPickingCamera, UiPickingSettings)>()
+            .add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
     }
 }
 
@@ -127,7 +129,7 @@ pub fn ui_picking(
             .filter(|(_entity, target)| target == &pointer_location.target)
             .map(|(cam_entity, _target)| cam_entity)
         {
-            let Ok((_, camera_data, _)) = camera_query.get(camera) else {
+            let Ok((_, camera_data, _, _)) = camera_query.get(camera) else {
                 continue;
             };
             let mut pointer_pos =
@@ -251,7 +253,7 @@ pub fn ui_picking(
 
         let order = camera_query
             .get(*camera)
-            .map(|(_, cam, _)| cam.order)
+            .map(|(_, cam, _, _)| cam.order)
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
