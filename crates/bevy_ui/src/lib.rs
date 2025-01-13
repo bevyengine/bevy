@@ -228,7 +228,7 @@ impl Plugin for UiPlugin {
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         )
-        .add_observer(widget::on_viewport_added);
+        .add_observer(widget::on_add_viewport);
 
         build_text_interop(app);
 
