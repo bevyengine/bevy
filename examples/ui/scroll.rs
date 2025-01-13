@@ -11,7 +11,7 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
+    app.add_plugins((DefaultPlugins, UiPickingPlugin))
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
