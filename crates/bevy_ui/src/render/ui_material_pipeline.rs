@@ -375,7 +375,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
         // skip invisible nodes

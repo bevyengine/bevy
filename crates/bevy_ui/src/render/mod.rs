@@ -255,6 +255,19 @@ pub struct UiCameraMap<'w, 's> {
     mapping: Query<'w, 's, RenderEntity>,
 }
 
+impl<'w, 's> UiCameraMap<'w, 's> {
+    /// Get the default camera and create the mapper
+    pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
+        let default_camera_entity = self.default.get();
+        UiCameraMapper {
+            mapping: &self.mapping,
+            default_camera_entity,
+            camera_entity: Entity::PLACEHOLDER,
+            render_entity: Entity::PLACEHOLDER,
+        }
+    }
+}
+
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
     default_camera_entity: Option<Entity>,
@@ -263,17 +276,6 @@ pub struct UiCameraMapper<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Get the default camera and create the mapper
-    pub fn new(ui_camera_map: &'w UiCameraMap<'w, 's>) -> Self {
-        let default_camera_entity = ui_camera_map.default.get();
-        Self {
-            mapping: &ui_camera_map.mapping,
-            default_camera_entity,
-            camera_entity: Entity::PLACEHOLDER,
-            render_entity: Entity::PLACEHOLDER,
-        }
-    }
-
     /// Returns the render entity corresponding to the given `TargetCamera` or the default camera if `None``.
     pub fn map(&mut self, camera: Option<&TargetCamera>) -> Option<Entity> {
         let Some(camera_entity) = camera
@@ -316,7 +318,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
@@ -374,7 +376,7 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
         // Skip invisible images
         if !view_visibility.get()
@@ -462,7 +464,7 @@ pub fn extract_uinode_borders(
     camera_map: Extract<UiCameraMap>,
 ) {
     let image = AssetId::<Image>::default();
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (
         entity,
@@ -650,7 +652,6 @@ pub fn extract_ui_camera_view(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -665,12 +666,12 @@ pub fn extract_text_sections(
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
-    mapping: Extract<Query<&RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = 0;
     let mut end = 1;
 
-    let default_ui_camera = default_ui_camera.get();
+    let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
         uinode,
@@ -682,16 +683,12 @@ pub fn extract_text_sections(
         text_layout_info,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
-            continue;
-        };
-
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Some(camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -746,7 +743,7 @@ pub fn extract_text_sections(
                         color,
                         image: atlas_info.texture.id(),
                         clip: clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity.id(),
+                        camera_entity,
                         rect,
                         item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),

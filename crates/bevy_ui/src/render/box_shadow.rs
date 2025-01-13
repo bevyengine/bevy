@@ -250,7 +250,7 @@ pub fn extract_shadows(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {

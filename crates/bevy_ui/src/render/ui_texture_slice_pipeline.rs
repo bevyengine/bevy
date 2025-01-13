@@ -261,7 +261,7 @@ pub fn extract_ui_texture_slices(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
         // Skip invisible images
