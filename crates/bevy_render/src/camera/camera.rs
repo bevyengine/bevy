@@ -593,7 +593,7 @@ impl Camera {
 
         // Rescale by the rendering target's scaling factor if we have it.
         let scale_factor = self.target_scaling_factor().unwrap_or(1.);
-        viewport_position = viewport_position / scale_factor;
+        viewport_position /= scale_factor;
 
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
