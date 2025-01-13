@@ -113,7 +113,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
 }

@@ -403,7 +403,7 @@ impl SceneSpawner {
         }
     }
 
-    /// Check that an scene instance spawned previously is ready to use
+    /// Check that a scene instance spawned previously is ready to use
     pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
         self.spawned_instances.contains_key(&instance_id)
     }

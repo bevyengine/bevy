@@ -11,7 +11,7 @@ use crate::{
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
-    system::IntoObserverSystem,
+    system::{IntoObserverSystem, Resource},
     world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
 use alloc::vec::Vec;
@@ -1001,7 +1001,7 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.world
                 .entities()
-                .entity_does_not_exist_error_details_message(self.entity)
+                .entity_does_not_exist_error_details(self.entity)
         );
     }
 
@@ -1320,6 +1320,45 @@ impl<'w> EntityWorldMut<'w> {
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](EntityWorldMut::get_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.world.resource::<R>()
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.world.resource_mut::<R>()
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.world.get_resource()
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.world.get_resource_mut()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1746,7 +1785,6 @@ impl<'w> EntityWorldMut<'w> {
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
-    #[allow(clippy::too_many_arguments)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
         entity: Entity,
         self_location: &mut EntityLocation,
@@ -1826,7 +1864,6 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;

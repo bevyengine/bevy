@@ -78,7 +78,7 @@ pub mod light_consts {
         pub const OFFICE: f32 = 320.;
         /// The amount of light (lux) during sunrise or sunset on a clear day.
         pub const CLEAR_SUNRISE: f32 = 400.;
-        /// The amount of light (lux) on a overcast day; typical TV studio lighting
+        /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
@@ -824,7 +824,6 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(

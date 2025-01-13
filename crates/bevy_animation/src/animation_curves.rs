@@ -984,6 +984,7 @@ where
 ///
 /// ```
 /// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_color::Srgba;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
 /// # use bevy_reflect::Reflect;
@@ -993,10 +994,15 @@ where
 /// }
 ///
 /// let field = animated_field!(Transform::translation);
+///
+/// #[derive(Component, Reflect)]
+/// struct Color(Srgba);
+///
+/// let tuple_field = animated_field!(Color::0);
 /// ```
 #[macro_export]
 macro_rules! animated_field {
-    ($component:ident::$field:ident) => {
+    ($component:ident::$field:tt) => {
         AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
             &mut component.$field
         })
