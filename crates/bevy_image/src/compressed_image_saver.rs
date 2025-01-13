@@ -1,15 +1,16 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
 use bevy_asset::saver::{AssetSaver, SavedAsset};
-use derive_more::derive::{Display, Error, From};
 use futures_lite::AsyncWriteExt;
+use thiserror::Error;
 
 pub struct CompressedImageSaver;
 
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum CompressedImageSaverError {
-    Io(std::io::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 impl AssetSaver for CompressedImageSaver {
@@ -44,6 +45,10 @@ impl AssetSaver for CompressedImageSaver {
             source_image.init(&image.data, size.x, size.y, 4);
 
             let mut compressor = basis_universal::Compressor::new(4);
+            #[expect(
+                unsafe_code,
+                reason = "The basis-universal compressor cannot be interacted with except through unsafe functions"
+            )]
             // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The basis-universal
             // library bindings note that invalid params might produce undefined behavior.
             unsafe {

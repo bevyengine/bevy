@@ -4,16 +4,20 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
 use core::hash::Hash;
-use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
-use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
+use thiserror::Error;
+use wgpu::{SamplerDescriptor, TextureViewDescriptor};
+use wgpu_types::{
+    AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+};
 
 pub trait BevyDefault {
     fn bevy_default() -> Self;
@@ -68,7 +72,7 @@ macro_rules! feature_gate {
     ($feature: tt, $value: ident) => {{
         #[cfg(not(feature = $feature))]
         {
-            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            tracing::warn!("feature \"{}\" is not enabled", $feature);
             return None;
         }
         #[cfg(feature = $feature)]
@@ -113,7 +117,14 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
@@ -161,13 +172,27 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["image/webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
@@ -193,7 +218,14 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match extension.to_ascii_lowercase().as_str() {
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
@@ -216,7 +248,14 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match self {
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
@@ -251,13 +290,27 @@ impl ImageFormat {
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match format {
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
@@ -278,13 +331,16 @@ impl ImageFormat {
     }
 }
 
-#[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(opaque)]
-#[reflect(Default, Debug)]
+#[derive(Asset, Debug, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque, Default, Debug)
+)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
-    pub texture_descriptor: wgpu::TextureDescriptor<'static>,
+    pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
@@ -338,7 +394,7 @@ impl ImageSampler {
 ///
 /// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
-/// This type mirrors [`wgpu::AddressMode`].
+/// This type mirrors [`AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
@@ -358,7 +414,7 @@ pub enum ImageAddressMode {
     /// 1.25 -> 0.75
     MirrorRepeat,
     /// Clamp the value to the border of the texture
-    /// Requires the wgpu feature [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER`].
+    /// Requires the wgpu feature [`Features::ADDRESS_MODE_CLAMP_TO_BORDER`].
     ///
     /// -0.25 -> border
     /// 1.25 -> border
@@ -367,7 +423,7 @@ pub enum ImageAddressMode {
 
 /// Texel mixing mode when sampling between texels.
 ///
-/// This type mirrors [`wgpu::FilterMode`].
+/// This type mirrors [`FilterMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
@@ -383,7 +439,7 @@ pub enum ImageFilterMode {
 
 /// Comparison function used for depth and stencil operations.
 ///
-/// This type mirrors [`wgpu::CompareFunction`].
+/// This type mirrors [`CompareFunction`].
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ImageCompareFunction {
     /// Function never passes
@@ -410,7 +466,7 @@ pub enum ImageCompareFunction {
 
 /// Color variation to use when the sampler addressing mode is [`ImageAddressMode::ClampToBorder`].
 ///
-/// This type mirrors [`wgpu::SamplerBorderColor`].
+/// This type mirrors [`SamplerBorderColor`].
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
@@ -423,7 +479,7 @@ pub enum ImageSamplerBorderColor {
     /// textures that have an alpha component, and equivalent to [`Self::OpaqueBlack`]
     /// for textures that do not have an alpha component. On other backends,
     /// this is equivalent to [`Self::TransparentBlack`]. Requires
-    /// [`wgpu::Features::ADDRESS_MODE_CLAMP_TO_ZERO`]. Not supported on the web.
+    /// [`Features::ADDRESS_MODE_CLAMP_TO_ZERO`]. Not supported on the web.
     Zero,
 }
 
@@ -433,7 +489,7 @@ pub enum ImageSamplerBorderColor {
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.
 ///
-/// This types mirrors [`wgpu::SamplerDescriptor`], but that might change in future versions.
+/// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
@@ -503,8 +559,8 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
-        wgpu::SamplerDescriptor {
+    pub fn as_wgpu(&self) -> SamplerDescriptor {
+        SamplerDescriptor {
             label: self.label.as_deref(),
             address_mode_u: self.address_mode_u.into(),
             address_mode_v: self.address_mode_v.into(),
@@ -521,100 +577,100 @@ impl ImageSamplerDescriptor {
     }
 }
 
-impl From<ImageAddressMode> for wgpu::AddressMode {
+impl From<ImageAddressMode> for AddressMode {
     fn from(value: ImageAddressMode) -> Self {
         match value {
-            ImageAddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-            ImageAddressMode::Repeat => wgpu::AddressMode::Repeat,
-            ImageAddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
-            ImageAddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+            ImageAddressMode::ClampToEdge => AddressMode::ClampToEdge,
+            ImageAddressMode::Repeat => AddressMode::Repeat,
+            ImageAddressMode::MirrorRepeat => AddressMode::MirrorRepeat,
+            ImageAddressMode::ClampToBorder => AddressMode::ClampToBorder,
         }
     }
 }
 
-impl From<ImageFilterMode> for wgpu::FilterMode {
+impl From<ImageFilterMode> for FilterMode {
     fn from(value: ImageFilterMode) -> Self {
         match value {
-            ImageFilterMode::Nearest => wgpu::FilterMode::Nearest,
-            ImageFilterMode::Linear => wgpu::FilterMode::Linear,
+            ImageFilterMode::Nearest => FilterMode::Nearest,
+            ImageFilterMode::Linear => FilterMode::Linear,
         }
     }
 }
 
-impl From<ImageCompareFunction> for wgpu::CompareFunction {
+impl From<ImageCompareFunction> for CompareFunction {
     fn from(value: ImageCompareFunction) -> Self {
         match value {
-            ImageCompareFunction::Never => wgpu::CompareFunction::Never,
-            ImageCompareFunction::Less => wgpu::CompareFunction::Less,
-            ImageCompareFunction::Equal => wgpu::CompareFunction::Equal,
-            ImageCompareFunction::LessEqual => wgpu::CompareFunction::LessEqual,
-            ImageCompareFunction::Greater => wgpu::CompareFunction::Greater,
-            ImageCompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
-            ImageCompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
-            ImageCompareFunction::Always => wgpu::CompareFunction::Always,
+            ImageCompareFunction::Never => CompareFunction::Never,
+            ImageCompareFunction::Less => CompareFunction::Less,
+            ImageCompareFunction::Equal => CompareFunction::Equal,
+            ImageCompareFunction::LessEqual => CompareFunction::LessEqual,
+            ImageCompareFunction::Greater => CompareFunction::Greater,
+            ImageCompareFunction::NotEqual => CompareFunction::NotEqual,
+            ImageCompareFunction::GreaterEqual => CompareFunction::GreaterEqual,
+            ImageCompareFunction::Always => CompareFunction::Always,
         }
     }
 }
 
-impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
+impl From<ImageSamplerBorderColor> for SamplerBorderColor {
     fn from(value: ImageSamplerBorderColor) -> Self {
         match value {
-            ImageSamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
-            ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
-            ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
-            ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
+            ImageSamplerBorderColor::TransparentBlack => SamplerBorderColor::TransparentBlack,
+            ImageSamplerBorderColor::OpaqueBlack => SamplerBorderColor::OpaqueBlack,
+            ImageSamplerBorderColor::OpaqueWhite => SamplerBorderColor::OpaqueWhite,
+            ImageSamplerBorderColor::Zero => SamplerBorderColor::Zero,
         }
     }
 }
 
-impl From<wgpu::AddressMode> for ImageAddressMode {
-    fn from(value: wgpu::AddressMode) -> Self {
+impl From<AddressMode> for ImageAddressMode {
+    fn from(value: AddressMode) -> Self {
         match value {
-            wgpu::AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
-            wgpu::AddressMode::Repeat => ImageAddressMode::Repeat,
-            wgpu::AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
-            wgpu::AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+            AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+            AddressMode::Repeat => ImageAddressMode::Repeat,
+            AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
+            AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
         }
     }
 }
 
-impl From<wgpu::FilterMode> for ImageFilterMode {
-    fn from(value: wgpu::FilterMode) -> Self {
+impl From<FilterMode> for ImageFilterMode {
+    fn from(value: FilterMode) -> Self {
         match value {
-            wgpu::FilterMode::Nearest => ImageFilterMode::Nearest,
-            wgpu::FilterMode::Linear => ImageFilterMode::Linear,
+            FilterMode::Nearest => ImageFilterMode::Nearest,
+            FilterMode::Linear => ImageFilterMode::Linear,
         }
     }
 }
 
-impl From<wgpu::CompareFunction> for ImageCompareFunction {
-    fn from(value: wgpu::CompareFunction) -> Self {
+impl From<CompareFunction> for ImageCompareFunction {
+    fn from(value: CompareFunction) -> Self {
         match value {
-            wgpu::CompareFunction::Never => ImageCompareFunction::Never,
-            wgpu::CompareFunction::Less => ImageCompareFunction::Less,
-            wgpu::CompareFunction::Equal => ImageCompareFunction::Equal,
-            wgpu::CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
-            wgpu::CompareFunction::Greater => ImageCompareFunction::Greater,
-            wgpu::CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
-            wgpu::CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
-            wgpu::CompareFunction::Always => ImageCompareFunction::Always,
+            CompareFunction::Never => ImageCompareFunction::Never,
+            CompareFunction::Less => ImageCompareFunction::Less,
+            CompareFunction::Equal => ImageCompareFunction::Equal,
+            CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
+            CompareFunction::Greater => ImageCompareFunction::Greater,
+            CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
+            CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
+            CompareFunction::Always => ImageCompareFunction::Always,
         }
     }
 }
 
-impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
-    fn from(value: wgpu::SamplerBorderColor) -> Self {
+impl From<SamplerBorderColor> for ImageSamplerBorderColor {
+    fn from(value: SamplerBorderColor) -> Self {
         match value {
-            wgpu::SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
-            wgpu::SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
-            wgpu::SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
-            wgpu::SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
+            SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
+            SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
+            SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
+            SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
         }
     }
 }
 
-impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
-    fn from(value: wgpu::SamplerDescriptor) -> Self {
+impl<'a> From<SamplerDescriptor<'a>> for ImageSamplerDescriptor {
+    fn from(value: SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
@@ -639,7 +695,7 @@ impl Default for Image {
         let data = vec![255; format.pixel_size()];
         Image {
             data,
-            texture_descriptor: wgpu::TextureDescriptor {
+            texture_descriptor: TextureDescriptor {
                 size: Extent3d {
                     width: 1,
                     height: 1,
@@ -650,7 +706,7 @@ impl Default for Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
             sampler: ImageSampler::Default,
@@ -701,7 +757,7 @@ impl Image {
         let data = vec![255, 255, 255, 0];
         Image {
             data,
-            texture_descriptor: wgpu::TextureDescriptor {
+            texture_descriptor: TextureDescriptor {
                 size: Extent3d {
                     width: 1,
                     height: 1,
@@ -712,7 +768,7 @@ impl Image {
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 view_formats: &[],
             },
             sampler: ImageSampler::Default,
@@ -870,7 +926,15 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unused_variables` may not always lint"
+        )]
+        #[allow(
+            unused_variables,
+            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        )]
+        supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
@@ -900,7 +964,14 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern may be unreachable if only the specially-handled formats are enabled; however, the wildcard pattern is needed for any formats not specially handled"
+            )]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()
@@ -921,13 +992,13 @@ impl Image {
         let format_description = self.texture_descriptor.format;
         format_description
             .required_features()
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC)
+            .contains(Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
                 .required_features()
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+                .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features()
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
+                .contains(Features::TEXTURE_COMPRESSION_ETC2)
     }
 
     /// Compute the byte offset where the data of a specific pixel is stored
@@ -1389,48 +1460,39 @@ pub enum TranscodeFormat {
 }
 
 /// An error that occurs when accessing specific pixels in a texture
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum TextureAccessError {
-    #[display("out of bounds (x: {x}, y: {y}, z: {z})")]
+    #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
     OutOfBounds { x: u32, y: u32, z: u32 },
-    #[display("unsupported texture format: {_0:?}")]
-    #[error(ignore)]
+    #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
-    #[display("attempt to access texture with different dimension")]
+    #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }
 
 /// An error that occurs when loading a texture
-#[derive(Error, Display, Debug, From)]
-#[error(ignore)]
+#[derive(Error, Debug)]
 pub enum TextureError {
-    #[display("invalid image mime type: {_0}")]
-    #[from(ignore)]
+    #[error("invalid image mime type: {0}")]
     InvalidImageMimeType(String),
-    #[display("invalid image extension: {_0}")]
-    #[from(ignore)]
+    #[error("invalid image extension: {0}")]
     InvalidImageExtension(String),
-    #[display("failed to load an image: {_0}")]
-    ImageError(image::ImageError),
-    #[display("unsupported texture format: {_0}")]
-    #[from(ignore)]
+    #[error("failed to load an image: {0}")]
+    ImageError(#[from] image::ImageError),
+    #[error("unsupported texture format: {0}")]
     UnsupportedTextureFormat(String),
-    #[display("supercompression not supported: {_0}")]
-    #[from(ignore)]
+    #[error("supercompression not supported: {0}")]
     SuperCompressionNotSupported(String),
-    #[display("failed to load an image: {_0}")]
-    #[from(ignore)]
+    #[error("failed to load an image: {0}")]
     SuperDecompressionError(String),
-    #[display("invalid data: {_0}")]
-    #[from(ignore)]
+    #[error("invalid data: {0}")]
     InvalidData(String),
-    #[display("transcode error: {_0}")]
-    #[from(ignore)]
+    #[error("transcode error: {0}")]
     TranscodeError(String),
-    #[display("format requires transcoding: {_0:?}")]
+    #[error("format requires transcoding: {0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
     /// Only cubemaps with six faces are supported.
-    #[display("only cubemaps with six faces are supported")]
+    #[error("only cubemaps with six faces are supported")]
     IncompleteCubemap,
 }
 
@@ -1497,15 +1559,15 @@ bitflags::bitflags! {
 }
 
 impl CompressedImageFormats {
-    pub fn from_features(features: wgpu::Features) -> Self {
+    pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
+        if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ETC2) {
             supported_compressed_formats |= Self::ETC2;
         }
         supported_compressed_formats

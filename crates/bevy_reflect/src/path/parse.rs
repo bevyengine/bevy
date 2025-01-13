@@ -3,39 +3,34 @@ use core::{
     num::ParseIntError,
     str::from_utf8_unchecked,
 };
-
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 use super::{Access, ReflectPathError};
 
 /// An error that occurs when parsing reflect path strings.
-#[derive(Debug, PartialEq, Eq, Error, Display)]
-#[error(ignore)]
+#[derive(Debug, PartialEq, Eq, Error)]
+#[error(transparent)]
 pub struct ParseError<'a>(Error<'a>);
 
 /// A parse error for a path string.
-#[derive(Debug, PartialEq, Eq, Error, Display, From)]
+#[derive(Debug, PartialEq, Eq, Error)]
 enum Error<'a> {
-    #[display("expected an identifier, but reached end of path string")]
+    #[error("expected an identifier, but reached end of path string")]
     NoIdent,
 
-    #[display("expected an identifier, got '{_0}' instead")]
-    #[error(ignore)]
-    #[from(ignore)]
+    #[error("expected an identifier, got '{0}' instead")]
     ExpectedIdent(Token<'a>),
 
-    #[display("failed to parse index as integer")]
-    InvalidIndex(ParseIntError),
+    #[error("failed to parse index as integer")]
+    InvalidIndex(#[from] ParseIntError),
 
-    #[display("a '[' wasn't closed, reached end of path string before finding a ']'")]
+    #[error("a '[' wasn't closed, reached end of path string before finding a ']'")]
     Unclosed,
 
-    #[display("a '[' wasn't closed properly, got '{_0}' instead")]
-    #[error(ignore)]
-    #[from(ignore)]
+    #[error("a '[' wasn't closed properly, got '{0}' instead")]
     BadClose(Token<'a>),
 
-    #[display("a ']' was found before an opening '['")]
+    #[error("a ']' was found before an opening '['")]
     CloseBeforeOpen,
 }
 
@@ -69,7 +64,10 @@ impl<'a> PathParser<'a> {
         //   the last byte before an ASCII utf-8 character (ie: it is a char
         //   boundary).
         // - The slice always starts after a symbol ie: an ASCII character's boundary.
-        #[allow(unsafe_code)]
+        #[expect(
+            unsafe_code,
+            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
+        )]
         let ident = unsafe { from_utf8_unchecked(ident) };
 
         self.remaining = remaining;

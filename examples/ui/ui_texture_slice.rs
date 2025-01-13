@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::all(22.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,

@@ -18,13 +18,37 @@ fn main() {
 
 // We can create our own gizmo config group!
 #[derive(Default, Reflect, GizmoConfigGroup)]
-struct MyRoundGizmos {}
+struct MyRoundGizmos;
 
 fn setup(
     mut commands: Commands,
+    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let mut gizmo = GizmoAsset::new();
+
+    // When drawing a lot of static lines a Gizmo component can have
+    // far better performance than the Gizmos system parameter,
+    // but the system parameter will perform better for smaller lines that update often.
+
+    // A sphere made out of 30_000 lines!
+    gizmo
+        .sphere(Isometry3d::IDENTITY, 0.5, CRIMSON)
+        .resolution(30_000 / 3);
+
+    commands.spawn((
+        Gizmo {
+            handle: gizmo_assets.add(gizmo),
+            line_config: GizmoLineConfig {
+                width: 5.,
+                ..default()
+            },
+            ..default()
+        },
+        Transform::from_xyz(4., 1., 0.),
+    ));
+
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -191,33 +215,37 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::KeyP) {
         for (_, config, _) in config_store.iter_mut() {
-            // Toggle line_perspective
-            config.line_perspective ^= true;
-            // Increase the line width when line_perspective is on
-            config.line_width *= if config.line_perspective { 5. } else { 1. / 5. };
+            // Toggle line perspective
+            config.line.perspective ^= true;
+            // Increase the line width when line perspective is on
+            config.line.width *= if config.line.perspective { 5. } else { 1. / 5. };
         }
     }
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_secs();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width += 5. * time.delta_secs();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_secs();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width -= 5. * time.delta_secs();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyU) {
-        config.line_style = match config.line_style {
+        config.line.style = match config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
-        config.line_joints = match config.line_joints {
+        config.line.joints = match config.line.joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,
@@ -227,24 +255,28 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line_width += 5. * time.delta_secs();
-        my_config.line_width = my_config.line_width.clamp(0., 50.);
+        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line_width -= 5. * time.delta_secs();
-        my_config.line_width = my_config.line_width.clamp(0., 50.);
+        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyI) {
-        my_config.line_style = match my_config.line_style {
+        my_config.line.style = match my_config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
-        my_config.line_joints = match my_config.line_joints {
+        my_config.line.joints = match my_config.line.joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,

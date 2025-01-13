@@ -24,6 +24,8 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::HashMap;
 use bevy_utils::Instant;
 use core::marker::PhantomData;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::EventLoopExtWebSys;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -46,8 +48,8 @@ use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
     system::{create_monitors, CachedWindow},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, UpdateMode,
-    WinitSettings, WinitWindows,
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
+    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -80,6 +82,8 @@ struct WinitAppRunnerState<T: Event> {
     previous_lifecycle: AppLifecycle,
     /// Bevy window events to send
     bevy_window_events: Vec<bevy_window::WindowEvent>,
+    /// Raw Winit window events to send
+    raw_winit_events: Vec<RawWinitWindowEvent>,
     _marker: PhantomData<T>,
 
     event_writer_system_state: SystemState<(
@@ -121,6 +125,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
+            raw_winit_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
         }
@@ -184,7 +189,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         }
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+        let _span = tracing::info_span!("winit event_handler").entered();
 
         if self.app.plugins_state() != PluginsState::Cleaned {
             if self.app.plugins_state() != PluginsState::Ready {
@@ -249,6 +254,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             warn!("Window {window:?} is missing `Window` component, skipping event {event:?}");
             return;
         };
+
+        // Store a copy of the event to send to an EventWriter later.
+        self.raw_winit_events.push(RawWinitWindowEvent {
+            window_id,
+            event: event.clone(),
+        });
 
         // Allow AccessKit to respond to `WindowEvent`s before they reach
         // the engine.
@@ -690,13 +701,15 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 
     fn forward_bevy_events(&mut self) {
+        let raw_winit_events = self.raw_winit_events.drain(..).collect::<Vec<_>>();
         let buffered_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
-
-        if buffered_events.is_empty() {
-            return;
-        }
-
         let world = self.world_mut();
+
+        if !raw_winit_events.is_empty() {
+            world
+                .resource_mut::<Events<RawWinitWindowEvent>>()
+                .send_batch(raw_winit_events);
+        }
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
@@ -784,9 +797,11 @@ impl<T: Event> WinitAppRunnerState<T> {
             }
         }
 
-        world
-            .resource_mut::<Events<BevyWindowEvent>>()
-            .send_batch(buffered_events);
+        if !buffered_events.is_empty() {
+            world
+                .resource_mut::<Events<BevyWindowEvent>>()
+                .send_batch(buffered_events);
+        }
     }
 
     fn update_cursors(&mut self, #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop) {
@@ -855,19 +870,27 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
-    let mut runner_state = WinitAppRunnerState::new(app);
+    let runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
-    if let Err(err) = event_loop.run_app(&mut runner_state) {
-        error!("winit event loop returned an error: {err}");
+    // The winit docs mention using `spawn` instead of `run` on Wasm.
+    // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            event_loop.spawn_app(runner_state);
+            AppExit::Success
+        } else {
+            let mut runner_state = runner_state;
+            if let Err(err) = event_loop.run_app(&mut runner_state) {
+                error!("winit event loop returned an error: {err}");
+            }
+            // If everything is working correctly then the event loop only exits after it's sent an exit code.
+            runner_state.app_exit.unwrap_or_else(|| {
+                error!("Failed to receive an app exit code! This is a bug");
+                AppExit::error()
+            })
+        }
     }
-
-    // If everything is working correctly then the event loop only exits after it's sent an exit code.
-    runner_state.app_exit.unwrap_or_else(|| {
-        error!("Failed to receive a app exit code! This is a bug");
-        AppExit::error()
-    })
 }
 
 pub(crate) fn react_to_resize(

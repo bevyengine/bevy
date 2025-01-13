@@ -4,8 +4,7 @@
 #[cfg(feature = "custom_cursor")]
 use bevy::winit::cursor::CustomCursor;
 use bevy::{
-    core::FrameCount,
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
     winit::cursor::CursorIcon,
@@ -38,7 +37,7 @@ fn main() {
                 ..default()
             }),
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, init_cursor_icons)
         .add_systems(

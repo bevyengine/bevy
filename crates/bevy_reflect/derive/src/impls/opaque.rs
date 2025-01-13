@@ -3,7 +3,7 @@ use crate::{
     where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
-use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
@@ -77,8 +77,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
-                #FQBox::new(#FQClone::clone(self))
+            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self))
             }
 
              #[inline]
@@ -112,7 +112,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Opaque(self)
             }
 

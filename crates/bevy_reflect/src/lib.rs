@@ -1,7 +1,16 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -374,7 +383,7 @@
 //! ```
 //!
 //! The generated type data can be used to convert a valid `dyn Reflect` into a `dyn MyTrait`.
-//! See the [trait reflection example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/trait_reflection.rs)
+//! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
 //! # Serialization
@@ -553,6 +562,11 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
 extern crate alloc;
 
 mod array;
@@ -576,6 +590,7 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod foldhash;
     mod std;
 
     #[cfg(feature = "glam")]
@@ -651,6 +666,18 @@ pub mod __macro_exports {
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
+    /// Re-exports of items from the [`alloc`] crate.
+    ///
+    /// This is required because in `std` environments (e.g., the `std` feature is enabled)
+    /// the `alloc` crate may not have been included, making its namespace unreliable.
+    pub mod alloc_utils {
+        pub use ::alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            string::ToString,
+        };
+    }
+
     /// A wrapper trait around [`GetTypeRegistration`].
     ///
     /// This trait is used by the derive macro to recursively register all type dependencies.
@@ -664,7 +691,10 @@ pub mod __macro_exports {
         note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
     )]
     pub trait RegisterForReflection {
-        #[allow(unused_variables)]
+        #[expect(
+            unused_variables,
+            reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+        )]
         fn __register(registry: &mut TypeRegistry) {}
     }
 
@@ -690,10 +720,20 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use alloc::borrow::Cow;
+    use alloc::{
+        borrow::Cow,
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bevy_utils::HashMap;
     use core::{
         any::TypeId,
@@ -847,7 +887,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -1144,11 +1183,11 @@ mod tests {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct Baz(String);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 0 });
 
         let mut foo = Foo {
@@ -1213,12 +1252,12 @@ mod tests {
 
         foo.apply(&foo_patch);
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
-        let mut hash_map_baz = HashMap::default();
+        let mut hash_map_baz = <HashMap<_, _>>::default();
         hash_map_baz.insert(1, Bar { x: 7 });
 
         let expected_foo = Foo {
@@ -1237,7 +1276,7 @@ mod tests {
         let new_foo = Foo::from_reflect(&foo_patch)
             .expect("error while creating a concrete type from a dynamic type");
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(2, 3);
         hash_map.insert(3, 4);
 
@@ -1394,7 +1433,7 @@ mod tests {
             x: u32,
         }
 
-        let mut hash_map = HashMap::default();
+        let mut hash_map = <HashMap<_, _>>::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 2);
         let foo = Foo {
@@ -1483,7 +1522,8 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let mut map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let mut map_value: Box<dyn Map> =
+            Box::new([(123_i32, 321_i32)].into_iter().collect::<HashMap<_, _>>());
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1847,7 +1887,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.key_ty().path());
         assert_eq!(f32::type_path(), info.value_ty().path());
 
-        let value: &dyn Reflect = &MyMap::new();
+        let value: &dyn Reflect = &MyMap::default();
         let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
@@ -2118,7 +2158,7 @@ mod tests {
             enum_struct: SomeEnum,
             custom: CustomDebug,
             #[reflect(ignore)]
-            #[allow(dead_code)]
+            #[expect(dead_code, reason = "This value is intended to not be reflected.")]
             ignored: isize,
         }
 
@@ -2146,7 +2186,7 @@ mod tests {
             }
         }
 
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(123, 1.23);
 
         let test = Test {
@@ -2460,7 +2500,7 @@ bevy_reflect::tests::Test {
             // test reflected value
             value: u32,
         }
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(9, 10);
         let mut test_struct: DynamicStruct = TestStruct {
             tuple: (0, 1),
@@ -2536,6 +2576,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2611,6 +2653,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_value_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Clone, Debug, Default)]
             pub struct TheirType {
                 pub value: String,
@@ -2694,6 +2738,8 @@ bevy_reflect::tests::Test {
             // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
             // ```
             pub mod external_crate {
+                use alloc::string::String;
+
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -2715,6 +2761,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_remote_enum() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, PartialEq, Eq)]
             pub enum TheirType {
                 Unit,
@@ -2879,6 +2927,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
@@ -2911,6 +2961,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_try_take_remote_type() {
         mod external_crate {
+            use alloc::string::String;
+
             #[derive(Debug, Default, PartialEq, Eq)]
             pub struct TheirType {
                 pub value: String,
