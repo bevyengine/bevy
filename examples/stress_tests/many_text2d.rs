@@ -66,7 +66,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
