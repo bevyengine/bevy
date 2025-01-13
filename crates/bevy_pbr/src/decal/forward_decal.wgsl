@@ -7,7 +7,6 @@
     pbr_functions::calculate_tbn_mikktspace,
     prepass_utils::prepass_depth,
     view_transformations::depth_ndc_to_view_z,
-    parallax_mapping::parallaxed_uv,
 }
 #import bevy_render::maths::project_onto
 
@@ -36,20 +35,15 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
 
     let frag_depth = depth_ndc_to_view_z(in.position.z);
     let depth_pass_depth = depth_ndc_to_view_z(prepass_depth(in.position, 0u));
-
     let diff_depth = frag_depth - depth_pass_depth;
     let diff_depth_abs = abs(diff_depth);
 
+    // Apply UV parallax
     let contact_on_decal = project_onto(V * diff_depth, in.world_normal);
     let normal_depth = length(contact_on_decal);
-    let uv = parallaxed_uv(
-        normal_depth,
-        1.0,
-        0u,
-        in.uv,
-        Vt,
-        0u, // TODO
-    );
+    let view_steepness = abs(Vt.z);
+    let delta_uv = normal_depth * Vt.xy * vec2(1.0, -1.0) / view_steepness;
+    let uv = in.uv + delta_uv;
 
     let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
     let alpha = saturate(1.0 - normal_depth * depth_fade_factor);
