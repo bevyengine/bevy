@@ -9,7 +9,8 @@ use bevy::{
     prelude::*,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::f32::consts::PI;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 // TODO: Showcase a custom material
 
@@ -36,12 +37,10 @@ fn setup(
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
-                depth_fade_factor: 8.0,
+                depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_translation(Vec3::new(0.15, 0.45, 0.0))
-            .with_scale(Vec3::splat(2.0))
-            .with_rotation(Quat::from_rotation_z(PI / 4.0)),
+        Transform::from_scale(Vec3::splat(4.0)),
     ));
 
     commands.spawn((
@@ -55,24 +54,42 @@ fn setup(
             intensity: 2000.0,
             ..default()
         },
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(2.0, 9.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     let white_material = standard_materials.add(Color::WHITE);
 
     commands.spawn((
-        Name::new("Wall"),
-        Mesh3d(meshes.add(Cuboid::new(1.0, 4.0, 3.0))),
-        MeshMaterial3d(white_material.clone()),
-        Transform::from_xyz(1.0, 0.0, 0.0),
-    ));
-
-    commands.spawn((
         Name::new("Floor"),
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(white_material),
+        Mesh3d(meshes.add(Rectangle::from_length(10.0))),
+        MeshMaterial3d(white_material.clone()),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
+
+    let num_obs = 10;
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
+    for i in 0..num_obs {
+        for j in 0..num_obs {
+            let rotation_axis: [f32; 3] = rng.gen();
+            let rotation_vec: Vec3 = rotation_axis.into();
+            let rotation: u32 = rng.gen_range(0..360);
+            let transform = Transform::from_xyz(
+                (-num_obs + 1) as f32 / 2.0 + i as f32,
+                -0.2,
+                (-num_obs + 1) as f32 / 2.0 + j as f32,
+            )
+            .with_rotation(Quat::from_axis_angle(
+                rotation_vec.normalize_or_zero(),
+                (rotation as f32).to_radians(),
+            ));
+
+            commands.spawn((
+                Mesh3d(meshes.add(Cuboid::from_length(0.6))),
+                MeshMaterial3d(white_material.clone()),
+                transform,
+            ));
+        }
+    }
 
     commands.spawn((
         Name::new("Light"),
