@@ -160,7 +160,7 @@ pub fn ui_picking(
             continue;
         };
 
-        if settings.require_markers && !node.pickable.is_none() {
+        if settings.require_markers && node.pickable.is_none() {
             continue;
         }
 
