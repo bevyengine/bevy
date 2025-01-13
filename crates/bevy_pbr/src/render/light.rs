@@ -1116,7 +1116,14 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity(views_count);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in sorted_cameras
+    for (
+        entity,
+        extracted_view,
+        clusters,
+        maybe_layers,
+        no_indirect_drawing,
+        maybe_ambient_override,
+    ) in sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
