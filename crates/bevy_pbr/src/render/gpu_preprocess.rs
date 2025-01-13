@@ -875,7 +875,10 @@ pub fn prepare_preprocess_bind_groups(
 
 // Creates the bind group for the GPU preprocessing shader for a single phase
 // for a single view.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a bunch of parameters"
+)]
 fn prepare_preprocess_bind_group_for_phase(
     render_device: &RenderDevice,
     pipelines: &PreprocessPipelines,
