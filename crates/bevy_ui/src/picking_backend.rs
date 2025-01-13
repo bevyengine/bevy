@@ -26,11 +26,40 @@ use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
 use bevy_platform_support::collections::HashMap;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
+
+/// An optional component that marks cameras that should be used in the [`UiPickingPlugin`].
+///
+/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
+/// otherwise.
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Debug, Default, Component)]
+pub struct UiPickingCamera;
+
+/// Runtime settings for the [`SpritePickingPlugin`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct UiPickingSettings {
+    /// When set to `true` UI picking will only consider cameras marked with
+    /// [`UiPickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the UI picking backend at runtime.
+    pub require_markers: bool,
+}
+
+impl Default for UiPickingSettings {
+    fn default() -> Self {
+        Self {
+            require_markers: false,
+        }
+    }
+}
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
@@ -60,9 +89,15 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
+    camera_query: Query<(
+        Entity,
+        &Camera,
+        Has<IsDefaultUiCamera>,
+        Has<UiPickingCamera>,
+    )>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
@@ -81,7 +116,8 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
-            .map(|(entity, camera, _)| {
+            .filter(|(_, _, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
+            .map(|(entity, camera, _, _)| {
                 (
                     entity,
                     camera.target.normalize(primary_window.get_single().ok()),
@@ -121,6 +157,10 @@ pub fn ui_picking(
         let Ok(node) = node_query.get(*node_entity) else {
             continue;
         };
+
+        if settings.require_markers && !node.pickable.is_none() {
+            continue;
+        }
 
         // Nodes that are not rendered should not be interactable
         if node
