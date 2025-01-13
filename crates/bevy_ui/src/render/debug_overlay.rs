@@ -21,7 +21,7 @@ use super::ExtractedUiItem;
 use super::ExtractedUiNode;
 use super::ExtractedUiNodes;
 use super::NodeType;
-use super::{UiCameraMap, UiCameraMapper};
+use super::UiCameraMap;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -73,7 +73,7 @@ pub fn extract_debug_overlay(
         return;
     }
 
-    let mut camera_mapper = UiCameraMapper::new(&camera_map);
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
