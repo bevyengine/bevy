@@ -1001,7 +1001,7 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.world
                 .entities()
-                .entity_does_not_exist_error_details_message(self.entity)
+                .entity_does_not_exist_error_details(self.entity)
         );
     }
 

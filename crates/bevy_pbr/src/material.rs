@@ -638,7 +638,6 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -665,7 +664,6 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
-        view_entity,
         view,
         visible_entities,
         msaa,
@@ -687,10 +685,10 @@ pub fn queue_material_meshes<M: Material>(
             Some(transmissive_phase),
             Some(transparent_phase),
         ) = (
-            opaque_render_phases.get_mut(&view_entity),
-            alpha_mask_render_phases.get_mut(&view_entity),
-            transmissive_render_phases.get_mut(&view_entity),
-            transparent_render_phases.get_mut(&view_entity),
+            opaque_render_phases.get_mut(&view.retained_view_entity),
+            alpha_mask_render_phases.get_mut(&view.retained_view_entity),
+            transmissive_render_phases.get_mut(&view.retained_view_entity),
+            transparent_render_phases.get_mut(&view.retained_view_entity),
         )
         else {
             continue;
@@ -804,12 +802,14 @@ pub fn queue_material_meshes<M: Material>(
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | mesh_pipeline_key_bits;
 
-            let lightmap_slab_index = render_lightmaps
-                .render_lightmaps
-                .get(visible_entity)
-                .map(|lightmap| lightmap.slab_index);
-            if lightmap_slab_index.is_some() {
+            let mut lightmap_slab = None;
+            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
+                lightmap_slab = Some(*lightmap.slab_index);
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+
+                if lightmap.bicubic_sampling {
+                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
+                }
             }
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
@@ -875,8 +875,7 @@ pub fn queue_material_meshes<M: Material>(
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
                             index_slab,
-                            lightmap_slab: lightmap_slab_index
-                                .map(|lightmap_slab_index| *lightmap_slab_index),
+                            lightmap_slab,
                         };
                         let bin_key = Opaque3dBinKey {
                             asset_id: mesh_instance.mesh_asset_id.into(),
