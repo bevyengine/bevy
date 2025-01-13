@@ -8,7 +8,8 @@ struct MeshInput {
     world_from_local: mat3x4<f32>,
     // The lightmap UV rect, packed into 64 bits.
     lightmap_uv_rect: vec2<u32>,
-    // Various flags.
+    // A set of bitflags corresponding to `MeshFlags` on the Rust side. See the
+    // `MESH_FLAGS_` flags in `mesh_types.wgsl` for a list of these.
     flags: u32,
     // The index of this mesh's `MeshInput` in the `previous_input` array, if
     // applicable. If not present, this is `u32::MAX`.

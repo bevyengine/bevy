@@ -938,7 +938,7 @@ impl RenderMeshInstanceGpuBuilder {
                     mesh_index_slice.range.start,
                     mesh_index_slice.range.end - mesh_index_slice.range.start,
                 ),
-                None => (false, !0, !0),
+                None => (false, 0, 0),
             };
 
         let current_skin_index = match skin_indices.current.get(&entity) {
