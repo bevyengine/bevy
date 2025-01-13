@@ -35,13 +35,13 @@ use bevy_picking::backend::prelude::*;
 
 /// An optional component that marks cameras that should be used in the [`UiPickingPlugin`].
 ///
-/// Only needed if [`SpritePickingSettings::require_markers`] is set to `true`, and ignored
+/// Only needed if [`UiPickingSettings::require_markers`] is set to `true`, and ignored
 /// otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Debug, Default, Component)]
 pub struct UiPickingCamera;
 
-/// Runtime settings for the [`SpritePickingPlugin`].
+/// Runtime settings for the [`UiPickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct UiPickingSettings {
