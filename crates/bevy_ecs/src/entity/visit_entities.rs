@@ -71,7 +71,6 @@ mod tests {
         ordered: Vec<Entity>,
         unordered: HashSet<Entity>,
         single: Entity,
-        #[expect(dead_code)]
         #[visit_entities(ignore)]
         not_an_entity: String,
     }
