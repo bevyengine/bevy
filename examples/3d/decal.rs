@@ -12,8 +12,6 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
-// TODO: Showcase a custom material
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, CameraControllerPlugin))
