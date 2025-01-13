@@ -84,6 +84,11 @@ path = "benches/bevy_picking/main.rs"
 harness = false
 
 [[bench]]
+name = "hierarchy"
+path = "benches/bevy_hierarchy/main.rs"
+harness = false
+
+[[bench]]
 name = "reflect"
 path = "benches/bevy_reflect/main.rs"
 harness = false

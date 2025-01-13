@@ -173,6 +173,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 /// ```
 pub struct ChildBuilder<'a> {
     commands: Commands<'a, 'a>,
+    /// These children are guaranteed to be spawned entities, and do not need re-parenting checks.
     children: SmallVec<[Entity; 8]>,
     parent: Entity,
 }
@@ -213,13 +214,15 @@ impl ChildBuild for ChildBuilder<'_> {
         Self: 'a;
 
     fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
-        let e = self.commands.spawn(bundle);
+        // Spawn the entity with the `Parent` component to avoid archetype changes.
+        let e = self.commands.spawn((bundle, Parent(self.parent)));
         self.children.push(e.id());
         e
     }
 
     fn spawn_empty(&mut self) -> EntityCommands {
-        let e = self.commands.spawn_empty();
+        // Spawn the entity with the `Parent` component to avoid archetype changes.
+        let e = self.commands.spawn(Parent(self.parent));
         self.children.push(e.id());
         e
     }
@@ -346,20 +349,37 @@ impl BuildChildren for EntityCommands<'_> {
         };
 
         spawn_children(&mut builder);
-
         let children = builder.children;
-        if children.contains(&parent) {
-            panic!("Entity cannot be a child of itself.");
-        }
+
+        // Send hierarchy events
+        let events = children
+            .iter()
+            .map(|&child| HierarchyEvent::ChildAdded { child, parent })
+            .collect::<alloc::vec::Vec<_>>();
+        self.commands_mut().queue(move |world: &mut World| {
+            push_events(world, events);
+        });
+
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.add_children(&children);
-        })
+            // `ChildBuilder` is responsible for setting the `Parent` component on all the children
+            // as they are spawned to avoid archetype changes. All that is left for us to do is push
+            // these children onto the parent entity's `Children` component. Because these are
+            // freshly spawned entities, we don't need to check for re-parenting, duplicates, or if
+            // they already exist in the `Parent` component. This avoids a lot of work!
+            if let Some(mut children_component) = entity.get_mut::<Children>() {
+                children_component.0.extend(children);
+            } else {
+                entity.insert(Children(children));
+            }
+        });
+        self
     }
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
-        let child = self.commands().spawn(bundle).id();
         self.queue(move |mut entity: EntityWorldMut| {
-            entity.add_child(child);
+            // Performance: note that `with_child` is faster than `add_child`, because it knows the
+            // entity is freshly spawned, and does not need to do any re-parenting checks.
+            entity.with_child(bundle);
         })
     }
 
@@ -499,13 +519,13 @@ impl BuildChildren for EntityWorldMut<'_> {
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let parent = self.id();
-        let child = self.world_scope(|world| world.spawn((bundle, Parent(parent))).id());
-        if let Some(mut children_component) = self.get_mut::<Children>() {
-            children_component.0.retain(|value| child != *value);
-            children_component.0.push(child);
-        } else {
-            self.insert(Children::from_entities(&[child]));
-        }
+        self.world_scope(|world| {
+            let child = world.spawn((bundle, Parent(parent))).id();
+            // Because we know this entity was just spawned, we don't need to check the child list
+            // to see if it is already present, it is impossible.
+            add_child_unchecked(world, parent, child);
+            push_events(world, [HierarchyEvent::ChildAdded { child, parent }]);
+        });
         self
     }
 
