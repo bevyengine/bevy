@@ -590,6 +590,11 @@ impl Camera {
         let target_size = self
             .logical_viewport_size()
             .ok_or(ViewportConversionError::NoViewportSize)?;
+
+        // Rescale by the rendering target's scaling factor if we have it.
+        let scale_factor = self.target_scaling_factor().unwrap_or(1.);
+        viewport_position = viewport_position / scale_factor;
+
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
