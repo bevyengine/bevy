@@ -754,7 +754,10 @@ pub struct RhombusMeshBuilder {
 impl RhombusMeshBuilder {
     /// Creates a new [`RhombusMeshBuilder`] from a horizontal and vertical diagonal size.
     pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
-        debug_assert!(horizontal_diagonal >= 0.0, "rhombus has a negative horizontal");
+        debug_assert!(
+            horizontal_diagonal >= 0.0,
+            "rhombus has a negative horizontal",
+        );
         debug_assert!(vertical_diagonal >= 0.0, "rhombus has a negative vertical");
 
         Self {
