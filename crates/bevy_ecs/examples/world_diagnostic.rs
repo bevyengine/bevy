@@ -65,8 +65,8 @@ pub struct DiagnosticLabel;
 
 /// World diagnostic example.
 /// Can be called directly on a World or run as a system.
-fn diagnostic_world_system(world: &World) {
-    println!("{}", world.diagnose().unwrap());
+fn diagnostic_world_system(world: &mut World) {
+    println!("{}", world.diagnose_with_flattened().unwrap());
 }
 
 // In this example, we add a counter resource and increase its value in one system,

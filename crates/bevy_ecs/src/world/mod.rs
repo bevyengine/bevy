@@ -3624,6 +3624,29 @@ impl World {
 
     /// Returns a string containing information about the world.
     pub fn diagnose(&self) -> Result<String, fmt::Error> {
+        let mut result = self.diagnose_non_systems()?;
+
+        if let Some(schedules) = self.get_resource::<Schedules>() {
+            result.push_str(&schedules.diagnose()?);
+        }
+
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the world, including a flattened representation.
+    pub fn diagnose_with_flattened(&mut self) -> Result<String, fmt::Error> {
+        let mut result = self.diagnose_non_systems()?;
+
+        if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
+            result.push_str(&schedules.diagnose_flattened()?);
+        }
+
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the world, excluding systems.
+    /// See [`World::diagnose`] and [`World::diagnose_with_flattened`].
+    fn diagnose_non_systems(&self) -> Result<String, fmt::Error> {
         let mut result = "".to_string();
 
         let bundle_size = self.bundles().len();
@@ -3733,10 +3756,6 @@ impl World {
                     sparse_set.len()
                 )?;
             }
-        }
-
-        if let Some(schedules) = self.get_resource::<Schedules>() {
-            result.push_str(&schedules.diagnose()?);
         }
 
         Ok(result)
