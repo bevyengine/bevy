@@ -80,7 +80,7 @@ pub fn extract_debug_overlay(
             continue;
         }
 
-        let Some(camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -99,7 +99,7 @@ pub fn extract_debug_overlay(
                     .filter(|_| !debug_options.show_clipped)
                     .map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
