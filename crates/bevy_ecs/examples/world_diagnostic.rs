@@ -4,7 +4,6 @@
 
 use bevy_ecs::prelude::*;
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use core::fmt::Write;
 
 fn empty_system() {}
 
@@ -67,126 +66,7 @@ pub struct DiagnosticLabel;
 /// World diagnostic example.
 /// Can be called directly on a World or run as a system.
 fn diagnostic_world_system(world: &World) {
-    println!("{}", diagnostic_world(world).unwrap());
-}
-
-fn diagnostic_world(world: &World) -> Result<String, core::fmt::Error> {
-    let mut result = "".to_string();
-
-    let bundle_size = world.bundles().len();
-    let component_size = world.components().len();
-    let archetype_size = world.archetypes().len();
-    let entity_size = world.entities().len();
-    let resource_size = world.storages().resources.len();
-    let non_send_resource_size = world.storages().non_send_resources.len();
-    let table_size = world.storages().tables.len();
-    let sparse_set_size = world.storages().sparse_sets.len();
-
-    writeln!(result, "world:")?;
-    writeln!(result, "  summary:")?;
-    writeln!(result, "    component: {bundle_size}")?;
-    writeln!(result, "    bundle: {component_size}")?;
-    writeln!(result, "    archetype: {archetype_size}")?;
-    writeln!(result, "    entity: {entity_size}")?;
-    writeln!(result, "    resource: {resource_size}")?;
-    writeln!(result, "    resource(non send): {non_send_resource_size}")?;
-    writeln!(result, "    table: {table_size}")?;
-    writeln!(result, "    sparse set: {sparse_set_size}")?;
-
-    writeln!(result, "  detail:")?;
-    let bundles = world.bundles().iter().collect::<Vec<_>>();
-    if bundle_size > 0 {
-        writeln!(result, "    bundles:")?;
-        for bundle in bundles {
-            writeln!(
-                result,
-                "      {:?}: {:?}",
-                bundle.id(),
-                bundle
-                    .explicit_components()
-                    .iter()
-                    .map(|id| id.diagnose(world))
-                    .collect::<Vec<_>>()
-            )?;
-        }
-    }
-
-    if component_size > 0 {
-        writeln!(result, "    components:")?;
-
-        for component in world.components().iter() {
-            writeln!(
-                result,
-                "      {:?}({name}) {storage_type:?} {send_sync}",
-                component.id(),
-                name = component.name(),
-                storage_type = component.storage_type(),
-                send_sync = if component.is_send_and_sync() {
-                    "send_sync"
-                } else {
-                    "non_send_sync"
-                }
-            )?;
-        }
-    }
-
-    if archetype_size > 0 {
-        writeln!(result, "    archetypes:")?;
-        for archetype in world.archetypes().iter() {
-            writeln!(
-                result,
-                "      {:?}: components:{:?} table:{:?} entity:{}",
-                archetype.id(),
-                archetype
-                    .components()
-                    .map(|id| id.diagnose(world))
-                    .collect::<Vec<_>>(),
-                archetype.table_id(),
-                archetype.len(),
-            )?;
-        }
-    }
-
-    if table_size > 0 {
-        writeln!(result, "    tables:")?;
-        for (idx, table) in world.storages().tables.iter().enumerate() {
-            writeln!(result, "      [{idx}] entities: {}", table.entity_count())?;
-        }
-    }
-
-    if resource_size > 0 {
-        writeln!(result, "    resources:")?;
-        for (component_id, _resource_data) in world.storages().resources.iter() {
-            writeln!(result, "      {}", component_id.diagnose(world))?;
-        }
-    }
-
-    if non_send_resource_size > 0 {
-        writeln!(result, "    resources(non send):")?;
-        for (component_id, _resource_data) in world.storages().non_send_resources.iter() {
-            let component = world.components().get_info(component_id).unwrap();
-            writeln!(result, "      {:?}({})", component_id, component.name(),)?;
-        }
-    }
-
-    if sparse_set_size > 0 {
-        writeln!(result, "    sparse_set:")?;
-        for (component_id, sparse_set) in world.storages().sparse_sets.iter() {
-            let component_display = component_id.diagnose(world);
-            writeln!(
-                result,
-                "      {} entity:{}",
-                component_display,
-                sparse_set.len()
-            )?;
-        }
-    }
-
-    if let Some(schedules) = world.get_resource::<Schedules>() {
-        result.push_str(&schedules.diagnose()?);
-    }
-
-    Ok(result)
+    println!("{}", world.diagnose().unwrap());
 }
 
 // In this example, we add a counter resource and increase its value in one system,
