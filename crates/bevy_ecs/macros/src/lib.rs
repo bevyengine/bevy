@@ -659,7 +659,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::world::FromWorld for #struct_name #ty_generics #where_clauses {
-            fn from_world(world: &mut #bevy_ecs_path::world::FromWorld) -> Self {
+            fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
                 #[allow(clippy::init_numbered_fields)]
                 Self { #field_initializers }
             }
