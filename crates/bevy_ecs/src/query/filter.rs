@@ -466,34 +466,34 @@ macro_rules! impl_or_query_filter {
             #[inline(always)]
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = FilteredAccess::matches_nothing();
+                let mut new_access = FilteredAccess::matches_nothing();
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
                     // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
-                    _new_access.append_or(&intermediate);
+                    new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
                     // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
-                    _new_access.extend_access(&intermediate);
+                    new_access.extend_access(&intermediate);
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = core::mem::take(&mut access.required);
+                new_access.required = core::mem::take(&mut access.required);
 
-                *access = _new_access;
+                *access = new_access;
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -504,9 +504,9 @@ macro_rules! impl_or_query_filter {
                 Some(($($filter::get_state(components)?,)*))
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-                let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                let ($($filter,)*) = state;
+                false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
         }
 
