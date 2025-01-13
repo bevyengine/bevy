@@ -37,7 +37,7 @@ use super::ImageNode;
 ///
 /// # See Also
 ///
-/// [`on_viewport_added`]
+/// [`on_add_viewport`]
 /// [`update_viewport_render_target_size`]
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug)]
