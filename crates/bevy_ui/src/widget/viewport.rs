@@ -7,7 +7,7 @@ use bevy_ecs::{
     query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
-    world::OnAdd,
+    world::{OnAdd},
 };
 use bevy_hierarchy::{BuildChildren, Children};
 use bevy_image::Image;
@@ -43,6 +43,8 @@ use super::ImageNode;
 #[reflect(Component, Debug)]
 pub struct Viewport {
     /// The entity representing the [`Camera`] associated with this viewport.
+    ///
+    /// Note that removing the [`Viewport`] component will not despawn this entity.
     pub camera: Entity,
 }
 
@@ -153,7 +155,7 @@ pub fn viewport_picking(
 
 /// Adds a [`PointerId`] and [`ImageNode`] child to entities that have a [`Viewport`] component
 /// added to them.
-pub fn on_viewport_added(
+pub fn on_add_viewport(
     trigger: Trigger<OnAdd, Viewport>,
     mut commands: Commands,
     viewport_query: Query<&Viewport>,
