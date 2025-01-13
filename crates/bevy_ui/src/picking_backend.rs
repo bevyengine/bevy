@@ -53,6 +53,14 @@ pub struct UiPickingSettings {
     pub require_markers: bool,
 }
 
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
 impl Default for UiPickingSettings {
     fn default() -> Self {
         Self {
