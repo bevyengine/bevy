@@ -16,8 +16,8 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, Expr, FieldValue, GenericParam, Index, Member,
-    Token, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, Expr, Field, FieldValue, GenericParam, Index,
+    Member, Token, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -629,33 +629,19 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
         .into();
     };
 
-    let field_init_expr =
-        Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world)));
+    let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
 
-    let field_initializers: Punctuated<FieldValue, Token![,]> = match fields {
+    let field_initializers: Punctuated<TokenStream2, Token![,]> = match fields {
         syn::Fields::Named(fields_named) => fields_named
             .named
             .iter()
-            .map(|field| FieldValue {
-                attrs: Vec::new(),
-                member: Member::Named(field.ident.clone().unwrap()),
-                colon_token: Some(Token![:](field.span())),
-                expr: field_init_expr.clone(),
+            .map(|field| {
+                let ident = field.ident.clone().unwrap();
+                quote!(#ident: #field_init_expr)
             })
             .collect(),
-        syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
-            .unnamed
-            .iter()
-            .enumerate()
-            .map(|(index, field)| FieldValue {
-                attrs: Vec::new(),
-                member: Member::Unnamed(Index {
-                    index: index as u32,
-                    span: field.span(),
-                }),
-                colon_token: Some(Token![:](field.span())),
-                expr: field_init_expr.clone(),
-            })
+        syn::Fields::Unnamed(fields_unnamed) => (0..fields_unnamed.unnamed.len())
+            .map(|index| quote!(#index: #field_init_expr))
             .collect(),
         syn::Fields::Unit => Punctuated::new(),
     };
