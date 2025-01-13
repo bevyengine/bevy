@@ -629,6 +629,9 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
         .into();
     };
 
+    let field_init_expr =
+        Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world)));
+
     let field_initializers: Punctuated<FieldValue, Token![,]> = match fields {
         syn::Fields::Named(fields_named) => fields_named
             .named
@@ -637,7 +640,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 attrs: Vec::new(),
                 member: Member::Named(field.ident.clone().unwrap()),
                 colon_token: Some(Token![:](field.span())),
-                expr: Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world))),
+                expr: field_init_expr.clone(),
             })
             .collect(),
         syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
@@ -651,7 +654,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                     span: field.span(),
                 }),
                 colon_token: Some(Token![:](field.span())),
-                expr: Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world))),
+                expr: field_init_expr.clone(),
             })
             .collect(),
         syn::Fields::Unit => Punctuated::new(),
