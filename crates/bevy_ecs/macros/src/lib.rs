@@ -289,7 +289,7 @@ pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let syn::Data::Struct(syn::DataStruct {
+    let Data::Struct(DataStruct {
         fields: field_definitions,
         ..
     }) = ast.data
