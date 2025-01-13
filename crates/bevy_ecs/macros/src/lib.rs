@@ -12,11 +12,12 @@ mod world_query;
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Index, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, Expr, FieldValue, GenericParam, Index, Member,
+    Token, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -610,4 +611,58 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SubStates, attributes(source))]
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
+}
+
+#[proc_macro_derive(FromWorld)]
+pub fn derive_from_world(input: TokenStream) -> TokenStream {
+    let bevy_ecs_path = bevy_ecs_path();
+    let ast = parse_macro_input!(input as DeriveInput);
+    let struct_name = ast.ident;
+    let (impl_generics, ty_generics, where_clauses) = ast.generics.split_for_impl();
+
+    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
+        return syn::Error::new(
+            Span::call_site(),
+            "#[derive(FromWorld)]` only supports structs",
+        )
+        .into_compile_error()
+        .into();
+    };
+
+    let field_initializers: Punctuated<FieldValue, Token![,]> = match fields {
+        syn::Fields::Named(fields_named) => fields_named
+            .named
+            .iter()
+            .map(|field| FieldValue {
+                attrs: Vec::new(),
+                member: Member::Named(field.ident.clone().unwrap()),
+                colon_token: Some(Token![:](field.span())),
+                expr: Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world))),
+            })
+            .collect(),
+        syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(index, field)| FieldValue {
+                attrs: Vec::new(),
+                member: Member::Unnamed(Index {
+                    index: index as u32,
+                    span: field.span(),
+                }),
+                colon_token: Some(Token![:](field.span())),
+                expr: Expr::Verbatim(quote!(#bevy_ecs_path::world::FromWorld::from_world(world))),
+            })
+            .collect(),
+        syn::Fields::Unit => Punctuated::new(),
+    };
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::world::FromWorld for #struct_name #ty_generics #where_clauses {
+            fn from_world(world: &mut #bevy_ecs_path::world::FromWorld) -> Self {
+                #[allow(clippy::init_numbered_fields)]
+                Self { #field_initializers }
+            }
+        }
+    })
 }
