@@ -398,7 +398,7 @@ mod tests {
 
     #[expect(
         clippy::iter_skip_zero,
-        reason = "Uniqueness of entities should be preserved, even when skipping zero entities."
+        reason = "The `skip(0)` is used to ensure that the `Skip` iterator implements `EntitySet`, which is needed to pass the iterator as the `entities` parameter."
     )]
     #[test]
     fn preserving_uniqueness() {
