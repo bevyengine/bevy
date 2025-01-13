@@ -1012,7 +1012,7 @@ pub struct HasSystemInput;
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -1040,7 +1040,7 @@ macro_rules! impl_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,

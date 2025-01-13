@@ -109,7 +109,7 @@ impl Schedules {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
-        #[allow(unused_variables)]
+        #[expect(unused_variables)]
         for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");

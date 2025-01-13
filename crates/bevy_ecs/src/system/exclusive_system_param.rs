@@ -88,8 +88,8 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 
 macro_rules! impl_exclusive_system_param_tuple {
     ($(#[$meta:meta])* $($param: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
+        #[expect(unused_variables)]
+        #[expect(non_snake_case)]
         $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
@@ -101,7 +101,7 @@ macro_rules! impl_exclusive_system_param_tuple {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
+            #[expect(clippy::unused_unit)]
             fn get_param<'s>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,

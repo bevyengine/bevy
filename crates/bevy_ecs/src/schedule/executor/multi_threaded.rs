@@ -759,7 +759,7 @@ unsafe fn evaluate_and_fold_conditions(
     world: UnsafeWorldCell,
 ) -> bool {
     // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
         .map(|condition| {

@@ -152,7 +152,7 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
@@ -172,7 +172,7 @@ mod tests {
     }
 
     // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -2648,30 +2648,30 @@ mod tests {
 
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntities {
         entities: Vec<Entity>,
@@ -2681,7 +2681,7 @@ mod tests {
         something_else: String,
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

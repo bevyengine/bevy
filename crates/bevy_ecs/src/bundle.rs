@@ -254,23 +254,23 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            #[allow(unused_variables)]
+            #[expect(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
-            #[allow(unused_variables)]
+            #[expect(unused_variables)]
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            #[allow(unused_variables, unused_mut)]
-            #[allow(clippy::unused_unit)]
+            #[expect(unused_variables, unused_mut)]
+            #[expect(clippy::unused_unit)]
             unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(unused_unsafe)]
+                #[expect(unused_unsafe)]
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
@@ -287,10 +287,10 @@ macro_rules! tuple_impl {
 
         $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
-            #[allow(unused_variables, unused_mut)]
+            #[expect(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                #[allow(non_snake_case)]
+                #[expect(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
                     $name.get_components(&mut *func);

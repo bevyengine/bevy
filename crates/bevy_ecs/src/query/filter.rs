@@ -98,7 +98,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -381,9 +381,9 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
 macro_rules! impl_or_query_filter {
     ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(unused_variables)]
+        #[expect(non_snake_case)]
+        #[expect(clippy::unused_unit)]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -518,9 +518,9 @@ macro_rules! impl_or_query_filter {
 
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(unused_variables)]
+        #[expect(non_snake_case)]
+        #[expect(clippy::unused_unit)]
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {

@@ -1758,7 +1758,7 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        #[expect(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,

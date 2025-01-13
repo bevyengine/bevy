@@ -2149,7 +2149,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
+#[expect(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
         self as bevy_ecs,
@@ -2163,7 +2163,7 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);

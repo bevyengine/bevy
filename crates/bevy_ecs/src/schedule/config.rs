@@ -563,7 +563,7 @@ macro_rules! impl_system_collection {
         where
             $($sys: IntoSystemConfigs<$param>),*
         {
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             fn into_configs(self) -> SystemConfigs {
                 let ($($sys,)*) = self;
                 SystemConfigs::Configs {
@@ -788,7 +788,7 @@ macro_rules! impl_system_set_collection {
         $(#[$meta])*
         impl<$($set: IntoSystemSetConfigs),*> IntoSystemSetConfigs for ($($set,)*)
         {
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             fn into_configs(self) -> SystemSetConfigs {
                 let ($($set,)*) = self;
                 SystemSetConfigs::Configs {

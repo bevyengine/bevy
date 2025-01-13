@@ -130,7 +130,7 @@ mod input;
 mod observer_system;
 mod query;
 mod schedule_system;
-#[allow(clippy::module_inception)]
+#[expect(clippy::module_inception)]
 mod system;
 mod system_name;
 mod system_param;
@@ -421,7 +421,7 @@ mod tests {
             let entities_array: [Entity; ENTITIES_COUNT] =
                 entities_array.0.clone().try_into().unwrap();
 
-            #[allow(unused_mut)]
+            #[expect(unused_mut)]
             for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
                 assert_eq!(i, w.0);
             }
@@ -902,9 +902,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         struct NotSend1(alloc::rc::Rc<i32>);
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         struct NotSend2(alloc::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
@@ -927,9 +927,9 @@ mod tests {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         struct NotSend1(alloc::rc::Rc<i32>);
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         struct NotSend2(alloc::rc::Rc<i32>);
 
         world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
@@ -1280,7 +1280,7 @@ mod tests {
 
     /// this test exists to show that read-only world-only queries can return data that lives as long as 'world
     #[test]
-    #[allow(unused)]
+    #[expect(unused)]
     fn long_life_test() {
         struct Holder<'w> {
             value: &'w A,

@@ -192,7 +192,7 @@ impl SingleThreadedExecutor {
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
     // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
         .map(|condition| {

@@ -609,7 +609,7 @@ impl<'w, T: Resource> Res<'w, T> {
     ///
     /// Note that unless you actually need an instance of `Res<T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.
-    #[allow(clippy::should_implement_trait)]
+    #[expect(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,

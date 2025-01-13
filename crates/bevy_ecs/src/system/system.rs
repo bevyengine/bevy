@@ -400,7 +400,7 @@ mod tests {
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn count_up(mut counter: ResMut<Counter>) {
         counter.0 += 1;
     }
@@ -416,7 +416,7 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn spawn_entity(mut commands: Commands) {
         commands.spawn_empty();
     }

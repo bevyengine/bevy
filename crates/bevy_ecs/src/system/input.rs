@@ -259,8 +259,8 @@ macro_rules! impl_system_input_tuple {
             type Param<'i> = ($($name::Param<'i>,)*);
             type Inner<'i> = ($($name::Inner<'i>,)*);
 
-            #[allow(non_snake_case)]
-            #[allow(clippy::unused_unit)]
+            #[expect(non_snake_case)]
+            #[expect(clippy::unused_unit)]
             fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
                 let ($($name,)*) = this;
                 ($($name::wrap($name),)*)

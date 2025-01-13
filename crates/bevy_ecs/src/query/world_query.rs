@@ -157,8 +157,8 @@ pub unsafe trait WorldQuery {
 macro_rules! impl_tuple_world_query {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(non_snake_case)]
+        #[expect(clippy::unused_unit)]
         $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
@@ -185,7 +185,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
+            #[expect(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are uphold by the caller.
@@ -216,7 +216,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline(always)]
-            #[allow(clippy::unused_unit)]
+            #[expect(clippy::unused_unit)]
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
@@ -231,11 +231,11 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, _access);)*
             }
-            #[allow(unused_variables)]
+            #[expect(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
-            #[allow(unused_variables)]
+            #[expect(unused_variables)]
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }

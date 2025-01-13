@@ -86,7 +86,7 @@ pub(crate) struct CheckGraphResults {
     pub(crate) transitive_reduction: DiGraph,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) transitive_closure: DiGraph,
 }
 

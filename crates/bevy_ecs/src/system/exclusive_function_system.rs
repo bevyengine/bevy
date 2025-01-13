@@ -219,7 +219,7 @@ pub struct HasExclusiveSystemInput;
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         impl<Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -248,7 +248,7 @@ macro_rules! impl_exclusive_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         impl<In, Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(HasExclusiveSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,

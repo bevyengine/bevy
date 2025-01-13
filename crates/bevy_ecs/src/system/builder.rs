@@ -303,9 +303,9 @@ macro_rules! impl_system_param_builder_tuple {
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
             fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
-                #[allow(non_snake_case)]
+                #[expect(non_snake_case)]
                 let ($($builder,)*) = self;
-                #[allow(clippy::unused_unit)]
+                #[expect(clippy::unused_unit)]
                 ($($builder.build(_world, _meta),)*)
             }
         }
@@ -407,7 +407,7 @@ macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             fn build(self, _world: &mut World, _system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
                 // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
@@ -431,7 +431,7 @@ macro_rules! impl_param_set_builder_tuple {
                         .archetype_component_access
                         .extend(&$meta.archetype_component_access);
                 )*
-                #[allow(clippy::unused_unit)]
+                #[expect(clippy::unused_unit)]
                 ($($param,)*)
             }
         }

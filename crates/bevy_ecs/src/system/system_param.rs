@@ -201,7 +201,7 @@ pub unsafe trait SystemParam: Sized {
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
     #[inline]
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     unsafe fn new_archetype(
         state: &mut Self::State,
         archetype: &Archetype,
@@ -214,12 +214,12 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// [`Commands`]: crate::prelude::Commands
     #[inline]
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     #[inline]
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
@@ -688,7 +688,7 @@ macro_rules! impl_param_set {
             type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
 
             // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                 $(
                     // Pretend to add each param to the system alone, see if it conflicts
@@ -2006,8 +2006,8 @@ macro_rules! impl_system_param_tuple {
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
         // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
-        #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
-        #[allow(non_snake_case)]
+        #[expect(clippy::undocumented_unsafe_blocks)] // false positive by clippy
+        #[expect(non_snake_case)]
         $(#[$meta])*
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
@@ -2019,7 +2019,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            #[allow(unused_unsafe)]
+            #[expect(unused_unsafe)]
             unsafe fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
                 // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
                 unsafe { $($param::new_archetype($param, _archetype, _system_meta);)* }
@@ -2046,7 +2046,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
+            #[expect(clippy::unused_unit)]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 _system_meta: &SystemMeta,
@@ -2643,7 +2643,7 @@ mod tests {
     // Compile test for https://github.com/bevyengine/bevy/pull/7001.
     #[test]
     fn system_param_const_generics() {
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         #[derive(SystemParam)]
         pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
@@ -2701,7 +2701,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct UnitParam;
 
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         #[derive(SystemParam)]
         pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
             Res<'w, R>,
@@ -2718,7 +2718,7 @@ mod tests {
         #[derive(Resource)]
         struct PrivateResource;
 
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         #[derive(SystemParam)]
         pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
