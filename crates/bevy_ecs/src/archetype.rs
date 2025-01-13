@@ -789,10 +789,7 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
-    #[expect(
-        dead_code,
-        reason = "This field is written to, but never read."
-    )]
+    #[expect(dead_code, reason = "This field is written to, but never read.")]
     pub(crate) column: Option<usize>,
 }
 
