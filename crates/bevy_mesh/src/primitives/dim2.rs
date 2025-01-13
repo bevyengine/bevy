@@ -897,8 +897,8 @@ pub struct RectangleMeshBuilder {
 impl RectangleMeshBuilder {
     /// Creates a new [`RectangleMeshBuilder`] from a full width and height.
     pub const fn new(width: f32, height: f32) -> Self {
-        debug_assert!(width >= 0, "rectangle has a negative width");
-        debug_assert!(height >= 0, "rectangle has a negative height");
+        debug_assert!(width >= 0.0, "rectangle has a negative width");
+        debug_assert!(height >= 0.0, "rectangle has a negative height");
 
         Self {
             half_size: Vec2::new(width / 2.0, height / 2.0),
