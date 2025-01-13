@@ -17,7 +17,7 @@ use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
     pointer::{Location, PointerId, PointerInput},
-    PickingBehavior,
+    Pickable,
 };
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -184,7 +184,7 @@ pub fn on_add_viewport(
                 ..default()
             },
             #[cfg(feature = "bevy_ui_picking_backend")]
-            PickingBehavior::IGNORE,
+            Pickable::IGNORE,
         ))
         .set_parent(node);
 
