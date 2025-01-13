@@ -55,7 +55,7 @@ fn prepare_view_upscaling_pipelines(
 
                     match blend_state {
                         None => {
-                            // If we've already seen this output for a camera and it doesn't have a output blend
+                            // If we've already seen this output for a camera and it doesn't have an output blend
                             // mode configured, default to alpha blend so that we don't accidentally overwrite
                             // the output texture
                             if already_seen {
