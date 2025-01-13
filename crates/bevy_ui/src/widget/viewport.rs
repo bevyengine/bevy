@@ -7,7 +7,7 @@ use bevy_ecs::{
     query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
-    world::{OnAdd},
+    world::OnAdd,
 };
 use bevy_hierarchy::{BuildChildren, Children};
 use bevy_image::Image;
