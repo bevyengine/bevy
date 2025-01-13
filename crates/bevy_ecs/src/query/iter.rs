@@ -2935,10 +2935,9 @@ impl<T> PartialEq for NeutralOrd<T> {
 
 impl<T> Eq for NeutralOrd<T> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<T> PartialOrd for NeutralOrd<T> {
-    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
-        Some(Ordering::Equal)
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -2953,13 +2952,9 @@ mod tests {
     use alloc::vec::Vec;
     use std::println;
 
-    #[expect(unused_imports)]
     use crate::component::Component;
-    #[expect(unused_imports)]
     use crate::entity::Entity;
-    #[expect(unused_imports)]
     use crate::prelude::World;
-    #[expect(unused_imports)]
     use crate::{self as bevy_ecs};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -2968,7 +2963,6 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
-    #[expect(clippy::unnecessary_sort_by)]
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
@@ -3156,7 +3150,6 @@ mod tests {
         }
     }
 
-    #[expect(clippy::unnecessary_sort_by)]
     #[test]
     fn query_iter_many_sorts() {
         let mut world = World::new();
