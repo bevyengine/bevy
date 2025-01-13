@@ -6,7 +6,7 @@
     test,
     expect(
         dependency_on_unit_never_type_fallback,
-        reason = "To be removed once Edition 2024 is released"
+        reason = "See #17340. To be removed once Edition 2024 is released"
     )
 )]
 #![doc = include_str!("../README.md")]
