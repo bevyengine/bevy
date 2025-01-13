@@ -302,11 +302,25 @@ macro_rules! impl_system_param_builder_tuple {
         $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
-            fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
-                #[expect(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is in a macro; as such, the below lints may not always apply."
+            )]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't use any of the parameters."
+            )]
+            fn build(self, world: &mut World, meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+                #[allow(
+                    non_snake_case,
+                    reason = "The variable names are provided by the macro caller, not by us."
+                )]
                 let ($($builder,)*) = self;
-                #[expect(clippy::unused_unit)]
-                ($($builder.build(_world, _meta),)*)
+                #[allow(
+                    clippy::unused_unit,
+                    reason = "Zero-length tuples won't generate any calls to the system parameter builders."
+                )]
+                ($($builder.build(world, meta),)*)
             }
         }
     };
@@ -407,8 +421,19 @@ macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            #[expect(non_snake_case)]
-            fn build(self, _world: &mut World, _system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is in a macro; as such, the below lints may not always apply."
+            )]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't use any of the parameters."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "The variable names are provided by the macro caller, not by us."
+            )]
+            fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
                 // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
                 // One call populates an empty `SystemMeta` with the new access, while the other runs against a cloned `SystemMeta` to check for conflicts.
@@ -416,22 +441,25 @@ macro_rules! impl_param_set_builder_tuple {
                 // That means that any `filtered_accesses` in the `component_access_set` will get copied to every `$meta`
                 // and will appear multiple times in the final `SystemMeta`.
                 $(
-                    let mut $meta = _system_meta.clone();
-                    let $param = $builder.build(_world, &mut $meta);
+                    let mut $meta = system_meta.clone();
+                    let $param = $builder.build(world, &mut $meta);
                 )*
                 // Make the ParamSet non-send if any of its parameters are non-send.
                 if false $(|| !$meta.is_send())* {
-                    _system_meta.set_non_send();
+                    system_meta.set_non_send();
                 }
                 $(
-                    _system_meta
+                    system_meta
                         .component_access_set
                         .extend($meta.component_access_set);
-                    _system_meta
+                    system_meta
                         .archetype_component_access
                         .extend(&$meta.archetype_component_access);
                 )*
-                #[expect(clippy::unused_unit)]
+                #[allow(
+                    clippy::unused_unit,
+                    reason = "Zero-length tuples won't generate any calls to the system parameter builders."
+                )]
                 ($($param,)*)
             }
         }
