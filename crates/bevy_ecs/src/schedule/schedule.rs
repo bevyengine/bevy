@@ -248,19 +248,38 @@ impl Schedules {
                         .diagnose("  ", "dependency", &id_to_names)?
                         .trim_end()
                 )?;
+            }
+        }
 
-                // Todo
-                // writeln!(
-                //     result,
-                //     "{}",
-                //     diagnose_dag(
-                //         "dependency flatten",
-                //         schedule_graph.dependency_flatten(),
-                //         &id_to_names,
-                //         "  "
-                //     )?
-                //     .trim_end()
-                // )?;
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the systems, including flattened representation.
+    pub fn diagnose_flattened(&mut self) -> Result<String, core::fmt::Error> {
+        let mut result = self.diagnose()?;
+
+        let label_with_schedules = self.iter_mut().collect::<Vec<_>>();
+
+        for (_, schedule) in label_with_schedules {
+            let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
+            schedule.systems_for_each(|node_id, system| {
+                id_to_names.insert(node_id, system.name());
+            });
+            for (node_id, set, _) in schedule.graph().system_sets() {
+                id_to_names.insert(node_id, format!("{:?}", set).into());
+            }
+
+            {
+                let schedule_graph = &mut schedule.graph;
+
+                writeln!(
+                    result,
+                    "{}",
+                    schedule_graph
+                        .dependency_flatten()
+                        .diagnose("  ", "dependency flatten", &id_to_names,)?
+                        .trim_end()
+                )?;
             }
         }
 
@@ -847,14 +866,21 @@ impl ScheduleGraph {
         &self.dependency
     }
 
-    // Todo
-    // /// Returns the [`Dag`] of the flatten dependencies in the schedule.
-    // ///
-    // /// Nodes in this graph are systems and sets, and edges denote that
-    // /// a system or set has to run before another system or set.
-    // pub fn dependency_flatten(&self) -> &Dag {
-    //     &self.dependency_flattened
-    // }
+    /// Returns the [`Dag`] of the flatten dependencies in the schedule.
+    ///
+    /// Nodes in this graph are systems and sets, and edges denote that
+    /// a system or set has to run before another system or set.
+    pub fn dependency_flatten(&mut self) -> Dag {
+        let (set_systems, _) =
+            self.map_sets_to_systems(&self.hierarchy.topsort, &self.hierarchy.graph);
+        let dependency_flattened = self.get_dependency_flattened(&set_systems);
+        Dag {
+            topsort: self
+                .topsort_graph(&dependency_flattened, ReportCycles::Dependency)
+                .unwrap(), // Todo Investigate.
+            graph: dependency_flattened,
+        }
+    }
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
     ///
