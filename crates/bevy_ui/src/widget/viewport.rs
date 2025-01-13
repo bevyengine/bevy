@@ -29,9 +29,7 @@ use bevy_utils::{default, HashSet};
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
-use crate::{ComputedNode, Node, PositionType, Val};
-
-use super::ImageNode;
+use crate::{ComputedNode, ImageNode, Node, PositionType, Val};
 
 /// Component used to render a [`Camera::target`]  to a node.
 ///
@@ -61,7 +59,7 @@ impl Viewport {
 /// Viewport entities that are being hovered or dragged will have all pointer inputs sent to them.
 #[expect(
     clippy::too_many_arguments,
-    reason = "Won't have too many arguments when `dragged_last_frame` is removed"
+    reason = "System requires a lot of arguments"
 )]
 pub fn viewport_picking(
     mut commands: Commands,
@@ -71,7 +69,6 @@ pub fn viewport_picking(
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
-    // TODO: Is this needed?
     mut dragged_last_frame: Local<HashSet<(Entity, PointerId)>>,
 ) {
     let mut viewport_picks: HashSet<(Entity, PointerId)> = dragged_last_frame
@@ -87,7 +84,7 @@ pub fn viewport_picking(
     // does not allow dragging in-and-out of viewports.
     //
     // We resolve this by considering viewports that are being dragged.
-    for ((pointer_id, _pointer_button), pointer_state) in pointer_state.pointer_buttons.iter() {
+    for ((pointer_id, _), pointer_state) in pointer_state.pointer_buttons.iter() {
         for &target in pointer_state
             .dragging
             .keys()
@@ -119,7 +116,6 @@ pub fn viewport_picking(
             .ok()
             .and_then(Camera::logical_viewport_size)
         else {
-            // TODO: Error?
             continue;
         };
 
@@ -165,11 +161,9 @@ pub fn on_add_viewport(
 
     let viewport = viewport_query.get(node).unwrap();
     let Ok(camera) = camera_query.get(viewport.camera) else {
-        // TODO: Error?
         return;
     };
     let Some(image_handle) = camera.target.as_image() else {
-        // TODO: Error?
         return;
     };
     commands
@@ -214,7 +208,6 @@ pub fn update_viewport_render_target_size(
         let size = computed_node.size();
 
         let Some(image_handle) = camera.target.as_image() else {
-            // TODO: Error?
             continue;
         };
         let size = Extent3d {
