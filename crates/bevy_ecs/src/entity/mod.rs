@@ -1194,7 +1194,7 @@ mod tests {
     #[test]
     #[expect(
         clippy::nonminimal_bool,
-        reason = "This function intentionally tests all possible comparison operators; thus, we don't want to rewrite these comparisons to use different operators."
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
     )]
     fn entity_comparison() {
         assert_eq!(
