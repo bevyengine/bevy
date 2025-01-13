@@ -500,6 +500,12 @@ where
         if key.mesh_key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING)
+        {
+            shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
+        }
 
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
@@ -799,18 +805,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<
-        (
-            Entity,
-            &RenderVisibleEntities,
-            &Msaa,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
-        ),
-        With<ExtractedView>,
-    >,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        &Msaa,
+        Option<&DepthPrepass>,
+        Option<&NormalPrepass>,
+        Option<&MotionVectorPrepass>,
+        Option<&DeferredPrepass>,
+    )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -831,7 +834,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
-        view,
+        extracted_view,
         visible_entities,
         msaa,
         depth_prepass,
@@ -846,10 +849,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
             mut opaque_deferred_phase,
             mut alpha_mask_deferred_phase,
         ) = (
-            opaque_prepass_render_phases.get_mut(&view),
-            alpha_mask_prepass_render_phases.get_mut(&view),
-            opaque_deferred_render_phases.get_mut(&view),
-            alpha_mask_deferred_render_phases.get_mut(&view),
+            opaque_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
+            alpha_mask_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
+            opaque_deferred_render_phases.get_mut(&extracted_view.retained_view_entity),
+            alpha_mask_deferred_render_phases.get_mut(&extracted_view.retained_view_entity),
         );
 
         // Skip if there's no place to put the mesh.
@@ -923,12 +926,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::DEFERRED_PREPASS;
             }
 
-            let lightmap_slab_index = render_lightmaps
-                .render_lightmaps
-                .get(visible_entity)
-                .map(|lightmap| lightmap.slab_index);
-            if lightmap_slab_index.is_some() {
+            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
+                // Even though we don't use the lightmap in the forward prepass, the
+                // `SetMeshBindGroup` render command will bind the data for it. So
+                // we need to include the appropriate flag in the mesh pipeline key
+                // to ensure that the necessary bind group layout entries are
+                // present.
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+
+                if lightmap.bicubic_sampling && deferred {
+                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
+                }
             }
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {

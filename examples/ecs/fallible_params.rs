@@ -27,13 +27,13 @@ fn main() {
         .add_systems(
             Update,
             (
-                user_input.param_warn_once(),
-                move_targets.never_param_warn(),
-                move_pointer.never_param_warn(),
+                user_input.warn_param_missing(),
+                move_targets.ignore_param_missing(),
+                move_pointer.ignore_param_missing(),
             )
                 .chain(),
         )
-        .add_systems(Update, do_nothing_fail_validation.param_warn_once())
+        .add_systems(Update, do_nothing_fail_validation.warn_param_missing())
         .run();
 }
 

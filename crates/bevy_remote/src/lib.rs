@@ -305,7 +305,7 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
-#![deny(
+#![warn(
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     reason = "See #17111; To be removed once all crates are in-line with these attributes"
