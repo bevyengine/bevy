@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "This instance of module inception is being discussed; see #17353."
+)]
 use core::fmt::Debug;
 use log::warn;
 use thiserror::Error;
