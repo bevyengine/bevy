@@ -299,22 +299,22 @@ unsafe impl<
 
 macro_rules! impl_system_param_builder_tuple {
     ($(#[$meta:meta])* $(($param: ident, $builder: ident)),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro; as such, the below lints may not always apply."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The variable names are provided by the macro caller, not by us."
+        )]
         $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is in a macro; as such, the below lints may not always apply."
-            )]
-            #[allow(
-                unused_variables,
-                reason = "Zero-length tuples won't use any of the parameters."
-            )]
             fn build(self, world: &mut World, meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
-                #[allow(
-                    non_snake_case,
-                    reason = "The variable names are provided by the macro caller, not by us."
-                )]
                 let ($($builder,)*) = self;
                 #[allow(
                     clippy::unused_unit,
@@ -419,20 +419,20 @@ pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro; as such, the below lints may not always apply."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The variable names are provided by the macro caller, not by us."
+        )]
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is in a macro; as such, the below lints may not always apply."
-            )]
-            #[allow(
-                unused_variables,
-                reason = "Zero-length tuples won't use any of the parameters."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "The variable names are provided by the macro caller, not by us."
-            )]
             fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
                 // Note that this is slightly different from `init_state`, which calls `init_state` on each param twice.
