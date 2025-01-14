@@ -3,14 +3,13 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::CloneEntityWithObserversExt;
+pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
 pub use runner::*;
 
 use crate::{
     archetype::ArchetypeFlags,
     component::ComponentId,
     entity::EntityHashMap,
-    observer::entity_observer::ObservedBy,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
