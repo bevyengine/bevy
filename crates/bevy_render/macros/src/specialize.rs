@@ -1,9 +1,9 @@
-use proc_macro::{Ident, TokenStream};
+use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Attribute, Data, DataStruct,
-    DeriveInput, Expr, Index, Member, Meta, MetaNameValue, Path, Token, Type,
+    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Data, DataStruct, DeriveInput,
+    Index, Member, Meta, MetaNameValue, Path, Token, Type,
 };
 
 const KEY_ATTR_IDENT: &str = "key";
@@ -27,7 +27,7 @@ pub fn derive_specialize(input: TokenStream, target_path: Path) -> TokenStream {
             Data::Enum(data_enum) => data_enum.enum_token.span(),
             Data::Union(data_union) => data_union.union_token.span(),
         };
-        return syn::Error::new(error_span, "#[derive(QueryData)]` only supports structs")
+        return syn::Error::new(error_span, "#[derive(Specialize)]` only supports structs") //TODO: proper name here
             .into_compile_error()
             .into();
     };
@@ -45,25 +45,20 @@ pub fn derive_specialize(input: TokenStream, target_path: Path) -> TokenStream {
             Member::Named,
         );
 
-        let mut use_key_field: Result<Member, Expr> = Ok(Member::Unnamed(Index {
-            index: key_elems.len() as u32,
-            span: field.span(),
-        }));
+        let mut key_expr = quote!(key.#{key_elems.len() as u32});
+        let mut use_key_field = true;
         for attr in &field.attrs {
             if let Meta::NameValue(MetaNameValue { path, value, .. }) = &attr.meta {
                 if path.is_ident(&KEY_ATTR_IDENT) {
-                    use_key_field = Err(value.clone());
+                    key_expr = value.to_token_stream();
+                    use_key_field = false;
                 }
             }
         }
 
-        let key_expr = match use_key_field {
-            Ok(key_member) => {
-                key_elems.push(field_ty.clone());
-                quote!(key.#key_member)
-            }
-            Err(raw_key_expr) => quote!(#raw_key_expr),
-        };
+        if use_key_field {
+            key_elems.push(field_ty.clone());
+        }
 
         sub_specializers.push(quote!(<#field_ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#field_member, #key_expr, descriptor);));
     }
