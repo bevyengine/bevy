@@ -121,7 +121,7 @@ pub fn derive_specialize_render_pipeline(input: TokenStream) -> TokenStream {
         path.segments.push(format_ident!("RenderPipeline").into());
         path
     };
-    derive_specialize(input, target_path)
+    derive_specialize(input, target_path, "SpecializeRenderPipeline")
 }
 
 /// Derive macro generating an impl of the trait `Specialize<ComputePipeline>`
@@ -135,5 +135,5 @@ pub fn derive_specialize_compute_pipeline(input: TokenStream) -> TokenStream {
         path.segments.push(format_ident!("ComputePipeline").into());
         path
     };
-    derive_specialize(input, target_path)
+    derive_specialize(input, target_path, "SpecializeComputePipeline")
 }

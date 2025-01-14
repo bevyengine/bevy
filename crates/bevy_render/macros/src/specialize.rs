@@ -8,7 +8,7 @@ use syn::{
 
 const KEY_ATTR_IDENT: &str = "key";
 
-pub fn derive_specialize(input: TokenStream, target_path: Path) -> TokenStream {
+pub fn derive_specialize(input: TokenStream, target_path: Path, derive_name: &str) -> TokenStream {
     let bevy_render_path: Path = crate::bevy_render_path();
     let specialize_path = {
         let mut path = bevy_render_path.clone();
@@ -27,9 +27,12 @@ pub fn derive_specialize(input: TokenStream, target_path: Path) -> TokenStream {
             Data::Enum(data_enum) => data_enum.enum_token.span(),
             Data::Union(data_union) => data_union.union_token.span(),
         };
-        return syn::Error::new(error_span, "#[derive(Specialize)]` only supports structs") //TODO: proper name here
-            .into_compile_error()
-            .into();
+        return syn::Error::new(
+            error_span,
+            format!("#[derive({derive_name})]` only supports structs"),
+        )
+        .into_compile_error()
+        .into();
     };
 
     let mut key_elems: Punctuated<Type, Token![,]> = Punctuated::new();
