@@ -11,6 +11,7 @@ mod pipeline_cache;
 mod pipeline_specializer;
 pub mod resource_macros;
 mod shader;
+mod specialize;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
