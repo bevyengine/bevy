@@ -414,7 +414,7 @@ pub trait AsBindGroup {
         )
     }
 
-    /// Returns a vec of bind group layout entries
+    /// Returns a vec of bind group layout entries.
     ///
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base
