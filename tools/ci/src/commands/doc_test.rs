@@ -16,7 +16,7 @@ impl Prepare for DocTestCommand {
 
         let jobs = args
             .jobs
-            .map(|jobs| format!(" --jobs{jobs}"))
+            .map(|jobs| format!(" --jobs {jobs}"))
             .unwrap_or_default();
 
         let test_threads = args
