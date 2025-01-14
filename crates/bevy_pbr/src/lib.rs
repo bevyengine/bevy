@@ -1,6 +1,11 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -24,8 +29,8 @@ pub mod experimental {
     }
 }
 
-mod bundle;
 mod cluster;
+mod components;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -47,8 +52,8 @@ use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 
-pub use bundle::*;
 pub use cluster::*;
+pub use components::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -62,29 +67,17 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-#[allow(deprecated)]
-pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
-    VolumetricLight,
-};
+pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
 
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::{
-            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
-            SpotLightBundle,
-        },
         fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{
-            environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
-            LightProbe,
-        },
+        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,

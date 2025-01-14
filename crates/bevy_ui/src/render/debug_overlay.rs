@@ -54,7 +54,6 @@ impl Default for UiDebugOptions {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
@@ -76,13 +75,14 @@ pub fn extract_debug_overlay(
         return;
     }
 
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
             continue;
         };
 

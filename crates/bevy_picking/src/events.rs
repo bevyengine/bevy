@@ -37,14 +37,15 @@
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
 //! general metadata about the pointer event.
 
-use core::fmt::Debug;
+use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::{tracing::debug, Duration, HashMap, Instant};
+use bevy_utils::{HashMap, Instant};
 use bevy_window::Window;
+use tracing::debug;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
@@ -400,7 +401,6 @@ pub struct PickingEventWriters<'w> {
 /// determined only by the pointer's *final position*. Since the hover state
 /// ultimately determines which entities receive events, this may mean that an
 /// entity can receive events from before or after it was actually hovered.
-#[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
     mut input_events: EventReader<PointerInput>,
@@ -660,6 +660,9 @@ pub fn pointer_events(
             }
             // Moved
             PointerAction::Moved { delta } => {
+                if delta == Vec2::ZERO {
+                    continue; // If delta is zero, the following events will not be triggered.
+                }
                 // Triggers during movement even if not over an entity
                 for button in PointerButton::iter() {
                     let state = pointer_state.get_mut(pointer_id, button);

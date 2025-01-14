@@ -118,7 +118,7 @@ impl_reflect_opaque!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeFull());
 impl_reflect_opaque!(::core::ops::Bound<T: Clone + Send + Sync>());
-impl_reflect_opaque!(::bevy_utils::Duration(
+impl_reflect_opaque!(::core::time::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -367,10 +367,12 @@ impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicUsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI64,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU64,
     ::core::sync::atomic::Ordering::SeqCst
@@ -2430,8 +2432,11 @@ mod tests {
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_utils::{Duration, HashMap, Instant};
-    use core::f32::consts::{PI, TAU};
+    use bevy_utils::{HashMap, Instant};
+    use core::{
+        f32::consts::{PI, TAU},
+        time::Duration,
+    };
     use static_assertions::assert_impl_all;
     use std::path::Path;
 

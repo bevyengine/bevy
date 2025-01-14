@@ -1,10 +1,23 @@
-use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_image::Image;
+use bevy_app::prelude::*;
+use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{URect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::HashMap;
+
+use crate::Image;
+
+/// Adds support for texture atlases.
+pub struct TextureAtlasPlugin;
+
+impl Plugin for TextureAtlasPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<TextureAtlasLayout>()
+            .register_asset_reflect::<TextureAtlasLayout>()
+            .register_type::<TextureAtlas>();
+    }
+}
 
 /// Stores a mapping from sub texture handles to the related area index.
 ///

@@ -12,9 +12,9 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
+use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -91,7 +91,6 @@ struct CameraLayoutInfo {
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,

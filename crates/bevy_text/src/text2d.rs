@@ -16,7 +16,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
@@ -26,22 +26,10 @@ use bevy_render::{
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
-
-/// [`Text2dBundle`] was removed in favor of required components.
-/// The core component is now [`Text2d`] which can contain a single text segment.
-/// Indexed access to segments can be done with the new [`Text2dReader`] and [`Text2dWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
-/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
-/// while sprite-related configuration uses [`TextBounds`] and [`Anchor`] components.
-#[deprecated(
-    since = "0.15.0",
-    note = "Text2dBundle has been migrated to required components. Follow the documentation for more information."
-)]
-pub struct Text2dBundle {}
 
 /// The top-level 2D text component.
 ///
@@ -233,7 +221,6 @@ pub fn extract_text2d_sprite(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     mut last_scale_factor: Local<f32>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.

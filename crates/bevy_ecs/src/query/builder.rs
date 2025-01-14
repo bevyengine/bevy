@@ -81,7 +81,6 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        #[allow(deprecated)]
         let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
             self.access.access().component_reads_and_writes();
         if component_reads_and_writes_inverted {

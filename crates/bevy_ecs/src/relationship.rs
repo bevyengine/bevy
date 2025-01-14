@@ -6,12 +6,16 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::Entity,
     query::{QueryData, QueryFilter, WorldQuery},
-    system::{Commands, EntityCommands, Query},
+    system::{
+        command::HandleError,
+        entity_command::{self, CommandWithEntity},
+        error_handler, Commands, EntityCommands, Query,
+    },
     world::{DeferredWorld, EntityWorldMut, World},
 };
 use alloc::{collections::VecDeque, vec::Vec};
-use bevy_utils::tracing::warn;
 use core::marker::PhantomData;
+use log::warn;
 use smallvec::SmallVec;
 
 // The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
@@ -105,9 +109,9 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
             for source_entity in sources.iter() {
                 if world.get_entity(source_entity).is_some() {
                     commands.push(
-                        entity_commands::remove(Self::Relationship)
+                        entity_command::remove::<Self::Relationship>()
                             .with_entity(source_entity)
-                            .with_error_handler(error_handler::silent()),
+                            .handle_error_with(error_handler::silent()),
                     );
                 } else {
                     warn!("Tried to despawn non-existent entity {}", source_entity);
@@ -122,11 +126,11 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
             let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
             let mut commands = world.get_raw_command_queue();
             for source_entity in sources.iter() {
-                if world.has_entity(source_entity) {
+                if world.get_entity(source_entity).is_some() {
                     commands.push(
-                        entity_commands::despawn()
+                        entity_command::despawn()
                             .with_entity(source_entity)
-                            .with_error_handler(error_handler::silent()),
+                            .handle_error_with(error_handler::silent()),
                     );
                 } else {
                     warn!("Tried to despawn non-existent entity {}", source_entity);

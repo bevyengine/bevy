@@ -1,5 +1,10 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -16,10 +21,6 @@ extern crate alloc;
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
-
-/// Transform related bundles
-#[cfg(feature = "bevy-support")]
-pub mod bundles;
 
 /// Transform related traits
 pub mod traits;
@@ -40,7 +41,6 @@ pub mod systems;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 #[doc(hidden)]
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::components::*;
@@ -48,7 +48,6 @@ pub mod prelude {
     #[cfg(feature = "bevy-support")]
     #[doc(hidden)]
     pub use crate::{
-        bundles::TransformBundle,
         commands::BuildChildrenTransformExt,
         helper::TransformHelper,
         plugins::{TransformPlugin, TransformSystem},

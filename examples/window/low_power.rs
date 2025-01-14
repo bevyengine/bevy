@@ -5,10 +5,10 @@
 
 use bevy::{
     prelude::*,
-    utils::Duration,
     window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
+use core::time::Duration;
 
 fn main() {
     App::new()

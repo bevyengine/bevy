@@ -7,7 +7,11 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![forbid(unsafe_code)]
-#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
+#![deny(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -30,7 +34,7 @@ mod schedule_runner;
 mod sub_app;
 #[cfg(feature = "bevy_tasks")]
 mod task_pool_plugin;
-#[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
+#[cfg(all(any(unix, windows), feature = "std"))]
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
@@ -42,7 +46,7 @@ pub use schedule_runner::*;
 pub use sub_app::*;
 #[cfg(feature = "bevy_tasks")]
 pub use task_pool_plugin::*;
-#[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
+#[cfg(all(any(unix, windows), feature = "std"))]
 pub use terminal_ctrl_c_handler::*;
 
 /// The app prelude.

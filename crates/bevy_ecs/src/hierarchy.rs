@@ -24,6 +24,7 @@ use bevy_ecs_macros::VisitEntitiesMut;
 use bevy_reflect::Reflect;
 use core::slice;
 use disqualified::ShortName;
+use log::warn;
 
 #[derive(Component, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[reflect(
@@ -86,7 +87,7 @@ impl Component for Children {
     type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut crate::component::ComponentHooks) {
-        hooks.on_remove(Self::on_remove);
+        hooks.on_replace(Self::on_replace);
     }
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
@@ -235,7 +236,7 @@ pub fn validate_parent_has_component<C: Component>(
     {
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
-        bevy_utils::tracing::warn!(
+        warn!(
             "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
             ty_name = ShortName::of::<C>(),

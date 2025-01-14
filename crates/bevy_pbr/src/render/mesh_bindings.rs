@@ -495,7 +495,6 @@ impl MeshLayouts {
     }
 
     /// Creates the bind group for meshes with skins and morph targets.
-    #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
@@ -523,7 +522,6 @@ impl MeshLayouts {
     /// [`MeshLayouts::morphed_motion`] above for more information about the
     /// `current_skin`, `prev_skin`, `current_weights`, and `prev_weights`
     /// buffers.
-    #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned_motion(
         &self,
         render_device: &RenderDevice,
