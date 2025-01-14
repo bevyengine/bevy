@@ -414,7 +414,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
-                    #[expect(clippy::match_same_arms)]
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
