@@ -906,7 +906,7 @@ mod tests {
         world.insert_resource(SystemRan::No);
         // Two structs are used, one which is inserted and one which is not, to verify that wrapping
         // non-Send resources in an `Option` will allow the system to run regardless of their
-        // existance.
+        // existence.
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
