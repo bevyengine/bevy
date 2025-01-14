@@ -162,7 +162,7 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 ///     .build_state(&mut world)
 ///     .build_system(my_system);
 /// ```
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ParamBuilder;
 
 // SAFETY: Calls `SystemParam::init_state`
@@ -257,6 +257,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     .build_state(&mut world)
 ///     .build_system(|query: Vec<Query<()>>| {});
 /// ```
+#[derive(Clone)]
 pub struct QueryParamBuilder<T>(T);
 
 impl<T> QueryParamBuilder<T> {
@@ -401,6 +402,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 ///     set.for_each(|mut query| for mut health in query.iter_mut() {});
 /// }
 /// ```
+#[derive(Debug, Default, Clone)]
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
@@ -520,6 +522,7 @@ unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamB
 ///     });
 /// # world.run_system_once(system);
 /// ```
+#[derive(Default, Debug, Clone)]
 pub struct LocalBuilder<T>(pub T);
 
 // SAFETY: `Local` performs no world access.
@@ -537,6 +540,7 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 
 /// A [`SystemParamBuilder`] for a [`FilteredResources`].
 /// See the [`FilteredResources`] docs for examples.
+#[derive(Clone)]
 pub struct FilteredResourcesParamBuilder<T>(T);
 
 impl<T> FilteredResourcesParamBuilder<T> {
@@ -600,6 +604,7 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
 
 /// A [`SystemParamBuilder`] for a [`FilteredResourcesMut`].
 /// See the [`FilteredResourcesMut`] docs for examples.
+#[derive(Clone)]
 pub struct FilteredResourcesMutParamBuilder<T>(T);
 
 impl<T> FilteredResourcesMutParamBuilder<T> {
