@@ -6,6 +6,7 @@ extern crate proc_macro;
 mod component;
 mod query_data;
 mod query_filter;
+mod relationship;
 mod states;
 mod world_query;
 
@@ -610,4 +611,9 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SubStates, attributes(source))]
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
+}
+
+#[proc_macro_derive(Relationship, attributes(relationship_sources))]
+pub fn derive_relationship(input: TokenStream) -> TokenStream {
+    relationship::derive_relationship(input)
 }

@@ -1,6 +1,8 @@
 // TODO: remove this
 #![allow(missing_docs)]
 
+pub use bevy_ecs_macros::Relationship;
+
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentId, Mutable},

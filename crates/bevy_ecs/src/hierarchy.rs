@@ -26,7 +26,7 @@ use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-#[derive(Component, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
+#[derive(Relationship, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[reflect(
     Component,
     MapEntities,
@@ -36,33 +36,12 @@ use log::warn;
     Debug,
     FromWorld
 )]
-#[component(
-    immutable,
-    on_insert = Self::on_insert,
-    on_replace = Self::on_replace,
-)]
+#[relationship_sources(Children)]
 pub struct Parent(pub Entity);
 
 impl Parent {
     pub fn get(&self) -> Entity {
         self.0
-    }
-}
-
-impl Relationship for Parent {
-    type RelationshipSources = Children;
-
-    #[inline(always)]
-    fn get(&self) -> Entity {
-        self.0
-    }
-
-    fn set(&mut self, entity: Entity) {
-        self.0 = entity;
-    }
-
-    fn from(entity: Entity) -> Self {
-        Self(entity)
     }
 }
 
