@@ -1,5 +1,6 @@
 //! Contains error types returned by bevy's schedule.
 
+use alloc::vec::Vec;
 use thiserror::Error;
 
 use crate::{
@@ -14,6 +15,22 @@ use crate::{
 #[derive(Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
+
+/// The error type returned by [`World::try_despawn`] if the provided entity does not exist.
+///
+/// [`World::try_despawn`]: crate::world::World::try_despawn
+#[derive(Error, Debug, Clone, Copy)]
+#[error("Could not despawn the entity with ID {0} because it {1}")]
+pub struct TryDespawnError(pub Entity, pub EntityDoesNotExistDetails);
+
+/// The error type returned by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
+/// if any of the provided entities do not exist.
+///
+/// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
+/// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
+#[derive(Error, Debug, Clone)]
+#[error("Could not insert bundles of type {0} into the entities with the following IDs because they did not exist: {1:?}")]
+pub struct TryInsertBatchError(pub &'static str, pub Vec<Entity>);
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
