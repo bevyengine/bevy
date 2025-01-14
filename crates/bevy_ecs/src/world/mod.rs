@@ -43,6 +43,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Resource},
@@ -68,42 +69,6 @@ use bevy_ptr::UnsafeCellDeref;
 use core::panic::Location;
 
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::queue`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.queue(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -709,9 +674,7 @@ impl World {
         fn panic_no_entity(world: &World, entity: Entity) -> ! {
             panic!(
                 "Entity {entity} {}",
-                world
-                    .entities
-                    .entity_does_not_exist_error_details_message(entity)
+                world.entities.entity_does_not_exist_error_details(entity)
             );
         }
 
@@ -1230,11 +1193,7 @@ impl World {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<T>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` is the only thing that is borrowing world
-        // - `as_unsafe_world_cell` provides mutable permission to everything
-        // - `&mut self` ensures no other borrows on world data
-        unsafe { self.as_unsafe_world_cell().get_entity(entity)?.get_mut() }
+        self.get_entity_mut(entity).ok()?.into_mut()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -1284,8 +1243,7 @@ impl World {
             Err(EntityFetchError::NoSuchEntity(..)) => {
                 return Err(EntityFetchError::NoSuchEntity(
                     entity,
-                    self.entities()
-                        .entity_does_not_exist_error_details_message(entity),
+                    self.entities().entity_does_not_exist_error_details(entity),
                 ))
             }
         };
@@ -1348,7 +1306,7 @@ impl World {
             true
         } else {
             if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details_message(entity));
+                warn!("error[B0003]: {caller}: Could not despawn entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details(entity));
             }
             false
         }
@@ -2507,11 +2465,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(entity));
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(first_entity));
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -3509,14 +3467,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        // SAFETY:
-        // - `&self` ensures that all accessed data is not mutably aliased
-        // - `as_unsafe_world_cell_readonly` provides shared/readonly permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell_readonly()
-                .get_entity(entity)?
-                .get_by_id(component_id)
-        }
+        self.get_entity(entity).ok()?.get_by_id(component_id).ok()
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -3530,15 +3481,10 @@ impl World {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY:
-        // - `&mut self` ensures that all accessed data is unaliased
-        // - `as_unsafe_world_cell` provides mutable permission to the whole world
-        unsafe {
-            self.as_unsafe_world_cell()
-                .get_entity(entity)?
-                .get_mut_by_id(component_id)
-                .ok()
-        }
+        self.get_entity_mut(entity)
+            .ok()?
+            .into_mut_by_id(component_id)
+            .ok()
     }
 }
 
@@ -4371,5 +4317,35 @@ mod tests {
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
             Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+    }
+
+    #[cfg(feature = "track_location")]
+    #[test]
+    #[track_caller]
+    fn entity_spawn_despawn_tracking() {
+        use core::panic::Location;
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            Some(Location::caller())
+        );
+        world.despawn(entity);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            Some(Location::caller())
+        );
+        let new = world.spawn_empty().id();
+        assert_eq!(entity.index(), new.index());
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            None
+        );
+        world.despawn(new);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            None
+        );
     }
 }

@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
+)]
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -10,7 +14,7 @@ use crate::{
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
-        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
+        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -893,7 +897,6 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-#[allow(clippy::too_many_arguments)]
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -1042,6 +1045,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
+            Entity,
             RenderEntity,
             &Camera,
             &CameraRenderGraph,
@@ -1062,6 +1066,7 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
+        main_entity,
         render_entity,
         camera,
         camera_render_graph,
@@ -1148,6 +1153,7 @@ pub fn extract_cameras(
                     hdr: camera.hdr,
                 },
                 ExtractedView {
+                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,

@@ -116,7 +116,7 @@ pub unsafe trait WorldQuery {
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
     /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
-    /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
+    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
     /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
@@ -157,8 +157,22 @@ pub unsafe trait WorldQuery {
 macro_rules! impl_tuple_world_query {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
@@ -185,64 +199,60 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are uphold by the caller.
-                ($(unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },)*)
+                ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
             unsafe fn set_archetype<'w>(
-                _fetch: &mut Self::Fetch<'w>,
-                _state: &Self::State,
-                _archetype: &'w Archetype,
-                _table: &'w Table
+                fetch: &mut Self::Fetch<'w>,
+                state: &Self::State,
+                archetype: &'w Archetype,
+                table: &'w Table
             ) {
-                let ($($name,)*) = _fetch;
-                let ($($state,)*) = _state;
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
                 // SAFETY: The invariants are uphold by the caller.
-                $(unsafe { $name::set_archetype($name, $state, _archetype, _table); })*
+                $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
-                let ($($name,)*) = _fetch;
-                let ($($state,)*) = _state;
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
                 // SAFETY: The invariants are uphold by the caller.
-                $(unsafe { $name::set_table($name, $state, _table); })*
+                $(unsafe { $name::set_table($name, $state, table); })*
             }
 
             #[inline(always)]
-            #[allow(clippy::unused_unit)]
             unsafe fn fetch<'w>(
-                _fetch: &mut Self::Fetch<'w>,
-                _entity: Entity,
-                _table_row: TableRow
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                ($(unsafe { $name::fetch($name, _entity, _table_row) },)*)
+                ($(unsafe { $name::fetch($name, entity, table_row) },)*)
             }
 
-            fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
-                $($name::update_component_access($name, _access);)*
+                $($name::update_component_access($name, access);)*
             }
-            #[allow(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
-            #[allow(unused_variables)]
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
 
-            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
-                true $(&& $name::matches_component_set($name, _set_contains_id))*
+                true $(&& $name::matches_component_set($name, set_contains_id))*
             }
         }
     };

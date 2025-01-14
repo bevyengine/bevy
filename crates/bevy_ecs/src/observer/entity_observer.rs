@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
-pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
+pub struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;

@@ -11,7 +11,7 @@ use crate::{
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
-    system::IntoObserverSystem,
+    system::{IntoObserverSystem, Resource},
     world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
 use alloc::vec::Vec;
@@ -388,12 +388,11 @@ impl PartialEq for EntityRef<'_> {
 
 impl Eq for EntityRef<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityRef<'_> {
     /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -944,12 +943,11 @@ impl PartialEq for EntityMut<'_> {
 
 impl Eq for EntityMut<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityMut<'_> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -1001,7 +999,7 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.world
                 .entities()
-                .entity_does_not_exist_error_details_message(self.entity)
+                .entity_does_not_exist_error_details(self.entity)
         );
     }
 
@@ -1320,6 +1318,45 @@ impl<'w> EntityWorldMut<'w> {
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](EntityWorldMut::get_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.world.resource::<R>()
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.world.resource_mut::<R>()
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.world.get_resource()
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.world.get_resource_mut()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1719,7 +1756,10 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Needs to be documented; see #17345."
+        )]
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,
@@ -1746,7 +1786,6 @@ impl<'w> EntityWorldMut<'w> {
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
-    #[allow(clippy::too_many_arguments)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
         entity: Entity,
         self_location: &mut EntityLocation,
@@ -1826,7 +1865,6 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
@@ -3141,12 +3179,11 @@ impl PartialEq for FilteredEntityRef<'_> {
 
 impl Eq for FilteredEntityRef<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityRef<'_> {
     /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3468,12 +3505,11 @@ impl PartialEq for FilteredEntityMut<'_> {
 
 impl Eq for FilteredEntityMut<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityMut<'_> {
     /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3616,12 +3652,11 @@ impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3756,12 +3791,11 @@ impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 

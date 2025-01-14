@@ -1,6 +1,11 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -97,6 +102,8 @@ pub mod graph {
         GpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the indirect parameters building pass.
+        BuildIndirectParameters,
     }
 }
 
@@ -336,6 +343,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,

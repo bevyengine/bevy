@@ -156,7 +156,6 @@ pub struct MeshBufferSlice<'a> {
 pub struct SlabId(pub NonMaxU32);
 
 /// Data for a single slab.
-#[allow(clippy::large_enum_variant)]
 enum Slab {
     /// A slab that can contain multiple objects.
     General(GeneralSlab),
@@ -527,7 +526,6 @@ impl MeshAllocator {
     }
 
     /// A generic function that copies either vertex or index data into a slab.
-    #[allow(clippy::too_many_arguments)]
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
@@ -863,7 +861,7 @@ impl MeshAllocator {
 }
 
 impl GeneralSlab {
-    /// Creates a new growable slab big enough to hold an single element of
+    /// Creates a new growable slab big enough to hold a single element of
     /// `data_slot_count` size with the given `layout`.
     fn new(
         new_slab_id: SlabId,
