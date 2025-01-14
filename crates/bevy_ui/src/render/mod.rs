@@ -279,14 +279,11 @@ pub struct UiCameraMapper<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `TargetCamera` or the default camera if `None``.
+    /// Returns the render entity corresponding to the given `TargetCamera` or the default camera if `None`.
     pub fn map(&mut self, camera: Option<&TargetCamera>) -> Option<Entity> {
-        let Some(camera_entity) = camera
+        let camera_entity = camera
             .map(TargetCamera::entity)
-            .or(self.default_camera_entity)
-        else {
-            return None;
-        };
+            .or(self.default_camera_entity)?;
 
         if self.camera_entity != camera_entity {
             let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
@@ -304,7 +301,6 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 /// A [`RenderGraphNode`] that executes the UI rendering subgraph on the UI
 /// view.
 struct RunUiSubgraphOnUiViewNode;
