@@ -9,6 +9,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
+    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
@@ -17,6 +18,7 @@ use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
+    schedule::IntoSystemConfigs,
     system::Query,
 };
 use bevy_ecs::{
@@ -45,7 +47,8 @@ impl Plugin for MeshPlugin {
             .add_plugins(MeshAllocatorPlugin)
             .add_systems(
                 PostUpdate,
-                components::mark_3d_meshes_as_changed_if_their_assets_changed,
+                components::mark_3d_meshes_as_changed_if_their_assets_changed
+                    .ambiguous_with(VisibilitySystems::CalculateBounds),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
