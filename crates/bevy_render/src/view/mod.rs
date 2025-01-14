@@ -191,13 +191,24 @@ impl Msaa {
 /// stable, and we can't use just [`MainEntity`] because some main world views
 /// extract to multiple render world views. For example, a directional light
 /// extracts to one render world view per cascade, and a point light extracts to
-/// one render world view per cubemap face. So we pair the main entity with a
-/// *subview index*, which *together* uniquely identify a view in the render
-/// world in a way that's stable from frame to frame.
+/// one render world view per cubemap face. So we pair the main entity with an
+/// *auxiliary entity* and a *subview index*, which *together* uniquely identify
+/// a view in the render world in a way that's stable from frame to frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RetainedViewEntity {
     /// The main entity that this view corresponds to.
     pub main_entity: MainEntity,
+
+    /// Another entity associated with the view entity.
+    ///
+    /// This is currently used for shadow cascades. If there are multiple
+    /// cameras, each camera needs to have its own set of shadow cascades. Thus
+    /// the light and subview index aren't themselves enough to uniquely
+    /// identify a shadow cascade: we need the camera that the cascade is
+    /// associated with as well. This entity stores that camera.
+    ///
+    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
+    pub auxiliary_entity: MainEntity,
 
     /// The index of the view corresponding to the entity.
     ///
@@ -208,14 +219,19 @@ pub struct RetainedViewEntity {
 }
 
 impl RetainedViewEntity {
-    /// Creates a new [`RetainedViewEntity`] from the given main world entity
-    /// and subview index.
+    /// Creates a new [`RetainedViewEntity`] from the given main world entity,
+    /// auxiliary main world entity, and subview index.
     ///
     /// See [`RetainedViewEntity::subview_index`] for an explanation of what
-    /// `subview_index` is.
-    pub fn new(main_entity: MainEntity, subview_index: u32) -> Self {
+    /// `auxiliary_entity` and `subview_index` are.
+    pub fn new(
+        main_entity: MainEntity,
+        auxiliary_entity: Option<MainEntity>,
+        subview_index: u32,
+    ) -> Self {
         Self {
             main_entity,
+            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
             subview_index,
         }
     }

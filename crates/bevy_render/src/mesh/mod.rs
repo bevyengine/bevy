@@ -9,6 +9,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
+    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
@@ -17,6 +18,7 @@ use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
+    schedule::IntoSystemConfigs,
     system::Query,
 };
 use bevy_ecs::{
@@ -42,7 +44,12 @@ impl Plugin for MeshPlugin {
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin);
+            .add_plugins(MeshAllocatorPlugin)
+            .add_systems(
+                PostUpdate,
+                components::mark_3d_meshes_as_changed_if_their_assets_changed
+                    .ambiguous_with(VisibilitySystems::CalculateBounds),
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -129,6 +136,12 @@ impl RenderMesh {
     #[inline]
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.key_bits.primitive_topology()
+    }
+
+    /// Returns true if this mesh uses an index buffer or false otherwise.
+    #[inline]
+    pub fn indexed(&self) -> bool {
+        matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
     }
 }
 

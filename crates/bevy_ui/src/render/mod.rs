@@ -626,7 +626,7 @@ pub fn extract_ui_camera_view(
             // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
             // main 3D or 2D camera, which will have subview index 0.
             let retained_view_entity =
-                RetainedViewEntity::new(main_entity.into(), UI_CAMERA_SUBVIEW);
+                RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
@@ -894,6 +894,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

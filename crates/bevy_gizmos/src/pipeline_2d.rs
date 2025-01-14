@@ -340,6 +340,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: false,
                 });
             }
 
@@ -360,6 +361,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: false,
                 });
             }
         }
@@ -418,6 +420,7 @@ fn queue_line_joint_gizmos_2d(
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: false,
             });
         }
     }

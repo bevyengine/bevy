@@ -102,6 +102,8 @@ pub mod graph {
         GpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the indirect parameters building pass.
+        BuildIndirectParameters,
     }
 }
 
