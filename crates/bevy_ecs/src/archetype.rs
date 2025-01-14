@@ -391,7 +391,7 @@ impl Archetype {
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (component_id, archetype_component_id) in table_components {
+        for (idx, (component_id, archetype_component_id)) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -409,7 +409,7 @@ impl Archetype {
             component_index
                 .entry(component_id)
                 .or_default()
-                .insert(id, ArchetypeRecord {});
+                .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
@@ -427,7 +427,7 @@ impl Archetype {
             component_index
                 .entry(component_id)
                 .or_default()
-                .insert(id, ArchetypeRecord {});
+                .insert(id, ArchetypeRecord { column: None });
         }
         Self {
             id,
@@ -786,7 +786,15 @@ pub struct Archetypes {
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].
-pub struct ArchetypeRecord {}
+pub struct ArchetypeRecord {
+    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
+    /// or None if the component is a sparse set component.
+    #[expect(
+        dead_code,
+        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
+    )]
+    pub(crate) column: Option<usize>,
+}
 
 impl Archetypes {
     pub(crate) fn new() -> Self {
