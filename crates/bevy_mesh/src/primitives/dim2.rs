@@ -753,16 +753,19 @@ pub struct RhombusMeshBuilder {
 
 impl RhombusMeshBuilder {
     /// Creates a new [`RhombusMeshBuilder`] from a horizontal and vertical diagonal size.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics in debug mode if `horizontal_diagonal` or `vertical_diagonal` is negative.
     pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
         debug_assert!(
             horizontal_diagonal >= 0.0,
             "rhombus has a negative horizontal size",
         );
-        debug_assert!(vertical_diagonal >= 0.0, "rhombus has a negative vertical size");
+        debug_assert!(
+            vertical_diagonal >= 0.0,
+            "rhombus has a negative vertical size"
+        );
 
         Self {
             half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
@@ -900,9 +903,9 @@ pub struct RectangleMeshBuilder {
 
 impl RectangleMeshBuilder {
     /// Creates a new [`RectangleMeshBuilder`] from a full width and height.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics in debug mode if `width` or `height` is negative.
     pub const fn new(width: f32, height: f32) -> Self {
         debug_assert!(width >= 0.0, "rectangle has a negative width");
