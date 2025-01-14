@@ -11,7 +11,7 @@ impl Prepare for DocCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let jobs = args
             .jobs
-            .map(|jobs| format!(" --jobs{jobs}"))
+            .map(|jobs| format!(" --jobs {jobs}"))
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
