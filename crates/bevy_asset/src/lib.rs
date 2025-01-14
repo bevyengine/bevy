@@ -21,7 +21,7 @@
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
 //! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
 //! calling [`AssetServer::load`] on the same path will return the same handle.
-//! The handle that's returned can be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! The handle that's returned can be used to instantiate various [`Component`]s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
 //! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
@@ -138,9 +138,12 @@
 //! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
 //! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
-// FIXME(3492): remove once docs are ready
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -148,6 +151,7 @@
 )]
 
 extern crate alloc;
+extern crate core;
 
 pub mod io;
 pub mod meta;
@@ -160,12 +164,16 @@ pub mod transformer;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    pub use crate::asset_changed::AssetChanged;
+
+    #[doc(hidden)]
     pub use crate::{
         Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
         DirectAssetAccessExt, Handle, UntypedHandle,
     };
 }
 
+mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -205,14 +213,16 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::{tracing::error, HashSet};
+use bevy_utils::HashSet;
 use core::any::TypeId;
+use tracing::error;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
@@ -399,6 +409,15 @@ impl Plugin for AssetPlugin {
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
+
+/// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
+pub trait AsAssetId: Component {
+    /// The underlying asset type.
+    type Asset: Asset;
+
+    /// Retrieves the asset id from this component.
+    fn as_asset_id(&self) -> AssetId<Self::Asset>;
+}
 
 /// This trait defines how to visit the dependencies of an asset.
 /// For example, a 3D model might require both textures and meshes to be loaded.
@@ -620,8 +639,7 @@ mod tests {
         AssetPlugin, AssetServer, Assets,
     };
     use alloc::sync::Arc;
-    use bevy_app::{App, Update};
-    use bevy_core::TaskPoolPlugin;
+    use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
         prelude::*,
@@ -629,7 +647,8 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use bevy_utils::HashMap;
+    use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
     use thiserror::Error;
@@ -1672,9 +1691,9 @@ mod tests {
                                 );
                             }
                         }
-                        _ => panic!("Unexpected error type {:?}", read_error),
+                        _ => panic!("Unexpected error type {}", read_error),
                     },
-                    _ => panic!("Unexpected error type {:?}", error.error),
+                    _ => panic!("Unexpected error type {}", error.error),
                 }
             }
         }
@@ -1753,8 +1772,11 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TestAsset;
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
+    #[expect(
+        dead_code,
+        reason = "This exists to ensure that `#[derive(Asset)]` works on enums. The inner variants are known not to be used."
+    )]
     pub enum EnumTestAsset {
         Unnamed(#[dependency] Handle<TestAsset>),
         Named {
@@ -1769,7 +1791,6 @@ mod tests {
         Empty,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1778,7 +1799,6 @@ mod tests {
         embedded: TestAsset,
     }
 
-    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

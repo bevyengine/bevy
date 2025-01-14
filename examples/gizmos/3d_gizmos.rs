@@ -237,6 +237,10 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::KeyU) {
         config.line.style = match config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }
@@ -264,6 +268,10 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::KeyI) {
         my_config.line.style = match my_config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }

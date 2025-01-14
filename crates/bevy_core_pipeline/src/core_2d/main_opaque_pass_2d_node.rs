@@ -7,11 +7,11 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use super::AlphaMask2d;
 
@@ -22,6 +22,7 @@ pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -30,7 +31,7 @@ impl ViewNode for MainOpaquePass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_phases), Some(alpha_mask_phases)) = (
@@ -47,8 +48,8 @@ impl ViewNode for MainOpaquePass2dNode {
 
         let view_entity = graph.view_entity();
         let (Some(opaque_phase), Some(alpha_mask_phase)) = (
-            opaque_phases.get(&view_entity),
-            alpha_mask_phases.get(&view_entity),
+            opaque_phases.get(&view.retained_view_entity),
+            alpha_mask_phases.get(&view.retained_view_entity),
         ) else {
             return Ok(());
         };

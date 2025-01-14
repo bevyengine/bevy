@@ -1,5 +1,9 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -12,7 +16,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
-pub mod node_bundles;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -50,16 +53,12 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::widget::TextBundle;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
             geometry::*,
-            node_bundles::*,
             ui_material::*,
             ui_node::*,
             widget::{Button, ImageNode, Label},
@@ -73,11 +72,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, Animation};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::{
-    camera::CameraUpdateSystem,
-    view::{check_visibility, VisibilitySystems},
-    RenderApp,
-};
+use bevy_render::{camera::CameraUpdateSystem, RenderApp};
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -204,7 +199,6 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                check_visibility::<With<Node>>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system

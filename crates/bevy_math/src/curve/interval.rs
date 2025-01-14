@@ -201,6 +201,7 @@ mod tests {
     use crate::ops;
 
     use super::*;
+    use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     #[test]

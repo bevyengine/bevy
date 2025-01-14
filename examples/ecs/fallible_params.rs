@@ -20,22 +20,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // Systems that fail parameter validation will emit warnings.
-        // The default policy is to emit a warning once per system.
-        // This is good for catching unexpected behavior, but can
-        // lead to spam. You can disable invalid param warnings
-        // per system using the `.never_param_warn()` method.
+        // Default system policy is to panic if parameters fail to be fetched.
+        // We overwrite that configuration, to either warn us once or never.
+        // This is good for catching unexpected behavior without crashing the app,
+        // but can lead to spam.
         .add_systems(
             Update,
             (
-                user_input,
-                move_targets.never_param_warn(),
-                move_pointer.never_param_warn(),
+                user_input.warn_param_missing(),
+                move_targets.ignore_param_missing(),
+                move_pointer.ignore_param_missing(),
             )
                 .chain(),
         )
-        // We will leave this systems with default warning policy.
-        .add_systems(Update, do_nothing_fail_validation)
+        .add_systems(Update, do_nothing_fail_validation.warn_param_missing())
         .run();
 }
 

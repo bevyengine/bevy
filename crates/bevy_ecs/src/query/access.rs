@@ -1,6 +1,7 @@
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
 use disqualified::ShortName;
@@ -337,13 +338,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Sets this as having access to all resources (i.e. `&World`).
     #[inline]
-    pub fn read_all_resources(&mut self) {
+    pub const fn read_all_resources(&mut self) {
         self.reads_all_resources = true;
     }
 
     /// Sets this as having mutable access to all resources (i.e. `&mut World`).
     #[inline]
-    pub fn write_all_resources(&mut self) {
+    pub const fn write_all_resources(&mut self) {
         self.reads_all_resources = true;
         self.writes_all_resources = true;
     }
@@ -1017,7 +1018,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        if self.access.is_compatible(&other.access) {
+        // Resources are read from the world rather than the filtered archetypes,
+        // so they must be compatible even if the filters are disjoint.
+        if !self.access.is_resources_compatible(&other.access) {
+            return false;
+        }
+
+        if self.access.is_components_compatible(&other.access) {
             return true;
         }
 
@@ -1265,28 +1272,28 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Adds a read access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_read(&mut self, index: T) {
+    pub fn add_unfiltered_resource_read(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_read(index);
         self.add(filter);
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
+    pub fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
         self.add(filter);
     }
 
     /// Adds read access to all resources to the set.
-    pub(crate) fn add_unfiltered_read_all_resources(&mut self) {
+    pub fn add_unfiltered_read_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.read_all_resources();
         self.add(filter);
     }
 
     /// Adds write access to all resources to the set.
-    pub(crate) fn add_unfiltered_write_all_resources(&mut self) {
+    pub fn add_unfiltered_write_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.write_all_resources();
         self.add(filter);
@@ -1331,6 +1338,7 @@ mod tests {
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
     };
+    use alloc::vec;
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 

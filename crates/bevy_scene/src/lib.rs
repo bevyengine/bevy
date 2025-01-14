@@ -1,5 +1,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -13,7 +18,6 @@
 
 extern crate alloc;
 
-mod bundle;
 mod components;
 mod dynamic_scene;
 mod dynamic_scene_builder;
@@ -29,7 +33,6 @@ pub mod serde;
 pub use bevy_asset::ron;
 
 use bevy_ecs::schedule::IntoSystemConfigs;
-pub use bundle::*;
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -41,12 +44,11 @@ pub use scene_spawner::*;
 /// The scene prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, DynamicSceneRoot, Scene,
-        SceneBundle, SceneFilter, SceneRoot, SceneSpawner,
+        DynamicScene, DynamicSceneBuilder, DynamicSceneRoot, Scene, SceneFilter, SceneRoot,
+        SceneSpawner,
     };
 }
 

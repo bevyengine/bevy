@@ -8,16 +8,12 @@ use crate::{
         DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
         IntoFunctionMut,
     },
-    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 /// An [`Arc`] containing a callback to a reflected function.
 ///
@@ -428,10 +424,6 @@ impl PartialReflect for DynamicFunction<'static> {
         Debug::fmt(self, f)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-
     fn is_dynamic(&self) -> bool {
         true
     }
@@ -478,6 +470,7 @@ mod tests {
     use crate::func::signature::ArgumentSignature;
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
+    use alloc::{format, string::String, vec, vec::Vec};
     use bevy_utils::HashSet;
     use core::ops::Add;
 

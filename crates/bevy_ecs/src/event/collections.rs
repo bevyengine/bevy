@@ -1,10 +1,10 @@
 use crate as bevy_ecs;
+use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
-use bevy_utils::detailed_trace;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     marker::PhantomData,
@@ -126,7 +126,7 @@ impl<E: Event> Events<E> {
     pub fn send(&mut self, event: E) -> EventId<E> {
         self.send_with_caller(
             event,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -134,15 +134,16 @@ impl<E: Event> Events<E> {
     pub(crate) fn send_with_caller(
         &mut self,
         event: E,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
             _marker: PhantomData,
         };
-        detailed_trace!("Events::send() -> id: {}", event_id);
+        #[cfg(feature = "detailed_trace")]
+        tracing::trace!("Events::send() -> id: {}", event_id);
 
         let event_instance = EventInstance { event_id, event };
 
@@ -186,28 +187,6 @@ impl<E: Event> Events<E> {
     /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
     /// It will read all future events.
     pub fn get_cursor_current(&self) -> EventCursor<E> {
-        EventCursor {
-            last_event_count: self.event_count,
-            ..Default::default()
-        }
-    }
-
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader` has been deprecated. Please use `get_cursor` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> EventCursor<E> {
-        EventCursor::default()
-    }
-
-    #[deprecated(
-        since = "0.14.0",
-        note = "`get_reader_current` has been replaced. Please use `get_cursor_current` instead."
-    )]
-    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
-    /// It will read all future events.
-    pub fn get_reader_current(&self) -> EventCursor<E> {
         EventCursor {
             last_event_count: self.event_count,
             ..Default::default()
@@ -329,7 +308,7 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller: Location::caller(),
                 _marker: PhantomData,
             };
@@ -340,7 +319,8 @@ impl<E: Event> Extend<E> for Events<E> {
         self.events_b.extend(events);
 
         if old_count != event_count {
-            detailed_trace!(
+            #[cfg(feature = "detailed_trace")]
+            tracing::trace!(
                 "Events::extend() -> ids: ({}..{})",
                 self.event_count,
                 event_count
@@ -399,7 +379,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller: Location::caller(),
             _marker: PhantomData,
         });

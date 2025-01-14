@@ -1,4 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![warn(
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    reason = "See #17111; To be removed once all crates are in-line with these attributes"
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -81,7 +86,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;
 
 #[cfg(all(
@@ -189,16 +194,16 @@ impl Plugin for GizmoPlugin {
             if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
                 app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
             } else {
-                bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+                tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
             }
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
             } else {
-                bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+                tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }
         } else {
-            bevy_utils::tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
+            tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
     }
 
@@ -419,6 +424,10 @@ fn extract_gizmo_data(
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
+    use bevy_utils::once;
+    use config::GizmoLineStyle;
+    use tracing::warn;
+
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
@@ -438,12 +447,30 @@ fn extract_gizmo_data(
             0
         };
 
+        let (gap_scale, line_scale) = if let GizmoLineStyle::Dashed {
+            gap_scale,
+            line_scale,
+        } = config.line.style
+        {
+            if gap_scale <= 0.0 {
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero."));
+            }
+            if line_scale <= 0.0 {
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero."));
+            }
+            (gap_scale, line_scale)
+        } else {
+            (1.0, 1.0)
+        };
+
         commands.spawn((
             LineGizmoUniform {
                 world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
                 line_width: config.line.width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
+                gap_scale,
+                line_scale,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
@@ -471,9 +498,12 @@ struct LineGizmoUniform {
     depth_bias: f32,
     // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
     joints_resolution: u32,
+    // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
+    gap_scale: f32,
+    line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: f32,
+    _padding: Vec3,
 }
 
 /// A collection of gizmos.

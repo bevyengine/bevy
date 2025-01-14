@@ -147,7 +147,7 @@ pub enum EvenCoreError {
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[error("Cannot create a EvenCore over an unbounded domain")]
+    #[error("Cannot create an EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 
@@ -432,14 +432,14 @@ impl<T> UnevenCore<T> {
     }
 
     /// This core, but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// In principle, when `f` is monotone, this is equivalent to [`CurveExt::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the set of sample times, otherwise
     /// data will be deleted.
     ///
-    /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
+    /// [`CurveExt::reparametrize`]: crate::curve::CurveExt::reparametrize
     #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
         let mut timed_samples = self
@@ -697,6 +697,7 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
 mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
     use crate::curve::{cores::InterpolationDatum, interval};
+    use alloc::vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool
