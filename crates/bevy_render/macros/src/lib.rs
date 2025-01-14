@@ -4,10 +4,12 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod specialize;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
+use specialize::derive_specialize;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
@@ -106,4 +108,32 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
         .push(format_ident!("RenderSubGraph").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
     derive_label(input, "RenderSubGraph", &trait_path, &dyn_eq_path)
+}
+
+/// Derive macro generating an impl of the trait `Specialize<RenderPipeline>`
+///
+/// This only works for structs whose members all implement `Specialize<RenderPipeline>`
+#[proc_macro_derive(SpecializeRenderPipeline, attributes(key))]
+pub fn derive_specialize_render_pipeline(input: TokenStream) -> TokenStream {
+    let target_path = {
+        let mut path = bevy_render_path();
+        path.segments.push(format_ident!("render_resource").into());
+        path.segments.push(format_ident!("RenderPipeline").into());
+        path
+    };
+    derive_specialize(input, target_path)
+}
+
+/// Derive macro generating an impl of the trait `Specialize<ComputePipeline>`
+///
+/// This only works for structs whose members all implement `Specialize<ComputePipeline>`
+#[proc_macro_derive(SpecializeComputePipeline, attributes(key))]
+pub fn derive_specialize_compute_pipeline(input: TokenStream) -> TokenStream {
+    let target_path = {
+        let mut path = bevy_render_path();
+        path.segments.push(format_ident!("render_resource").into());
+        path.segments.push(format_ident!("ComputePipeline").into());
+        path
+    };
+    derive_specialize(input, target_path)
 }
