@@ -6,9 +6,14 @@
 //! To demonstrate change detection, there are some console outputs based on changes in
 //! the `EntityCounter` resource and updated Age components
 
+#![expect(
+    clippy::std_instead_of_core,
+    reason = "Examples should not follow this lint"
+)]
+
 use bevy_ecs::prelude::*;
-use core::ops::Deref;
 use rand::Rng;
+use std::ops::Deref;
 
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
