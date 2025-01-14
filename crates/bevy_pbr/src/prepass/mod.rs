@@ -793,18 +793,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<
-        (
-            Entity,
-            &RenderVisibleEntities,
-            &Msaa,
-            Option<&DepthPrepass>,
-            Option<&NormalPrepass>,
-            Option<&MotionVectorPrepass>,
-            Option<&DeferredPrepass>,
-        ),
-        With<ExtractedView>,
-    >,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        &Msaa,
+        Option<&DepthPrepass>,
+        Option<&NormalPrepass>,
+        Option<&MotionVectorPrepass>,
+        Option<&DeferredPrepass>,
+    )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -825,7 +822,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
-        view,
+        extracted_view,
         visible_entities,
         msaa,
         depth_prepass,
@@ -840,10 +837,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
             mut opaque_deferred_phase,
             mut alpha_mask_deferred_phase,
         ) = (
-            opaque_prepass_render_phases.get_mut(&view),
-            alpha_mask_prepass_render_phases.get_mut(&view),
-            opaque_deferred_render_phases.get_mut(&view),
-            alpha_mask_deferred_render_phases.get_mut(&view),
+            opaque_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
+            alpha_mask_prepass_render_phases.get_mut(&extracted_view.retained_view_entity),
+            opaque_deferred_render_phases.get_mut(&extracted_view.retained_view_entity),
+            alpha_mask_deferred_render_phases.get_mut(&extracted_view.retained_view_entity),
         );
 
         // Skip if there's no place to put the mesh.
