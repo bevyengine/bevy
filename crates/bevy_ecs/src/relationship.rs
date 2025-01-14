@@ -82,7 +82,7 @@ pub trait Relationship: Component + Sized {
 // These internals are allowed to modify the internal RelationshipSource collection.
 #[allow(deprecated)]
 pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
-    type Relationship: Relationship;
+    type Relationship: Relationship<RelationshipSources = Self>;
     type Collection: RelationshipSourceCollection;
 
     fn collection(&self) -> &Self::Collection;
