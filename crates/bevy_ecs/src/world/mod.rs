@@ -2612,9 +2612,10 @@ impl World {
                         )
                     };
                     break Some(cache);
-                } else {
-                    invalid_entities.push(first_entity);
                 }
+                // This is effectively in an `else` block, since it can only be reached if the
+                // above `if` fails.
+                invalid_entities.push(first_entity);
             } else {
                 // We reached the end of the entities the caller provided and none were valid.
                 break None;
