@@ -2935,9 +2935,13 @@ impl<T> PartialEq for NeutralOrd<T> {
 
 impl<T> Eq for NeutralOrd<T> {}
 
+#[expect(
+    clippy::non_canonical_partial_ord_impl,
+    reason = "`PartialOrd` and `Ord` on this struct must only ever return `Ordering::Equal`, so we prefer clarity"
+)]
 impl<T> PartialOrd for NeutralOrd<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
+        Some(Ordering::Equal)
     }
 }
 
