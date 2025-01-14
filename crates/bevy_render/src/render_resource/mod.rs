@@ -27,6 +27,7 @@ pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
 pub use shader::*;
+pub use specialize::*;
 pub use storage_buffer::*;
 pub use texture::*;
 pub use uniform_buffer::*;

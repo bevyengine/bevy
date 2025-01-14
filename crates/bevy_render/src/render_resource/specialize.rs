@@ -1,18 +1,14 @@
 use super::{
-    BindGroupLayout, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-    ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+    CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
+    PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
-use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    system::Resource,
-    world::{FromWorld, World},
-};
+use bevy_ecs::{system::Resource, world::FromWorld};
 use bevy_utils::hashbrown::HashMap;
-use std::{hash::Hash, iter};
+use core::hash::Hash;
 
 pub trait SpecializeTarget {
-    type Descriptor: Send + Sync;
-    type CachedId;
+    type Descriptor: Clone + Send + Sync;
+    type CachedId: Clone + Send + Sync;
     fn queue(pipeline_cache: &PipelineCache, descriptor: Self::Descriptor) -> Self::CachedId;
 }
 
@@ -35,10 +31,13 @@ impl SpecializeTarget for ComputePipeline {
     }
 }
 
-pub trait Specialize<T: SpecializeTarget>: FromWorld + Send + Sync + 'static {
+pub trait Specialize<T: SpecializeTarget>: Send + Sync + 'static {
     type Key: Clone + Hash + Eq;
     fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor);
 }
+
+pub type RenderPipelineSpecializer<S> = Specializer<RenderPipeline, S>;
+pub type ComputePipelineSpecializer<S> = Specializer<ComputePipeline, S>;
 
 #[derive(Resource)]
 pub struct Specializer<T: SpecializeTarget, S: Specialize<T>> {
@@ -63,13 +62,16 @@ impl<T: SpecializeTarget, S: Specialize<T>> Specializer<T, S> {
     }
 
     pub fn specialize(&mut self, pipeline_cache: &PipelineCache, key: S::Key) -> T::CachedId {
-        *self.pipelines.entry(key.clone()).or_insert_with(|| {
-            let mut descriptor = self.base_descriptor.clone();
-            self.specializer.specialize(key.clone(), &mut descriptor);
-            if let Some(user_specializer) = self.user_specializer {
-                (user_specializer)(key, &mut descriptor);
-            }
-            pipeline_cache.queue_render_pipeline(descriptor)
-        })
+        self.pipelines
+            .entry(key.clone())
+            .or_insert_with(|| {
+                let mut descriptor = self.base_descriptor.clone();
+                self.specializer.specialize(key.clone(), &mut descriptor);
+                if let Some(user_specializer) = self.user_specializer {
+                    (user_specializer)(key, &mut descriptor);
+                }
+                <T as SpecializeTarget>::queue(pipeline_cache, descriptor)
+            })
+            .clone()
     }
 }
