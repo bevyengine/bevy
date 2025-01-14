@@ -16,8 +16,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, Expr, Field, FieldValue, GenericParam, Index,
-    Member, Token, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, Token, TypeParam,
 };
 
 enum BundleFieldKind {
