@@ -341,6 +341,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
