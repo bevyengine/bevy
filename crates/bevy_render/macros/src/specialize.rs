@@ -2,8 +2,9 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Data, DataStruct, DeriveInput,
-    Index, Member, Meta, MetaNameValue, Path, Token, Type,
+    parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data,
+    DataStruct, DeriveInput, Expr, Index, Member, Meta, MetaList, MetaNameValue, Path, Stmt, Token,
+    Type,
 };
 
 const KEY_ATTR_IDENT: &str = "key";
@@ -13,7 +14,6 @@ pub fn derive_specialize(input: TokenStream, target_path: Path, derive_name: &st
     let specialize_path = {
         let mut path = bevy_render_path.clone();
         path.segments.push(format_ident!("render_resource").into());
-        path.segments.push(format_ident!("specialize").into());
         path
     };
 
@@ -36,7 +36,8 @@ pub fn derive_specialize(input: TokenStream, target_path: Path, derive_name: &st
     };
 
     let mut key_elems: Punctuated<Type, Token![,]> = Punctuated::new();
-    let mut sub_specializers: Vec<TokenStream2> = Vec::new();
+    let mut sub_specializers: Vec<(Type, Member, Expr)> = Vec::new();
+    let mut single_index = 0;
 
     for (index, field) in fields.iter().enumerate() {
         let field_ty = field.ty.clone();
@@ -47,24 +48,39 @@ pub fn derive_specialize(input: TokenStream, target_path: Path, derive_name: &st
             }),
             Member::Named,
         );
+        let key_member = Member::Unnamed(Index {
+            index: key_elems.len() as u32,
+            span: field.span(),
+        });
 
-        let mut key_expr = quote!(key.#{key_elems.len() as u32});
+        let mut key_expr: Expr = parse_quote!(key.#key_member);
         let mut use_key_field = true;
         for attr in &field.attrs {
-            if let Meta::NameValue(MetaNameValue { path, value, .. }) = &attr.meta {
+            if let Meta::List(MetaList { path, tokens, .. }) = &attr.meta {
                 if path.is_ident(&KEY_ATTR_IDENT) {
-                    key_expr = value.to_token_stream();
+                    let owned_tokens = tokens.clone().into();
+                    key_expr = parse_macro_input!(owned_tokens as Expr);
                     use_key_field = false;
                 }
             }
         }
 
         if use_key_field {
-            key_elems.push(field_ty.clone());
+            single_index = index;
+            key_elems
+                .push(parse_quote!(<#field_ty as #specialize_path::Specialize<#target_path>>::Key));
         }
 
-        sub_specializers.push(quote!(<#field_ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#field_member, #key_expr, descriptor);));
+        sub_specializers.push((field_ty, field_member, key_expr));
     }
+
+    if key_elems.len() == 1 {
+        sub_specializers[single_index].2 = parse_quote!(key);
+    }
+
+    let sub_specializers = sub_specializers.into_iter().map(|(field_ty, field_member, key_expr)| {
+        parse_quote!(<#field_ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#field_member, #key_expr, descriptor);)
+    }).collect::<Vec<Stmt>>();
 
     TokenStream::from(quote! {
         impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
