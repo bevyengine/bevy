@@ -69,7 +69,7 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[expect(
         deprecated,
-        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion."
+        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
     )]
     #[doc(hidden)]
     pub use crate::{
