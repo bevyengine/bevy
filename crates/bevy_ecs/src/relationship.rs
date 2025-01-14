@@ -1,7 +1,7 @@
 // TODO: remove this
 #![allow(missing_docs)]
 
-pub use bevy_ecs_macros::Relationship;
+pub use bevy_ecs_macros::{Relationship, RelationshipSources};
 
 use crate::{
     bundle::Bundle,
@@ -519,5 +519,33 @@ impl<'a> EntityCommands<'a> {
             }
         });
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::world::World;
+    use crate::{
+        entity::Entity,
+        relationship::{Relationship, RelationshipSources},
+    };
+    use std::vec::Vec;
+
+    #[test]
+    fn custom_relationship() {
+        #[derive(Relationship)]
+        #[relationship_sources(LikedBy)]
+        struct Likes(pub Entity);
+
+        #[derive(RelationshipSources)]
+        #[relationship(Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(Likes(a)).id();
+        let c = world.spawn(Likes(a)).id();
+        assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
     }
 }

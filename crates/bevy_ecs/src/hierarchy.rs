@@ -10,7 +10,7 @@ use crate::relationship::{RelatedSpawner, RelatedSpawnerCommands};
 use crate::system::EntityCommands;
 use crate::world::{DeferredWorld, EntityWorldMut};
 use crate::{
-    component::{Component, ComponentCloneHandler, Mutable, StorageType},
+    component::Component,
     entity::{Entity, VisitEntities},
     reflect::{
         ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
@@ -56,23 +56,10 @@ impl FromWorld for Parent {
     }
 }
 
-#[derive(Default, Reflect, VisitEntitiesMut)]
+#[derive(RelationshipSources, Default, Reflect, VisitEntitiesMut)]
+#[relationship(Parent)]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
-
-impl Component for Children {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-    type Mutability = Mutable;
-
-    fn register_component_hooks(hooks: &mut crate::component::ComponentHooks) {
-        hooks.on_replace(Self::on_replace);
-        hooks.on_despawn(Self::on_despawn);
-    }
-
-    fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::ignore()
-    }
-}
 
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
@@ -90,23 +77,6 @@ impl core::ops::Deref for Children {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl RelationshipSources for Children {
-    type Relationship = Parent;
-    type Collection = Vec<Entity>;
-
-    fn collection(&self) -> &Self::Collection {
-        &self.0
-    }
-
-    fn collection_mut(&mut self) -> &mut Self::Collection {
-        &mut self.0
-    }
-
-    fn from_collection(collection: Self::Collection) -> Self {
-        Self(collection)
     }
 }
 

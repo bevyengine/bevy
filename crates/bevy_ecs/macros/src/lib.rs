@@ -617,3 +617,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 pub fn derive_relationship(input: TokenStream) -> TokenStream {
     relationship::derive_relationship(input)
 }
+
+#[proc_macro_derive(RelationshipSources, attributes(relationship))]
+pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
+    relationship::derive_relationship_sources(input)
+}
