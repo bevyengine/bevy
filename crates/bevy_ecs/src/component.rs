@@ -799,6 +799,9 @@ impl ComponentInfo {
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
         }
+        if self.hooks().on_despawn.is_some() {
+            flags.insert(ArchetypeFlags::ON_DESPAWN_HOOK);
+        }
     }
 
     /// Provides a reference to the collection of hooks associated with this [`Component`]

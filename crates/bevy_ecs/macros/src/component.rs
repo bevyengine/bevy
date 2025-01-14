@@ -69,7 +69,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
     let on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
     let on_replace = hook_register_function_call(quote! {on_replace}, attrs.on_replace);
-    let on_remove = hook_register_function_call(quote! {on_remove}, attrs.on_remove);
+    let on_remove: Option<TokenStream2> =
+        hook_register_function_call(quote! {on_remove}, attrs.on_remove);
+    let on_despawn = hook_register_function_call(quote! {on_despawn}, attrs.on_despawn);
 
     ast.generics
         .make_where_clause()
@@ -165,6 +167,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #on_insert
                 #on_replace
                 #on_remove
+                #on_despawn
             }
 
             fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
@@ -212,6 +215,7 @@ pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
 pub const ON_REPLACE: &str = "on_replace";
 pub const ON_REMOVE: &str = "on_remove";
+pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
@@ -222,6 +226,7 @@ struct Attrs {
     on_insert: Option<ExprPath>,
     on_replace: Option<ExprPath>,
     on_remove: Option<ExprPath>,
+    on_despawn: Option<ExprPath>,
     immutable: bool,
 }
 
@@ -252,6 +257,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_insert: None,
         on_replace: None,
         on_remove: None,
+        on_despawn: None,
         requires: None,
         immutable: false,
     };
@@ -282,6 +288,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
                     attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_DESPAWN) {
+                    attrs.on_despawn = Some(nested.value()?.parse::<ExprPath>()?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
