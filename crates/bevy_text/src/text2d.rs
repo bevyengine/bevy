@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::Vec2;
+use bevy_math::{FloatOrd, Vec2};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::{self, Visibility, VisibilityClass};
@@ -138,6 +138,7 @@ pub fn extract_text2d_sprite(
             &ViewVisibility,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            &TextBounds,
             &Anchor,
             &GlobalTransform,
         )>,
@@ -156,6 +157,7 @@ pub fn extract_text2d_sprite(
         view_visibility,
         computed_block,
         text_layout_info,
+        text_bounds,
         anchor,
         global_transform,
     ) in text2d_query.iter()
@@ -164,8 +166,16 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(text_layout_info.size.x),
+            text_bounds.height.unwrap_or(text_layout_info.size.y),
+        );
+
+        let h = size.y - text_layout_info.size.y;
+
         let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * text_anchor;
+
+        let alignment_translation = text_anchor * size + h * Vec2::Y;
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
