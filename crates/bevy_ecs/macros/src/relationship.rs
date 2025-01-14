@@ -85,7 +85,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     };
 
     const RELATIONSHIP_SOURCES_FORMAT_MESSAGE: &str = "RelationshipSources derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
-    if let Data::Struct(DataStruct {
+    let collection = if let Data::Struct(DataStruct {
         fields: Fields::Unnamed(unnamed_fields),
         struct_token,
         ..
@@ -97,6 +97,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
                     .into_compile_error()
                     .into();
             }
+            first.ty.clone()
         } else {
             return syn::Error::new(struct_token.span(), RELATIONSHIP_SOURCES_FORMAT_MESSAGE)
                 .into_compile_error()
@@ -106,7 +107,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
         return syn::Error::new(ast.span(), RELATIONSHIP_SOURCES_FORMAT_MESSAGE)
             .into_compile_error()
             .into();
-    }
+    };
 
     ast.generics
         .make_where_clause()
@@ -119,7 +120,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipSources for #struct_name #type_generics #where_clause {
             type Relationship = #relationship;
-            type Collection = Vec<Entity>;
+            type Collection = #collection;
 
             fn collection(&self) -> &Self::Collection {
                 &self.0
