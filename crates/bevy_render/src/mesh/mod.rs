@@ -42,7 +42,11 @@ impl Plugin for MeshPlugin {
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin);
+            .add_plugins(MeshAllocatorPlugin)
+            .add_systems(
+                PostUpdate,
+                components::mark_3d_meshes_as_changed_if_their_assets_changed,
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

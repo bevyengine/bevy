@@ -296,7 +296,7 @@ impl PreprocessWorkItemBuffers {
     ///
     /// `no_indirect_drawing` specifies whether we're drawing directly or
     /// indirectly.
-    fn new(no_indirect_drawing: bool) -> Self {
+    pub fn new(no_indirect_drawing: bool) -> Self {
         if no_indirect_drawing {
             PreprocessWorkItemBuffers::Direct(BufferVec::new(BufferUsages::STORAGE))
         } else {
@@ -311,7 +311,7 @@ impl PreprocessWorkItemBuffers {
     ///
     /// `indexed` specifies whether the work item corresponds to an indexed
     /// mesh.
-    fn push(&mut self, indexed: bool, preprocess_work_item: PreprocessWorkItem) {
+    pub fn push(&mut self, indexed: bool, preprocess_work_item: PreprocessWorkItem) {
         match *self {
             PreprocessWorkItemBuffers::Direct(ref mut buffer) => {
                 buffer.push(preprocess_work_item);
@@ -633,7 +633,7 @@ impl IndirectParametersBuffers {
     ///
     /// The `indexed` parameter specifies whether the meshes that these batches
     /// correspond to are indexed or not.
-    fn allocate(&mut self, indexed: bool, count: u32) -> u32 {
+    pub fn allocate(&mut self, indexed: bool, count: u32) -> u32 {
         if indexed {
             self.allocate_indexed(count)
         } else {
@@ -819,6 +819,9 @@ where
     /// The index of the first instance in this batch in the instance buffer.
     instance_start_index: u32,
 
+    /// True if the mesh in question has an index buffer; false otherwise.
+    indexed: bool,
+
     /// The index of the indirect parameters for this batch in the
     /// [`IndirectParametersBuffers`].
     ///
@@ -841,8 +844,12 @@ where
     ///
     /// `instance_end_index` is the index of the last instance in this batch
     /// plus one.
-    fn flush<I>(self, instance_end_index: u32, phase: &mut SortedRenderPhase<I>)
-    where
+    fn flush<I>(
+        self,
+        instance_end_index: u32,
+        phase: &mut SortedRenderPhase<I>,
+        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+    ) where
         I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     {
         let (batch_range, batch_extra_index) =
@@ -850,6 +857,11 @@ where
         *batch_range = self.instance_start_index..instance_end_index;
         *batch_extra_index =
             PhaseItemExtraIndex::maybe_indirect_parameters_index(self.indirect_parameters_index);
+
+        if let Some(indirect_parameters_index) = self.indirect_parameters_index {
+            indirect_parameters_buffers
+                .add_batch_set(self.indexed, indirect_parameters_index.into());
+        }
     }
 }
 
@@ -943,7 +955,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             let Some((current_input_index, current_meta)) = current_batch_input_index else {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(data_buffer.len() as u32, phase);
+                    batch.flush(
+                        data_buffer.len() as u32,
+                        phase,
+                        &mut indirect_parameters_buffers,
+                    );
                 }
 
                 continue;
@@ -968,7 +984,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             if !can_batch {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(output_index, phase);
+                    batch.flush(output_index, phase, &mut indirect_parameters_buffers);
                 }
 
                 let indirect_parameters_index = if no_indirect_drawing {
@@ -994,6 +1010,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 batch = Some(SortedRenderBatch {
                     phase_item_start_index: current_index as u32,
                     instance_start_index: output_index,
+                    indexed: item_is_indexed,
                     indirect_parameters_index: indirect_parameters_index.and_then(NonMaxU32::new),
                     meta: current_meta,
                 });
@@ -1024,7 +1041,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
         // Flush the final batch if necessary.
         if let Some(batch) = batch.take() {
-            batch.flush(data_buffer.len() as u32, phase);
+            batch.flush(
+                data_buffer.len() as u32,
+                phase,
+                &mut indirect_parameters_buffers,
+            );
         }
     }
 }
@@ -1337,6 +1358,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                                 batch_set_index: None,
                             },
                         });
+                    indirect_parameters_buffers
+                        .add_batch_set(key.0.indexed(), *indirect_parameters_index);
                     *indirect_parameters_index += 1;
                 } else {
                     work_item_buffer.push(

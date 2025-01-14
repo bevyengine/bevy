@@ -617,7 +617,7 @@ pub fn extract_core_3d_camera_phases(
         });
 
         // This is the main 3D camera, so use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         opaque_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
@@ -685,7 +685,7 @@ pub fn extract_camera_prepass_phase(
         });
 
         // This is the main 3D camera, so we use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);

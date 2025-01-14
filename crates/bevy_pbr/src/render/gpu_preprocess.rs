@@ -48,6 +48,8 @@ use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
+use super::ViewLightEntities;
+
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(16991728318640779533);
@@ -89,6 +91,7 @@ pub struct GpuPreprocessNode {
         ),
         Without<SkipGpuPreprocess>,
     >,
+    main_view_query: QueryState<Read<ViewLightEntities>>,
 }
 
 /// The render node for the indirect parameter building pass.
@@ -298,6 +301,7 @@ impl FromWorld for GpuPreprocessNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
+            main_view_query: QueryState::new(world),
         }
     }
 }
@@ -305,11 +309,12 @@ impl FromWorld for GpuPreprocessNode {
 impl Node for GpuPreprocessNode {
     fn update(&mut self, world: &mut World) {
         self.view_query.update_archetypes(world);
+        self.main_view_query.update_archetypes(world);
     }
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -330,10 +335,23 @@ impl Node for GpuPreprocessNode {
                     timestamp_writes: None,
                 });
 
-        // Run the compute passes.
-        for (view, bind_groups, view_uniform_offset, no_indirect_drawing) in
-            self.view_query.iter_manual(world)
+        let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
+        all_views.push(graph.view_entity());
+        if let Ok(shadow_cascade_views) =
+            self.main_view_query.get_manual(world, graph.view_entity())
         {
+            all_views.extend(shadow_cascade_views.lights.iter().copied());
+        }
+
+        // Run the compute passes.
+
+        for view_entity in all_views {
+            let Ok((view, bind_groups, view_uniform_offset, no_indirect_drawing)) =
+                self.view_query.get_manual(world, view_entity)
+            else {
+                continue;
+            };
+
             // Grab the work item buffers for this view.
             let Some(view_work_item_buffers) = index_buffers.get(&view) else {
                 warn!("The preprocessing index buffer wasn't present");
@@ -351,14 +369,14 @@ impl Node for GpuPreprocessNode {
             // Fetch the pipeline.
             let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
                 warn!("The build mesh uniforms pipeline wasn't ready");
-                return Ok(());
+                continue;
             };
 
             let Some(preprocess_pipeline) =
                 pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
             else {
                 // This will happen while the pipeline is being compiled and is fine.
-                return Ok(());
+                continue;
             };
 
             compute_pass.set_pipeline(preprocess_pipeline);

@@ -2756,7 +2756,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                             indirect_parameters_buffer.indexed_batch_sets_buffer(),
                         ) else {
                             warn!(
-                                "Not rendering mesh because indirect parameters buffer wasn't present"
+                                "Not rendering mesh because indexed indirect parameters buffer \
+                                 wasn't present",
                             );
                             return RenderCommandResult::Skip;
                         };
@@ -2806,13 +2807,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                 } => {
                     // Look up the indirect parameters buffer, as well as the
                     // buffer we're going to use for
-                    // `multi_draw_indexed_indirect_count` (if available).
+                    // `multi_draw_indirect_count` (if available).
                     let (Some(indirect_parameters_buffer), Some(batch_sets_buffer)) = (
                         indirect_parameters_buffer.non_indexed_data_buffer(),
                         indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
                     ) else {
                         warn!(
-                            "Not rendering mesh because indirect parameters buffer wasn't present"
+                            "Not rendering mesh because non-indexed indirect parameters buffer \
+                             wasn't present"
                         );
                         return RenderCommandResult::Skip;
                     };
