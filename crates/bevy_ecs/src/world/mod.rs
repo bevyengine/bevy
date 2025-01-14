@@ -1325,8 +1325,7 @@ impl World {
         } else {
             Err(TryDespawnError(
                 entity,
-                self.entities()
-                    .entity_does_not_exist_error_details_message(entity),
+                self.entities().entity_does_not_exist_error_details(entity),
             ))
         }
     }
@@ -2402,8 +2401,6 @@ impl World {
     /// This can be called by:
     /// - [`World::insert_batch`]
     /// - [`World::insert_batch_if_new`]
-    /// - [`Commands::insert_batch`]
-    /// - [`Commands::insert_batch_if_new`]
     #[inline]
     pub(crate) fn insert_batch_with_caller<I, B>(
         &mut self,
@@ -2551,6 +2548,8 @@ impl World {
     /// This can be called by:
     /// - [`World::try_insert_batch`]
     /// - [`World::try_insert_batch_if_new`]
+    /// - [`Commands::insert_batch`]
+    /// - [`Commands::insert_batch_if_new`]
     /// - [`Commands::try_insert_batch`]
     /// - [`Commands::try_insert_batch_if_new`]
     #[inline]
