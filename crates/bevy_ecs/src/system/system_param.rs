@@ -645,12 +645,16 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// # }
 /// fn event_system(
 ///     mut set: ParamSet<(
-///         // `EventReader`s and `EventWriter`s conflict with each other,
-///         // since they both access the event queue resource for `MyEvent`.
+///         // PROBLEM: `EventReader` and `EventWriter` cannot be used together normally,
+///         // because they both need access to the same event queue.
+///         // SOLUTION: `ParamSet` allows these conflicting parameters to be used safely
+///         // by ensuring only one is accessed at a time.
 ///         EventReader<MyEvent>,
 ///         EventWriter<MyEvent>,
-///         // `&World` reads the entire world, so a `ParamSet` is the only way
-///         // that it can be used in the same system as any mutable accesses.
+///         // PROBLEM: `&World` needs read access to everything, which conflicts with
+///         // any mutable access in the same system.
+///         // SOLUTION: `ParamSet` ensures `&World` is only accessed when we're not
+///         // using the other mutable parameters.
 ///         &World,
 ///     )>,
 /// ) {
