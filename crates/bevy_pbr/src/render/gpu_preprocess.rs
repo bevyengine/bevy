@@ -279,14 +279,17 @@ impl Plugin for GpuMeshPreprocessPlugin {
                 )
             )
             .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
-            .add_render_graph_node::<BuildIndirectParametersNode>(Core3d, NodePbr::BuildIndirectParametersNode)
-            .add_render_graph_edges(
+            .add_render_graph_node::<BuildIndirectParametersNode>(
                 Core3d,
-                (NodePbr::GpuPreprocess, NodePbr::BuildIndirectParametersNode, Node3d::Prepass)
+                NodePbr::BuildIndirectParameters
             )
             .add_render_graph_edges(
                 Core3d,
-                (NodePbr::GpuPreprocess, NodePbr::BuildIndirectParametersNode, NodePbr::ShadowPass)
+                (NodePbr::GpuPreprocess, NodePbr::BuildIndirectParameters, Node3d::Prepass)
+            )
+            .add_render_graph_edges(
+                Core3d,
+                (NodePbr::GpuPreprocess, NodePbr::BuildIndirectParameters, NodePbr::ShadowPass)
             );
     }
 }

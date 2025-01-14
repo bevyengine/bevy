@@ -103,7 +103,7 @@ pub mod graph {
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
         /// Label for the indirect parameters building pass.
-        BuildIndirectParametersNode,
+        BuildIndirectParameters,
     }
 }
 
