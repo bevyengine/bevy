@@ -14,7 +14,7 @@ use bevy_utils::HashSet;
 pub struct ComputedTextureSlices(Vec<TextureSlice>);
 
 impl ComputedTextureSlices {
-    /// Computes [`ExtractedSprite`] iterator from the sprite slices
+    /// Computes [`ExtractedSlice`] iterator from the sprite slices
     ///
     /// # Arguments
     ///
