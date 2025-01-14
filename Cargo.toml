@@ -17,6 +17,8 @@ resolver = "2"
 members = [
   # All of Bevy's official crates are within the `crates` folder!
   "crates/*",
+  # Bevy's crates specific to rendering have been grouped together under the `rendering` subfolder.
+  "crates/rendering/*",
   # Several crates with macros have "compile fail" tests nested inside them, also known as UI
   # tests, that verify diagnostic output does not accidentally change.
   "crates/*/compile_fail",
