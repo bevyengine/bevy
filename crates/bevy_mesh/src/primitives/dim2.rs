@@ -756,9 +756,9 @@ impl RhombusMeshBuilder {
     pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
         debug_assert!(
             horizontal_diagonal >= 0.0,
-            "rhombus has a negative horizontal",
+            "rhombus has a negative horizontal size",
         );
-        debug_assert!(vertical_diagonal >= 0.0, "rhombus has a negative vertical");
+        debug_assert!(vertical_diagonal >= 0.0, "rhombus has a negative vertical size");
 
         Self {
             half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
