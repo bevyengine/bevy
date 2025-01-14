@@ -39,7 +39,6 @@ use log::warn;
 #[component(
     immutable,
     on_insert = Self::on_insert,
-    on_remove = Self::on_remove,
     on_replace = Self::on_replace,
 )]
 pub struct Parent(pub Entity);
@@ -88,6 +87,7 @@ impl Component for Children {
 
     fn register_component_hooks(hooks: &mut crate::component::ComponentHooks) {
         hooks.on_replace(Self::on_replace);
+        hooks.on_despawn(Self::on_despawn);
     }
 
     fn get_component_clone_handler() -> ComponentCloneHandler {
@@ -106,7 +106,7 @@ impl<'a> IntoIterator for &'a Children {
     }
 }
 
-impl std::ops::Deref for Children {
+impl core::ops::Deref for Children {
     type Target = [Entity];
 
     fn deref(&self) -> &Self::Target {

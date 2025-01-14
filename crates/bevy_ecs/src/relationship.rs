@@ -32,8 +32,8 @@ pub trait Relationship: Component + Sized {
         if parent == entity {
             warn!(
                 "The {}({parent:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
-                std::any::type_name::<Self>(),
-                std::any::type_name::<Self>()
+                core::any::type_name::<Self>(),
+                core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }
@@ -51,14 +51,15 @@ pub trait Relationship: Component + Sized {
         } else {
             warn!(
                 "The {}({parent:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
-                std::any::type_name::<Self>(),
-                std::any::type_name::<Self>()
+                core::any::type_name::<Self>(),
+                core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }
     }
 
-    fn on_remove(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    // note: think of this as "on_drop"
+    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         let parent = world.entity(entity).get::<Self>().unwrap().get();
         if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
             if let Some(mut relationship_sources) =
@@ -70,17 +71,6 @@ pub trait Relationship: Component + Sized {
                         entity.remove::<Self::RelationshipSources>();
                     }
                 }
-            }
-        }
-    }
-
-    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-        let parent = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            if let Some(mut relationship_sources) =
-                parent_entity.get_mut::<Self::RelationshipSources>()
-            {
-                relationship_sources.collection_mut().remove(entity);
             }
         }
     }
@@ -99,9 +89,10 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     #[deprecated = "Creating a relationship source manually should only be done by internals as it can invalidate relationships."]
     fn from_collection(collection: Self::Collection) -> Self;
 
-    // TODO: this should probably be an on_despawn hook to avoid accidentally despawning on removal
-    // on_despawn could also take a &mut EntityWorldMut, which would allow doing this without commands
     fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
+        // copying the RelationshipSources collection
+        // SAFETY: This only reads the Self component and queues Remove commands
         unsafe {
             let world = world.as_unsafe_world_cell();
             let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
@@ -121,6 +112,9 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     }
 
     fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+        // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
+        // copying the RelationshipSources collection
+        // SAFETY: This only reads the Self component and queues despawn commands
         unsafe {
             let world = world.as_unsafe_world_cell();
             let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
@@ -154,6 +148,11 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     fn len(&self) -> usize {
         self.collection().len()
     }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.collection().is_empty()
+    }
 }
 
 pub trait RelationshipSourceCollection {
@@ -163,6 +162,10 @@ pub trait RelationshipSourceCollection {
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity>;
     fn take(&mut self) -> Vec<Entity>;
     fn len(&self) -> usize;
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl RelationshipSourceCollection for Vec<Entity> {
@@ -175,21 +178,21 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn remove(&mut self, entity: Entity) {
-        if let Some(index) = self.into_iter().position(|e| *e == entity) {
+        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
             Vec::remove(self, index);
         }
     }
 
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
-        self.into_iter().copied()
+        <[Entity]>::iter(self).copied()
     }
 
     fn take(&mut self) -> Vec<Entity> {
-        std::mem::take(self)
+        core::mem::take(self)
     }
 
     fn len(&self) -> usize {
-        Vec::len(&self)
+        Vec::len(self)
     }
 }
 
@@ -210,7 +213,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     {
         self.get(entity)
             .into_iter()
-            .flat_map(|children| children.iter())
+            .flat_map(RelationshipSources::iter)
     }
 
     pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
@@ -309,7 +312,7 @@ where
             vecdeque: children_query
                 .get(entity)
                 .into_iter()
-                .flat_map(|s| s.iter())
+                .flat_map(RelationshipSources::iter)
                 .collect(),
         }
     }
