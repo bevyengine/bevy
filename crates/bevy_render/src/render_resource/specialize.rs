@@ -63,7 +63,7 @@ impl<T: SpecializeTarget, S: Specialize<T>> Specializer<T, S> {
             specializer,
             user_specializer,
             base_descriptor,
-            pipelines: Default::default(),
+            pipelines: HashMap::new(),
         }
     }
 

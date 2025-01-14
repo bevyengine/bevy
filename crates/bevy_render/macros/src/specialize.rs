@@ -1,10 +1,8 @@
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
-    parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data,
-    DataStruct, DeriveInput, Expr, Index, Member, Meta, MetaList, MetaNameValue, Path, Stmt, Token,
-    Type,
+    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DataStruct,
+    DeriveInput, Expr, Index, Member, Meta, MetaList, Path, Stmt, Token, Type,
 };
 
 const KEY_ATTR_IDENT: &str = "key";

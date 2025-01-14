@@ -32,7 +32,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::render_resource::{RenderPipeline, Specialize, Specializer};
+use bevy_render::render_resource::{HasBaseDescriptor, RenderPipeline, Specialize, Specializer};
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -162,16 +162,10 @@ fn main() {
         .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
         .add_systems(Startup, setup);
 
-    let base_pipeline_descriptor = base_pipeline_descriptor(app.world().resource::<AssetServer>());
-
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)
         .unwrap()
-        .insert_resource(Specializer::new(
-            CustomPhaseSpecializer,
-            None,
-            base_pipeline_descriptor,
-        ))
+        .init_resource::<Specializer<RenderPipeline, CustomPhaseSpecializer>>()
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
@@ -218,7 +212,7 @@ fn queue_custom_phase_item(
     pipeline_cache: Res<PipelineCache>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    mut specialized_render_pipelines: ResMut<Specializer<RenderPipeline, CustomPhaseSpecializer>>,
+    mut specializer: ResMut<Specializer<RenderPipeline, CustomPhaseSpecializer>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
@@ -240,7 +234,7 @@ fn queue_custom_phase_item(
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
             // with the exception of number of MSAA samples.
-            let pipeline_id = specialized_render_pipelines.specialize(&pipeline_cache, *msaa);
+            let pipeline_id = specializer.specialize(&pipeline_cache, *msaa);
 
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
@@ -269,7 +263,21 @@ fn queue_custom_phase_item(
     }
 }
 
-struct CustomPhaseSpecializer;
+/// Holds a reference to our shader.
+///
+/// This is loaded at app creation time.
+struct CustomPhaseSpecializer {
+    shader: Handle<Shader>,
+}
+
+impl FromWorld for CustomPhaseSpecializer {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        Self {
+            shader: asset_server.load("shaders/custom_phase_item.wgsl"),
+        }
+    }
+}
 
 impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     type Key = Msaa;
@@ -279,63 +287,64 @@ impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     }
 }
 
-fn base_pipeline_descriptor(asset_server: &AssetServer) -> RenderPipelineDescriptor {
-    let shader = asset_server.load("shaders/custom_phase_item.wgsl");
-    RenderPipelineDescriptor {
-        label: Some("custom render pipeline".into()),
-        layout: vec![],
-        push_constant_ranges: vec![],
-        vertex: VertexState {
-            shader: shader.clone(),
-            shader_defs: vec![],
-            entry_point: "vertex".into(),
-            buffers: vec![VertexBufferLayout {
-                array_stride: size_of::<Vertex>() as u64,
-                step_mode: VertexStepMode::Vertex,
-                // This needs to match the layout of [`Vertex`].
-                attributes: vec![
-                    VertexAttribute {
-                        format: VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    VertexAttribute {
-                        format: VertexFormat::Float32x3,
-                        offset: 16,
-                        shader_location: 1,
-                    },
-                ],
-            }],
-        },
-        fragment: Some(FragmentState {
-            shader,
-            shader_defs: vec![],
-            entry_point: "fragment".into(),
-            targets: vec![Some(ColorTargetState {
-                // Ordinarily, you'd want to check whether the view has the
-                // HDR format and substitute the appropriate texture format
-                // here, but we omit that for simplicity.
-                format: TextureFormat::bevy_default(),
-                blend: None,
-                write_mask: ColorWrites::ALL,
-            })],
-        }),
-        primitive: PrimitiveState::default(),
-        // Note that if your view has no depth buffer this will need to be
-        // changed.
-        depth_stencil: Some(DepthStencilState {
-            format: CORE_3D_DEPTH_FORMAT,
-            depth_write_enabled: false,
-            depth_compare: CompareFunction::Always,
-            stencil: default(),
-            bias: default(),
-        }),
-        multisample: MultisampleState {
-            count: 0,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
-        zero_initialize_workgroup_memory: false,
+impl HasBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
+    fn base_descriptor(&self) -> RenderPipelineDescriptor {
+        RenderPipelineDescriptor {
+            label: Some("custom render pipeline".into()),
+            layout: vec![],
+            push_constant_ranges: vec![],
+            vertex: VertexState {
+                shader: self.shader.clone(),
+                shader_defs: vec![],
+                entry_point: "vertex".into(),
+                buffers: vec![VertexBufferLayout {
+                    array_stride: size_of::<Vertex>() as u64,
+                    step_mode: VertexStepMode::Vertex,
+                    // This needs to match the layout of [`Vertex`].
+                    attributes: vec![
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        VertexAttribute {
+                            format: VertexFormat::Float32x3,
+                            offset: 16,
+                            shader_location: 1,
+                        },
+                    ],
+                }],
+            },
+            fragment: Some(FragmentState {
+                shader: self.shader.clone(),
+                shader_defs: vec![],
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    // Ordinarily, you'd want to check whether the view has the
+                    // HDR format and substitute the appropriate texture format
+                    // here, but we omit that for simplicity.
+                    format: TextureFormat::bevy_default(),
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState::default(),
+            // Note that if your view has no depth buffer this will need to be
+            // changed.
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_3D_DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::Always,
+                stencil: default(),
+                bias: default(),
+            }),
+            multisample: MultisampleState {
+                count: 0,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            zero_initialize_workgroup_memory: false,
+        }
     }
 }
 
