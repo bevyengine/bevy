@@ -37,7 +37,7 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`] and entities marked with [`PickingBehavior`]. `false` by default.
+    /// [`SpritePickingCamera`] and entities marked with [`Pickable`]. `false` by default.
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the sprite picking backend at runtime.
@@ -89,17 +89,17 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
-        Option<&PickingBehavior>,
+        Option<&Pickable>,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
-            let marker_requirement = !settings.require_markers || picking_behavior.is_some();
+        .filter_map(|(entity, sprite, transform, pickable, vis)| {
+            let marker_requirement = !settings.require_markers || pickable.is_some();
             if !transform.affine().is_nan() && vis.get() && marker_requirement {
-                Some((entity, sprite, transform, picking_behavior))
+                Some((entity, sprite, transform, pickable))
             } else {
                 None
             }
@@ -149,7 +149,7 @@ fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, picking_behavior)| {
+            .filter_map(|(entity, sprite, sprite_transform, pickable)| {
                 if blocked {
                     return None;
                 }
@@ -215,7 +215,7 @@ fn sprite_picking(
                 };
 
                 blocked = cursor_in_valid_pixels_of_sprite
-                    && picking_behavior.is_none_or(|p| p.should_block_lower);
+                    && pickable.is_none_or(|p| p.should_block_lower);
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =

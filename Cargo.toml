@@ -1289,7 +1289,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.animated_mesh]
 name = "Animated Mesh"
-description = "Plays an animation from a skinned glTF"
+description = "Plays an animation on a skinned glTF model of a fox"
 category = "Animation"
 wasm = true
 
