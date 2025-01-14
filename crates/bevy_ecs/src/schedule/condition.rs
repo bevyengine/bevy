@@ -398,6 +398,7 @@ pub mod common_conditions {
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
+        query::QueryFilter,
         removal_detection::RemovedComponents,
         system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
@@ -937,6 +938,46 @@ pub mod common_conditions {
         removals.read().count() > 0
     }
 
+    /// A [`Condition`]-satisfying system that returns `true`
+    /// if there are any entities matching the given filter.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(any_filtered::<Or<(With<A>, With<B>)>>),
+    /// );
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // No entities exist with either an `A` or `B` component so `my_system` won't run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 0);
+    ///
+    /// world.spawn(B);
+    ///
+    /// // An entity matching the filter now exists so `my_system` will run
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    pub fn any_filtered<F: QueryFilter>(query: Query<(), F>) -> bool {
+        !query.is_empty()
+    }
+
     /// Generates a [`Condition`] that inverses the result of passed one.
     ///
     /// # Example
@@ -1259,6 +1300,7 @@ mod tests {
     use crate::{
         change_detection::ResMut,
         component::Component,
+        query::Without,
         schedule::{IntoSystemConfigs, Schedule},
         system::Local,
         world::World,
@@ -1396,6 +1438,7 @@ mod tests {
                 .distributive_run_if(resource_removed::<TestResource>)
                 .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
+                .distributive_run_if(any_filtered::<Without<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
     }
