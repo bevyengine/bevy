@@ -638,7 +638,6 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -665,7 +664,6 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
-        view_entity,
         view,
         visible_entities,
         msaa,
@@ -687,10 +685,10 @@ pub fn queue_material_meshes<M: Material>(
             Some(transmissive_phase),
             Some(transparent_phase),
         ) = (
-            opaque_render_phases.get_mut(&view_entity),
-            alpha_mask_render_phases.get_mut(&view_entity),
-            transmissive_render_phases.get_mut(&view_entity),
-            transparent_render_phases.get_mut(&view_entity),
+            opaque_render_phases.get_mut(&view.retained_view_entity),
+            alpha_mask_render_phases.get_mut(&view.retained_view_entity),
+            transmissive_render_phases.get_mut(&view.retained_view_entity),
+            transparent_render_phases.get_mut(&view.retained_view_entity),
         )
         else {
             continue;
