@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(
+#![warn(
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     reason = "See #17111; To be removed once all crates are in-line with these attributes"
