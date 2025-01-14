@@ -2,9 +2,11 @@ use super::{
     CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
     PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
-use bevy_ecs::{system::Resource, world::FromWorld};
+use bevy_ecs::system::Resource;
 use bevy_utils::hashbrown::HashMap;
 use core::hash::Hash;
+
+pub use bevy_render_macros::{SpecializeComputePipeline, SpecializeRenderPipeline};
 
 pub trait SpecializeTarget {
     type Descriptor: Clone + Send + Sync;
