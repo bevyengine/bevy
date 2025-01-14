@@ -88,10 +88,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     let component_ids: Vec<ComponentId> = (1..=num_components)
         .map(|i| {
             world.register_component_with_descriptor(
-                #[expect(
-                    unsafe_code,
-                    reason = "Used to register a bunch of fake components"
-                )]
+                #[expect(unsafe_code, reason = "Used to register a bunch of fake components")]
                 // SAFETY:
                 // we don't implement a drop function
                 // u8 is Sync and Send
