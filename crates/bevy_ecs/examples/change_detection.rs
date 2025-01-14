@@ -7,8 +7,8 @@
 //! the `EntityCounter` resource and updated Age components
 
 use bevy_ecs::prelude::*;
-use rand::Rng;
 use core::ops::Deref;
+use rand::Rng;
 
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
