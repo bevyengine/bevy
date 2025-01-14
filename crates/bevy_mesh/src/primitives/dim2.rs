@@ -462,7 +462,7 @@ impl RegularPolygonMeshBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if `circumradius` is negative, or if `sides` is less than 3.
+    /// Panics in debug mode if `circumradius` is negative, or if `sides` is less than 3.
     pub const fn new(circumradius: f32, sides: u32) -> Self {
         debug_assert!(
             circumradius.is_sign_positive(),
@@ -753,6 +753,10 @@ pub struct RhombusMeshBuilder {
 
 impl RhombusMeshBuilder {
     /// Creates a new [`RhombusMeshBuilder`] from a horizontal and vertical diagonal size.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics in debug mode if `horizontal_diagonal` or `vertical_diagonal` is negative.
     pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
         debug_assert!(
             horizontal_diagonal >= 0.0,
@@ -896,6 +900,10 @@ pub struct RectangleMeshBuilder {
 
 impl RectangleMeshBuilder {
     /// Creates a new [`RectangleMeshBuilder`] from a full width and height.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics in debug mode if `width` or `height` is negative.
     pub const fn new(width: f32, height: f32) -> Self {
         debug_assert!(width >= 0.0, "rectangle has a negative width");
         debug_assert!(height >= 0.0, "rectangle has a negative height");
