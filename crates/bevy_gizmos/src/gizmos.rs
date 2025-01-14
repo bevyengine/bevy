@@ -182,7 +182,10 @@ where
     state: <GizmosState<Config, Clear> as SystemParam>::State,
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement SystemParam without using unsafe code."
+)]
 // SAFETY: All methods are delegated to existing `SystemParam` implementations
 unsafe impl<Config, Clear> SystemParam for Gizmos<'_, '_, Config, Clear>
 where
@@ -254,7 +257,10 @@ where
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement ReadOnlySystemParam without using unsafe code."
+)]
 // Safety: Each field is `ReadOnlySystemParam`, and Gizmos SystemParam does not mutate world
 unsafe impl<'w, 's, Config, Clear> ReadOnlySystemParam for Gizmos<'w, 's, Config, Clear>
 where

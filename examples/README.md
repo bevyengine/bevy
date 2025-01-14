@@ -194,7 +194,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Animated Mesh](../examples/animation/animated_mesh.rs) | Plays an animation from a skinned glTF
+[Animated Mesh](../examples/animation/animated_mesh.rs) | Plays an animation on a skinned glTF model of a fox
 [Animated Mesh Control](../examples/animation/animated_mesh_control.rs) | Plays an animation from a skinned glTF with keyboard controls
 [Animated Mesh Events](../examples/animation/animated_mesh_events.rs) | Plays an animation from a skinned glTF with events
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
@@ -512,6 +512,7 @@ Example | Description
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
+[Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
@@ -523,7 +524,7 @@ Example | Description
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation
+[Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
@@ -741,7 +742,7 @@ Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
-Bevy has an helper to build its examples:
+Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
