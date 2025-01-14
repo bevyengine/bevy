@@ -2,7 +2,10 @@ use super::{
     CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline, ComputePipelineDescriptor,
     PipelineCache, RenderPipeline, RenderPipelineDescriptor,
 };
-use bevy_ecs::system::Resource;
+use bevy_ecs::{
+    system::Resource,
+    world::{FromWorld, World},
+};
 use bevy_utils::hashbrown::HashMap;
 use core::hash::Hash;
 
@@ -38,8 +41,9 @@ pub trait Specialize<T: SpecializeTarget>: Send + Sync + 'static {
     fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor);
 }
 
-pub type RenderPipelineSpecializer<S> = Specializer<RenderPipeline, S>;
-pub type ComputePipelineSpecializer<S> = Specializer<ComputePipeline, S>;
+pub trait HasBaseDescriptor<T: SpecializeTarget>: Specialize<T> {
+    fn base_descriptor(&self) -> T::Descriptor;
+}
 
 #[derive(Resource)]
 pub struct Specializer<T: SpecializeTarget, S: Specialize<T>> {
@@ -75,5 +79,13 @@ impl<T: SpecializeTarget, S: Specialize<T>> Specializer<T, S> {
                 <T as SpecializeTarget>::queue(pipeline_cache, descriptor)
             })
             .clone()
+    }
+}
+
+impl<T: SpecializeTarget, S: FromWorld + HasBaseDescriptor<T>> FromWorld for Specializer<T, S> {
+    fn from_world(world: &mut World) -> Self {
+        let specializer = S::from_world(world);
+        let base_descriptor = specializer.base_descriptor();
+        Self::new(specializer, None, base_descriptor)
     }
 }
