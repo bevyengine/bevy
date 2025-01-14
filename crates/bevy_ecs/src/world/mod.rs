@@ -1282,12 +1282,16 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(
+        if let Err(error) = self.despawn_with_caller(
             entity,
             #[cfg(feature = "track_location")]
             Location::caller(),
-        )
-        .is_ok()
+        ) {
+            warn!("{error}");
+            false
+        } else {
+            true
+        }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
