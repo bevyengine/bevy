@@ -3330,6 +3330,18 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "custom_cursor_image"
+path = "examples/window/custom_cursor_image.rs"
+doc-scrape-examples = true
+required-features = ["custom_cursor"]
+
+[package.metadata.example.custom_cursor_image]
+name = "Custom Cursor Image"
+description = "Demonstrates creating an animated custom cursor from an image"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "custom_user_event"
 path = "examples/window/custom_user_event.rs"
 doc-scrape-examples = true
