@@ -1981,7 +1981,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         system_meta: &mut SystemMeta,
     ) {
         for state in state {
-            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            // SAFETY: Safety ensured by caller.
             unsafe {
                 T::update_meta(state, world, system_meta);
             };
@@ -2045,7 +2045,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         system_meta: &mut SystemMeta,
     ) {
         for state in state {
-            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            // SAFETY: Safety ensured by caller.
             unsafe {
                 T::update_meta(state, world, system_meta);
             }
@@ -2138,10 +2138,15 @@ macro_rules! impl_system_param_tuple {
 
             #[inline]
             unsafe fn update_meta(($($param,)*): &mut Self::State, world: UnsafeWorldCell, system_meta: &mut SystemMeta) {
-                // SAFETY: This is insured by caller.
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will not run anything in the unsafe block."
+                )]
+                // SAFETY: Safety ensured by caller.
                 unsafe { $($param::update_meta($param, world, system_meta);)* }
             }
-          
+
+            #[inline]
             fn apply(($($param,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
                 $($param::apply($param, system_meta, world);)*
             }
@@ -2321,7 +2326,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         world: UnsafeWorldCell,
         system_meta: &mut SystemMeta,
     ) {
-        // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
+        // SAFETY: Safety ensured by caller.
         unsafe { P::update_meta(state, world, system_meta) };
     }
 
@@ -2608,7 +2613,7 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
     }
 
     unsafe fn update_meta(&mut self, world: UnsafeWorldCell, system_meta: &mut SystemMeta) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        // SAFETY: Safety ensured by caller.
         unsafe { T::update_meta(&mut self.0, world, system_meta) };
     }
 
@@ -2680,7 +2685,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         world: UnsafeWorldCell,
         system_meta: &mut SystemMeta,
     ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+        // SAFETY: Safety ensured by caller.
         unsafe { state.0.update_meta(world, system_meta) };
     }
 
