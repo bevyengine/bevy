@@ -1,6 +1,9 @@
 //! In this example, we use a system to print diagnostic information about the world.
 
-#![expect(missing_docs)]
+#![expect(
+    missing_docs,
+    reason = "Trivial example types do not require documentation."
+)]
 
 use bevy_ecs::prelude::*;
 use bevy_ecs_macros::{ScheduleLabel, SystemSet};
@@ -42,9 +45,8 @@ enum MySet {
 #[derive(Component)]
 struct Counter(usize);
 
-#[expect(dead_code)]
 #[derive(Component)]
-struct HitPoint(usize);
+struct Player;
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
@@ -101,17 +103,17 @@ fn main() {
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 
-    let player = world.spawn(HitPoint(100)).id();
+    let player = world.spawn(Player).id();
     // create an archetype with 2 table components and 1 sparse set
-    world.spawn((HitPoint(100), Counter(1), HighlightFlag));
+    world.spawn((Counter(1), HighlightFlag));
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 
-    world.entity_mut(player).insert((Counter(0),));
+    world.entity_mut(player).insert(Counter(0));
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 
-    world.entity_mut(player).insert((HighlightFlag,));
+    world.entity_mut(player).insert(HighlightFlag);
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 
