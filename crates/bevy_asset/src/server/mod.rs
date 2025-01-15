@@ -1470,7 +1470,8 @@ impl AssetServer {
 
     /// Writes the default meta file for the provided `path`.
     ///
-    /// Note if there is already a meta file for `path`, it will be overwritten.
+    /// Note if there is already a meta file for `path`, this function returns
+    /// `Err(WriteDefaultMetaError::MetaAlreadyExists)`.
     pub async fn write_default_meta_file_for_path(
         &self,
         path: impl Into<AssetPath<'_>>,
@@ -1482,6 +1483,17 @@ impl AssetServer {
         let serialized_meta = meta.serialize();
 
         let source = self.get_source(path.source())?;
+
+        let reader = source.reader();
+        match reader.read_meta_bytes(path.path()).await {
+            Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(_) => {
+                // Either the meta file couldn't be found (so we can continue), or this was an I/O
+                // error, which will almost certainly be repeated below. Therefore, fallthrough is
+                // fine.
+            }
+        }
+
         let writer = source.writer()?;
         writer
             .write_meta_bytes(path.path(), &serialized_meta)
@@ -1892,6 +1904,8 @@ pub enum WriteDefaultMetaError {
     MissingAssetSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingAssetWriter(#[from] MissingAssetWriterError),
-    #[error("Failed to write default asset meta file: {0}")]
+    #[error("failed to write default asset meta file: {0}")]
     FailedToWriteMeta(#[from] AssetWriterError),
+    #[error("asset meta file already exists, so avoiding overwrite")]
+    MetaAlreadyExists,
 }
