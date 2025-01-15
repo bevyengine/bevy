@@ -22,9 +22,6 @@ assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
 
-# External Assets
-assets/models/bunny.meshlet_mesh
-
 # Bevy Examples
 example_showcase_config.ron
 example-showcase-reports/
