@@ -244,6 +244,8 @@ impl Location {
 }
 
 /// Types of actions that can be taken by pointers.
+///
+/// These are sent as the payload of [`PointerInput`] events.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum PointerAction {
     /// A button has been pressed on the pointer.
@@ -263,13 +265,25 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
+///
+/// These events are generated from user input in the [`PointerInputPlugin`](crate::input::PointerInputPlugin)
+/// and are read by the [`PointerInput::receive`] system
+/// to modify the state of existing pointer entities.
 #[derive(Event, Debug, Clone, Reflect)]
 pub struct PointerInput {
     /// The id of the pointer.
+    ///
+    /// Used to identify which pointer entity to update.
+    /// If no match is found, the event is ignored: no new pointer entity is created.
     pub pointer_id: PointerId,
     /// The location of the pointer. For [`PointerAction::Moved`], this is the location after the movement.
+    ///
+    /// Defines exactly where, on the [`NormalizedRenderTarget`] that the pointer event came from,
+    /// the event occurred.
     pub location: Location,
     /// The action that the event describes.
+    ///
+    /// This is the action that the pointer took, such as pressing a button or moving.
     pub action: PointerAction,
 }
 
@@ -306,6 +320,8 @@ impl PointerInput {
     }
 
     /// Updates pointer entities according to the input events.
+    ///
+    /// Entities are matched by their [`PointerId`]. If no match is found, the event is ignored.
     pub fn receive(
         mut events: EventReader<PointerInput>,
         mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
