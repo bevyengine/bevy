@@ -958,6 +958,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "decal"
+path = "examples/3d/decal.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.decal]
+name = "Decal"
+description = "Decal rendering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
 doc-scrape-examples = true

@@ -2,6 +2,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
+    alpha::AlphaMode,
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
@@ -39,6 +40,11 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
+    }
+
+    // Returns this material’s AlphaMode. If None is returned, the base material alpha mode will be used.
+    fn alpha_mode() -> Option<AlphaMode> {
+        None
     }
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
@@ -230,8 +236,11 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn alpha_mode(&self) -> crate::AlphaMode {
-        B::alpha_mode(&self.base)
+    fn alpha_mode(&self) -> AlphaMode {
+        match E::alpha_mode() {
+            Some(specified) => specified,
+            None => B::alpha_mode(&self.base),
+        }
     }
 
     fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
