@@ -212,7 +212,6 @@ struct Cfg {
     update_filter: UpdateFilter,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth

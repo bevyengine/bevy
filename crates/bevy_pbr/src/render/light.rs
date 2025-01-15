@@ -614,8 +614,18 @@ pub struct ViewShadowBindings {
     pub directional_light_depth_texture_view: TextureView,
 }
 
+/// A component that holds the shadow cascade views for all shadow cascades
+/// associated with a camera.
+///
+/// Note: Despite the name, this component actually holds the shadow cascade
+/// views, not the lights themselves.
 #[derive(Component)]
 pub struct ViewLightEntities {
+    /// The shadow cascade views for all shadow cascades associated with a
+    /// camera.
+    ///
+    /// Note: Despite the name, this component actually holds the shadow cascade
+    /// views, not the lights themselves.
     pub lights: Vec<Entity>,
 }
 
@@ -701,6 +711,7 @@ pub fn prepare_lights(
     views: Query<
         (
             Entity,
+            MainEntity,
             &ExtractedView,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
@@ -1118,6 +1129,7 @@ pub fn prepare_lights(
     // set up light data for each view
     for (
         entity,
+        camera_main_entity,
         extracted_view,
         clusters,
         maybe_layers,
@@ -1238,8 +1250,11 @@ pub fn prepare_lights(
                     })
                     .clone();
 
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, face_index as u32);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    Some(camera_main_entity.into()),
+                    face_index as u32,
+                );
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1343,7 +1358,8 @@ pub fn prepare_lights(
 
             let view_light_entity = light_view_entities[0];
 
-            let retained_view_entity = RetainedViewEntity::new(*light_main_entity, 0);
+            let retained_view_entity =
+                RetainedViewEntity::new(*light_main_entity, Some(camera_main_entity.into()), 0);
 
             commands.entity(view_light_entity).insert((
                 ShadowView {
@@ -1476,8 +1492,11 @@ pub fn prepare_lights(
                 frustum.half_spaces[4] =
                     HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
 
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, cascade_index as u32);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    Some(camera_main_entity.into()),
+                    cascade_index as u32,
+                );
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1762,6 +1781,12 @@ pub struct ShadowBatchSetKey {
     ///
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
+}
+
+impl PhaseItemBatchSetKey for ShadowBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
 }
 
 /// Data used to bin each object in the shadow map phase.
