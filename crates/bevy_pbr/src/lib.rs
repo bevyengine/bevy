@@ -102,6 +102,8 @@ pub mod graph {
         GpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the indirect parameters building pass.
+        BuildIndirectParameters,
     }
 }
 
@@ -341,6 +343,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
