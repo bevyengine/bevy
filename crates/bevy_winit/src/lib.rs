@@ -14,6 +14,15 @@
 
 extern crate alloc;
 
+/// The winit prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    pub use crate::cursor::CursorIcon;
+    #[cfg(feature = "custom_cursor")]
+    pub use crate::custom_cursor::CustomCursor;
+}
+
 use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;

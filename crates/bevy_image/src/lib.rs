@@ -2,6 +2,9 @@
 
 extern crate alloc;
 
+/// The image prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,

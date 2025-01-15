@@ -49,8 +49,9 @@ pub use window::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
-        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
+        CursorEntered, CursorGrabMode, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+        MonitorSelection, SystemCursorIcon, Window, WindowMoved, WindowPlugin, WindowPosition,
+        WindowResizeConstraints,
     };
 }
 

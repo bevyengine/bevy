@@ -3,8 +3,7 @@
 
 use std::time::Duration;
 
-use bevy::winit::cursor::CustomCursor;
-use bevy::{prelude::*, winit::cursor::CursorIcon};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
