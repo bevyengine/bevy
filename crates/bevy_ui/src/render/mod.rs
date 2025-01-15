@@ -5,9 +5,8 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
-    DefaultUiCamera, ImageNode, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
-    UiBoxShadowSamples,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, ImageNode,
+    Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -408,9 +407,7 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
-    ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -479,10 +476,6 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            let parent_clip = ui_children
-                .get_parent(entity)
-                .and_then(|parent| parent_clip_query.get(parent).ok());
-
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
@@ -493,7 +486,7 @@ pub fn extract_uinode_borders(
                         ..Default::default()
                     },
                     image,
-                    clip: parent_clip.map(|clip| clip.clip),
+                    clip: maybe_clip.map(|clip| clip.clip),
                     camera_entity: render_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
