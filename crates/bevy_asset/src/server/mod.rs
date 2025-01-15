@@ -120,7 +120,10 @@ impl AssetServer {
         #[cfg(target_os = "ios")]
         let file_limit = 127; // The normal limit is 256, cut in half for .meta files and sub 1 because 128 still throws the occasional error (3 failed files out of 1500)
 
-        #[cfg(not(target_os = "ios"))]
+        #[cfg(target_os = "macos")]
+        let file_limit = 2559;
+
+        #[cfg(all(not(target_os = "macos"), not(target_os = "ios")))]
         let file_limit = 16000;
 
         Self {
