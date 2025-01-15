@@ -8,14 +8,9 @@ use xshell::cmd;
 pub struct FormatCommand {}
 
 impl Prepare for FormatCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
-        let jobs = args
-            .jobs
-            .map(|jobs| format!(" --jobs {jobs}"))
-            .unwrap_or_default();
-
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, _args: Args) -> Vec<PreparedCommand<'a>> {
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo fmt --all{jobs} -- --check"),
+            cmd!(sh, "cargo fmt --all -- --check"),
             "Please run 'cargo fmt --all' to format your code.",
         )]
     }
