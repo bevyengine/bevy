@@ -54,6 +54,11 @@ pub trait Event: Send + Sync + 'static {
     /// this will return the existing [`ComponentId`].
     ///
     /// This is used by various dynamically typed observer APIs.
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementors,
+    /// and should always correspond to the implementation of [`get_component_id`](Event::get_component_id).
     fn register_component_id(world: &mut World) -> ComponentId {
         world.register_component::<EventWrapperComponent<Self>>()
     }
@@ -62,6 +67,11 @@ pub trait Event: Send + Sync + 'static {
     /// if it has already been generated.
     ///
     /// This is used by various dynamically typed observer APIs.
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementors,
+    /// and should always correspond to the implementation of [`register_component_id`](Event::register_component_id).
     fn get_component_id(world: &World) -> Option<ComponentId> {
         world.component_id::<EventWrapperComponent<Self>>()
     }
