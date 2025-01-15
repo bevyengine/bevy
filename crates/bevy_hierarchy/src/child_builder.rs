@@ -3,8 +3,8 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     event::Events,
-    system::{Commands, EntityCommands},
-    world::{Command, EntityWorldMut, World},
+    system::{Command, Commands, EntityCommands},
+    world::{EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 
@@ -248,6 +248,8 @@ pub trait BuildChildren {
 
     /// Spawns the passed bundle and adds it to this entity as a child.
     ///
+    /// The bundle's [`Parent`] component will be updated to the new parent.
+    ///
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
     /// [`with_children`]: BuildChildren::with_children
@@ -255,6 +257,8 @@ pub trait BuildChildren {
 
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
+    ///
+    /// The children's [`Parent`] component will be updated to the new parent.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
@@ -267,6 +271,8 @@ pub trait BuildChildren {
 
     /// Inserts children at the given index.
     ///
+    /// The children's [`Parent`] component will be updated to the new parent.
+    ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
@@ -276,12 +282,16 @@ pub trait BuildChildren {
     /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 
-    /// Removes the given children
+    /// Removes the given children.
+    ///
+    /// The removed children will have their [`Parent`] component removed.
     ///
     /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
 
     /// Adds a single child.
+    ///
+    /// The child's [`Parent`] component will be updated to the new parent.
     ///
     /// If the child was previously the child of another parent, that parent's [`Children`] component
     /// will have the child removed from its list. Removing all children from a parent causes its
@@ -292,11 +302,13 @@ pub trait BuildChildren {
     /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 
-    /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
+    /// Removes all children from this entity. The [`Children`] component and the children's [`Parent`] component will be removed.
+    /// If the [`Children`] component is not present, this has no effect.
     fn clear_children(&mut self) -> &mut Self;
 
     /// Removes all current children from this entity, replacing them with the specified list of entities.
     ///
+    /// The added children's [`Parent`] component will be updated to the new parent.
     /// The removed children will have their [`Parent`] component removed.
     ///
     /// # Panics
@@ -339,15 +351,15 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Entity cannot be a child of itself.");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_children(&children);
         })
     }
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let child = self.commands().spawn(bundle).id();
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_child(child);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_child(child);
         })
     }
 
@@ -357,8 +369,8 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot add entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_children(&children);
         })
     }
 
@@ -368,15 +380,15 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot insert entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).insert_children(index, &children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_children(index, &children);
         })
     }
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).remove_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_children(&children);
         })
     }
 
@@ -385,14 +397,14 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).add_child(child);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.add_child(child);
         })
     }
 
     fn clear_children(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).clear_children();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.clear_children();
         })
     }
 
@@ -402,8 +414,8 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Cannot replace entity as a child of itself.");
         }
         let children = SmallVec::<[Entity; 8]>::from_slice(children);
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).replace_children(&children);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.replace_children(&children);
         })
     }
 
@@ -412,14 +424,16 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(parent).add_child(entity);
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.world_scope(|world| {
+                world.entity_mut(parent).add_child(child);
+            });
         })
     }
 
     fn remove_parent(&mut self) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            world.entity_mut(entity).remove_parent();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_parent();
         })
     }
 }
@@ -459,8 +473,16 @@ impl ChildBuild for WorldChildBuilder<'_> {
     }
 
     fn queue_command<C: Command>(&mut self, command: C) -> &mut Self {
-        command.apply(self.world);
+        self.world.commands().queue(command);
         self
+    }
+}
+
+impl WorldChildBuilder<'_> {
+    /// Calls the world's [`World::flush`] to apply any commands
+    /// queued by [`Self::queue_command`].
+    pub fn flush_world(&mut self) {
+        self.world.flush();
     }
 }
 
@@ -761,7 +783,10 @@ mod tests {
         );
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "The inner field is used to differentiate the different instances of this struct."
+    )]
     #[derive(Component)]
     struct C(u32);
 

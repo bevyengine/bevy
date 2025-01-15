@@ -1,10 +1,26 @@
-use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_image::Image;
+use bevy_app::prelude::*;
+use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{URect, UVec2};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::HashMap;
+
+use crate::Image;
+
+/// Adds support for texture atlases.
+pub struct TextureAtlasPlugin;
+
+impl Plugin for TextureAtlasPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<TextureAtlasLayout>();
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_asset_reflect::<TextureAtlasLayout>()
+            .register_type::<TextureAtlas>();
+    }
+}
 
 /// Stores a mapping from sub texture handles to the related area index.
 ///
@@ -56,10 +72,13 @@ impl TextureAtlasSources {
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Asset, Reflect, PartialEq, Eq, Debug, Clone)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[derive(Asset, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct TextureAtlasLayout {
     /// Total size of texture atlas.
     pub size: UVec2,
@@ -163,8 +182,12 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Default, Debug, Clone, Reflect)]
-#[reflect(Default, Debug)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, PartialEq, Hash)
+)]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
     pub layout: Handle<TextureAtlasLayout>,

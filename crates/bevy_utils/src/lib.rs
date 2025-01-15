@@ -26,8 +26,6 @@ pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod object_safe;
-pub use object_safe::assert_object_safe;
 mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;

@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(

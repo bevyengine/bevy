@@ -22,7 +22,7 @@ pub struct TextureSlice {
 }
 
 impl TextureSlice {
-    /// Transforms the given slice in an collection of tiled subdivisions.
+    /// Transforms the given slice in a collection of tiled subdivisions.
     ///
     /// # Arguments
     ///
