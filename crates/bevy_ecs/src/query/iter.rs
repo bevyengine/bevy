@@ -1145,6 +1145,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
     }
 }
 
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Clone for QueryIter<'w, 's, D, F> {
+    fn clone(&self) -> Self {
+        self.remaining()
+    }
+}
+
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
