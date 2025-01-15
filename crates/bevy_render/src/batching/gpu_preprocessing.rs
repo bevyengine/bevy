@@ -218,7 +218,22 @@ where
     /// Removes a piece of buffered data from the uniform buffer.
     ///
     /// This simply marks the data as free.
+    ///
+    /// # Panics
+    ///
+    /// If [`Self::buffer`] length < `uniform_index`.
     pub fn remove(&mut self, uniform_index: u32) {
+        assert!((uniform_index as usize) < self.buffer.len());
+        if !self.free_uniform_indices.contains(&uniform_index) {
+            self.free_uniform_indices.push(uniform_index);
+        }
+    }
+
+    /// Removes a piece of buffered data from the uniform buffer.
+    ///
+    /// Ensure uniform_index is within bounds of [`Self::buffer`] and not removed twice,
+    /// as this may cause incorrect behavior or panicking when inserting new data.
+    pub fn remove_unchecked(&mut self, uniform_index: u32) {
         self.free_uniform_indices.push(uniform_index);
     }
 
@@ -1470,11 +1485,17 @@ mod tests {
         let mut instance_buffer = InstanceInputUniformBuffer::new();
 
         let index = instance_buffer.add(2);
+        // double removal should not queue the same index twice.
+        instance_buffer.remove(index);
         instance_buffer.remove(index);
         assert_eq!(instance_buffer.get_unchecked(index), 2);
         assert_eq!(instance_buffer.get(index), None);
 
         instance_buffer.add(5);
+
         assert_eq!(instance_buffer.buffer().len(), 1);
+
+        instance_buffer.add(5);
+        assert_eq!(instance_buffer.buffer().len(), 2);
     }
 }
