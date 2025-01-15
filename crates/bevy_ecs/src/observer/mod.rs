@@ -751,6 +751,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::component::ComponentId;
+    use crate::event::EventWrapperComponent;
     use crate::{
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
@@ -996,7 +997,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.register_component::<OnRemove>();
+        let on_remove = world.register_component::<EventWrapperComponent<OnRemove>>();
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
@@ -1155,7 +1156,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = world.register_component::<EventA>();
+        let event_a = world.register_component::<EventWrapperComponent<OnRemove>>();
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
