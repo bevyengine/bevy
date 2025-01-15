@@ -12,13 +12,13 @@ use bevy::{
         },
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, FloatOrd},
+    math::CompassOctant,
     picking::{
-        backend::HitData,
-        pointer::{Location, PointerId},
+        pointer::{PointerAction, PointerId, PressDirection},
+        PickSet,
     },
     prelude::*,
-    render::camera::NormalizedRenderTarget,
+    ui::picking_backend::UiPointerMockingExt,
     utils::{HashMap, HashSet},
 };
 
@@ -39,13 +39,14 @@ fn main() {
         // Input is generally handled during PreUpdate
         // We're turning inputs into actions first, then using those actions to determine navigation
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
+        // We're simulating a pointer click on the focused button
+        // and are running this system at the same time as the other pointer input systems
+        .add_systems(First, interact_with_focused_button.in_set(PickSet::Input))
         .add_systems(
             Update,
             (
                 // We need to show which button is currently focused
                 highlight_focused_element,
-                // Pressing the "Interact" button while we have a focused element should simulate a click
-                interact_with_focused_button,
                 // We're doing a tiny animation when the button is interacted with,
                 // so we need a timer and a polling mechanism to reset it
                 reset_button_after_interaction,
@@ -372,8 +373,8 @@ fn highlight_focused_element(
     }
 }
 
-// By sending a Pointer<Pressed> trigger rather than directly handling button-like interactions,
-// we can unify our handling of pointer and keyboard/gamepad interactions
+// We're emulating a pointer event sent to the focused button,
+// which will be picked up just like any mouse or touch input!
 fn interact_with_focused_button(
     action_state: Res<ActionState>,
     input_focus: Res<InputFocus>,
@@ -384,32 +385,12 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
     {
         if let Some(focused_entity) = input_focus.0 {
-            commands.trigger_targets(
-                Pointer::<Pressed> {
-                    target: focused_entity,
-                    pointer_id: PointerId::Focus,
-                    // This field isn't used, so we're just setting it to a placeholder value
-                    pointer_location: Location {
-                        target: NormalizedRenderTarget::Image(
-                            bevy_render::camera::ImageRenderTarget {
-                                handle: Handle::default(),
-                                scale_factor: FloatOrd(1.0),
-                            },
-                        ),
-                        position: Vec2::ZERO,
-                    },
-                    event: Pressed {
-                        button: PointerButton::Primary,
-                        // This field isn't used, so we're just setting it to a placeholder value
-                        hit: HitData {
-                            camera: Entity::PLACEHOLDER,
-                            depth: 0.0,
-                            position: None,
-                            normal: None,
-                        },
-                    },
+            commands.entity(focused_entity).simulate_pointer_on_node(
+                PointerId::Focus,
+                PointerAction::Pressed {
+                    direction: PressDirection::Pressed,
+                    button: PointerButton::Primary,
                 },
-                focused_entity,
             );
         }
     }
