@@ -110,7 +110,11 @@ impl ViewNode for AtmosphereLutsNode {
             ],
         );
 
-        dispatch_2d(&mut luts_pass, settings.multiscattering_lut_size);
+        luts_pass.dispatch_workgroups(
+            settings.multiscattering_lut_size.x,
+            settings.multiscattering_lut_size.y,
+            1,
+        );
 
         // Sky View LUT
 
