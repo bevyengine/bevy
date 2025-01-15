@@ -2039,6 +2039,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         }
     }
 
+    #[allow(unused_unsafe)]
     unsafe fn update_meta(
         state: &mut Self::State,
         world: UnsafeWorldCell,
