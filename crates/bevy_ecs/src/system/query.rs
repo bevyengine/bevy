@@ -253,7 +253,9 @@ use core::{
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
-/// The core principle is immutable: `EntityRef` can read everything on an entity, so it must be completely separated from any mutable access. The `With`/`Without` filters achieve this by ensuring the queries operate on entirely different sets of entities.
+/// The fundamental rule: EntityRef's ability to read all components means it can never 
+/// coexist with mutable access. With/Without filters guarantee this by keeping the 
+/// queries on completely separate entities.
 ///
 /// # Accessing query items
 ///
