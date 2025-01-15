@@ -29,11 +29,6 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
             type Traversal = ();
             const AUTO_PROPAGATE: bool = false;
         }
-
-        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
-            type Mutability = #bevy_ecs_path::component::Mutable;
-        }
     })
 }
 
