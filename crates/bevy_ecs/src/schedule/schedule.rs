@@ -236,28 +236,25 @@ impl Schedules {
                 schedule.get_executor_kind(),
             )?;
 
-            {
-                // schedule graphs
-                let schedule_graph = schedule.graph();
+            let schedule_graph = schedule.graph();
 
-                writeln!(
-                    result,
-                    "{}",
-                    schedule_graph
-                        .hierarchy()
-                        .diagnose("  ", "hierarchy", &id_to_names)?
-                        .trim_end()
-                )?;
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .hierarchy()
+                    .diagnose("  ", "hierarchy", &id_to_names)?
+                    .trim_end()
+            )?;
 
-                writeln!(
-                    result,
-                    "{}",
-                    schedule_graph
-                        .dependency()
-                        .diagnose("  ", "dependency", &id_to_names)?
-                        .trim_end()
-                )?;
-            }
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .dependency()
+                    .diagnose("  ", "dependency", &id_to_names)?
+                    .trim_end()
+            )?;
         }
 
         Ok(result)
@@ -278,18 +275,16 @@ impl Schedules {
                 id_to_names.insert(node_id, format!("{:?}", set).into());
             }
 
-            {
-                let schedule_graph = &mut schedule.graph;
+            let schedule_graph = &mut schedule.graph;
 
-                writeln!(
-                    result,
-                    "{}",
-                    schedule_graph
-                        .dependency_flatten()
-                        .diagnose("  ", "dependency flatten", &id_to_names,)?
-                        .trim_end()
-                )?;
-            }
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .dependency_flatten()
+                    .diagnose("  ", "dependency flatten", &id_to_names,)?
+                    .trim_end()
+            )?;
         }
 
         Ok(result)
@@ -429,7 +424,7 @@ impl Schedule {
         self
     }
 
-    /// call function `f` on each pair of (`NodeId`, `System info`)
+    /// Call function `f` on each pair of ([`NodeId`], [`ScheduleSystem`]).
     pub fn systems_for_each(&self, mut f: impl FnMut(NodeId, &ScheduleSystem)) {
         match self.executor_initialized {
             true => {
@@ -688,6 +683,7 @@ impl Dag {
         {
             writeln!(result, "{prefix}    {node_id:?}({node_name})")?;
         }
+
         Ok(result)
     }
 }
@@ -875,7 +871,7 @@ impl ScheduleGraph {
         &self.dependency
     }
 
-    /// Returns the [`Dag`] of the flatten dependencies in the schedule.
+    /// Returns the [`Dag`] of the flattened dependencies in the schedule.
     ///
     /// Nodes in this graph are systems and sets, and edges denote that
     /// a system or set has to run before another system or set.
@@ -886,7 +882,7 @@ impl ScheduleGraph {
         Dag {
             topsort: self
                 .topsort_graph(&dependency_flattened, ReportCycles::Dependency)
-                .unwrap(), // Todo Investigate.
+                .unwrap(),
             graph: dependency_flattened,
         }
     }

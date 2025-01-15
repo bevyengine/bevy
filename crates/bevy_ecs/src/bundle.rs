@@ -1482,7 +1482,7 @@ impl Bundles {
         self.len() == 0
     }
 
-    /// Iterate over [`BundleInfo`]
+    /// Iterate over [`BundleInfo`].
     pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
         self.bundle_infos.iter()
     }

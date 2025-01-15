@@ -35,13 +35,6 @@ enum MySet {
     Set2,
 }
 
-// Todo Double check. Base sets seem to have been removed as of V0.11.
-// #[derive(SystemSet, Hash, Clone, Copy, PartialEq, Eq, Debug)]
-// enum MyBaseSet {
-//     BaseSet1,
-//     BaseSet2,
-// }
-
 #[derive(Component)]
 struct Counter(usize);
 
@@ -66,13 +59,13 @@ pub enum ScheduleLabel {
 pub struct DiagnosticLabel;
 
 /// World diagnostic example.
-/// Can be called directly on a World or run as a system.
+/// You can also use [`World::diagnose`] which does not require mutable access.
 fn diagnostic_world_system(world: &mut World) {
     println!("{}", world.diagnose_with_flattened().unwrap());
 }
 
 // In this example, we add a counter resource and increase its value in one system,
-// while a different system prints the current count to the console.
+// while a different system prints debug information about the world.
 fn main() {
     let mut world = World::new();
     world.init_resource::<Schedules>();
@@ -84,8 +77,7 @@ fn main() {
     }
 
     let mut schedule = Schedule::new(ScheduleLabel::Bar);
-    schedule.configure_sets(MySet::Set1);
-    schedule.configure_sets(MySet::Set2);
+    schedule.configure_sets((MySet::Set1, MySet::Set2));
 
     schedule.add_systems(empty_system.in_set(MySet::Set1));
     schedule.add_systems(
@@ -104,12 +96,12 @@ fn main() {
     world.run_schedule(DiagnosticLabel);
 
     let player = world.spawn(Player).id();
-    // create an archetype with 2 table components and 1 sparse set
+    // Create an archetype with one table component and one sparse set.
     world.spawn((Counter(1), HighlightFlag));
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 
-    world.entity_mut(player).insert(Counter(0));
+    world.entity_mut(player).insert(Counter(100));
     world.run_schedule(ScheduleLabel::Bar);
     world.run_schedule(DiagnosticLabel);
 

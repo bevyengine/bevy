@@ -3623,6 +3623,8 @@ impl World {
     }
 
     /// Returns a string containing information about the world.
+    ///
+    /// If you need a flattened representation, consider using [`World::diagnose_with_flattened`].
     pub fn diagnose(&self) -> Result<String, fmt::Error> {
         let mut result = self.diagnose_non_systems()?;
 
@@ -3634,6 +3636,8 @@ impl World {
     }
 
     /// Returns a string containing information about the world, including a flattened representation.
+    ///
+    /// If you don't need the flattened representation, consider using [`World::diagnose`].
     pub fn diagnose_with_flattened(&mut self) -> Result<String, fmt::Error> {
         let mut result = self.diagnose_non_systems()?;
 
@@ -3649,8 +3653,8 @@ impl World {
     fn diagnose_non_systems(&self) -> Result<String, fmt::Error> {
         let mut result = String::new();
 
-        let bundle_size = self.bundles().len();
         let component_size = self.components().len();
+        let bundle_size = self.bundles().len();
         let archetype_size = self.archetypes().len();
         let entity_size = self.entities().len();
         let resource_size = self.storages().resources.len();
@@ -3670,22 +3674,6 @@ impl World {
         writeln!(result, "    sparse set: {sparse_set_size}")?;
 
         writeln!(result, "  detail:")?;
-        let bundles = self.bundles().iter().collect::<Vec<_>>();
-        if bundle_size > 0 {
-            writeln!(result, "    bundles:")?;
-            for bundle in bundles {
-                writeln!(
-                    result,
-                    "      {:?}: {:?}",
-                    bundle.id(),
-                    bundle
-                        .explicit_components()
-                        .iter()
-                        .map(|id| id.diagnose(self))
-                        .collect::<Vec<_>>()
-                )?;
-            }
-        }
 
         if component_size > 0 {
             writeln!(result, "    components:")?;
@@ -3702,6 +3690,23 @@ impl World {
                     } else {
                         "non_send_sync"
                     }
+                )?;
+            }
+        }
+
+        if bundle_size > 0 {
+            writeln!(result, "    bundles:")?;
+
+            for bundle in self.bundles().iter() {
+                writeln!(
+                    result,
+                    "      {:?}: {:?}",
+                    bundle.id(),
+                    bundle
+                        .explicit_components()
+                        .iter()
+                        .map(|id| id.diagnose(self))
+                        .collect::<Vec<_>>()
                 )?;
             }
         }
@@ -3723,13 +3728,6 @@ impl World {
             }
         }
 
-        if table_size > 0 {
-            writeln!(result, "    tables:")?;
-            for (idx, table) in self.storages().tables.iter().enumerate() {
-                writeln!(result, "      [{idx}] entities: {}", table.entity_count())?;
-            }
-        }
-
         if resource_size > 0 {
             writeln!(result, "    resources:")?;
             for (component_id, _resource_data) in self.storages().resources.iter() {
@@ -3745,13 +3743,20 @@ impl World {
             }
         }
 
+        if table_size > 0 {
+            writeln!(result, "    tables:")?;
+            for (idx, table) in self.storages().tables.iter().enumerate() {
+                writeln!(result, "      [{idx}] entities: {}", table.entity_count())?;
+            }
+        }
+
         if sparse_set_size > 0 {
             writeln!(result, "    sparse_set:")?;
             for (component_id, sparse_set) in self.storages().sparse_sets.iter() {
                 let component_display = component_id.diagnose(self);
                 writeln!(
                     result,
-                    "      {} entity:{}",
+                    "      {} entity: {}",
                     component_display,
                     sparse_set.len()
                 )?;
