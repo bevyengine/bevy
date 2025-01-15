@@ -237,21 +237,23 @@ pub fn simulate_pointer_on_node(
     node_entity: Entity,
 ) -> Result<(), SimulatedNodePointerError> {
     // Figure out which camera this node is associated with
-    let mut default_camera_system_state = SystemState::<DefaultUiCamera>::new(world);
-    let default_ui_camera = default_camera_system_state.get(world);
-    let default_camera_entity = default_ui_camera.get();
+    let camera_entity = match world.get::<TargetCamera>(node_entity) {
+        // Use the `TargetCamera` component if it exists
+        Some(explicit_target_camera) => explicit_target_camera.entity(),
+        // If none is set, fall back to the default UI camera
+        None => {
+            // We're reusing the `DefaultUiCamera` system state here for consistency / correctness,
+            // but there's a few hoops to jump through when working with exclusive world access.
+            let mut default_ui_camera_system_state = SystemState::<DefaultUiCamera>::new(world);
+            // Borrow checker decrees that this can't be one line.
+            let default_ui_camera = default_ui_camera_system_state.get(world);
 
-    let mut node_query = world.query::<NodeQuery>();
-    let Ok(node_item) = node_query.get(world, node_entity) else {
-        return Err(SimulatedNodePointerError::NodeNotFound(node_entity));
-    };
-
-    let Some(camera_entity) = node_item
-        .target_camera
-        .map(TargetCamera::entity)
-        .or(default_camera_entity)
-    else {
-        return Err(SimulatedNodePointerError::NoCameraFound);
+            // Now we can finally try and find a default camera to fall back to
+            match default_ui_camera.get() {
+                Some(default_camera_entity) => default_camera_entity,
+                None => return Err(SimulatedNodePointerError::NoCameraFound),
+            }
+        }
     };
 
     // Find the primary window, needed to normalize the render target
@@ -260,11 +262,11 @@ pub fn simulate_pointer_on_node(
     // If we find 0 or 2+ primary windows, treat it as if none were found
     let maybe_primary_window_entity = primary_window_query.get_single(world).ok();
 
+    // Generate the correct render target for the pointer
     let Some(camera) = world.get::<Camera>(camera_entity) else {
         return Err(SimulatedNodePointerError::NoCameraFound);
     };
 
-    // Generate the correct render target for the pointer
     let Some(target) = camera.target.normalize(maybe_primary_window_entity) else {
         return Err(SimulatedNodePointerError::CouldNotComputeRenderTarget);
     };
@@ -294,10 +296,16 @@ pub fn simulate_pointer_on_node(
 pub enum SimulatedNodePointerError {
     /// The entity provided could not be found.
     ///
-    /// It must have both a [`TargetCamera`] and a [`GlobalTransform`] component.
+    /// It must have a [`GlobalTransform`] component,
+    /// and should have a [`Node`] component.
     #[error("The entity {0:?} could not be found.")]
     NodeNotFound(Entity),
     /// The camera associated with the node could not be found.
+    ///
+    /// Did you forget to spawn a camera entity with the [`Camera`] component?
+    ///
+    /// The [`TargetCamera`] component can be used to associate a camera with a node,
+    /// but if it is not present, the [`DefaultUiCamera`] will be used.
     #[error("No camera could be found for the node.")]
     NoCameraFound,
     /// The [`NormalizedRenderTarget`](bevy_render::camera::NormalizedRenderTarget) could not be computed.
