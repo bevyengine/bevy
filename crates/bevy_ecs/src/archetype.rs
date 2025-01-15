@@ -789,7 +789,10 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
+    )]
     pub(crate) column: Option<usize>,
 }
 
@@ -827,7 +830,10 @@ impl Archetypes {
 
     /// Fetches the total number of [`Archetype`]s within the world.
     #[inline]
-    #[allow(clippy::len_without_is_empty)] // the internal vec is never empty.
+    #[expect(
+        clippy::len_without_is_empty,
+        reason = "The internal vec is never empty"
+    )]
     pub fn len(&self) -> usize {
         self.archetypes.len()
     }

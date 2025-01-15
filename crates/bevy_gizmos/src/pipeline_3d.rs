@@ -292,7 +292,6 @@ fn queue_line_gizmos_3d(
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -311,14 +310,14 @@ fn queue_line_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -370,6 +369,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
 
@@ -391,6 +391,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
         }
@@ -406,7 +407,6 @@ fn queue_line_joint_gizmos_3d(
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -424,14 +424,14 @@ fn queue_line_joint_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
     ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -486,6 +486,7 @@ fn queue_line_joint_gizmos_3d(
                 distance: 0.,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }
