@@ -6,7 +6,7 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewUniformOffset},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -27,8 +27,8 @@ pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -43,8 +43,8 @@ impl ViewNode for PrepassNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            view,
             camera,
+            extracted_view,
             view_depth_texture,
             view_prepass_textures,
             view_uniform_offset,
@@ -63,8 +63,8 @@ impl ViewNode for PrepassNode {
         };
 
         let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
-            opaque_prepass_phases.get(&view),
-            alpha_mask_prepass_phases.get(&view),
+            opaque_prepass_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
         ) else {
             return Ok(());
         };
