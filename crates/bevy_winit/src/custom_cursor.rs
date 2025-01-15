@@ -1,10 +1,54 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::Assets;
+use bevy_asset::{Assets, Handle};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::{ops, Rect, URect, UVec2, Vec2};
+use bevy_reflect::Reflect;
 use wgpu_types::TextureFormat;
 
-use crate::state::CustomCursorCache;
+use crate::{cursor::CursorIcon, state::CustomCursorCache};
+
+/// Custom cursor image data.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
+pub enum CustomCursor {
+    /// Image to use as a cursor.
+    Image {
+        /// The image must be in 8 bit int or 32 bit float rgba. PNG images
+        /// work well for this.
+        handle: Handle<Image>,
+        /// The (optional) texture atlas used to render the image.
+        texture_atlas: Option<TextureAtlas>,
+        /// Whether the image should be flipped along its x-axis.
+        flip_x: bool,
+        /// Whether the image should be flipped along its y-axis.
+        flip_y: bool,
+        /// An optional rectangle representing the region of the image to
+        /// render, instead of rendering the full image. This is an easy one-off
+        /// alternative to using a [`TextureAtlas`].
+        ///
+        /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
+        /// minimal (top-left) corner position.
+        rect: Option<URect>,
+        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
+        /// within the image bounds.
+        hotspot: (u16, u16),
+    },
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    /// A URL to an image to use as the cursor.
+    Url {
+        /// Web URL to an image to use as the cursor. PNGs preferred. Cursor
+        /// creation can fail if the image is invalid or not reachable.
+        url: String,
+        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
+        /// within the image bounds.
+        hotspot: (u16, u16),
+    },
+}
+
+impl From<CustomCursor> for CursorIcon {
+    fn from(cursor: CustomCursor) -> Self {
+        CursorIcon::Custom(cursor)
+    }
+}
 
 /// Adds support for custom cursors.
 pub(crate) struct CustomCursorPlugin;
