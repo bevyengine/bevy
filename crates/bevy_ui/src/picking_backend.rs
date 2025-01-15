@@ -58,6 +58,9 @@ pub struct NodeQuery {
 ///
 /// Bevy's [`UiStack`] orders all nodes in the order they will be rendered, which is the same order
 /// we need for determining picking.
+///
+/// Like all picking backends, this system reads the [`PointerId`] and [`PointerLocation`] components,
+/// and produces [`PointerHits`] events.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
