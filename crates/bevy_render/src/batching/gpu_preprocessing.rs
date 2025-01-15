@@ -1499,4 +1499,3 @@ mod tests {
         assert_eq!(instance_buffer.buffer().len(), 2);
     }
 }
-
