@@ -59,7 +59,7 @@ pub trait Event: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementors,
-    /// and should always correspond to the implementation of [`get_component_id`](Event::get_component_id).
+    /// and should always correspond to the implementation of [`component_id`](Event::component_id).
     fn register_component_id(world: &mut World) -> ComponentId {
         world.register_component::<EventWrapperComponent<Self>>()
     }
@@ -74,7 +74,7 @@ pub trait Event: Send + Sync + 'static {
     ///
     /// This method should not be overridden by implementors,
     /// and should always correspond to the implementation of [`register_component_id`](Event::register_component_id).
-    fn get_component_id(world: &World) -> Option<ComponentId> {
+    fn component_id(world: &World) -> Option<ComponentId> {
         world.component_id::<EventWrapperComponent<Self>>()
     }
 }
