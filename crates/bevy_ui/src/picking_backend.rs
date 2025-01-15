@@ -23,14 +23,17 @@
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemState};
+use bevy_math::{Rect, Vec2, Vec3Swizzles};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
-use bevy_picking::backend::prelude::*;
+use bevy_picking::{
+    backend::prelude::*,
+    pointer::{Location, PointerAction, PointerInput},
+};
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
@@ -219,5 +222,113 @@ pub fn ui_picking(
             + 0.5; // bevy ui can run on any camera, it's a special case
 
         output.send(PointerHits::new(*pointer, picks, order));
+    }
+}
+
+/// An extension trait for easily simulating pointer events on UI nodes.
+///
+/// This is useful for driving UI interactions from keyboard or gamepad input,
+/// but is also valuable for headless testing.
+pub trait UiPointerMockingExt {
+    /// Simulate a [`Pointer`](bevy_picking::events::Pointer) event,
+    /// at the origin of the provided UI node.
+    ///
+    /// The entity that represents the [`PointerId`] provided should already exist,
+    /// as this method does not create it.
+    ///
+    /// Under the hood, this generates [`PointerInput`] events,
+    /// which then spawns a pointer entity with the [`PointerLocation`] and [`PointerId`] components,
+    /// which is read by the [`PointerInput::receive`] system to modify existing pointer entities,
+    /// and ultimately then processed into UI events by the [`ui_picking`] system.
+    ///
+    /// When using [`UiPlugin`](crate::UiPlugin), that system runs in the [`PreUpdate`] schedule,
+    /// under the [`PickSet::Backend`] set.
+    /// To ensure that these events are seen at the right time,
+    /// you should generally call this method in systems scheduled during [`First`],
+    /// as part of the [`PickSet::Input`] system set.
+    ///
+    /// # Warning
+    ///
+    /// If the node is not pickable, or is blocked by a higher node,
+    /// these events may not have any effect, even if sent correctly!
+    fn simulate_pointer_on_node(
+        &mut self,
+        pointer_id: PointerId,
+        pointer_action: PointerAction,
+        node: Entity,
+    );
+}
+
+impl UiPointerMockingExt for World {
+    // This method was constructed by copying the relevant parts of the `ui_picking` system,
+    // and should be kept in sync with it.
+    // TODO: make this method (and the command) fallible and define a proper error type
+    fn simulate_pointer_on_node(
+        &mut self,
+        pointer_id: PointerId,
+        pointer_action: PointerAction,
+        node_entity: Entity,
+    ) {
+        // Figure out which camera this node is associated with
+        let mut default_camera_system_state = SystemState::<DefaultUiCamera>::new(self);
+        let default_ui_camera = default_camera_system_state.get(self);
+        let default_camera_entity = default_ui_camera.get();
+
+        let mut node_query = self.query::<NodeQuery>();
+        let Ok(node_item) = node_query.get(self, node_entity) else {
+            return;
+        };
+
+        let Some(camera_entity) = node_item
+            .target_camera
+            .map(TargetCamera::entity)
+            .or(default_camera_entity)
+        else {
+            return;
+        };
+
+        // Find the primary window, needed to normalize the render target
+        let mut primary_window_query: QueryState<Entity, With<PrimaryWindow>> =
+            self.query_filtered::<Entity, With<PrimaryWindow>>();
+        // If we find 0 or 2+ primary windows, treat it as if none were found
+        let maybe_primary_window_entity = primary_window_query.get_single(self).ok();
+
+        let Some(camera) = self.get::<Camera>(camera_entity) else {
+            return;
+        };
+
+        // Generate the correct render target for the pointer
+        let Some(target) = camera.target.normalize(maybe_primary_window_entity) else {
+            return;
+        };
+
+        // Calculate the pointer position in the render target
+        // For UI nodes, their final position is stored on their global transform,
+        // in pixels, with the origin at the top-left corner of the camera's viewport.
+        let Some(node_global_transform) = self.get::<GlobalTransform>(node_entity) else {
+            return;
+        };
+        let position = node_global_transform.translation().xy();
+
+        let pointer_location = Location { target, position };
+
+        self.send_event(PointerInput {
+            pointer_id,
+            location: pointer_location,
+            action: pointer_action,
+        });
+    }
+}
+
+impl UiPointerMockingExt for Commands<'_, '_> {
+    fn simulate_pointer_on_node(
+        &mut self,
+        pointer_id: PointerId,
+        pointer_action: PointerAction,
+        node: Entity,
+    ) {
+        self.queue(move |world: &mut World| {
+            world.simulate_pointer_on_node(pointer_id, pointer_action, node)
+        });
     }
 }
