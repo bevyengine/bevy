@@ -20,10 +20,6 @@ use core::{
 ///
 /// This trait can be derived.
 ///
-/// Events implement the [`Component`] type (and they automatically do when they are derived). Events are (generally)
-/// not directly inserted as components. More often, the [`ComponentId`] is used to identify the event type within the
-/// context of the ECS.
-///
 /// Events must be thread-safe.
 ///
 /// [`World`]: crate::world::World
