@@ -55,16 +55,11 @@ fn setup(
     let n = args.grid_size;
 
     // Camera
+    let w = n as f32;
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(n as f32 + 1.0, 1.0, n as f32 + 1.0)
-            .looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
-    ));
-
-    // Plane
-    commands.spawn((
-        Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(50.0, 50.0))),
-        MeshMaterial3d(material_assets.add(Color::linear_rgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(w * 1.25, w + 1.0, w * 1.25)
+            .looking_at(Vec3::new(0.0, (w * -1.1) + 1.0, 0.0), Vec3::Y),
     ));
 
     // Light
@@ -78,10 +73,11 @@ fn setup(
     ));
 
     // Cubes
+    let mesh_handle = mesh_assets.add(Cuboid::from_size(Vec3::ONE));
     for x in 0..n {
         for z in 0..n {
             commands.spawn((
-                Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::ONE))),
+                Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_assets.add(Color::WHITE)),
                 Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
             ));
