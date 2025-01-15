@@ -1,3 +1,4 @@
+use crate as bevy_ecs;
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -49,6 +50,15 @@ pub trait Event: Component {
     /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
     const AUTO_PROPAGATE: bool = false;
 }
+
+/// An internal type that implements [`Component`] for a given [`Event`] type.
+///
+/// This exists so we can easily get access to a unique [`ComponentId`](crate::component::ComponentId) for each [`Event`] type,
+/// without requiring that [`Event`] types implement [`Component`] directly.
+///
+/// This is an implementation detail and should never be made public.
+#[derive(Component)]
+struct EventWrapperComponent<E: Event>(PhantomData<E>);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
