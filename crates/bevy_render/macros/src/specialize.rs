@@ -121,7 +121,7 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
     let Some(specialize_meta_list) = specialize_attr else {
         return syn::Error::new(
             Span::call_site(),
-            "#[derive(Specialize) must be accompanied by #[specialize(..Targets)].\n Example usages: #[specialize(RenderPipeline)], #[specialize(all)]"
+            "#[derive(Specialize) must be accompanied by #[specialize(..targets)].\n Example usages: #[specialize(RenderPipeline)], #[specialize(all)]"
         ).into_compile_error().into();
     };
     let specialize_attr_tokens = specialize_meta_list.tokens.clone().into();
@@ -169,7 +169,7 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
                     ) {
                         return syn::Error::new(
                             tokens.span(),
-                            "#[key(default)] is the only override allowed with #[specialize(all)]",
+                            "#[key(default)] is the only key override type allowed with #[specialize(all)]",
                         )
                         .into_compile_error()
                         .into();
