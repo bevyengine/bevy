@@ -26,6 +26,7 @@ fn setup(
     mut decal_standard_materials: ResMut<Assets<ForwardDecalMaterial<StandardMaterial>>>,
     asset_server: Res<AssetServer>,
 ) {
+	// Spawn the forward decal
     commands.spawn((
         Name::new("Decal"),
         ForwardDecal,
