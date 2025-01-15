@@ -474,10 +474,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
-                (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
-                )
+                (PipelineCache::process_pipeline_queue_system, render_system)
+                    .chain()
                     .in_set(RenderSet::Render),
                 despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
