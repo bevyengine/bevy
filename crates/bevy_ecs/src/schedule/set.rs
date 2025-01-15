@@ -152,6 +152,12 @@ impl SystemSet for AnonymousSet {
 }
 
 /// Types that can be converted into a [`SystemSet`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system set needs to be returned from a function
+/// or stored somewhere, use [`SystemSet`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a system set",
     label = "invalid system set"
