@@ -118,13 +118,13 @@ impl AssetServer {
         infos.watching_for_changes = watching_for_changes;
 
         #[cfg(target_os = "ios")]
-        let file_limit = 127; // The normal limit is 256, cut in half for .meta files and sub 1 because 128 still throws the occasional error (3 failed files out of 1500)
+        let file_limit = 255; // The normal limit is 256, cut in half for .meta files and sub 1 because 128 still throws the occasional error (3 failed files out of 1500)
 
         #[cfg(target_os = "macos")]
         let file_limit = 2559;
 
         #[cfg(all(not(target_os = "macos"), not(target_os = "ios")))]
-        let file_limit = 16000;
+        let file_limit = 1023;
 
         Self {
             data: Arc::new(AssetServerData {
