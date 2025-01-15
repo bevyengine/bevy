@@ -23,6 +23,29 @@ pub fn derive_relationship(input: TokenStream) -> TokenStream {
         .into();
     };
 
+    const RELATIONSHIP_FORMAT_MESSAGE: &str = "Relationship derives must be a tuple struct with the only element being an EntityTargets type (ex: ChildOf(Entity))";
+    if let Data::Struct(DataStruct {
+        fields: Fields::Unnamed(unnamed_fields),
+        struct_token,
+        ..
+    }) = &ast.data
+    {
+        if unnamed_fields.unnamed.len() != 1 {
+            return syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE)
+                .into_compile_error()
+                .into();
+        }
+        if unnamed_fields.unnamed.first().is_none() {
+            return syn::Error::new(struct_token.span(), RELATIONSHIP_FORMAT_MESSAGE)
+                .into_compile_error()
+                .into();
+        }
+    } else {
+        return syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE)
+            .into_compile_error()
+            .into();
+    };
+
     ast.generics
         .make_where_clause()
         .predicates
@@ -70,12 +93,19 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
-    let Some(relationship) = ast
-        .attrs
-        .iter()
-        .find(|a| a.path().is_ident("relationship"))
-        .and_then(|a| a.parse_args::<Ident>().ok())
-    else {
+    let mut relationship = None;
+    let mut despawn_descendants = None;
+    for attr in ast.attrs.iter() {
+        if attr.path().is_ident("relationship") {
+            relationship = attr.parse_args::<Ident>().ok();
+        }
+        if attr.path().is_ident("despawn_descendants") {
+            despawn_descendants =
+                Some(quote! {hooks.on_despawn(<Self as RelationshipSources>::on_despawn);});
+        }
+    }
+
+    let Some(relationship) = relationship else {
         return syn::Error::new(
             ast.span(),
             "RelationshipSources derives must define a relationship(RELATIONSHIP) attribute.",
@@ -141,7 +171,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
 
             fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
                 hooks.on_replace(<Self as RelationshipSources>::on_replace);
-                hooks.on_despawn(<Self as RelationshipSources>::on_despawn);
+                #despawn_descendants
             }
             fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
                 #bevy_ecs_path::component::ComponentCloneHandler::ignore()

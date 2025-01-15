@@ -530,7 +530,7 @@ mod tests {
         entity::Entity,
         relationship::{Relationship, RelationshipSources},
     };
-    use std::vec::Vec;
+    use alloc::vec::Vec;
 
     #[test]
     fn custom_relationship() {

@@ -1074,18 +1074,24 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let entity_location = {
-            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
-                )
-            }
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let mut entity_location = unsafe {
+            bundle_spawner.spawn_non_existent(
+                entity,
+                bundle,
+                #[cfg(feature = "track_location")]
+                Location::caller(),
+            )
         };
+
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush_commands();
+            entity_location = self
+                .entities()
+                .get(entity)
+                .unwrap_or(EntityLocation::INVALID);
+        }
 
         #[cfg(feature = "track_location")]
         self.entities

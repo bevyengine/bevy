@@ -5280,7 +5280,8 @@ mod tests {
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_insert");
-        world.commands().entity(entity).despawn();
+        world.commands().entity(entity).remove::<OrdA>();
+        world.commands().entity(entity).remove::<OrdB>();
     }
 
     fn ord_a_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
@@ -5388,12 +5389,12 @@ mod tests {
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
             "OrdA observer on_replace", // start of despawn
-            "OrdB observer on_replace",
             "OrdA hook on_replace",
-            "OrdB hook on_replace",
             "OrdA observer on_remove",
-            "OrdB observer on_remove",
             "OrdA hook on_remove",
+            "OrdB observer on_replace",
+            "OrdB hook on_replace",
+            "OrdB observer on_remove",
             "OrdB hook on_remove",
         ];
         world.flush();

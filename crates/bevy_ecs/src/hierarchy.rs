@@ -58,6 +58,7 @@ impl FromWorld for Parent {
 
 #[derive(RelationshipSources, Default, Reflect, VisitEntitiesMut)]
 #[relationship(Parent)]
+#[despawn_descendants]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
 

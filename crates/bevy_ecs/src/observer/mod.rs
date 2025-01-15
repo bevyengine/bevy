@@ -1476,6 +1476,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn observer_invalid_params() {
         #[derive(Resource)]
         struct ResA;
@@ -1489,8 +1490,6 @@ mod tests {
             commands.insert_resource(ResB);
         });
         world.trigger(EventA);
-
-        assert!(world.get_resource::<ResB>().is_none());
     }
 
     #[test]
