@@ -33,7 +33,7 @@ use core::{
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
-pub trait Event: Component {
+pub trait Event: Send + Sync + 'static {
     /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate
@@ -49,12 +49,20 @@ pub trait Event: Component {
 
 /// An internal type that implements [`Component`] for a given [`Event`] type.
 ///
-/// This exists so we can easily get access to a unique [`ComponentId`](crate::component::ComponentId) for each [`Event`] type,
+/// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
 /// without requiring that [`Event`] types implement [`Component`] directly.
+/// [`ComponentId`] is used internally as a unique identitifier for events because they are:
 ///
-/// This is an implementation detail and should never be made public.
+/// - Unique to each event type.
+/// - Can be quickly generated and looked up.
+/// - Are compatible with dynamic event types, which aren't backed by a Rust type.
+///
+/// This type is an implementation detail and should never be made public.
+///
+/// [`ComponentId`]: crate::component::ComponentId
+// TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
 #[derive(Component)]
-struct EventWrapperComponent<E: Event>(PhantomData<E>);
+pub(crate) struct EventWrapperComponent<E: Event>(PhantomData<E>);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///

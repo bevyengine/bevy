@@ -10,8 +10,8 @@ mod registry;
 mod update;
 mod writer;
 
-pub(crate) use base::EventInstance;
 pub use base::{Event, EventId};
+pub(crate) use base::{EventInstance, EventWrapperComponent};
 pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
