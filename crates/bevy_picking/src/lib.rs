@@ -362,6 +362,7 @@ impl Plugin for PickingPlugin {
             )
             .register_type::<Self>()
             .register_type::<PickingBehavior>()
+            .register_type::<focus::PickingInteraction>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
