@@ -147,6 +147,8 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
+        // These component ids are registered in order, as a side effect of these assert statements.
+        // The order is vital to ensure that the constants are correct!
         assert_eq!(ON_ADD, OnRemove::register_component_id(self));
         assert_eq!(ON_INSERT, OnInsert::register_component_id(self));
         assert_eq!(ON_REPLACE, OnReplace::register_component_id(self));
