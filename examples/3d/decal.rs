@@ -26,6 +26,7 @@ fn setup(
     mut decal_standard_materials: ResMut<Assets<ForwardDecalMaterial<StandardMaterial>>>,
     asset_server: Res<AssetServer>,
 ) {
+	// Spawn the forward decal
     commands.spawn((
         Name::new("Decal"),
         ForwardDecal,
@@ -58,6 +59,7 @@ fn setup(
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
+	// Spawn a few cube with random rotations to showcase how the decals behave with non-flat geometry
     let num_obs = 10;
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for i in 0..num_obs {
