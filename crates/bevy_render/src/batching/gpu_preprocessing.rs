@@ -231,7 +231,7 @@ where
 
     /// Removes a piece of buffered data from the uniform buffer.
     ///
-    /// Ensure uniform_index is within bounds of [`Self::buffer`] and not removed twice,
+    /// Ensure `uniform_index` is within bounds of [`Self::buffer`] and not removed twice,
     /// as this may cause incorrect behavior or panicking when inserting new data.
     pub fn remove_unchecked(&mut self, uniform_index: u32) {
         self.free_uniform_indices.push(uniform_index);
@@ -1499,3 +1499,4 @@ mod tests {
         assert_eq!(instance_buffer.buffer().len(), 2);
     }
 }
+
