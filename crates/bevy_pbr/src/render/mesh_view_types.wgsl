@@ -13,7 +13,7 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    pad_a: f32,
+    texture_index: u32,
     pad_b: f32,
 };
 
@@ -172,3 +172,15 @@ struct OrderIndependentTransparencySettings {
   layers_count: i32,
   alpha_threshold: f32,
 };
+
+struct ClusteredDecal {
+    local_from_world: mat4x4<f32>,
+    image_index: i32,
+    pad_a: u32,
+    pad_b: u32,
+    pad_c: u32,
+}
+
+struct ClusteredDecals {
+    decals: array<ClusteredDecal>,
+}
