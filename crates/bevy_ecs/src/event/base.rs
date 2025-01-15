@@ -53,7 +53,8 @@ pub trait Event: Send + Sync + 'static {
     /// If this type has already been registered,
     /// this will return the existing [`ComponentId`].
     ///
-    /// This is used by various dynamically typed observer APIs.
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
     ///
     /// # Warning
     ///
@@ -66,7 +67,8 @@ pub trait Event: Send + Sync + 'static {
     /// Fetches the [`ComponentId`] for this event type,
     /// if it has already been generated.
     ///
-    /// This is used by various dynamically typed observer APIs.
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
     ///
     /// # Warning
     ///
