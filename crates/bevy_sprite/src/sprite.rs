@@ -164,7 +164,7 @@ pub enum SpriteImageMode {
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
     /// Otherwise no scaling will be applied.
-    ScaleMode(TextureScale),
+    Scale(ScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -189,11 +189,11 @@ impl SpriteImageMode {
         )
     }
 
-    /// Returns [`TextureScale`] if scale is presented or [`Option::None`] otherwise
+    /// Returns [`ScalingMode`] if scale is presented or [`Option::None`] otherwise.
     #[inline]
     #[must_use]
-    pub const fn scale(&self) -> Option<TextureScale> {
-        if let SpriteImageMode::ScaleMode(scale) = self {
+    pub const fn scale(&self) -> Option<ScalingMode> {
+        if let SpriteImageMode::Scale(scale) = self {
             Some(*scale)
         } else {
             None
@@ -201,10 +201,12 @@ impl SpriteImageMode {
     }
 }
 
-/// Represents various modes for proportional scaling of a texture
+/// Represents various modes for proportional scaling of a texture.
+///
+/// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Debug)]
-pub enum TextureScale {
+pub enum ScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
     /// to or larger than the corresponding dimension of the rect.

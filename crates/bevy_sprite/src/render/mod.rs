@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use crate::{ComputedTextureSlices, Sprite, TextureScale, SPRITE_SHADER_HANDLE};
+use crate::{ComputedTextureSlices, ScalingMode, Sprite, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
@@ -339,7 +339,7 @@ pub struct ExtractedSprite {
     /// For cases where additional [`ExtractedSprites`] are created during extraction, this stores the
     /// entity that caused that creation for use in determining visibility.
     pub original_entity: Option<Entity>,
-    pub texture_scale: Option<TextureScale>,
+    pub scaling_mode: Option<ScalingMode>,
 }
 
 #[derive(Resource, Default)]
@@ -431,7 +431,7 @@ pub fn extract_sprites(
                     image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
-                    texture_scale: sprite.image_mode.scale(),
+                    scaling_mode: sprite.image_mode.scale(),
                 },
             );
         }
@@ -725,9 +725,9 @@ pub fn prepare_sprite_image_bind_groups(
             let mut quad_translation = Vec2::ZERO;
 
             // Scales the texture based on the `texture_scale` field.
-            if let Some(texture_scale) = extracted_sprite.texture_scale {
-                scale_texture(
-                    texture_scale,
+            if let Some(scaling_mode) = extracted_sprite.scaling_mode {
+                apply_scaling(
+                    scaling_mode,
                     batch_image_size,
                     &mut quad_size,
                     &mut quad_translation,
@@ -893,8 +893,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 }
 
 /// Scales a texture to fit within a given quad size with keeping the aspect ratio.
-fn scale_texture(
-    texture_scale: TextureScale,
+fn apply_scaling(
+    scaling_mode: ScalingMode,
     texture_size: Vec2,
     quad_size: &mut Vec2,
     quad_translation: &mut Vec2,
@@ -903,8 +903,8 @@ fn scale_texture(
     let quad_ratio = quad_size.x / quad_size.y;
     let texture_ratio = texture_size.x / texture_size.y;
 
-    match texture_scale {
-        TextureScale::FillCenter => {
+    match scaling_mode {
+        ScalingMode::FillCenter => {
             let scale = if quad_ratio > texture_ratio {
                 // Quad is wider than the image
                 Vec2::new(1., -texture_ratio / quad_ratio)
@@ -917,7 +917,7 @@ fn scale_texture(
             // override all previous scaling and offset
             *uv_offset_scale = Vec4::new(offset.x, offset.y, scale.x, scale.y);
         }
-        TextureScale::FillStart => {
+        ScalingMode::FillStart => {
             if quad_ratio > texture_ratio {
                 let scale = Vec2::new(1., -texture_ratio / quad_ratio);
                 let offset = (1.0 - scale) * 0.5;
@@ -928,7 +928,7 @@ fn scale_texture(
                 *uv_offset_scale = Vec4::new(0.0, offset.y, scale.x, scale.y);
             }
         }
-        TextureScale::FillEnd => {
+        ScalingMode::FillEnd => {
             if quad_ratio > texture_ratio {
                 let scale = Vec2::new(1., -texture_ratio / quad_ratio);
                 let offset = (1.0 - scale) * 0.5;
@@ -939,7 +939,7 @@ fn scale_texture(
                 *uv_offset_scale = Vec4::new(1.0 - scale.x, offset.y, scale.x, scale.y);
             }
         }
-        TextureScale::FitCenter => {
+        ScalingMode::FitCenter => {
             let scale = if texture_ratio > quad_ratio {
                 // Scale based on width
                 Vec2::new(1.0, quad_ratio / texture_ratio)
@@ -950,7 +950,7 @@ fn scale_texture(
 
             *quad_size *= scale;
         }
-        TextureScale::FitStart => {
+        ScalingMode::FitStart => {
             if texture_ratio > quad_ratio {
                 // The quad is scaled to match the image ratio, and the quad translation is adjusted
                 // to start of the quad within the original quad size.
@@ -967,7 +967,7 @@ fn scale_texture(
                 *quad_size = new_quad;
             }
         }
-        TextureScale::FitEnd => {
+        ScalingMode::FitEnd => {
             if texture_ratio > quad_ratio {
                 let scale = Vec2::new(1.0, quad_ratio / texture_ratio);
                 let new_quad = *quad_size * scale;
