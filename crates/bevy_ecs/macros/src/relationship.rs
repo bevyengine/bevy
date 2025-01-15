@@ -123,7 +123,7 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     {
         if let Some(first) = unnamed_fields.unnamed.first() {
             if first.vis != Visibility::Inherited {
-                return syn::Error::new(first.span(), RELATIONSHIP_SOURCES_FORMAT_MESSAGE)
+                return syn::Error::new(first.span(), "The collection in RelationshipSources must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships.")
                     .into_compile_error()
                     .into();
             }
