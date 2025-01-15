@@ -1249,7 +1249,11 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 setup = [
-  ["mkdir", "-p", "assets/external/models"],
+  [
+    "mkdir",
+    "-p",
+    "assets/external/models",
+  ],
   [
     "curl",
     "-o",
