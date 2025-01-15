@@ -18,6 +18,7 @@ use crate::{
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::sync::Arc;
+use async_lock::Semaphore;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
@@ -61,6 +62,9 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
+
+    ///Used to ensure the `asset_server` does not try to acquire more loaders (and thus `file_handles`) than the OS allows
+    asset_counter: Semaphore,
 }
 
 /// The "asset mode" the server is currently in.
@@ -112,6 +116,13 @@ impl AssetServer {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
         infos.watching_for_changes = watching_for_changes;
+
+        #[cfg(target_os = "ios")]
+        let file_limit = 127; // The normal limit is 256, cut in half for .meta files and sub 1 because 128 still throws the occasional error (3 failed files out of 1500)
+
+        #[cfg(not(target_os = "ios"))]
+        let file_limit = 16000;
+
         Self {
             data: Arc::new(AssetServerData {
                 sources,
@@ -121,6 +132,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
+                asset_counter: Semaphore::new(file_limit),
             }),
         }
     }
@@ -547,6 +559,9 @@ impl AssetServer {
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
+        //Wait to acquire asset permit so we don't overload the file io for the os
+        let _guard = self.data.asset_counter.acquire().await;
+
         let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
 
         let path = path.into_owned();
