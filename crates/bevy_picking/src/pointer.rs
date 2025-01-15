@@ -34,6 +34,10 @@ pub enum PointerId {
     Mouse,
     /// A touch input, usually numbered by window touch events from `winit`.
     Touch(u64),
+    /// An emulated pointer linked to the focused entity.
+    ///
+    /// Generally triggered by the `Enter` key or an `A` input on a gamepad.
+    Focus,
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
     #[reflect(ignore)]

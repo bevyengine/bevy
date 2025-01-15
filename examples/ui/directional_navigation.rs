@@ -387,8 +387,7 @@ fn interact_with_focused_button(
             commands.trigger_targets(
                 Pointer::<Pressed> {
                     target: focused_entity,
-                    // We're pretending that we're a mouse
-                    pointer_id: PointerId::Mouse,
+                    pointer_id: PointerId::Focus,
                     // This field isn't used, so we're just setting it to a placeholder value
                     pointer_location: Location {
                         target: NormalizedRenderTarget::Image(
