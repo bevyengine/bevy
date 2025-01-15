@@ -3,7 +3,11 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    parse::{Parse, ParseStream}, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DataStruct, DeriveInput, Expr, Ident, Index, Member, Meta, MetaList, Path, Stmt, Token, Type
+    parse::{Parse, ParseStream},
+    parse_macro_input, parse_quote,
+    spanned::Spanned,
+    Data, DataStruct, DeriveInput, Expr, Ident, Index, Member, Meta, MetaList, Path, Stmt, Token,
+    Type, WherePredicate,
 };
 
 const SPECIALIZE_ATTR_IDENT: &str = "specialize";
@@ -12,39 +16,58 @@ const SPECIALIZE_ALL_IDENT: &str = "all";
 const KEY_ATTR_IDENT: &str = "key";
 const KEY_DEFAULT_IDENT: &str = "default";
 
-pub enum SpecializeImplTargets {
+enum SpecializeImplTargets {
     All,
     Specific(Vec<Path>),
 }
 
 impl Parse for SpecializeImplTargets {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        if let Ok(ident) = input.parse::<Ident>() {
-            if ident == SPECIALIZE_ALL_IDENT {
-                return Ok(SpecializeImplTargets::All)
-            }
-        } 
-        input.parse::<Punctuated<Path, Token![,]>>().map(|punctuated| Self::Specific(punctuated.into_iter().collect()))
+        let paths = input.parse_terminated(Path::parse, Token![,])?;
+        if paths[0].is_ident(SPECIALIZE_ALL_IDENT) {
+            Ok(SpecializeImplTargets::All)
+        } else {
+            Ok(SpecializeImplTargets::Specific(paths.into_iter().collect()))
+        }
     }
 }
 
 enum Key {
     Whole,
-    Default(Span),
+    Default,
     Index(Index),
-    Custom(Expr, Span),
+    Custom(Expr),
 }
 
 impl Key {
     pub fn expr(&self) -> Expr {
         match self {
             Key::Whole => parse_quote!(key),
-            Key::Default(_) => parse_quote!(#FQDefault::default()),
+            Key::Default => parse_quote!(#FQDefault::default()),
             Key::Index(index) => {
                 let member = Member::Unnamed(index.clone());
                 parse_quote!(key.#member)
             }
-            Key::Custom(expr, _) => expr.clone(),
+            Key::Custom(expr) => expr.clone(),
+        }
+    }
+}
+
+const KEY_ERROR_MSG: &str = "Invalid key override. Must be either `default` or a valid Rust expression of the correct key type";
+
+impl Parse for Key {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if let Ok(ident) = input.parse::<Ident>() {
+            if ident == KEY_DEFAULT_IDENT {
+                Ok(Key::Default)
+            } else {
+                Err(syn::Error::new_spanned(ident, KEY_ERROR_MSG))
+            }
+        } else {
+            input.parse::<Expr>().map(Key::Custom).map_err(|mut err| {
+                err.extend(syn::Error::new(err.span(), KEY_ERROR_MSG));
+                err
+            })
         }
     }
 }
@@ -57,13 +80,24 @@ struct FieldInfo {
 
 impl FieldInfo {
     pub fn key_ty(&self, specialize_path: &Path, target_path: &Path) -> Option<Type> {
-        matches!(self.key, Key::Whole | Key::Index(_)).then_some(
-            parse_quote!(<#{self.ty} as #specialize_path::Specialize<#target_path>>::Key),
-        )
+        let ty = &self.ty;
+        matches!(self.key, Key::Whole | Key::Index(_))
+            .then_some(parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::Key))
     }
 
     pub fn specialize_stmt(&self, specialize_path: &Path, target_path: &Path) -> Stmt {
-        parse_quote!(<#{self.ty} as #specialize_path::Specialize<#target_path>>::specialize(&self.#{self.member}, #{self.key.expr()}, descriptor);)
+        let FieldInfo { ty, member, key } = &self;
+        let key_expr = key.expr();
+        parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor);)
+    }
+
+    pub fn predicate(&self, specialize_path: &Path, target_path: &Path) -> WherePredicate {
+        let ty = &self.ty;
+        if matches!(&self.key, Key::Default) {
+            parse_quote!(#ty: #specialize_path::Specialize<#target_path, Key: #FQDefault>)
+        } else {
+            parse_quote!(#ty: #specialize_path::Specialize<#target_path>)
+        }
     }
 }
 
@@ -86,13 +120,12 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
     });
     let Some(specialize_meta_list) = specialize_attr else {
         return syn::Error::new(
-            Span::call_site(), 
+            Span::call_site(),
             "#[derive(Specialize) must be accompanied by #[specialize(..Targets)].\n Example usages: #[specialize(RenderPipeline)], #[specialize(all)]"
         ).into_compile_error().into();
     };
     let specialize_attr_tokens = specialize_meta_list.tokens.clone().into();
     let targets = parse_macro_input!(specialize_attr_tokens as SpecializeImplTargets);
-
 
     let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
         let error_span = match &ast.data {
@@ -129,8 +162,18 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
             if let Meta::List(MetaList { path, tokens, .. }) = &attr.meta {
                 if path.is_ident(&KEY_ATTR_IDENT) {
                     let owned_tokens = tokens.clone().into();
-                    //TODO: handle #[key(default)]
-                    key = Key::Custom(parse_macro_input!(owned_tokens as Expr), attr.span());
+                    key = parse_macro_input!(owned_tokens as Key);
+                    if matches!(
+                        (&key, &targets),
+                        (Key::Custom(_), SpecializeImplTargets::All)
+                    ) {
+                        return syn::Error::new(
+                            tokens.span(),
+                            "#[key(default)] is the only override allowed with #[specialize(all)]",
+                        )
+                        .into_compile_error()
+                        .into();
+                    }
                     use_key_field = false;
                 }
             }
@@ -161,15 +204,51 @@ pub fn impl_specialize(input: TokenStream) -> TokenStream {
     }
 }
 
-pub fn impl_specialize_all(
+fn impl_specialize_all(
     specialize_path: &Path,
     ast: &DeriveInput,
     field_info: &[FieldInfo],
 ) -> TokenStream {
-    todo!()
+    let target_path = Path::from(format_ident!("T"));
+    let key_elems: Vec<Type> = field_info
+        .iter()
+        .filter_map(|field_info| field_info.key_ty(specialize_path, &target_path))
+        .collect();
+    let specialize_stmts: Vec<Stmt> = field_info
+        .iter()
+        .map(|field_info| field_info.specialize_stmt(specialize_path, &target_path))
+        .collect();
+
+    let struct_name = &ast.ident;
+    let mut generics = ast.generics.clone();
+    generics.params.insert(
+        0,
+        parse_quote!(#target_path: #specialize_path::Specializable),
+    );
+
+    if !field_info.is_empty() {
+        let where_clause = generics.make_where_clause();
+        for field in field_info {
+            where_clause
+                .predicates
+                .push(field.predicate(specialize_path, &target_path));
+        }
+    }
+
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
+            type Key = (#(#key_elems),*);
+
+            fn specialize(&self, key: Self::Key, descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor) {
+                #(#specialize_stmts)*
+            }
+        }
+    })
 }
 
-pub fn impl_specialize_specific(
+fn impl_specialize_specific(
     specialize_path: &Path,
     ast: &DeriveInput,
     field_info: &[FieldInfo],
@@ -191,7 +270,7 @@ pub fn impl_specialize_specific(
         impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
             type Key = (#(#key_elems),*);
 
-            fn specialize(&self, key: Self::Key, descriptor: &mut <#target_path as #specialize_path::SpecializeTarget>::Descriptor) {
+            fn specialize(&self, key: Self::Key, descriptor: &mut <#target_path as #specialize_path::Specializable>::Descriptor) {
                 #(#specialize_stmts)*
             }
         }

@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_utils::hashbrown::HashMap;
 use core::hash::Hash;
 
-pub use bevy_render_macros::{SpecializeComputePipeline, SpecializeRenderPipeline};
+pub use bevy_render_macros::Specialize;
 
 pub trait Specializable {
     type Descriptor: Clone + Send + Sync;

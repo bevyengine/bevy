@@ -287,6 +287,10 @@ impl Specialize<RenderPipeline> for CustomPhaseSpecializer {
     }
 }
 
+#[derive(Specialize)]
+#[specialize(all)]
+struct Wrapper(#[key(default)] CustomPhaseSpecializer);
+
 impl HasBaseDescriptor<RenderPipeline> for CustomPhaseSpecializer {
     fn base_descriptor(&self) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
