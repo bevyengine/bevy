@@ -39,7 +39,7 @@ use crate::{
         RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    event::{Event, EventId, EventWrapperComponent, Events, SendBatchIds},
+    event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
@@ -147,22 +147,10 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(
-            ON_ADD,
-            self.register_component::<EventWrapperComponent<OnRemove>>()
-        );
-        assert_eq!(
-            ON_INSERT,
-            self.register_component::<EventWrapperComponent<OnRemove>>()
-        );
-        assert_eq!(
-            ON_REPLACE,
-            self.register_component::<EventWrapperComponent<OnRemove>>()
-        );
-        assert_eq!(
-            ON_REMOVE,
-            self.register_component::<EventWrapperComponent<OnRemove>>()
-        );
+        assert_eq!(ON_ADD, OnRemove::register_component_id(self));
+        assert_eq!(ON_INSERT, OnInsert::register_component_id(self));
+        assert_eq!(ON_REPLACE, OnReplace::register_component_id(self));
+        assert_eq!(ON_REMOVE, OnRemove::register_component_id(self));
     }
     /// Creates a new empty [`World`].
     ///

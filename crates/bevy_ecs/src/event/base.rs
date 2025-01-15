@@ -1,4 +1,6 @@
 use crate as bevy_ecs;
+use crate::component::ComponentId;
+use crate::world::World;
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -45,6 +47,24 @@ pub trait Event: Send + Sync + 'static {
     /// [triggered]: crate::system::Commands::trigger_targets
     /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
     const AUTO_PROPAGATE: bool = false;
+
+    /// Generates the [`ComponentId`] for this event type.
+    ///
+    /// If this type has already been registered,
+    /// this will return the existing [`ComponentId`].
+    ///
+    /// This is used by various dynamically typed observer APIs.
+    fn register_component_id(world: &mut World) -> ComponentId {
+        world.register_component::<EventWrapperComponent<Self>>()
+    }
+
+    /// Fetches the [`ComponentId`] for this event type,
+    /// if it has already been generated.
+    ///
+    /// This is used by various dynamically typed observer APIs.
+    fn get_component_id(world: &World) -> Option<ComponentId> {
+        world.component_id::<EventWrapperComponent<Self>>()
+    }
 }
 
 /// An internal type that implements [`Component`] for a given [`Event`] type.
@@ -58,11 +78,9 @@ pub trait Event: Send + Sync + 'static {
 /// - Are compatible with dynamic event types, which aren't backed by a Rust type.
 ///
 /// This type is an implementation detail and should never be made public.
-///
-/// [`ComponentId`]: crate::component::ComponentId
 // TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
 #[derive(Component)]
-pub(crate) struct EventWrapperComponent<E: Event>(PhantomData<E>);
+struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///

@@ -11,8 +11,6 @@ use crate::{
 };
 use bevy_ptr::PtrMut;
 
-use super::EventWrapperComponent;
-
 /// Contains [`Observer`] information. This defines how a given observer behaves. It is the
 /// "source of truth" for a given observer entity's behavior.
 pub struct ObserverState {
@@ -400,7 +398,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     _: ComponentId,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_id = world.register_component::<EventWrapperComponent<E>>();
+        let event_id = E::register_component_id(world);
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
             components.push(id);
