@@ -655,7 +655,7 @@ impl Dag {
         name: &str,
         id_to_names: &HashMap<NodeId, Cow<'static, str>>,
     ) -> Result<String, core::fmt::Error> {
-        let mut result = "".to_string();
+        let mut result = String::new();
         writeln!(result, "{prefix}{name}:")?;
 
         writeln!(result, "{prefix}  nodes:")?;

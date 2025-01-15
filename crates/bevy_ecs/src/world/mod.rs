@@ -52,7 +52,7 @@ use crate::{
         error::{EntityFetchError, TryRunScheduleError},
     },
 };
-use alloc::{boxed::Box, string::String, string::ToString, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{any::TypeId, fmt, fmt::Write};
 use log::warn;
@@ -3647,7 +3647,7 @@ impl World {
     /// Returns a string containing information about the world, excluding systems.
     /// See [`World::diagnose`] and [`World::diagnose_with_flattened`].
     fn diagnose_non_systems(&self) -> Result<String, fmt::Error> {
-        let mut result = "".to_string();
+        let mut result = String::new();
 
         let bundle_size = self.bundles().len();
         let component_size = self.components().len();
