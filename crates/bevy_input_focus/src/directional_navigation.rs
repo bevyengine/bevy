@@ -173,7 +173,7 @@ impl DirectionalNavigationMap {
         self.add_edge(b, a, direction.opposite());
     }
 
-    /// Add symettrical edges between each consecutive pair of entities in the provided slice.
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice.
     ///
     /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
     pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
