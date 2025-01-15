@@ -173,7 +173,16 @@ impl DirectionalNavigationMap {
         self.add_edge(b, a, direction.opposite());
     }
 
-    /// Add symmetrical edges between all entities in the provided slice, looping back to the first entity at the end.
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice.
+    ///
+    /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
+    pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
+        for pair in entities.windows(2) {
+            self.add_symmetrical_edge(pair[0], pair[1], direction);
+        }
+    }
+
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice, looping back to the first entity at the end.
     ///
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
@@ -340,6 +349,25 @@ mod tests {
         assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
         assert_eq!(map.get_neighbor(b, CompassOctant::East), None);
         assert_eq!(map.get_neighbor(c, CompassOctant::West), None);
+    }
+
+    #[test]
+    fn edges() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edges(&[a, b, c], CompassOctant::East);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), None);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
     }
 
     #[test]

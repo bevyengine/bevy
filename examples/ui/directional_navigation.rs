@@ -214,16 +214,12 @@ fn setup_ui(
     // but don't loop around when the edge is reached.
     // While looping is a very reasonable choice, we're not doing it here to demonstrate the different options.
     for col in 0..N_COLS {
-        // Don't iterate over the last row, as no lower row exists to connect to
-        for row in 0..N_ROWS - 1 {
-            let upper_entity = button_entities.get(&(row, col)).unwrap();
-            let lower_entity = button_entities.get(&(row + 1, col)).unwrap();
-            directional_nav_map.add_symmetrical_edge(
-                *upper_entity,
-                *lower_entity,
-                CompassOctant::South,
-            );
-        }
+        let entities_in_column: Vec<Entity> = (0..N_ROWS)
+            .map(|row| button_entities.get(&(row, col)).unwrap())
+            .copied()
+            .collect();
+
+        directional_nav_map.add_edges(&entities_in_column, CompassOctant::South);
     }
 
     // When changing scenes, remember to set an initial focus!
