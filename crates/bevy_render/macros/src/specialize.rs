@@ -235,7 +235,8 @@ fn impl_specialize_all(
         }
     }
 
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+    let (_, type_generics, _) = ast.generics.split_for_impl();
+    let (impl_generics, _, where_clause) = &generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #specialize_path::Specialize<#target_path> for #struct_name #type_generics #where_clause {
