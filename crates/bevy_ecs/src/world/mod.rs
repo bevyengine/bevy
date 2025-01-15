@@ -1327,10 +1327,10 @@ impl World {
             );
             Ok(())
         } else {
-            Err(TryDespawnError(
+            Err(TryDespawnError {
                 entity,
-                self.entities().entity_does_not_exist_error_details(entity),
-            ))
+                details: self.entities().entity_does_not_exist_error_details(entity),
+            })
         }
     }
 
@@ -2613,8 +2613,6 @@ impl World {
                     };
                     break Some(cache);
                 }
-                // This is effectively in an `else` block, since it can only be reached if the
-                // above `if` fails.
                 invalid_entities.push(first_entity);
             } else {
                 // We reached the end of the entities the caller provided and none were valid.
@@ -2659,10 +2657,10 @@ impl World {
         if invalid_entities.is_empty() {
             Ok(())
         } else {
-            Err(TryInsertBatchError(
-                core::any::type_name::<B>(),
-                invalid_entities,
-            ))
+            Err(TryInsertBatchError {
+                bundle_type: core::any::type_name::<B>(),
+                entities: invalid_entities,
+            })
         }
     }
 

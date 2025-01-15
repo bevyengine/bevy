@@ -20,8 +20,13 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 ///
 /// [`World::try_despawn`]: crate::world::World::try_despawn
 #[derive(Error, Debug, Clone, Copy)]
-#[error("Could not despawn the entity with ID {0} because it {1}")]
-pub struct TryDespawnError(pub Entity, pub EntityDoesNotExistDetails);
+#[error("Could not despawn the entity with ID {entity} because it {details}")]
+pub struct TryDespawnError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// Details on why the entity does not exist, if available.
+    pub details: EntityDoesNotExistDetails,
+}
 
 /// The error type returned by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
 /// if any of the provided entities do not exist.
@@ -29,8 +34,13 @@ pub struct TryDespawnError(pub Entity, pub EntityDoesNotExistDetails);
 /// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
 /// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
 #[derive(Error, Debug, Clone)]
-#[error("Could not insert bundles of type {0} into the entities with the following IDs because they did not exist: {1:?}")]
-pub struct TryInsertBatchError(pub &'static str, pub Vec<Entity>);
+#[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
+pub struct TryInsertBatchError {
+    /// The bundles' type name.
+    pub bundle_type: &'static str,
+    /// The IDs of the provided entities that do not exist.
+    pub entities: Vec<Entity>,
+}
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]

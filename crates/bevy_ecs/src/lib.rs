@@ -1863,7 +1863,7 @@ mod tests {
 
         let error = world.try_insert_batch(values).unwrap_err();
 
-        assert_eq!(e1, error.1[0]);
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1887,7 +1887,7 @@ mod tests {
 
         let error = world.try_insert_batch_if_new(values).unwrap_err();
 
-        assert_eq!(e1, error.1[0]);
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
