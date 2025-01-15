@@ -80,7 +80,8 @@ pub trait Event: Send + Sync + 'static {
 /// This type is an implementation detail and should never be made public.
 // TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
 #[derive(Component)]
-struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
+#[repr(transparent)]
+struct EventWrapperComponent<E: Event>(E);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
