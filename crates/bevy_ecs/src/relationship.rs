@@ -496,6 +496,21 @@ impl<'w> EntityWorldMut<'w> {
         });
         self
     }
+
+    /// Despawns entities that relate to this one via the given [`RelationshipSources`].
+    /// This entity will not be despawned.
+    pub fn despawn_related<S: RelationshipSources>(&mut self) -> &mut Self {
+        if let Some(sources) = self.take::<S>() {
+            self.world_scope(|world| {
+                for entity in sources.iter() {
+                    if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                        entity_mut.despawn();
+                    }
+                }
+            });
+        }
+        self
+    }
 }
 
 impl<'a> EntityCommands<'a> {
@@ -517,6 +532,16 @@ impl<'a> EntityCommands<'a> {
             for related in related {
                 world.entity_mut(related).insert(R::from(id));
             }
+        });
+        self
+    }
+
+    /// Despawns entities that relate to this one via the given [`RelationshipSources`].
+    /// This entity will not be despawned.
+    pub fn despawn_related<S: RelationshipSources>(&mut self) -> &mut Self {
+        let id = self.id();
+        self.commands.queue(move |world: &mut World| {
+            world.entity_mut(id).despawn_related::<S>();
         });
         self
     }
