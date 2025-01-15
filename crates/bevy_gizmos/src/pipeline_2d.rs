@@ -296,7 +296,7 @@ fn queue_line_gizmos_2d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
     let draw_function_strip = draw_functions
@@ -304,8 +304,9 @@ fn queue_line_gizmos_2d(
         .get_id::<DrawLineGizmo2dStrip>()
         .unwrap();
 
-    for (view_entity, view, msaa, render_layers) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -339,6 +340,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: false,
                 });
             }
 
@@ -359,6 +361,7 @@ fn queue_line_gizmos_2d(
                     sort_key: FloatOrd(f32::INFINITY),
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: false,
                 });
             }
         }
@@ -372,15 +375,16 @@ fn queue_line_joint_gizmos_2d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view_entity, view, msaa, render_layers) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -416,6 +420,7 @@ fn queue_line_joint_gizmos_2d(
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: false,
             });
         }
     }
