@@ -54,13 +54,13 @@ use bevy_render::{
     renderer::RenderAdapter,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,
 };
+use tracing::warn;
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
