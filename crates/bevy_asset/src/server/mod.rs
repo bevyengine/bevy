@@ -121,23 +121,23 @@ impl AssetServer {
         #[cfg(target_os = "ios")]
         /*
         https://forum.vizrt.com/index.php?threads/ios-too-many-open-files-with-little-number-of-sources-receivers.250906/#:~:text=The%20number%20of%20sockets%20quickly,iOS%20and%20crashes%20the%20application.
-        Documentation is fairly scarce on the actual limit, there is no documentation that I've been able to find from apple 
+        Documentation is fairly scarce on the actual limit, there is no documentation that I've been able to find from apple
         */
         let file_limit = 127; // The normal limit is 256, cut in half for .meta files and sub 1 because 128 still throws the occasional error (3 failed files out of 1500)
 
-        /* 
+        /*
         https://krypted.com/mac-os-x/maximum-files-in-mac-os-x/
         Running `ulimit -n` on a MBP M3-Max yields 2560. In empirical testing when using the exact limit
         some failures would still squeak through. This also leaves a small amount of headroom for direct
         std::fs calls by the client application
         */
         #[cfg(target_os = "macos")]
-        let file_limit = 1279; 
+        let file_limit = 1279;
 
         /*
         https://docs.pingidentity.com/pingdirectory/latest/installing_the_pingdirectory_suite_of_products/pd_ds_config_file_descriptor_limits.html#:~:text=Many%20Linux%20distributions%20have%20a,large%20number%20of%20concurrent%20connections.
         Setting this as a 'sensible' default in lieu of a cross platform way to determine file descriptor limits. For OSX/Linux we could potentially run ulimit at runtime, but client applications could also chunk their calls to asset_server
-        as a workaround. Apps that exceed this limit would be fairly exceptional. 
+        as a workaround. Apps that exceed this limit would be fairly exceptional.
         */
         #[cfg(all(not(target_os = "macos"), not(target_os = "ios")))]
         let file_limit = 511;
