@@ -192,8 +192,8 @@ const SEGMENT_2D: Segment2d = Segment2d {
 };
 
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Dir3::X,
-    half_length: BIG_3D,
+    point1: Vec3::new(-BIG_3D / 2., 0., 0.),
+    point2: Vec3::new(BIG_3D / 2., 0., 0.),
 };
 
 const POLYLINE_2D: Polyline2d<4> = Polyline2d {
