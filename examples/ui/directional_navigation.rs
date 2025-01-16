@@ -393,5 +393,18 @@ fn interact_with_focused_button(
                 },
             );
         }
+    } else {
+        // If the button was not pressed, we simulate a release event
+        if let Some(focused_entity) = input_focus.0 {
+            commands.entity(focused_entity).simulate_pointer_on_node(
+                PointerId::Focus,
+                PointerAction::Pressed {
+                    direction: PressDirection::Released,
+                    button: PointerButton::Primary,
+                },
+            );
+        }
+    }
+}
     }
 }
