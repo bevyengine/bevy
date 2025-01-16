@@ -134,10 +134,10 @@ impl<'w> UnsafeWorldCell<'w> {
     #[cfg_attr(debug_assertions, inline(never), track_caller)]
     #[cfg_attr(not(debug_assertions), inline(always))]
     pub(crate) fn assert_allows_mutable_access(self) {
-        #[cfg(debug_assertions)]
-        if !self.allows_mutable_access {
-            panic!("mutating world data via `World::as_unsafe_world_cell_readonly` is forbidden")
-        }
+        debug_assert!(
+            self.allows_mutable_access,
+            "mutating world data via `World::as_unsafe_world_cell_readonly` is forbidden"
+        );
     }
 
     /// Gets a mutable reference to the [`World`] this [`UnsafeWorldCell`] belongs to.
