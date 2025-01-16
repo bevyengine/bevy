@@ -2,6 +2,8 @@
 
 pub use time::Instant;
 
+// TODO: Create a `web` feature to enable WASI compatibility.
+// See https://github.com/bevyengine/bevy/issues/4906
 #[cfg(target_arch = "wasm32")]
 use web_time as time;
 
