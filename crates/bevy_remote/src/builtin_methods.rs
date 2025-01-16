@@ -50,7 +50,7 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
-/// The method path for a `bevy/reparent` request.
+/// The method path for a `bevy/mutate_component` request.
 pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
 
 /// The method path for a `bevy/get+watch` request.
@@ -200,7 +200,7 @@ pub struct BrpListParams {
     pub entity: Entity,
 }
 
-/// `bevy/mutate`:
+/// `bevy/mutate_component`:
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -208,7 +208,7 @@ pub struct BrpMutateParams {
     /// The entity of the component to mutate.
     pub entity: Entity,
 
-    /// The [full path] of component to mutate.
+    /// The [full path] of the component to mutate.
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     pub component: String,
