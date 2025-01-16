@@ -7,9 +7,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_utils::hashbrown::HashMap;
-use core::hash::Hash;
+use core::{hash::Hash, marker::PhantomData};
 
-pub use bevy_render_macros::Specialize;
+pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
 
 pub trait Specializable {
     type Descriptor: Clone + Send + Sync;
@@ -39,6 +39,18 @@ impl Specializable for ComputePipeline {
 pub trait Specialize<T: Specializable>: Send + Sync + 'static {
     type Key: Clone + Hash + Eq;
     fn specialize(&self, key: Self::Key, descriptor: &mut T::Descriptor);
+}
+
+impl<T: Specializable> Specialize<T> for () {
+    type Key = ();
+
+    fn specialize(&self, _key: Self::Key, _descriptor: &mut T::Descriptor) {}
+}
+
+impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V> {
+    type Key = ();
+
+    fn specialize(&self, _key: Self::Key, _descriptor: &mut <T as Specializable>::Descriptor) {}
 }
 
 pub trait HasBaseDescriptor<T: Specializable>: Specialize<T> {

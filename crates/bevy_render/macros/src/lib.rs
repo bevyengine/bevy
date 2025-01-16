@@ -116,3 +116,10 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
 pub fn derive_specialize(input: TokenStream) -> TokenStream {
     specialize::impl_specialize(input)
 }
+
+/// Derive macro generating an impl of the trait `HasBaseDescriptor`
+/// by deferring to the `HasBaseDescriptor` impl of a chosen field.
+#[proc_macro_derive(HasBaseDescriptor, attributes(specialize, base_descriptor))]
+pub fn derive_has_base_descriptor(input: TokenStream) -> TokenStream {
+    specialize::impl_has_base_descriptor(input)
+}
