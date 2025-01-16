@@ -29,6 +29,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
     var optical_depth = vec3(0.0);
+    var throughput = vec3(1.0);
 
     // The aerial view LUT is in NDC space, so it uses bevy's reverse z convention. Since
     // we write multiple slices from each thread, we need to iterate in order near->far, which 
@@ -46,14 +47,25 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let local_up = get_local_up(r, t_i, ray_dir.xyz);
 
             let local_atmosphere = sample_atmosphere(local_r);
-            optical_depth += local_atmosphere.extinction * dt; 
+            let sample_optical_depth = local_atmosphere.extinction * dt;
+            let sample_transmittance = exp(-sample_optical_depth);
+            optical_depth += sample_optical_depth;
 
             // use beer's law to get transmittance from optical density
             let transmittance_to_sample = exp(-optical_depth);
 
             // evaluate one segment of the integral
-            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir.xyz, local_r, local_up);
-            total_inscattering += local_inscattering * dt;
+            var inscattering = sample_local_inscattering(local_atmosphere, vec3(1.0), ray_dir.xyz, local_r, local_up);
+            
+            // Analytical integration of the single scattering term in the radiance transfer equation
+            let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+            total_inscattering += throughput * s_int;
+            
+            throughput *= sample_transmittance;
+            if all(throughput < vec3(0.001)) {
+                break;
+            }
+
             sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
         }
         //We only have one channel to store transmittance, so we store the mean 
