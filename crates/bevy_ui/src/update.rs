@@ -2,7 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -137,10 +137,10 @@ fn update_clipping(
 pub fn update_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
-        (Entity, Option<&TargetCamera>),
-        (With<Node>, Changed<TargetCamera>),
+        (Entity, Option<&UiTargetCamera>),
+        (With<Node>, Changed<UiTargetCamera>),
     >,
-    node_query: Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    node_query: Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
     ui_root_nodes: UiRootNodes,
     ui_children: UiChildren,
 ) {
@@ -182,8 +182,8 @@ pub fn update_target_camera_system(
 
 fn update_children_target_camera(
     entity: Entity,
-    camera_to_set: Option<&TargetCamera>,
-    node_query: &Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    camera_to_set: Option<&UiTargetCamera>,
+    node_query: &Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
     ui_children: &UiChildren,
     commands: &mut Commands,
     updated_entities: &mut HashSet<Entity>,
@@ -201,7 +201,7 @@ fn update_children_target_camera(
                 commands.entity(child).try_insert(camera.clone());
             }
             None => {
-                commands.entity(child).remove::<TargetCamera>();
+                commands.entity(child).remove::<UiTargetCamera>();
             }
         }
         updated_entities.insert(child);

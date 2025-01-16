@@ -294,7 +294,7 @@ pub fn debug_draw(
                     },
                 ))
                 .insert(Pickable::IGNORE)
-                .insert(TargetCamera(camera));
+                .insert(UiTargetCamera(camera));
         }
     }
 }

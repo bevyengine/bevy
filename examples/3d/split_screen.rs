@@ -84,7 +84,7 @@ fn setup(
         // Set up UI
         commands
             .spawn((
-                TargetCamera(camera),
+                UiTargetCamera(camera),
                 Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -183,7 +183,7 @@ fn set_camera_viewports(
 
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &TargetCamera, &RotateCamera),
+        (&Interaction, &UiTargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
