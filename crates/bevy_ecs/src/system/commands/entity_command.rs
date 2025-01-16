@@ -254,8 +254,8 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This will also despawn the entities in any [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
-/// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+/// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
+/// to despawn descendants. This results in "recursive despawn" behavior.
 pub fn despawn() -> impl EntityCommand {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();
