@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
-    OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
+    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node, Outline, OverflowAxis,
+    ResolvedTargetCamera, ScrollPosition, UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -100,7 +100,7 @@ pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
+    cameras: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -110,7 +110,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Option<&TargetCamera>,
+        &ResolvedTargetCamera,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
     ui_children: UiChildren,
@@ -133,13 +133,6 @@ pub fn ui_layout_system(
         resized_windows,
         camera_layout_info,
     } = &mut *buffers;
-
-    let (cameras, default_ui_camera) = camera_data;
-
-    let default_camera = default_ui_camera.get();
-    let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera.map(TargetCamera::entity).or(default_camera)
-    };
 
     resized_windows.clear();
     resized_windows.extend(resize_events.read().map(|event| event.window));
@@ -166,7 +159,7 @@ pub fn ui_layout_system(
     node_query
         .iter_many(root_nodes.iter())
         .for_each(|(entity, _, _, target_camera)| {
-            match camera_with_default(target_camera) {
+            match target_camera.get() {
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
@@ -205,9 +198,7 @@ pub fn ui_layout_system(
     node_query
         .iter_mut()
         .for_each(|(entity, node, content_size, target_camera)| {
-            if let Some(camera) =
-                camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
-            {
+            if let Some(camera) = target_camera.get().and_then(|c| camera_layout_info.get(&c)) {
                 if camera.resized
                     || !scale_factor_events.is_empty()
                     || ui_scale.is_changed()
