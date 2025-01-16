@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::Resource,
     world::{FromWorld, World},
 };
-use bevy_utils::hashbrown::HashMap;
+use bevy_utils::HashMap;
 use core::{hash::Hash, marker::PhantomData};
 
 pub use bevy_render_macros::{HasBaseDescriptor, Specialize};
@@ -213,7 +213,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
             specializer,
             user_specializer,
             base_descriptor,
-            pipelines: HashMap::new(),
+            pipelines: Default::default(),
         }
     }
 
