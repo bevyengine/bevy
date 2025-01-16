@@ -411,7 +411,10 @@ impl Bounded2d for Capsule2d {
         let isometry = isometry.into();
 
         // Get the line segment between the semicircles of the rotated capsule
-        let segment = Segment2d::from_direction(isometry.rotation * Dir2::Y, self.half_length * 2.);
+        let segment = Segment2d::from_direction_and_length(
+            isometry.rotation * Dir2::Y,
+            self.half_length * 2.,
+        );
         let (a, b) = (segment.point1(), segment.point2());
 
         // Expand the line segment by the capsule radius to get the capsule half-extents

@@ -230,7 +230,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-        Shape::Line(Segment2d::from_direction(
+        Shape::Line(Segment2d::from_direction_and_length(
             Dir2::from_xy(1., 0.3).unwrap(),
             90.,
         )),

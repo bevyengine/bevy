@@ -540,7 +540,7 @@ where
         }
         // draw normal of the plane (orthogonal to the plane itself)
         let normal = primitive.normal;
-        let normal_segment = Segment2d::from_direction(normal, HALF_MIN_LINE_LEN * 2.);
+        let normal_segment = Segment2d::from_direction_and_length(normal, HALF_MIN_LINE_LEN * 2.);
         self.primitive_2d(
             &normal_segment,
             // offset the normal so it starts on the plane line
