@@ -159,6 +159,9 @@ impl World {
 
         let on_remove = OnRemove::register_component_id(self);
         assert_eq!(ON_REMOVE, on_remove);
+
+        let on_despawn = OnDespawn::register_component_id(self);
+        assert_eq!(ON_DESPAWN, on_despawn);
     }
     /// Creates a new empty [`World`].
     ///
