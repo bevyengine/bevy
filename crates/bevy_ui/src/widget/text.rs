@@ -1,6 +1,6 @@
 use crate::{
     ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
+    NodeMeasure, TargetCamera, UiCameraMap, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -246,7 +246,6 @@ pub fn measure_text_system(
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
@@ -262,16 +261,14 @@ pub fn measure_text_system(
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
+    ui_camera_map: UiCameraMap,
 ) {
     scale_factors_buffer.clear();
 
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = ui_camera_map.get_mapper();
 
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
-        let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_camera_entity)
-        else {
+        let Some(camera_entity) = camera_mapper.map(maybe_camera) else {
             continue;
         };
         let scale_factor = match scale_factors_buffer.entry(camera_entity) {
