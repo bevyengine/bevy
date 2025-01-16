@@ -313,7 +313,7 @@ impl<'w, 's> EmulateNodePointerEvents<'w, 's> {
     }
 }
 
-/// An error returned by [`simulate_pointer_on_node`].
+/// An error returned by [`EmulateNodePointerEvents`].
 #[derive(Debug, PartialEq, Clone, Error)]
 pub enum SimulatedNodePointerError {
     /// The entity provided could not be found.
