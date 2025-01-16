@@ -151,4 +151,14 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
     pub fn target_entity(&self) -> Entity {
         self.target
     }
+
+    /// Returns the underlying [`Commands`].
+    pub fn commands(&mut self) -> Commands {
+        self.commands.reborrow()
+    }
+
+    /// Returns a mutable reference to the underlying [`Commands`].
+    pub fn commands_mut(&mut self) -> &mut Commands<'w, 'w> {
+        &mut self.commands
+    }
 }
