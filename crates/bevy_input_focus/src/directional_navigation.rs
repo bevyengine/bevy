@@ -234,7 +234,7 @@ impl DirectionalNavigation<'_> {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection)
+                Err(DirectionalNavigationError::NoNeighborInDirection(octant))
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
@@ -249,8 +249,8 @@ pub enum DirectionalNavigationError {
     #[error("No focusable entity is currently set.")]
     NoFocus,
     /// No neighbor in the requested direction.
-    #[error("No neighbor in the requested direction.")]
-    NoNeighborInDirection,
+    #[error("No neighbor in the requested direction ({0:?}).")]
+    NoNeighborInDirection(CompassOctant),
 }
 
 #[cfg(test)]
