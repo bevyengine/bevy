@@ -227,14 +227,17 @@ impl DirectionalNavigation<'_> {
     /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of this method call.
     pub fn navigate(
         &mut self,
-        octant: CompassOctant,
+        direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
-            if let Some(new_focus) = self.map.get_neighbor(current_focus, octant) {
+            if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection(octant))
+                Err(DirectionalNavigationError::NoNeighborInDirection {
+                    current_focus,
+                    direction,
+                })
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
@@ -249,8 +252,13 @@ pub enum DirectionalNavigationError {
     #[error("No focusable entity is currently set.")]
     NoFocus,
     /// No neighbor in the requested direction.
-    #[error("No neighbor in the requested direction ({0:?}).")]
-    NoNeighborInDirection(CompassOctant),
+    #[error("No neighbor from {current_focus} in the {direction:?} direction.")]
+    NoNeighborInDirection {
+        /// The entity that was the focus when the error occurred.
+        current_focus: Entity,
+        /// The direction in which the navigation was attempted.
+        direction: CompassOctant,
+    },
 }
 
 #[cfg(test)]
