@@ -1723,6 +1723,14 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::warn());
     }
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(&mut self) {
+        self.despawn();
+    }
 
     /// Despawns the entity.
     ///
