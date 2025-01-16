@@ -63,12 +63,11 @@ fn setup_terrain_scene(
         cascade_shadow_config,
     ));
 
+    let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
+
     // light probe spheres
     commands.spawn((
-        Mesh3d(meshes.add(Mesh::from(Sphere {
-            radius: 1.0,
-            ..default()
-        }))),
+        Mesh3d(sphere_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             metallic: 1.0,
@@ -79,10 +78,7 @@ fn setup_terrain_scene(
     ));
 
     commands.spawn((
-        Mesh3d(meshes.add(Mesh::from(Sphere {
-            radius: 1.0,
-            ..default()
-        }))),
+        Mesh3d(sphere_mesh.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             metallic: 0.0,
@@ -104,15 +100,11 @@ fn setup_terrain_scene(
     ));
 }
 
-fn dynamic_scene(
-    mut sun: Single<&mut Transform, With<DirectionalLight>>,
-    mut terrain: Single<&mut Transform, (With<Terrain>, Without<DirectionalLight>)>,
-    time: Res<Time>,
-) {
+fn dynamic_scene(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
     let t = time.elapsed_secs() * 0.5;
     let radius = 0.3;
-    let x = radius * t.cos();
-    let y = radius * t.sin();
+    let x = radius * ops::cos(t);
+    let y = radius * ops::sin(t);
     sun.translation = Vec3::new(1.0, y + 0.15, x);
     sun.look_at(Vec3::ZERO, Vec3::Y);
 }
