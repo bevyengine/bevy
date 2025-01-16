@@ -263,7 +263,7 @@ impl<'w, 's> EmulateNodePointerEvents<'w, 's> {
     /// If the node is not pickable, or is blocked by a higher node,
     /// these events may not have any effect, even if sent correctly!
     pub fn emulate_pointer(
-        self: &mut Self,
+        &mut self,
         pointer_id: PointerId,
         pointer_action: PointerAction,
         entity: Entity,
