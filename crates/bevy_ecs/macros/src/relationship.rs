@@ -1,27 +1,29 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, Data, DataStruct, DeriveInput, Fields, Ident,
-    Path, Visibility,
+    parse::Parse, parse_macro_input, parse_quote, spanned::Spanned, Data, DataStruct, DeriveInput,
+    Fields, Ident, Path, Token, Visibility,
 };
 
 pub fn derive_relationship(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
-    let Some(relationship_sources) = ast
-        .attrs
-        .iter()
-        .find(|a| a.path().is_ident("relationship_sources"))
-        .and_then(|a| a.parse_args::<Ident>().ok())
+    let Some(relationship_attribute) = ast.attrs.iter().find(|a| a.path().is_ident("relationship"))
     else {
         return syn::Error::new(
             ast.span(),
-            "Relationship derives must define a relationship_sources(SOURCES_COMPONENT) attribute.",
+            "Relationship derives must define a #[relationship(relationship_sources = X)] attribute.",
         )
         .into_compile_error()
         .into();
     };
+    let relationship_args = match relationship_attribute.parse_args::<RelationshipArgs>() {
+        Ok(result) => result,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let relationship_sources = relationship_args.relationship_sources;
 
     const RELATIONSHIP_FORMAT_MESSAGE: &str = "Relationship derives must be a tuple struct with the only element being an EntityTargets type (ex: ChildOf(Entity))";
     if let Data::Struct(DataStruct {
@@ -63,10 +65,6 @@ pub fn derive_relationship(input: TokenStream) -> TokenStream {
                 self.0
             }
 
-            fn set(&mut self, entity: #bevy_ecs_path::entity::Entity) {
-                self.0 = entity;
-            }
-
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self(entity)
             }
@@ -89,30 +87,42 @@ pub fn derive_relationship(input: TokenStream) -> TokenStream {
     })
 }
 
+pub struct RelationshipArgs {
+    relationship_sources: Ident,
+}
+
+impl Parse for RelationshipArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        syn::custom_keyword!(relationship_sources);
+        input.parse::<relationship_sources>()?;
+        input.parse::<Token![=]>()?;
+        Ok(RelationshipArgs {
+            relationship_sources: input.parse::<Ident>()?,
+        })
+    }
+}
+
 pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
-    let mut relationship = None;
-    let mut despawn_descendants = None;
-    for attr in ast.attrs.iter() {
-        if attr.path().is_ident("relationship") {
-            relationship = attr.parse_args::<Ident>().ok();
-        }
-        if attr.path().is_ident("despawn_descendants") {
-            despawn_descendants =
-                Some(quote! {hooks.on_despawn(<Self as RelationshipSources>::on_despawn);});
-        }
-    }
-
-    let Some(relationship) = relationship else {
+    let Some(relationship_sources_attribute) = ast
+        .attrs
+        .iter()
+        .find(|a| a.path().is_ident("relationship_sources"))
+    else {
         return syn::Error::new(
             ast.span(),
-            "RelationshipSources derives must define a relationship(RELATIONSHIP) attribute.",
+            "RelationshipSources derives must define a #[relationship_sources(relationship = X)] attribute.",
         )
         .into_compile_error()
         .into();
     };
+    let relationship_sources_args =
+        match relationship_sources_attribute.parse_args::<RelationshipSourcesArgs>() {
+            Ok(result) => result,
+            Err(err) => return err.into_compile_error().into(),
+        };
 
     const RELATIONSHIP_SOURCES_FORMAT_MESSAGE: &str = "RelationshipSources derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
     let collection = if let Data::Struct(DataStruct {
@@ -147,6 +157,11 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let relationship = relationship_sources_args.relationship;
+    let despawn_descendants = relationship_sources_args
+        .despawn_descendants
+        .then(|| quote! {hooks.on_despawn(<Self as RelationshipSources>::on_despawn);});
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipSources for #struct_name #type_generics #where_clause {
             type Relationship = #relationship;
@@ -178,4 +193,43 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
             }
         }
     })
+}
+
+pub struct RelationshipSourcesArgs {
+    relationship: Ident,
+    despawn_descendants: bool,
+}
+
+impl Parse for RelationshipSourcesArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut relationship_ident = None;
+        let mut despawn_descendants_exists = false;
+        syn::custom_keyword!(relationship);
+        syn::custom_keyword!(despawn_descendants);
+        let mut done = false;
+        loop {
+            if input.peek(relationship) {
+                input.parse::<relationship>()?;
+                input.parse::<Token![=]>()?;
+                relationship_ident = Some(input.parse::<Ident>()?);
+            } else if input.peek(despawn_descendants) {
+                input.parse::<despawn_descendants>()?;
+                despawn_descendants_exists = true;
+            } else {
+                done = true;
+            }
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+            if done {
+                break;
+            }
+        }
+
+        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipSources derive must specify a relationship via #[relationship_sources(relationship = X)"))?;
+        Ok(RelationshipSourcesArgs {
+            relationship,
+            despawn_descendants: despawn_descendants_exists,
+        })
+    }
 }

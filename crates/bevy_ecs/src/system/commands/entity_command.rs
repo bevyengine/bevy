@@ -254,8 +254,8 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// # Note
 ///
-/// This won't clean up external references to the entity (such as parent-child relationships
-/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+/// This will also despawn the entities in any [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
+/// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
 pub fn despawn() -> impl EntityCommand {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();

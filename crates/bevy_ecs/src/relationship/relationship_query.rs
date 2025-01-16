@@ -4,10 +4,12 @@ use crate::{
     relationship::{Relationship, RelationshipSources},
     system::Query,
 };
+use alloc::collections::VecDeque;
 use smallvec::SmallVec;
-use std::collections::VecDeque;
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
+    /// If the given `entity` contains the `R` [`Relationship`] component, returns the
+    /// target entity of that relationship.
     pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<Entity>
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w R>,
@@ -15,6 +17,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.get(entity).map(R::get).ok()
     }
 
+    /// If the given `entity` contains the `S` [`RelationshipSources`] component, returns the
+    /// source entities stored on that component.
     pub fn relationship_sources<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -27,6 +31,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .flat_map(RelationshipSources::iter)
     }
 
+    /// Recursively walks up the tree defined by the given `R` [`Relationship`] until
+    /// there are no more related entities, returning the "root entity" of the relationship hierarchy.
     pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w R>,
@@ -38,6 +44,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
+    /// Iterates all "leaf entities" as defined by the [`RelationshipSources`] hierarchy.
     pub fn iter_leaves<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -54,6 +61,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         })
     }
 
+    /// Iterates all sibling entities that also have the `R` [`Relationship`] with the same target entity.
     pub fn iter_siblings<R: Relationship>(
         &'w self,
         entity: Entity,
@@ -70,6 +78,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .flat_map(move |children| children.iter().filter(move |child| *child != entity))
     }
 
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
+    /// [`RelationshipSources`].
     pub fn iter_descendants<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -80,6 +90,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         DescendantIter::new(self, entity)
     }
 
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
+    /// [`RelationshipSources`] in depth-first order.
     pub fn iter_descendants_depth_first<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -90,6 +102,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         DescendantDepthFirstIter::new(self, entity)
     }
 
+    /// Iterates all ancestors of the given `entity` as defined by the `R` [`Relationship`].
     pub fn iter_ancestors<R: Relationship>(
         &'w self,
         entity: Entity,

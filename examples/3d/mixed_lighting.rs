@@ -458,7 +458,7 @@ fn move_sphere(
     };
 
     // Grab its transform.
-    let Ok(mut transform) = transforms.get_mut(**parent) else {
+    let Ok(mut transform) = transforms.get_mut(parent.0) else {
         return;
     };
 

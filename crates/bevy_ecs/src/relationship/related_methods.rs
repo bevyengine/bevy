@@ -81,6 +81,8 @@ impl<'a> EntityCommands<'a> {
     }
 }
 
+/// Directly spawns related "source" entities with the given [`Relationship`], targeting
+/// a specific entity.
 pub struct RelatedSpawner<'w, R: Relationship> {
     target: Entity,
     world: &'w mut World,
@@ -88,6 +90,7 @@ pub struct RelatedSpawner<'w, R: Relationship> {
 }
 
 impl<'w, R: Relationship> RelatedSpawner<'w, R> {
+    /// Creates a new instance that will spawn entities targeting the `target` entity.
     pub fn new(world: &'w mut World, target: Entity) -> Self {
         Self {
             world,
@@ -96,19 +99,26 @@ impl<'w, R: Relationship> RelatedSpawner<'w, R> {
         }
     }
 
+    /// Spawns an entity with the given `bundle` and an `R` relationship targeting the `target`
+    /// entity this spawner was initialized with.
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         self.world.spawn((R::from(self.target), bundle))
     }
 
+    /// Spawns an entity with an `R` relationship targeting the `target`
+    /// entity this spawner was initialized with.
     pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.world.spawn(R::from(self.target))
     }
 
+    /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
     pub fn target_entity(&self) -> Entity {
         self.target
     }
 }
 
+/// Uses commands to spawn related "source" entities with the given [`Relationship`], targeting
+/// a specific entity.
 pub struct RelatedSpawnerCommands<'w, R: Relationship> {
     target: Entity,
     commands: Commands<'w, 'w>,
@@ -116,6 +126,7 @@ pub struct RelatedSpawnerCommands<'w, R: Relationship> {
 }
 
 impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
+    /// Creates a new instance that will spawn entities targeting the `target` entity.
     pub fn new(commands: Commands<'w, 'w>, target: Entity) -> Self {
         Self {
             commands,
@@ -123,14 +134,20 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
             _marker: PhantomData,
         }
     }
+
+    /// Spawns an entity with the given `bundle` and an `R` relationship targeting the `target`
+    /// entity this spawner was initialized with.
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
         self.commands.spawn((R::from(self.target), bundle))
     }
 
+    /// Spawns an entity with an `R` relationship targeting the `target`
+    /// entity this spawner was initialized with.
     pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
         self.commands.spawn(R::from(self.target))
     }
 
+    /// Returns the "target entity" used when spawning entities with an `R` [`Relationship`].
     pub fn target_entity(&self) -> Entity {
         self.target
     }

@@ -613,12 +613,12 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
 }
 
-#[proc_macro_derive(Relationship, attributes(relationship_sources))]
+#[proc_macro_derive(Relationship, attributes(relationship))]
 pub fn derive_relationship(input: TokenStream) -> TokenStream {
     relationship::derive_relationship(input)
 }
 
-#[proc_macro_derive(RelationshipSources, attributes(relationship, despawn_descendants))]
+#[proc_macro_derive(RelationshipSources, attributes(relationship_sources))]
 pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     relationship::derive_relationship_sources(input)
 }

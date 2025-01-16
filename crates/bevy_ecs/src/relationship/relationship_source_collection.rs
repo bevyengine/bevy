@@ -1,13 +1,28 @@
 use crate::entity::Entity;
 use alloc::vec::Vec;
 
+/// The internal [`Entity`] collection used by a [`RelationshipSources`](crate::relationship::RelationshipSources) component.
+/// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
+    /// Returns an instance with the given pre-allocated entity `capacity`.
     fn with_capacity(capacity: usize) -> Self;
+
+    /// Adds the given `entity` to the collection.
     fn add(&mut self, entity: Entity);
+
+    /// Removes the given `entity` from the collection.
     fn remove(&mut self, entity: Entity);
+
+    /// Iterates all entities in the collection.
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity>;
+
+    /// Takes all entities in the given collection.
     fn take(&mut self) -> Vec<Entity>;
+
+    /// Returns the current length of the collection.
     fn len(&self) -> usize;
+
+    /// Returns true if the collection contains no entities.
     #[inline]
     fn is_empty(&self) -> bool {
         self.len() == 0

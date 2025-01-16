@@ -17,8 +17,6 @@ use crate::state::{StateTransitionEvent, States};
 /// To enable this feature remember to add the attribute `#[states(scoped_entities)]` when deriving [`States`].
 /// It's also possible to enable it when adding the state to an app with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities).
 ///
-/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
@@ -60,8 +58,6 @@ pub struct StateScoped<S: States>(pub S);
 
 /// Removes entities marked with [`StateScoped<S>`]
 /// when their state no longer matches the world state.
-///
-/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
 pub fn clear_state_scoped_entities<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,

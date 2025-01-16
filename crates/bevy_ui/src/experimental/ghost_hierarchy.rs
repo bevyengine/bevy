@@ -8,8 +8,6 @@ use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
 
 #[cfg(feature = "ghost_nodes")]
-use bevy_hierarchy::HierarchyQueryExt;
-#[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
 
 /// Marker component for entities that should be ignored within UI hierarchies.

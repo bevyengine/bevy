@@ -1,3 +1,5 @@
+//! This module provides [`Relationship`] functionality. See the [`Relationship`] trait for more info.
+
 mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
@@ -20,15 +22,62 @@ use crate::{
 };
 use log::warn;
 
-// The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
+/// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
+/// has a corresponding [`RelationshipSources`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
+/// "source" entities that relate to the given "target"
+///
+/// The [`Relationship`] component is the "source of truth" and the [`RelationshipSources`] component reflects that source of truth. When a [`Relationship`]
+/// component is inserted on an [`Entity`], the corresponding [`RelationshipSources`] component is immediately inserted on the target component if it does
+/// not already exist, and the "source" entity is automatically added to the [`RelationshipSources`] collection (this is done via "component hooks").
+///
+/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
+/// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipSources`].
+///
+/// [`Relationship`] and [`RelationshipSources`] should always be derived to ensure the hooks are set up properly. They will both automatically
+/// implement [`Component`] with the necessary configuration to drive the [`Relationship`].
+///
+/// ```
+/// # use bevy_ecs::relationship::{Relationship, RelationshipSources};
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Relationship)]
+/// #[relationship(relationship_sources = Children)]
+/// pub struct Parent(pub Entity);
+///
+/// #[derive(RelationshipSources)]
+/// #[relationship_sources(relationship = Parent)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+/// When deriving [`RelationshipSources`] you can specify the `#[relationship_sources(despawn_descendants)]` attribute to
+/// automatically despawn entities stored in an entity's [`RelationshipSources`] when that entity is despawned:
+///
+/// ```
+/// # use bevy_ecs::relationship::{Relationship, RelationshipSources};
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Relationship)]
+/// #[relationship(relationship_sources = Children)]
+/// pub struct Parent(pub Entity);
+///
+/// #[derive(RelationshipSources)]
+/// #[relationship_sources(relationship = Parent, despawn_descendants)]
+/// pub struct Children(Vec<Entity>);
+/// ```
+///
+// NOTE: The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
 // These internals are allowed to modify the internal RelationshipSource collection.
 #[allow(deprecated)]
 pub trait Relationship: Component + Sized {
+    /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
+    /// entities that relate to the "target".
     type RelationshipSources: RelationshipSources<Relationship = Self>;
+
     /// Gets the [`Entity`] ID of the related entity.
     fn get(&self) -> Entity;
-    fn set(&mut self, entity: Entity);
+
+    /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
+
+    /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
     fn on_insert(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         let parent = world.entity(entity).get::<Self>().unwrap().get();
         if parent == entity {
@@ -60,6 +109,7 @@ pub trait Relationship: Component + Sized {
         }
     }
 
+    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
     // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         let parent = world.entity(entity).get::<Self>().unwrap().get();
@@ -78,19 +128,38 @@ pub trait Relationship: Component + Sized {
     }
 }
 
+/// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
+/// See the [`Relationship`] documentation for more information.
+///
 // The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
 // These internals are allowed to modify the internal RelationshipSource collection.
 #[allow(deprecated)]
 pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
+    /// The [`Relationship`] that populates this [`RelationshipSources`] collection.
     type Relationship: Relationship<RelationshipSources = Self>;
+    /// The collection type that stores the "source" entities for this [`RelationshipSources`] component.
     type Collection: RelationshipSourceCollection;
 
+    /// Returns a reference to the stored [`RelationshipSources::Collection`].
     fn collection(&self) -> &Self::Collection;
+    /// Returns a mutable reference to the stored [`RelationshipSources::Collection`].
+    ///
+    /// # Warning
+    /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
+    /// This uses the "deprecated" state to warn users about this.
     #[deprecated = "Modifying the internal RelationshipSource collection should only be done by internals as it can invalidate relationships."]
     fn collection_mut(&mut self) -> &mut Self::Collection;
+
+    /// Creates a new [`RelationshipSources`] from the given [`RelationshipSources::Collection`].
+    ///
+    /// # Warning
+    /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
+    /// This uses the "deprecated" state to warn users about this.
     #[deprecated = "Creating a relationship source manually should only be done by internals as it can invalidate relationships."]
     fn from_collection(collection: Self::Collection) -> Self;
 
+    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
+    // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipSources collection
@@ -113,6 +182,9 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
         }
     }
 
+    /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipSources`] when
+    /// that entity is despawned.
+    // note: think of this as "on_drop"
     fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipSources collection
@@ -135,22 +207,26 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
         }
     }
 
+    /// Creates this [`RelationshipSources`] with the given pre-allocated entity capacity.
     fn with_capacity(capacity: usize) -> Self {
         let collection =
             <Self::Collection as RelationshipSourceCollection>::with_capacity(capacity);
         Self::from_collection(collection)
     }
 
+    /// Iterates the entities stored in this collection.
     #[inline]
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
         self.collection().iter()
     }
 
+    /// Returns the number of entities in this collection.
     #[inline]
     fn len(&self) -> usize {
         self.collection().len()
     }
 
+    /// Returns true if this entity collection is empty.
     #[inline]
     fn is_empty(&self) -> bool {
         self.collection().is_empty()
@@ -170,11 +246,11 @@ mod tests {
     #[test]
     fn custom_relationship() {
         #[derive(Relationship)]
-        #[relationship_sources(LikedBy)]
+        #[relationship(relationship_sources = LikedBy)]
         struct Likes(pub Entity);
 
         #[derive(RelationshipSources)]
-        #[relationship(Likes)]
+        #[relationship_sources(relationship = Likes)]
         struct LikedBy(Vec<Entity>);
 
         let mut world = World::new();

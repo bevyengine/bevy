@@ -36,7 +36,7 @@ use log::warn;
     Debug,
     FromWorld
 )]
-#[relationship_sources(Children)]
+#[relationship(relationship_sources = Children)]
 pub struct Parent(pub Entity);
 
 impl Parent {
@@ -57,8 +57,7 @@ impl FromWorld for Parent {
 }
 
 #[derive(RelationshipSources, Default, Reflect, VisitEntitiesMut)]
-#[relationship(Parent)]
-#[despawn_descendants]
+#[relationship_sources(relationship = Parent, despawn_descendants)]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
 
@@ -182,7 +181,7 @@ pub fn validate_parent_has_component<C: Component>(
     };
     if !world
         .get_entity(child_of.get())
-        .map_or(false, |e| e.contains::<C>())
+        .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
