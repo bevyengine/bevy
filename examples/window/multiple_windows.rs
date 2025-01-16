@@ -1,7 +1,6 @@
 //! Uses two windows to visualize a 3D model from different angles.
 
 use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
-use bevy_render::view::RenderLayers;
 
 fn main() {
     App::new()
@@ -66,6 +65,5 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("Second window"),
         node,
         TargetCamera(second_window_camera),
-        RenderLayers::layer(1),
     ));
 }
