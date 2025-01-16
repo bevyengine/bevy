@@ -410,7 +410,7 @@ impl Bounded2d for Capsule2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         let isometry = isometry.into();
 
-        // Get the line segment between the hemicircles of the rotated capsule
+        // Get the line segment between the semicircles of the rotated capsule
         let segment = Segment2d::from_direction(isometry.rotation * Dir2::Y, self.half_length * 2.);
         let (a, b) = (segment.point1(), segment.point2());
 
