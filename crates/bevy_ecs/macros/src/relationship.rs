@@ -161,7 +161,12 @@ pub fn derive_relationship_sources(input: TokenStream) -> TokenStream {
     let despawn_descendants = relationship_sources_args
         .despawn_descendants
         .then(|| quote! {hooks.on_despawn(<Self as RelationshipSources>::on_despawn);});
-
+    // NOTE: The Component impl is mutable for RelationshipSources for the following reasons:
+    // 1. RelationshipSources like Children will want user-facing APIs to reorder children, as order may be semantically relevant in some cases
+    //    (or may just be organizational ... ex: dragging to reorder children in the editor). This does not violate the relationship correctness,
+    //    so it can / should be allowed.
+    // 2. The immutable model doesn't really makes sense, given that we're appending to / removing from a list regularly as new children are added / removed.
+    //    We could hack around this, but that would break the user-facing immutable data model.
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipSources for #struct_name #type_generics #where_clause {
             type Relationship = #relationship;
