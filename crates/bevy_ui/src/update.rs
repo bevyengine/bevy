@@ -3,12 +3,13 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     CalculatedClip, DefaultUiCamera, Display, Node, NodeContext, NodeScaleFactor, OverflowAxis,
-    TargetCamera, UiScale,
+    ResolvedTargetCamera, TargetCamera, UiScale,
 };
 
 use super::ComputedNode;
 use bevy_asset::Assets;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::Entity,
     query::{Changed, With},
     system::{Commands, Query, Res},
@@ -231,8 +232,13 @@ pub fn update_root_contexts(
     window_query: Query<(Entity, &Window)>,
     target_camera_query: Query<&TargetCamera>,
     ui_root_nodes: UiRootNodes,
-    mut root_context_query: Query<(&mut NodeScaleFactor, &mut NodeContext)>,
+    mut context_query: Query<(
+        &mut NodeScaleFactor,
+        &mut NodeContext,
+        &mut ResolvedTargetCamera,
+    )>,
     manual_texture_views: Res<ManualTextureViews>,
+    ui_children: UiChildren,
 ) {
     let default_camera_entity = default_ui_camera.get();
     let primary_window = primary_window_query.get_single().ok();
@@ -259,14 +265,29 @@ pub fn update_root_contexts(
             })
             .map(|(sf, r)| (sf * ui_scale.0, r))
             .unwrap_or((ui_scale.0, UVec2::ZERO));
-        let (mut root_scale_factor, mut root_context) =
-            root_context_query.get_mut(root_entity).unwrap();
-        if root_scale_factor.0 != new_scale_factor {
-            root_scale_factor.0 = new_scale_factor;
-        }
 
-        if root_context.0 != new_res {
-            root_context.0 = new_res;
-        }
+        update_contexts_recursively(
+            root_entity,
+            new_scale_factor,
+            new_res,
+            &ui_children,
+            &mut context_query,
+        );
+    }
+}
+
+fn update_contexts_recursively(
+    entity: Entity,
+    scale_factor: f32,
+    res: UVec2,
+    ui_children: &UiChildren,
+    query: &mut Query<(&mut NodeScaleFactor, &mut NodeContext)>,
+) {
+    if let Ok((mut sf, mut r)) = query.get_mut(entity) {
+        sf.set_if_neq(NodeScaleFactor(scale_factor));
+        r.set_if_neq(NodeContext(res));
+    }
+    for child in ui_children.iter_ui_children(entity) {
+        update_contexts_recursively(child, scale_factor, res, ui_children, query);
     }
 }

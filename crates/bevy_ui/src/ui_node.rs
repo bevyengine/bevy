@@ -332,7 +332,8 @@ impl From<Vec2> for ScrollPosition {
     VisibilityClass,
     ZIndex,
     NodeContext,
-    NodeScaleFactor
+    NodeScaleFactor,
+    ResolvedTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[component(on_add = view::add_visibility_class::<Node>)]
@@ -2774,5 +2775,21 @@ impl Default for NodeContext {
 impl NodeContext {
     pub fn get(&self) -> UVec2 {
         self.0
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ResolvedTargetCamera(pub(crate) Entity);
+
+impl Default for ResolvedTargetCamera {
+    fn default() -> Self {A
+        Self(Entity::PLACEHOLDER)
+    }
+}
+
+impl ResolvedTargetCamera {
+    pub fn get(&self) -> Option<Entity> {
+        Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
 }
