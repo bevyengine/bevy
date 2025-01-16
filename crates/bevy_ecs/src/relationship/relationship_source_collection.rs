@@ -16,9 +16,6 @@ pub trait RelationshipSourceCollection {
     /// Iterates all entities in the collection.
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity>;
 
-    /// Takes all entities in the given collection.
-    fn take(&mut self) -> Vec<Entity>;
-
     /// Returns the current length of the collection.
     fn len(&self) -> usize;
 
@@ -46,10 +43,6 @@ impl RelationshipSourceCollection for Vec<Entity> {
 
     fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
         <[Entity]>::iter(self).copied()
-    }
-
-    fn take(&mut self) -> Vec<Entity> {
-        core::mem::take(self)
     }
 
     fn len(&self) -> usize {
