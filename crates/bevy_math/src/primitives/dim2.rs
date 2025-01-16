@@ -1246,9 +1246,9 @@ impl Segment2d {
         (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
-    /// Create a new `Segment2d` at the origin from a `direction` and `half_length`
+    /// Create a new `Segment2d` at the origin from a `direction` and `length`
     #[inline(always)]
-    pub fn from_direction(direction: Dir2, length: f32) -> Segment2d {
+    pub fn from_direction_and_length(direction: Dir2, length: f32) -> Segment2d {
         let half_length = length / 2.;
         Self::new(direction * -half_length, direction * half_length)
     }
