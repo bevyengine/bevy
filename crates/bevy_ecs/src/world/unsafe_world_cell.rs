@@ -1230,6 +1230,7 @@ mod tests {
     fn as_unsafe_world_cell_readonly_world_mut_forbidden() {
         let world = World::new();
         let world_cell = world.as_unsafe_world_cell_readonly();
+        // SAFETY: this invalid usage will be caught by a runtime panic.
         let _ = unsafe { world_cell.world_mut() };
     }
 
@@ -1242,6 +1243,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(R);
         let world_cell = world.as_unsafe_world_cell_readonly();
+        // SAFETY: this invalid usage will be caught by a runtime panic.
         let _ = unsafe { world_cell.get_resource_mut::<R>() };
     }
 
@@ -1255,6 +1257,7 @@ mod tests {
         let entity = world.spawn(C).id();
         let world_cell = world.as_unsafe_world_cell_readonly();
         let entity_cell = world_cell.get_entity(entity).unwrap();
+        // SAFETY: this invalid usage will be caught by a runtime panic.
         let _ = unsafe { entity_cell.get_mut::<C>() };
     }
 }
