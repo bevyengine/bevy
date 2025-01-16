@@ -23,16 +23,16 @@ use bevy::{
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-            FragmentState, IndexFormat, MultisampleState, PipelineCache, PrimitiveState,
-            RawBufferVec, RenderPipelineDescriptor, TextureFormat, VertexAttribute,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            FragmentState, HasBaseDescriptor, IndexFormat, MultisampleState, PipelineCache,
+            PrimitiveState, RawBufferVec, RenderPipeline, RenderPipelineDescriptor, Specialize,
+            Specializer, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::render_resource::{HasBaseDescriptor, RenderPipeline, Specialize, Specializer};
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
