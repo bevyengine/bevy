@@ -1,6 +1,5 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
-#![allow(clippy::match_same_arms)]
 
 use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
@@ -441,6 +440,10 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 2D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_2d(&RECTANGLE, isometry, color);
@@ -652,6 +655,10 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let color = Color::WHITE;
     let resolution = 10;
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Certain primitives don't have any 3D rendering support yet."
+    )]
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_3d(&CUBOID, isometry, color);

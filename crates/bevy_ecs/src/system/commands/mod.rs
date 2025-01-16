@@ -446,7 +446,7 @@ impl<'w, 's> Commands<'w, 's> {
         fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
                 "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details_message(entity)
+                entities.entity_does_not_exist_error_details(entity)
             );
         }
 
@@ -2154,7 +2154,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
         self as bevy_ecs,
@@ -2168,7 +2167,10 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);

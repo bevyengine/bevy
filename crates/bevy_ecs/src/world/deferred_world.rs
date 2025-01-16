@@ -107,8 +107,7 @@ impl<'w> DeferredWorld<'w> {
             Err(EntityFetchError::NoSuchEntity(..)) => {
                 return Err(EntityFetchError::NoSuchEntity(
                     entity,
-                    self.entities()
-                        .entity_does_not_exist_error_details_message(entity),
+                    self.entities().entity_does_not_exist_error_details(entity),
                 ))
             }
         };

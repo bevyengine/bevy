@@ -86,7 +86,7 @@ pub fn extract_debug_overlay(
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -105,7 +105,7 @@ pub fn extract_debug_overlay(
                     .filter(|_| !debug_options.show_clipped)
                     .map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
