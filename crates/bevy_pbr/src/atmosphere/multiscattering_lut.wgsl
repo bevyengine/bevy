@@ -6,7 +6,8 @@
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
             get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI,
-            max_atmosphere_distance, rayleigh, henyey_greenstein
+            max_atmosphere_distance, rayleigh, henyey_greenstein,
+            zenith_azimuth_to_ray_dir,
         },
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
@@ -37,23 +38,11 @@ fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
 var<workgroup> MultiScatSharedMem: array<vec3<f32>, 64>;
 var<workgroup> LSharedMem: array<vec3<f32>, 64>;
 
-fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
-    let sin_zenith = sin(zenith);
-    let cos_zenith = cos(zenith);
-    let sin_azimuth = sin(azimuth);
-    let cos_azimuth = cos(azimuth);
-    return vec3(
-        cos_azimuth * sin_zenith,
-        sin_azimuth * sin_zenith,
-        cos_zenith
-    );
-}
-
 @compute 
 @workgroup_size(1, 1, 64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
-    
+
     let r_mu = multiscattering_lut_uv_to_r_mu(uv);
     let light_dir = normalize(vec3(0.0, r_mu.y, -1.0));
 
@@ -69,42 +58,42 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     workgroupBarrier();
 
     // Parallel reduction
-    if (global_id.z < 32u) {
+    if global_id.z < 32u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 32u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 32u];
     }
     workgroupBarrier();
 
-    if (global_id.z < 16u) {
+    if global_id.z < 16u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 16u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 16u];
     }
     workgroupBarrier();
 
-    if (global_id.z < 8u) {
+    if global_id.z < 8u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 8u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 8u];
     }
     workgroupBarrier();
 
-    if (global_id.z < 4u) {
+    if global_id.z < 4u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 4u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 4u];
     }
     workgroupBarrier();
 
-    if (global_id.z < 2u) {
+    if global_id.z < 2u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 2u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 2u];
     }
     workgroupBarrier();
 
-    if (global_id.z < 1u) {
+    if global_id.z < 1u {
         MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 1u];
         LSharedMem[global_id.z] += LSharedMem[global_id.z + 1u];
     }
     workgroupBarrier();
-    if (global_id.z > 0u) {
+    if global_id.z > 0u {
         return;
     }
 

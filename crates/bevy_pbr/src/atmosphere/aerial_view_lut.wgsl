@@ -55,12 +55,12 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let transmittance_to_sample = exp(-optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(local_atmosphere, vec3(1.0), ray_dir.xyz, local_r, local_up);
+            var inscattering = sample_local_inscattering(local_atmosphere, ray_dir.xyz, local_r, local_up);
             
             // Analytical integration of the single scattering term in the radiance transfer equation
             let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
             total_inscattering += throughput * s_int;
-            
+
             throughput *= sample_transmittance;
             if all(throughput < vec3(0.001)) {
                 break;

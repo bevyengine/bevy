@@ -8,6 +8,7 @@
             sample_local_inscattering, get_local_r, view_radius,
             direction_view_to_world, max_atmosphere_distance, 
             direction_atmosphere_to_world, sky_view_lut_uv_to_zenith_azimuth,
+            zenith_azimuth_to_ray_dir,
         },
     }
 }
@@ -59,10 +60,8 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
         let sample_transmittance = exp(-sample_optical_depth);
         optical_depth += sample_optical_depth;
 
-        // We set the transmittance_to_sample to 1.0 since we're using the analytical integration
         let inscattering = sample_local_inscattering(
             local_atmosphere,
-            vec3(1.0),
             ray_dir_ws,
             local_r,
             local_up
@@ -71,7 +70,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
         // Analytical integration of the single scattering term in the radiance transfer equation
         let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
         total_inscattering += throughput * s_int;
-        
+
         throughput *= sample_transmittance;
         if all(throughput < vec3(0.001)) {
             break;
@@ -79,12 +78,4 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     }
 
     textureStore(sky_view_lut_out, idx.xy, vec4(total_inscattering, 1.0));
-}
-
-fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
-    let sin_zenith = sin(zenith);
-    let mu = cos(zenith);
-    let sin_azimuth = sin(azimuth);
-    let cos_azimuth = cos(azimuth);
-    return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }

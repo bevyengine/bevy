@@ -199,7 +199,7 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
     var inscattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
@@ -210,7 +210,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         // instead of towards it (as is the convention for V)
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
-        // phase functions give the proportion of light
+        // Phase functions give the proportion of light
         // scattered towards the camera for each scattering type
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg_LdotV);
@@ -219,19 +219,13 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
-        let scattering_factor = transmittance_to_sample * shadow_factor * scattering_coeff;
+        // Transmittance from scattering event to light source
+        let scattering_factor = shadow_factor * scattering_coeff;
 
-        //Additive factor from the multiscattering LUT
+        // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
         let multiscattering_factor = psi_ms * (local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering);
 
-        // Note wrt transmittance_to_sample vs shadow_factor:
-        // A light ray traveling from the sun to the camera follows a
-        // two-segment path (assuming single scattering). Transmittance_to_sample
-        // handles the transmittance between the view and the sample position, while
-        // the shadow factor handles the transmittance between the sample position and
-        // the light itself. We check if the ray intersects the ground for the shadow
-        // factor *only*, because we assume our primary rays never go below ground.
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
     return inscattering * view.exposure;
@@ -345,4 +339,12 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
     return vec4(normalize(ray_direction), -view_ray_direction.z);
+}
+
+fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
+    let sin_zenith = sin(zenith);
+    let mu = cos(zenith);
+    let sin_azimuth = sin(azimuth);
+    let cos_azimuth = cos(azimuth);
+    return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }
