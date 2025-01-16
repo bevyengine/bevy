@@ -148,7 +148,7 @@ pub fn update_target_camera_system(
     // and updates done for changed_children_query can overlap with itself or with root_node_query
     let mut updated_entities = <HashSet<_>>::default();
 
-    // Assuming that TargetCamera is manually set on the root node only,
+    // Assuming that UiTargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change
     for (root_node, target_camera) in changed_root_nodes_query.iter_many(ui_root_nodes.iter()) {
         update_children_target_camera(
@@ -161,7 +161,7 @@ pub fn update_target_camera_system(
         );
     }
 
-    // If the root node TargetCamera was changed, then every child is updated
+    // If the root node UiTargetCamera was changed, then every child is updated
     // by this point, and iteration will be skipped.
     // Otherwise, update changed children
     for (parent, target_camera) in &node_query {
