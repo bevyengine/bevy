@@ -882,7 +882,6 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
-        self.world.assert_allows_mutable_access();
         // SAFETY:
         // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
         // - same safety requirements
