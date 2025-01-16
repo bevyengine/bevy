@@ -583,7 +583,6 @@ pub(crate) struct AtmosphereBindGroups {
     pub render_sky: BindGroup,
 }
 
-#[expect(clippy::too_many_arguments)]
 pub(super) fn prepare_atmosphere_bind_groups(
     views: Query<
         (Entity, &AtmosphereTextures, &ViewDepthTexture, &Msaa),
