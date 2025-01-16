@@ -134,7 +134,7 @@ impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V
 /// info.
 ///
 /// If the struct has a single field, it will defer to that field's
-/// [`HasBaseDescriptor`] implementation. Othersise a single
+/// [`HasBaseDescriptor`] implementation. Otherwise a single
 /// `#[base_descriptor]` attribute is required to mark which field to defer to.
 ///
 /// Example:
