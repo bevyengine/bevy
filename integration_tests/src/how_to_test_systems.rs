@@ -1,4 +1,4 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![cfg(test)]
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
@@ -109,8 +109,8 @@ fn did_despawn_enemy() {
 
     // Get `EnemyDied` event reader
     let enemy_died_events = app.world().resource::<Events<EnemyDied>>();
-    let mut enemy_died_reader = enemy_died_events.get_cursor();
-    let enemy_died = enemy_died_reader.read(enemy_died_events).next().unwrap();
+    let mut enemy_died_cursor = enemy_died_events.get_cursor();
+    let enemy_died = enemy_died_cursor.read(enemy_died_events).next().unwrap();
 
     // Check the event has been sent
     assert_eq!(enemy_died.0, 1);
@@ -133,7 +133,10 @@ fn spawn_enemy_using_input_resource() {
     app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
-    assert_eq!(app.world_mut().query::<&Enemy>().iter(app.world()).len(), 1);
+    assert_eq!(
+        app.world_mut().query::<&Enemy>().iter(&app.world()).len(),
+        1
+    );
 
     // Clear the `just_pressed` status for all `KeyCode`s
     app.world_mut()
@@ -144,7 +147,10 @@ fn spawn_enemy_using_input_resource() {
     app.update();
 
     // Check resulting changes, no new entity has been spawned
-    assert_eq!(app.world_mut().query::<&Enemy>().iter(app.world()).len(), 1);
+    assert_eq!(
+        app.world_mut().query::<&Enemy>().iter(&app.world()).len(),
+        1
+    );
 }
 
 #[test]

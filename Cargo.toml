@@ -28,6 +28,9 @@ members = [
   "tools/*",
   # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
   "errors",
+  # Integration tests that show how a user can test bevy systems/applications.
+  # This is a separate crate to make sure it purely uses the public interface.
+  "integration_tests",
 ]
 
 [workspace.lints.clippy]
