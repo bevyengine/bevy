@@ -186,10 +186,11 @@ impl DirectionalNavigationMap {
     ///
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for i in 0..entities.len() {
-            let a = entities[i];
-            let b = entities[(i + 1) % entities.len()];
-            self.add_symmetrical_edge(a, b, direction);
+        self.add_edges(entities, direction);
+        if let Some((first_entity, rest)) = entities.split_first() {
+            if let Some(last_entity) = rest.last() {
+                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
+            }
         }
     }
 
