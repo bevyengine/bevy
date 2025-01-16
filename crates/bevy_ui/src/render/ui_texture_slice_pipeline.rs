@@ -254,7 +254,7 @@ pub fn extract_ui_texture_slices(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &ImageNode,

@@ -50,7 +50,7 @@ pub struct NodeQuery {
     global_transform: &'static GlobalTransform,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
+    view_visibility: Option<&'static InheritedVisibility>,
     target_camera: Option<&'static TargetCamera>,
 }
 

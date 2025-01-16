@@ -369,7 +369,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
         )>,
