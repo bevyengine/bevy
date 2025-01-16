@@ -33,7 +33,9 @@ impl<D> Traversal<D> for () {
 
 /// This provides generalized hierarchy traversal for use in [event propagation].
 ///
-/// `Parent::traverse` will never form loops in properly-constructed hierarchies.
+/// # Warning
+///
+/// Traversing in a loop could result in infinite loops for relationship graphs with loops.
 ///
 /// [event propagation]: bevy_ecs::observer::Trigger::propagate
 impl<R: Relationship, D> Traversal<D> for &R {
