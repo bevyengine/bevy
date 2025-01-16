@@ -1283,7 +1283,7 @@ impl Segment2d {
         Self::new(self.point1() + offset, self.point2() + offset)
     }
 
-    /// Get the segment rotated around it's center
+    /// Compute a new segment, based on the original segment rotated around its center
     #[inline(always)]
     pub fn rotated(&self, rotation: Rot2) -> Segment2d {
         pub fn rotate_point(p: Vec2, rotation: Rot2) -> Vec2 {
