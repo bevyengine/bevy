@@ -2740,3 +2740,19 @@ impl Default for BoxShadowSamples {
         Self(4)
     }
 }
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ResolvedTargetCamera(pub(crate) Entity);
+
+impl Default for ResolvedTargetCamera {
+    fn default() -> Self {
+        Self(Entity::PLACEHOLDER)
+    }
+}
+
+impl ResolvedTargetCamera {
+    pub fn get(&self) -> Option<Entity> {
+        Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
+    }
+}

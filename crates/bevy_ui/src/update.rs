@@ -2,7 +2,8 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, DefaultUiCamera, Display, Node, OverflowAxis, ResolvedTargetCamera,
+    TargetCamera,
 };
 
 use super::ComputedNode;
@@ -11,6 +12,7 @@ use bevy_ecs::{
     query::{Changed, With},
     system::{Commands, Query},
 };
+use bevy_hierarchy::Children;
 use bevy_math::Rect;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
@@ -134,45 +136,59 @@ fn update_clipping(
     }
 }
 
-pub fn update_target_camera_system(
+pub fn resolve_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
         (Entity, Option<&TargetCamera>),
         (With<Node>, Changed<TargetCamera>),
     >,
-    node_query: Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    mut node_query: Query<&mut ResolvedTargetCamera>,
     ui_root_nodes: UiRootNodes,
     ui_children: UiChildren,
+    mut resolved_target_query: Query<&mut ResolvedTargetCamera>,
+    default_ui_camera: DefaultUiCamera,
+    parent_query: Query<Entity, (With<Node>, With<Children>)>,
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
     let mut updated_entities = <HashSet<_>>::default();
 
+    let default_camera_entity = default_ui_camera.get();
     // Assuming that TargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change
     for (root_node, target_camera) in changed_root_nodes_query.iter_many(ui_root_nodes.iter()) {
-        update_children_target_camera(
-            root_node,
-            target_camera,
-            &node_query,
-            &ui_children,
-            &mut commands,
-            &mut updated_entities,
-        );
+        let mut resolved_target = resolved_target_query.get_mut(root_node).unwrap();
+        let target = target_camera
+            .map(TargetCamera::entity)
+            .or(default_camera_entity)
+            .unwrap_or(Entity::PLACEHOLDER);
+        if resolved_target.0 != target {
+            resolved_target.0 = target;
+            update_children_target_camera(
+                root_node,
+                target,
+                &mut resolved_target_query,
+                &ui_children,
+                &mut commands,
+                &mut updated_entities,
+            );
+        }
     }
 
     // If the root node TargetCamera was changed, then every child is updated
     // by this point, and iteration will be skipped.
     // Otherwise, update changed children
-    for (parent, target_camera) in &node_query {
+    for parent in &parent_query {
         if !ui_children.is_changed(parent) {
             continue;
         }
 
+        let target = node_query.get(parent).unwrap();
+
         update_children_target_camera(
             parent,
-            target_camera,
-            &node_query,
+            target.0,
+            &mut node_query,
             &ui_children,
             &mut commands,
             &mut updated_entities,
@@ -182,37 +198,33 @@ pub fn update_target_camera_system(
 
 fn update_children_target_camera(
     entity: Entity,
-    camera_to_set: Option<&TargetCamera>,
-    node_query: &Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    target_camera: Entity,
+    node_query: &mut Query<&mut ResolvedTargetCamera>,
     ui_children: &UiChildren,
     commands: &mut Commands,
     updated_entities: &mut HashSet<Entity>,
 ) {
     for child in ui_children.iter_ui_children(entity) {
         // Skip if the child has already been updated or update is not needed
-        if updated_entities.contains(&child)
-            || camera_to_set == node_query.get(child).ok().and_then(|(_, camera)| camera)
-        {
+        if updated_entities.contains(&child) {
             continue;
         }
 
-        match camera_to_set {
-            Some(camera) => {
-                commands.entity(child).try_insert(camera.clone());
-            }
-            None => {
-                commands.entity(child).remove::<TargetCamera>();
-            }
-        }
-        updated_entities.insert(child);
+        let mut child_target = node_query.get_mut(child).unwrap();
 
-        update_children_target_camera(
-            child,
-            camera_to_set,
-            node_query,
-            ui_children,
-            commands,
-            updated_entities,
-        );
+        if child_target.0 != target_camera {
+            child_target.0 = target_camera;
+
+            updated_entities.insert(child);
+
+            update_children_target_camera(
+                child,
+                target_camera,
+                node_query,
+                ui_children,
+                commands,
+                updated_entities,
+            );
+        }
     }
 }
