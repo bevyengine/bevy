@@ -18,7 +18,7 @@ use bevy::{
         PickSet,
     },
     prelude::*,
-    ui::picking_backend::UiPointerMockingExt,
+    ui::picking_backend::EmulateNodePointerEvents,
     utils::{HashMap, HashSet},
 };
 
@@ -367,11 +367,18 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
 //
 // Doing this in an ordinary system (rather than just on navigation change) ensures that it is
 // initialized correctly, and is updated if the focused element moves or is scaled for any reason.
-fn move_pointer_to_focused_element(input_focus: Res<InputFocus>, mut commands: Commands) {
+fn move_pointer_to_focused_element(
+    input_focus: Res<InputFocus>,
+    mut emulate_pointer_events: EmulateNodePointerEvents,
+) {
     if let Some(focused_entity) = input_focus.0 {
-        commands
-            .entity(focused_entity)
-            .emulate_pointer(PointerId::Focus, PointerAction::Moved { delta: Vec2::ZERO });
+        emulate_pointer_events
+            .emulate_pointer(
+                PointerId::Focus,
+                PointerAction::Moved { delta: Vec2::ZERO },
+                focused_entity,
+            )
+            .unwrap_or_else(|e| warn!("Failed to move pointer: {e}"));
     }
 }
 
@@ -398,31 +405,37 @@ fn highlight_focused_element(
 fn interact_with_focused_button(
     action_state: Res<ActionState>,
     input_focus: Res<InputFocus>,
-    mut commands: Commands,
+    mut emulate_pointer_events: EmulateNodePointerEvents,
 ) {
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
     {
         if let Some(focused_entity) = input_focus.0 {
-            commands.entity(focused_entity).emulate_pointer(
-                PointerId::Focus,
-                PointerAction::Pressed {
-                    direction: PressDirection::Pressed,
-                    button: PointerButton::Primary,
-                },
-            );
+            emulate_pointer_events
+                .emulate_pointer(
+                    PointerId::Focus,
+                    PointerAction::Pressed {
+                        direction: PressDirection::Pressed,
+                        button: PointerButton::Primary,
+                    },
+                    focused_entity,
+                )
+                .unwrap_or_else(|e| warn!("Failed to press pointer: {e}"));
         }
     } else {
         // If the button was not pressed, we simulate a release event
         if let Some(focused_entity) = input_focus.0 {
-            commands.entity(focused_entity).emulate_pointer(
-                PointerId::Focus,
-                PointerAction::Pressed {
-                    direction: PressDirection::Released,
-                    button: PointerButton::Primary,
-                },
-            );
+            emulate_pointer_events
+                .emulate_pointer(
+                    PointerId::Focus,
+                    PointerAction::Pressed {
+                        direction: PressDirection::Released,
+                        button: PointerButton::Primary,
+                    },
+                    focused_entity,
+                )
+                .unwrap_or_else(|e| warn!("Failed to release pointer: {e}"));
         }
     }
 }
