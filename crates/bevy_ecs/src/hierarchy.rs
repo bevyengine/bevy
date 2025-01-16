@@ -241,43 +241,83 @@ mod tests {
     #[test]
     fn hierarchy() {
         let mut world = World::new();
-        let id = world.spawn_empty().id();
-        let id1 = world.spawn(Parent(id)).id();
-        let id3 = world.spawn(Parent(id1)).id();
-        let id2 = world.spawn(Parent(id)).id();
+        let root = world.spawn_empty().id();
+        let child1 = world.spawn(Parent(root)).id();
+        let grandchild = world.spawn(Parent(child1)).id();
+        let child2 = world.spawn(Parent(root)).id();
 
         // Spawn
-        let hierarchy = get_hierarchy(&world, id);
+        let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
             Node::new_with(
-                id,
-                vec![Node::new_with(id1, vec![Node::new(id3)]), Node::new(id2)]
+                root,
+                vec![
+                    Node::new_with(child1, vec![Node::new(grandchild)]),
+                    Node::new(child2)
+                ]
             )
         );
 
         // Removal
-        world.entity_mut(id1).remove::<Parent>();
-        let hierarchy = get_hierarchy(&world, id);
-        assert_eq!(hierarchy, Node::new_with(id, vec![Node::new(id2)]));
+        world.entity_mut(child1).remove::<Parent>();
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(id1).insert(Parent(id));
-        let hierarchy = get_hierarchy(&world, id);
+        world.entity_mut(child1).insert(Parent(root));
+        let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
             Node::new_with(
-                id,
-                vec![Node::new(id2), Node::new_with(id1, vec![Node::new(id3)])]
+                root,
+                vec![
+                    Node::new(child2),
+                    Node::new_with(child1, vec![Node::new(grandchild)])
+                ]
             )
         );
 
         // Recursive Despawn
-        world.entity_mut(id).despawn();
-        assert!(world.get_entity(id).is_err());
-        assert!(world.get_entity(id1).is_err());
-        assert!(world.get_entity(id2).is_err());
-        assert!(world.get_entity(id3).is_err());
+        world.entity_mut(root).despawn();
+        assert!(world.get_entity(root).is_err());
+        assert!(world.get_entity(child1).is_err());
+        assert!(world.get_entity(child2).is_err());
+        assert!(world.get_entity(grandchild).is_err());
+    }
+
+    #[test]
+    fn with_children() {
+        let mut world = World::new();
+        let mut child1 = Entity::PLACEHOLDER;
+        let mut child2 = Entity::PLACEHOLDER;
+        let root = world
+            .spawn_empty()
+            .with_children(|p| {
+                child1 = p.spawn_empty().id();
+                child2 = p.spawn_empty().id()
+            })
+            .id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+        );
+    }
+
+    #[test]
+    fn add_children() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let root = world.spawn_empty().add_children(&[child1, child2]).id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+        );
     }
 
     #[test]
