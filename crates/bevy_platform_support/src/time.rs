@@ -50,7 +50,7 @@ mod fallback {
         /// Returns an instant corresponding to "now".
         #[must_use]
         pub fn now() -> Instant {
-            let getter = ELAPSED_GETTER.load(Ordering::Relaxed);
+            let getter = ELAPSED_GETTER.load(Ordering::Acquire);
 
             // SAFETY: Function pointer is always valid
             let getter = unsafe { *getter };
@@ -67,7 +67,7 @@ mod fallback {
         /// - The function must preserve all invariants of the [`Instant`] type.
         /// - The pointer to the function must be valid whenever [`Instant::now`] is called.
         pub unsafe fn set_elapsed(getter: *mut fn() -> Duration) {
-            ELAPSED_GETTER.store(getter, Ordering::Relaxed);
+            ELAPSED_GETTER.store(getter, Ordering::Release);
         }
 
         /// Returns the amount of time elapsed from another instant to this one,
