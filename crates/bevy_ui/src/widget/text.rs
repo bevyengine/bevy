@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiCameraMap, UiScale,
+    ComputedNode, ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure, TargetCamera,
+    UiCameraMap, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
