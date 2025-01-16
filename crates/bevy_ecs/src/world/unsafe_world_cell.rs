@@ -1254,6 +1254,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn(C).id();
         let world_cell = world.as_unsafe_world_cell_readonly();
-        let _ = unsafe { world_cell.get_entity(entity).unwrap().get_mut::<C>() };
+        let entity_cell = world_cell.get_entity(entity).unwrap();
+        let _ = unsafe { entity_cell.get_mut::<C>() };
     }
 }
