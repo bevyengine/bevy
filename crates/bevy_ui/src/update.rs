@@ -2,19 +2,24 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, DefaultUiCamera, Display, Node, NodeContext, NodeScaleFactor, OverflowAxis,
+    TargetCamera, UiScale,
 };
 
 use super::ComputedNode;
+use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
 };
-use bevy_math::Rect;
+use bevy_image::Image;
+use bevy_math::{Rect, UVec2};
+use bevy_render::camera::{Camera, ManualTextureViews};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
+use bevy_window::{PrimaryWindow, Window};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -214,5 +219,54 @@ fn update_children_target_camera(
             commands,
             updated_entities,
         );
+    }
+}
+
+pub fn update_root_contexts(
+    default_ui_camera: DefaultUiCamera,
+    ui_scale: Res<UiScale>,
+    primary_window_query: Query<Entity, With<PrimaryWindow>>,
+    images: Res<Assets<Image>>,
+    camera_query: Query<&Camera>,
+    window_query: Query<(Entity, &Window)>,
+    target_camera_query: Query<&TargetCamera>,
+    ui_root_nodes: UiRootNodes,
+    mut root_context_query: Query<(&mut NodeScaleFactor, &mut NodeContext)>,
+    manual_texture_views: Res<ManualTextureViews>,
+) {
+    let default_camera_entity = default_ui_camera.get();
+    let primary_window = primary_window_query.get_single().ok();
+
+    for root_entity in ui_root_nodes.iter() {
+        let (new_scale_factor, new_res) = target_camera_query
+            .get(root_entity)
+            .ok()
+            .map(TargetCamera::entity)
+            .or(default_camera_entity)
+            .and_then(|camera_entity| {
+                camera_query
+                    .get(camera_entity)
+                    .ok()
+                    .and_then(|camera| camera.target.normalize(primary_window))
+                    .and_then(|normalized_render_target| {
+                        normalized_render_target.get_render_target_info(
+                            window_query.iter(),
+                            &images,
+                            &manual_texture_views,
+                        )
+                    })
+                    .map(|info| (info.scale_factor, info.physical_size))
+            })
+            .map(|(sf, r)| (sf * ui_scale.0, r))
+            .unwrap_or((ui_scale.0, UVec2::ZERO));
+        let (mut root_scale_factor, mut root_context) =
+            root_context_query.get_mut(root_entity).unwrap();
+        if root_scale_factor.0 != new_scale_factor {
+            root_scale_factor.0 = new_scale_factor;
+        }
+
+        if root_context.0 != new_res {
+            root_context.0 = new_res;
+        }
     }
 }
