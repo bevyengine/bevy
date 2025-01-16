@@ -33,6 +33,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Recursively walks up the tree defined by the given `R` [`Relationship`] until
     /// there are no more related entities, returning the "root entity" of the relationship hierarchy.
+    ///
+    /// # Warning
+    /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
+    /// relationships.
     pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w R>,
@@ -45,6 +49,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates all "leaf entities" as defined by the [`RelationshipSources`] hierarchy.
+    ///
+    /// # Warning
+    /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
+    /// relationships.
     pub fn iter_leaves<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -80,6 +88,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
     /// [`RelationshipSources`].
+    ///
+    /// # Warning
+    /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
+    /// relationships.
     pub fn iter_descendants<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -92,6 +104,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
     /// [`RelationshipSources`] in depth-first order.
+    ///
+    /// # Warning
+    /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
+    /// relationships.
     pub fn iter_descendants_depth_first<S: RelationshipSources>(
         &'w self,
         entity: Entity,
@@ -103,6 +119,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates all ancestors of the given `entity` as defined by the `R` [`Relationship`].
+    ///
+    /// # Warning
+    /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
+    /// relationships.
     pub fn iter_ancestors<R: Relationship>(
         &'w self,
         entity: Entity,
