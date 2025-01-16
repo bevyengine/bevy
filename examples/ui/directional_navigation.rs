@@ -5,6 +5,8 @@
 //!
 //! In this example, we will set up a simple UI with a grid of buttons that can be navigated using the arrow keys or gamepad input.
 
+use std::time::Duration;
+
 use bevy::{
     input_focus::{
         directional_navigation::{
@@ -65,9 +67,7 @@ const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 // In a real project, each button would also have its own unique behavior,
 // to capture the actual intent of the user
 fn universal_button_click_behavior(
-    // We're using an on-mouse-down trigger to improve responsiveness;
-    // Clicked is better when you want roll-off cancellation
-    mut trigger: Trigger<Pointer<Pressed>>,
+    mut trigger: Trigger<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
     let button_entity = trigger.target();
@@ -368,7 +368,7 @@ fn highlight_focused_element(
     }
 }
 
-// By sending a Pointer<Pressed> trigger rather than directly handling button-like interactions,
+// By sending a Pointer<Click> trigger rather than directly handling button-like interactions,
 // we can unify our handling of pointer and keyboard/gamepad interactions
 fn interact_with_focused_button(
     action_state: Res<ActionState>,
@@ -381,7 +381,7 @@ fn interact_with_focused_button(
     {
         if let Some(focused_entity) = input_focus.0 {
             commands.trigger_targets(
-                Pointer::<Pressed> {
+                Pointer::<Click> {
                     target: focused_entity,
                     // We're pretending that we're a mouse
                     pointer_id: PointerId::Mouse,
@@ -395,7 +395,7 @@ fn interact_with_focused_button(
                         ),
                         position: Vec2::ZERO,
                     },
-                    event: Pressed {
+                    event: Click {
                         button: PointerButton::Primary,
                         // This field isn't used, so we're just setting it to a placeholder value
                         hit: HitData {
@@ -404,6 +404,7 @@ fn interact_with_focused_button(
                             position: None,
                             normal: None,
                         },
+                        duration: Duration::from_secs_f32(0.1),
                     },
                 },
                 focused_entity,
