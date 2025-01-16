@@ -1,5 +1,5 @@
-//! Very simple shader showing how to use the vertex position data correctly to output the 
-//! correct stencil in the right position
+//! A shader showing how to use the vertex position data to output the 
+//! stencil in the right position
 
 // First we import everything we need from bevy_pbr
 // A 2d shader would be vevry similar but import from bevy_sprite instead
@@ -36,6 +36,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Just output a red color to represent the stencil of the mesh
+    // Output a red color to represent the stencil of the mesh
     return vec4(1.0, 0.0, 0.0, 1.0);
 }

@@ -1,11 +1,11 @@
 //! This example demonstrates how to write a custom phase
 //!
-//! Render phases in bevy are used whenever you need to draw a groud of neshes in a specific way.
+//! Render phases in bevy are used whenever you need to draw a group of meshes in a specific way.
 //! For example, bevy's main pass has an opaque phase, a transparent phase for both 2d and 3d.
 //! Sometimes, you may want to only draw a subset of meshes before or after the builtin phase. In
 //! those situations you need to write your own phase.
 //!
-//! This examples showcase how writing a custom phase to draw a stencil of a bevy mesh could look
+//! This example showcases how writing a custom phase to draw a stencil of a bevy mesh could look
 //! like. Some shortcuts have been used for simplicity.
 //!
 //! This example was made for 3d, but a 2d equivalent would be almost identical.
@@ -246,7 +246,7 @@ type DrawMesh3dStencil = (
 
 // This is the data required when you define a custom phase in bevy. More specifically this is the
 // data required when using a ViewSortedRenderPhase. This would look differently if we wanted a
-// batched render phase. Sorted phase are a bit easier to implement, but a batched phased would
+// batched render phase. Sorted phases are a bit easier to implement, but a batched phased would
 // look similar.
 //
 // If you want to see how a batched phase implementation looks, you should look at the Opaque2d
@@ -453,7 +453,7 @@ fn extract_camera_phases(
 
 // This is a very important step when writing a custom phase.
 //
-// This system determines which mesh will be added to the phase.
+// This system determines which meshes will be added to the phase.
 #[allow(clippy::too_many_arguments)]
 fn queue_custom_meshes(
     custom_draw_functions: Res<DrawFunctions<StencilPhase>>,
@@ -478,7 +478,7 @@ fn queue_custom_meshes(
             | MeshPipelineKey::from_hdr(view.hdr);
 
         let rangefinder = view.rangefinder3d();
-        // Since our phase can work on any 3d mesh we can reuse the default mesh 2d filter
+        // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
@@ -549,13 +549,15 @@ impl ViewNode for CustomDrawNode {
         else {
             return Ok(());
         };
-        // Initiazlie diagnostic recording.
-        // not reguired but makes profiling easier
+        // Initialize diagnostic recording.
+        // not required but makes profiling easier
         let diagnostics = render_context.diagnostic_recorder();
 
         // For the purpose of the example, we will write directly to the view target. A real
         // stencil pass would write to a custom texture and that texture would be used in later
         // passes to render custom effects using it.
+        // Check out the prepass (ex: DepthPrepass) implementations in Bevy for additional
+        // context when using custom textures.
         let color_attachments = [Some(target.get_color_attachment())];
 
         // Get the view entity from the graph
