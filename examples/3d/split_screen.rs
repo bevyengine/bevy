@@ -183,7 +183,7 @@ fn set_camera_viewports(
 
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &TargetCamera, &RotateCamera),
+        (&Interaction, &ResolvedTargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
@@ -192,7 +192,10 @@ fn button_system(
         if let Interaction::Pressed = *interaction {
             // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
-            if let Ok(mut camera_transform) = camera_query.get_mut(target_camera.entity()) {
+            if let Some(mut camera_transform) = target_camera
+                .get()
+                .and_then(|camera| camera_query.get_mut(camera).ok())
+            {
                 let angle = match direction {
                     Direction::Left => -0.1,
                     Direction::Right => 0.1,
