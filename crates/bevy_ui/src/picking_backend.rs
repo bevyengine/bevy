@@ -341,11 +341,11 @@ pub trait UiPointerMockingExt {
     ///
     /// If the node is not pickable, or is blocked by a higher node,
     /// these events may not have any effect, even if sent correctly!
-    fn simulate_pointer_on_node(&mut self, pointer_id: PointerId, pointer_action: PointerAction);
+    fn emulate_pointer(&mut self, pointer_id: PointerId, pointer_action: PointerAction);
 }
 
 impl UiPointerMockingExt for EntityCommands<'_> {
-    fn simulate_pointer_on_node(&mut self, pointer_id: PointerId, pointer_action: PointerAction) {
+    fn emulate_pointer(&mut self, pointer_id: PointerId, pointer_action: PointerAction) {
         let node_entity = self.id();
         self.commands_mut().queue(move |world: &mut World| {
             simulate_pointer_on_node(world, pointer_id, pointer_action, node_entity)

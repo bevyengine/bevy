@@ -385,7 +385,7 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
     {
         if let Some(focused_entity) = input_focus.0 {
-            commands.entity(focused_entity).simulate_pointer_on_node(
+            commands.entity(focused_entity).emulate_pointer(
                 PointerId::Focus,
                 PointerAction::Pressed {
                     direction: PressDirection::Pressed,
@@ -396,7 +396,7 @@ fn interact_with_focused_button(
     } else {
         // If the button was not pressed, we simulate a release event
         if let Some(focused_entity) = input_focus.0 {
-            commands.entity(focused_entity).simulate_pointer_on_node(
+            commands.entity(focused_entity).emulate_pointer(
                 PointerId::Focus,
                 PointerAction::Pressed {
                     direction: PressDirection::Released,
@@ -404,7 +404,5 @@ fn interact_with_focused_button(
                 },
             );
         }
-    }
-}
     }
 }
