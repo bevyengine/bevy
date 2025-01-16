@@ -201,13 +201,15 @@ impl PointerLocation {
 /// The location of a pointer, including the current [`NormalizedRenderTarget`], and the x/y
 /// position of the pointer on this render target.
 ///
+/// This is stored as a [`PointerLocation`] component on the pointer entity.
+///
 /// Note that:
 /// - a pointer can move freely between render targets
 /// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
-#[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug, PartialEq)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,
