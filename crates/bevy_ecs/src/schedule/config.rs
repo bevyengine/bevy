@@ -563,7 +563,14 @@ macro_rules! impl_system_collection {
         where
             $($sys: IntoSystemConfigs<$param>),*
         {
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Variable names are provided by the macro caller, not by us."
+            )]
             fn into_configs(self) -> SystemConfigs {
                 let ($($sys,)*) = self;
                 SystemConfigs::Configs {
@@ -788,7 +795,14 @@ macro_rules! impl_system_set_collection {
         $(#[$meta])*
         impl<$($set: IntoSystemSetConfigs),*> IntoSystemSetConfigs for ($($set,)*)
         {
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Variable names are provided by the macro caller, not by us."
+            )]
             fn into_configs(self) -> SystemSetConfigs {
                 let ($($set,)*) = self;
                 SystemSetConfigs::Configs {

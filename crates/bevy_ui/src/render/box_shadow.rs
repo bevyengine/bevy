@@ -34,7 +34,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -269,7 +269,7 @@ pub fn extract_shadows(
         }
 
         let ui_physical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(extracted_camera_entity)
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -337,24 +337,34 @@ pub fn extract_shadows(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
+    mut render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
-        let Ok((view_entity, view, shadow_samples)) =
-            views.get(extracted_shadow.extracted_camera_entity)
+        let Ok((default_camera_view, shadow_samples)) =
+            render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -377,6 +387,7 @@ pub fn queue_shadows(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

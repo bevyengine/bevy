@@ -9,8 +9,8 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
-    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
+    Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -18,17 +18,20 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
+use bevy_render::view::RetainedViewEntity;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RunGraphOnViewNode},
+    render_graph::{Node as RenderGraphNode, RenderGraph},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -49,7 +52,7 @@ pub use debug_overlay::UiDebugOptions;
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
@@ -96,6 +99,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,
@@ -124,6 +128,7 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
+                RenderUiSystem::ExtractCameraViews,
                 RenderUiSystem::ExtractBoxShadows,
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
@@ -137,7 +142,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_ui_camera_view,
+                extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -162,7 +167,7 @@ pub fn build_ui_render(app: &mut App) {
 
     if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-        graph_2d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
         graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
         graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
@@ -170,7 +175,7 @@ pub fn build_ui_render(app: &mut App) {
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
         graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-        graph_3d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
+        graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
         graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
         graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
@@ -243,6 +248,31 @@ impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
         self.glyphs.clear();
+    }
+}
+
+/// A [`RenderGraphNode`] that executes the UI rendering subgraph on the UI
+/// view.
+struct RunUiSubgraphOnUiViewNode;
+
+impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
+    fn run<'w>(
+        &self,
+        graph: &mut RenderGraphContext,
+        _: &mut RenderContext<'w>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        // Fetch the UI view.
+        let Some(mut render_views) = world.try_query::<&UiCameraView>() else {
+            return Ok(());
+        };
+        let Ok(default_camera_view) = render_views.get(world, graph.view_entity()) else {
+            return Ok(());
+        };
+
+        // Run the subgraph on the UI view.
+        graph.run_sub_graph(SubGraphUi, vec![], Some(default_camera_view.0))?;
+        Ok(())
     }
 }
 
@@ -413,9 +443,7 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
-    ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
     let default_camera_entity = default_ui_camera.get();
@@ -484,10 +512,6 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            let parent_clip = ui_children
-                .get_parent(entity)
-                .and_then(|parent| parent_clip_query.get(parent).ok());
-
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
@@ -498,7 +522,7 @@ pub fn extract_uinode_borders(
                         ..Default::default()
                     },
                     image,
-                    clip: parent_clip.map(|clip| clip.clip),
+                    clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
@@ -527,9 +551,31 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
+/// The ID of the subview associated with a camera on which UI is to be drawn.
+///
+/// When UI is present, cameras extract to two views: the main 2D/3D one and a
+/// UI one. The main 2D or 3D camera gets subview 0, and the corresponding UI
+/// camera gets this subview, 1.
+const UI_CAMERA_SUBVIEW: u32 = 1;
+
+/// A render-world component that lives on the main render target view and
+/// specifies the corresponding UI view.
+///
+/// For example, if UI is being rendered to a 3D camera, this component lives on
+/// the 3D camera and contains the entity corresponding to the UI view.
 #[derive(Component)]
 /// Entity id of the temporary render entity with the corresponding extracted UI view.
 pub struct UiCameraView(pub Entity);
+
+/// A render-world component that lives on the UI view and specifies the
+/// corresponding main render target view.
+///
+/// For example, if the UI is being rendered to a 3D camera, this component
+/// lives on the UI view and contains the entity corresponding to the 3D camera.
+///
+/// This is the inverse of [`UiCameraView`].
+#[derive(Component)]
+pub struct UiViewTarget(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
@@ -538,6 +584,7 @@ pub fn extract_ui_camera_view(
     query: Extract<
         Query<
             (
+                Entity,
                 RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
@@ -546,11 +593,11 @@ pub fn extract_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    mut live_entities: Local<EntityHashSet>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (render_entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -570,9 +617,15 @@ pub fn extract_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
+            // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
+            // main 3D or 2D camera, which will have subview index 0.
+            let retained_view_entity =
+                RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
+            // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
                     ExtractedView {
+                        retained_view_entity,
                         clip_from_view: projection_matrix,
                         world_from_view: GlobalTransform::from_xyz(
                             0.0,
@@ -587,12 +640,16 @@ pub fn extract_ui_camera_view(
                         )),
                         color_grading: Default::default(),
                     },
+                    // Link to the main camera view.
+                    UiViewTarget(render_entity),
                     TemporaryRenderEntity,
                 ))
                 .id();
+
             let mut entity_commands = commands
                 .get_entity(render_entity)
                 .expect("Camera entity wasn't synced.");
+            // Link from the main 2D/3D camera view to the UI view.
             entity_commands.insert(UiCameraView(ui_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
@@ -600,9 +657,9 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(render_entity);
+            transparent_render_phases.insert_or_clear(retained_view_entity);
 
-            live_entities.insert(render_entity);
+            live_entities.insert(retained_view_entity);
         }
     }
 
@@ -790,19 +847,25 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) =
-            views.get(extracted_uinode.extracted_camera_entity)
+        let Ok((default_camera_view, ui_anti_alias)) =
+            render_views.get_mut(extracted_uinode.extracted_camera_entity)
         else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -825,6 +888,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

@@ -139,10 +139,18 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
+        // The order that we register these events is vital to ensure that the constants are correct!
+        let on_add = OnAdd::register_component_id(self);
+        assert_eq!(ON_ADD, on_add);
+
+        let on_insert = OnInsert::register_component_id(self);
+        assert_eq!(ON_INSERT, on_insert);
+
+        let on_replace = OnReplace::register_component_id(self);
+        assert_eq!(ON_REPLACE, on_replace);
+
+        let on_remove = OnRemove::register_component_id(self);
+        assert_eq!(ON_REMOVE, on_remove);
     }
     /// Creates a new empty [`World`].
     ///

@@ -267,6 +267,7 @@ fn update_lightmaps(
                     commands.entity(entity).insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect,
+                        bicubic_sampling: false,
                     });
                 }
                 None => {
@@ -290,6 +291,7 @@ fn update_lightmaps(
                     commands.entity(entity).insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect: SPHERE_UV_RECT,
+                        bicubic_sampling: false,
                     });
                 }
                 _ => {

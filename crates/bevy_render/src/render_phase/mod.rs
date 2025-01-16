@@ -36,9 +36,12 @@ pub use draw_state::*;
 use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
+use wgpu::Features;
 
 use crate::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
+use crate::renderer::RenderDevice;
 use crate::sync_world::MainEntity;
+use crate::view::RetainedViewEntity;
 use crate::{
     batching::{
         self,
@@ -50,7 +53,6 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
@@ -63,7 +65,7 @@ use smallvec::SmallVec;
 /// They're cleared out every frame, but storing them in a resource like this
 /// allows us to reuse allocations.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ViewBinnedRenderPhases<BPI>(pub EntityHashMap<BinnedRenderPhase<BPI>>)
+pub struct ViewBinnedRenderPhases<BPI>(pub HashMap<RetainedViewEntity, BinnedRenderPhase<BPI>>)
 where
     BPI: BinnedPhaseItem;
 
@@ -189,6 +191,7 @@ pub enum BinnedRenderPhaseBatchSets<BK> {
 pub struct BinnedRenderPhaseBatchSet<BK> {
     pub(crate) batches: Vec<BinnedRenderPhaseBatch>,
     pub(crate) bin_key: BK,
+    pub(crate) index: u32,
 }
 
 impl<BK> BinnedRenderPhaseBatchSets<BK> {
@@ -326,8 +329,12 @@ impl<BPI> ViewBinnedRenderPhases<BPI>
 where
     BPI: BinnedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, entity: Entity, gpu_preprocessing: GpuPreprocessingMode) {
-        match self.entry(entity) {
+    pub fn insert_or_clear(
+        &mut self,
+        retained_view_entity: RetainedViewEntity,
+        gpu_preprocessing: GpuPreprocessingMode,
+    ) {
+        match self.entry(retained_view_entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
                 entry.insert(BinnedRenderPhase::<BPI>::new(gpu_preprocessing));
@@ -452,6 +459,11 @@ where
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
+        let render_device = world.resource::<RenderDevice>();
+        let multi_draw_indirect_count_supported = render_device
+            .features()
+            .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+
         match self.batch_sets {
             BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
                 debug_assert_eq!(self.batchable_mesh_keys.len(), batch_sets.len());
@@ -518,6 +530,12 @@ where
                         continue;
                     };
 
+                    let batch_set_index = if multi_draw_indirect_count_supported {
+                        NonMaxU32::new(batch_set.index)
+                    } else {
+                        None
+                    };
+
                     let binned_phase_item = BPI::new(
                         batch_set_key.clone(),
                         batch_set.bin_key.clone(),
@@ -528,10 +546,12 @@ where
                             PhaseItemExtraIndex::DynamicOffset(ref dynamic_offset) => {
                                 PhaseItemExtraIndex::DynamicOffset(*dynamic_offset)
                             }
-                            PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
-                                PhaseItemExtraIndex::IndirectParametersIndex(
-                                    range.start..(range.start + batch_set.batches.len() as u32),
-                                )
+                            PhaseItemExtraIndex::IndirectParametersIndex { ref range, .. } => {
+                                PhaseItemExtraIndex::IndirectParametersIndex {
+                                    range: range.start
+                                        ..(range.start + batch_set.batches.len() as u32),
+                                    batch_set_index,
+                                }
                             }
                         },
                     );
@@ -581,10 +601,11 @@ where
                                 let first_indirect_parameters_index_for_entity =
                                     u32::from(*first_indirect_parameters_index)
                                         + entity_index as u32;
-                                PhaseItemExtraIndex::IndirectParametersIndex(
-                                    first_indirect_parameters_index_for_entity
+                                PhaseItemExtraIndex::IndirectParametersIndex {
+                                    range: first_indirect_parameters_index_for_entity
                                         ..(first_indirect_parameters_index_for_entity + 1),
-                                )
+                                    batch_set_index: None,
+                                }
                             }
                         },
                     },
@@ -721,10 +742,11 @@ impl UnbatchableBinnedEntityIndexSet {
                     u32::from(*first_indirect_parameters_index) + entity_index;
                 Some(UnbatchableBinnedEntityIndices {
                     instance_index: instance_range.start + entity_index,
-                    extra_index: PhaseItemExtraIndex::IndirectParametersIndex(
-                        first_indirect_parameters_index_for_this_batch
+                    extra_index: PhaseItemExtraIndex::IndirectParametersIndex {
+                        range: first_indirect_parameters_index_for_this_batch
                             ..(first_indirect_parameters_index_for_this_batch + 1),
-                    ),
+                        batch_set_index: None,
+                    },
                 })
             }
             UnbatchableBinnedEntityIndexSet::Dense(ref indices) => {
@@ -792,7 +814,7 @@ where
 /// They're cleared out every frame, but storing them in a resource like this
 /// allows us to reuse allocations.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ViewSortedRenderPhases<SPI>(pub EntityHashMap<SortedRenderPhase<SPI>>)
+pub struct ViewSortedRenderPhases<SPI>(pub HashMap<RetainedViewEntity, SortedRenderPhase<SPI>>)
 where
     SPI: SortedPhaseItem;
 
@@ -809,8 +831,8 @@ impl<SPI> ViewSortedRenderPhases<SPI>
 where
     SPI: SortedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, entity: Entity) {
-        match self.entry(entity) {
+    pub fn insert_or_clear(&mut self, retained_view_entity: RetainedViewEntity) {
+        match self.entry(retained_view_entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
                 entry.insert(default());
@@ -886,12 +908,17 @@ impl UnbatchableBinnedEntityIndexSet {
                             first_indirect_parameters_index: None,
                         }
                     }
-                    PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
+                    PhaseItemExtraIndex::IndirectParametersIndex {
+                        range: ref indirect_parameters_index,
+                        ..
+                    } => {
                         // This is the first entity we've seen, and we have compute
                         // shaders. Initialize the fast path.
                         *self = UnbatchableBinnedEntityIndexSet::Sparse {
                             instance_range: indices.instance_index..indices.instance_index + 1,
-                            first_indirect_parameters_index: NonMaxU32::new(range.start),
+                            first_indirect_parameters_index: NonMaxU32::new(
+                                indirect_parameters_index.start,
+                            ),
                         }
                     }
                 }
@@ -905,7 +932,10 @@ impl UnbatchableBinnedEntityIndexSet {
                     && indices.extra_index == PhaseItemExtraIndex::None)
                     || first_indirect_parameters_index.is_some_and(
                         |first_indirect_parameters_index| match indices.extra_index {
-                            PhaseItemExtraIndex::IndirectParametersIndex(ref this_range) => {
+                            PhaseItemExtraIndex::IndirectParametersIndex {
+                                range: ref this_range,
+                                ..
+                            } => {
                                 u32::from(first_indirect_parameters_index) + instance_range.end
                                     - instance_range.start
                                     == this_range.start
@@ -1125,7 +1155,22 @@ pub enum PhaseItemExtraIndex {
     /// An index into the buffer that specifies the indirect parameters for this
     /// [`PhaseItem`]'s drawcall. This is used when indirect mode is on (as used
     /// for GPU culling).
-    IndirectParametersIndex(Range<u32>),
+    IndirectParametersIndex {
+        /// The range of indirect parameters within the indirect parameters array.
+        ///
+        /// If we're using `multi_draw_indirect_count`, this specifies the
+        /// maximum range of indirect parameters within that array. If batches
+        /// are ultimately culled out on the GPU, the actual number of draw
+        /// commands might be lower than the length of this range.
+        range: Range<u32>,
+        /// If `multi_draw_indirect_count` is in use, and this phase item is
+        /// part of a batch set, specifies the index of the batch set that this
+        /// phase item is a part of.
+        ///
+        /// If `multi_draw_indirect_count` isn't in use, or this phase item
+        /// isn't part of a batch set, this is `None`.
+        batch_set_index: Option<NonMaxU32>,
+    },
 }
 
 impl PhaseItemExtraIndex {
@@ -1135,9 +1180,11 @@ impl PhaseItemExtraIndex {
         indirect_parameters_index: Option<NonMaxU32>,
     ) -> PhaseItemExtraIndex {
         match indirect_parameters_index {
-            Some(indirect_parameters_index) => PhaseItemExtraIndex::IndirectParametersIndex(
-                u32::from(indirect_parameters_index)..(u32::from(indirect_parameters_index) + 1),
-            ),
+            Some(indirect_parameters_index) => PhaseItemExtraIndex::IndirectParametersIndex {
+                range: u32::from(indirect_parameters_index)
+                    ..(u32::from(indirect_parameters_index) + 1),
+                batch_set_index: None,
+            },
             None => PhaseItemExtraIndex::None,
         }
     }
@@ -1168,7 +1215,11 @@ pub trait BinnedPhaseItem: PhaseItem {
     /// reduces the need for rebinding between bins and improves performance.
     type BinKey: Clone + Send + Sync + PartialEq + Eq + Ord + Hash;
 
-    type BatchSetKey: Clone + Send + Sync + PartialEq + Eq + Ord + Hash;
+    /// The key used to combine batches into batch sets.
+    ///
+    /// A *batch set* is a set of meshes that can potentially be multi-drawn
+    /// together.
+    type BatchSetKey: PhaseItemBatchSetKey;
 
     /// Creates a new binned phase item from the key and per-entity data.
     ///
@@ -1182,6 +1233,19 @@ pub trait BinnedPhaseItem: PhaseItem {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self;
+}
+
+/// A key used to combine batches into batch sets.
+///
+/// A *batch set* is a set of meshes that can potentially be multi-drawn
+/// together.
+pub trait PhaseItemBatchSetKey: Clone + Send + Sync + PartialEq + Eq + Ord + Hash {
+    /// Returns true if this batch set key describes indexed meshes or false if
+    /// it describes non-indexed meshes.
+    ///
+    /// Bevy uses this in order to determine which kind of indirect draw
+    /// parameters to use, if indirect drawing is enabled.
+    fn indexed(&self) -> bool;
 }
 
 /// Represents phase items that must be sorted. The `SortKey` specifies the
@@ -1215,6 +1279,17 @@ pub trait SortedPhaseItem: PhaseItem {
     fn sort(items: &mut [Self]) {
         items.sort_unstable_by_key(Self::sort_key);
     }
+
+    /// Whether this phase item targets indexed meshes (those with both vertex
+    /// and index buffers as opposed to just vertex buffers).
+    ///
+    /// Bevy needs this information in order to properly group phase items
+    /// together for multi-draw indirect, because the GPU layout of indirect
+    /// commands differs between indexed and non-indexed meshes.
+    ///
+    /// If you're implementing a custom phase item that doesn't describe a mesh,
+    /// you can safely return false here.
+    fn indexed(&self) -> bool;
 }
 
 /// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
