@@ -986,7 +986,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     let short_path = binding.short_path();
     let type_path = binding.path();
     let mut typed_schema = JsonSchemaBevyType {
-        reflect_types: get_registrered_reflect_types(reg),
+        reflect_types: get_registered_reflect_types(reg),
         short_path: short_path.to_owned(),
         type_path: type_path.to_owned(),
         crate_name: binding.crate_name().map(str::to_owned),
@@ -1111,7 +1111,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     (t.type_path().to_owned(), typed_schema)
 }
 
-fn get_registrered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
+fn get_registered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
     // Vec could be moved to allow registering more types by game maker.
     let registered_reflect_types: [(TypeId, &str); 5] = [
         { (TypeId::of::<ReflectComponent>(), "Component") },
