@@ -59,7 +59,7 @@ impl Specializable for ComputePipeline {
 /// specify a "key override". This will "hide" that field's key from being
 /// exposed by the wrapper, and always use the value given by the attribute.
 /// Values for this attribute may either be `default` which will use the key's
-/// [`Default`](core::default::Default) implementation, or a valid rust
+/// [`Default`] implementation, or a valid rust
 /// expression of the key type.
 ///
 /// Example:
