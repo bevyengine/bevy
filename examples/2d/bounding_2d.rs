@@ -224,13 +224,16 @@ fn setup(mut commands: Commands) {
             Vec2::new(40., 50.),
         )),
         Spin,
-        DesiredVolume::Aabb,
+        DesiredVolume::Circle,
         Intersects::default(),
     ));
 
     commands.spawn((
         Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-        Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
+        Shape::Line(Segment2d::from_direction(
+            Dir2::from_xy(1., 0.3).unwrap(),
+            90.,
+        )),
         Spin,
         DesiredVolume::Circle,
         Intersects::default(),

@@ -265,18 +265,11 @@ impl Bounded2d for Line2d {
 
 impl Bounded2d for Segment2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        let isometry = isometry.into();
-
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb2d::new(isometry.translation, half_size)
+        Aabb2d::from_point_cloud(isometry, &[self.point1(), self.point2()])
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        let isometry = isometry.into();
-        BoundingCircle::new(isometry.translation, self.half_length)
+        BoundingCircle::from_point_cloud(isometry, &[self.point1(), self.point2()])
     }
 }
 
@@ -336,7 +329,8 @@ impl Bounded2d for Triangle2d {
         if let Some((point1, point2)) = side_opposite_to_non_acute {
             // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
             // We can compute the minimum bounding circle from the line segment of the longest side.
-            let (segment, center) = Segment2d::from_points(point1, point2);
+            let segment = Segment2d::new(point1, point2).centered();
+            let center = (point1 + point2) / 2.;
             segment.bounding_circle(isometry * Isometry2d::from_translation(center))
         } else {
             // The triangle is acute, so the smallest bounding circle is the circumcircle.
@@ -416,12 +410,8 @@ impl Bounded2d for Capsule2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         let isometry = isometry.into();
 
-        // Get the line segment between the semicircles of the rotated capsule
-        let segment = Segment2d {
-            // Multiplying a normalized vector (Vec2::Y) with a rotation returns a normalized vector.
-            direction: isometry.rotation * Dir2::Y,
-            half_length: self.half_length,
-        };
+        // Get the line segment between the hemicircles of the rotated capsule
+        let segment = Segment2d::from_direction(isometry.rotation * Dir2::Y, self.half_length * 2.);
         let (a, b) = (segment.point1(), segment.point2());
 
         // Expand the line segment by the capsule radius to get the capsule half-extents
@@ -886,7 +876,7 @@ mod tests {
     fn segment() {
         let translation = Vec2::new(2.0, 1.0);
         let isometry = Isometry2d::from_translation(translation);
-        let segment = Segment2d::from_points(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5)).0;
+        let segment = Segment2d::new(Vec2::new(-1.0, -0.5), Vec2::new(1.0, 0.5));
 
         let aabb = segment.aabb_2d(isometry);
         assert_eq!(aabb.min, Vec2::new(1.0, 0.5));

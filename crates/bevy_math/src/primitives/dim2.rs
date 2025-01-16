@@ -5,7 +5,7 @@ use thiserror::Error;
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
-    Dir2, Vec2,
+    Dir2, Rot2, Vec2,
 };
 
 #[cfg(feature = "alloc")]
@@ -1221,22 +1221,18 @@ impl Primitive2d for Line2d {}
 )]
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
-    /// The direction of the line segment
-    pub direction: Dir2,
-    /// Half the length of the line segment. The segment extends by this amount in both
-    /// the given direction and its opposite direction
-    pub half_length: f32,
+    /// First point of the segment
+    pub point1: Vec2,
+    /// Second point of the segment
+    pub point2: Vec2,
 }
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a new `Segment2d` from a direction and full length of the segment
+    /// Create a new `Segment2d` from the two points composing it
     #[inline(always)]
-    pub fn new(direction: Dir2, length: f32) -> Self {
-        Self {
-            direction,
-            half_length: length / 2.0,
-        }
+    pub fn new(point1: Vec2, point2: Vec2) -> Self {
+        Self { point1, point2 }
     }
 
     /// Create a new `Segment2d` from its endpoints and compute its geometric center
@@ -1245,27 +1241,82 @@ impl Segment2d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
+    #[deprecated(since = "0.15.1", note = "Use the `new` constructor instead")]
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
-        let diff = point2 - point1;
-        let length = diff.length();
+        (Self::new(point1, point2), (point1 + point2) / 2.)
+    }
 
-        (
-            // We are dividing by the length here, so the vector is normalized.
-            Self::new(Dir2::new_unchecked(diff / length), length),
-            (point1 + point2) / 2.,
-        )
+    /// Create a new `Segment2d` at the origin from a `direction` and `half_length`
+    #[inline(always)]
+    pub fn from_direction(direction: Dir2, length: f32) -> Segment2d {
+        let half_length = length / 2.;
+        Self::new(direction * -half_length, direction * half_length)
     }
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec2 {
-        *self.direction * -self.half_length
+        self.point1
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec2 {
-        *self.direction * self.half_length
+        self.point2
+    }
+
+    /// Get the segment's center
+    #[inline(always)]
+    pub fn center(&self) -> Vec2 {
+        (self.point1() + self.point2()) / 2.
+    }
+
+    /// Get the segment's length
+    #[inline(always)]
+    pub fn length(&self) -> f32 {
+        self.point1().distance(self.point2())
+    }
+
+    /// Get the segment offset by a vector
+    #[inline(always)]
+    pub fn offset(&self, offset: Vec2) -> Segment2d {
+        Self::new(self.point1() + offset, self.point2() + offset)
+    }
+
+    /// Get the segment rotated around it's center
+    #[inline(always)]
+    pub fn rotated(&self, rotation: Rot2) -> Segment2d {
+        pub fn rotate_point(p: Vec2, rotation: Rot2) -> Vec2 {
+            Vec2::new(
+                p.x * rotation.cos - p.y * rotation.sin,
+                p.x * rotation.sin + p.y * rotation.cos,
+            )
+        }
+        // We center the segment for the purpose of the rotation, then offset back to it's original position
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let centered_rotated: Segment2d = Segment2d::new(
+            rotate_point(centered.point1(), rotation),
+            rotate_point(centered.point2(), rotation),
+        );
+        centered_rotated.offset(offset_from_origin)
+    }
+
+    /// Get the segment with it's center is at the origin
+    #[inline(always)]
+    pub fn centered(&self) -> Segment2d {
+        let center = self.center();
+        self.offset(-center)
+    }
+
+    /// Get the segment with a new length
+    #[inline(always)]
+    pub fn resized(&self, length: f32) -> Segment2d {
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let ratio = length / self.length();
+        let segment = Segment2d::new(centered.point1() * ratio, centered.point2() * ratio);
+        segment.offset(offset_from_origin)
     }
 }
 
