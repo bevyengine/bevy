@@ -39,9 +39,16 @@ fn main() {
         // Input is generally handled during PreUpdate
         // We're turning inputs into actions first, then using those actions to determine navigation
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
-        // We're simulating a pointer click on the focused button
+        // We're simulating pointer clicks on the focused button
         // and are running this system at the same time as the other pointer input systems
-        .add_systems(First, interact_with_focused_button.in_set(PickSet::Input))
+        .add_systems(
+            First,
+            (
+                move_pointer_to_focused_element,
+                interact_with_focused_button,
+            )
+                .in_set(PickSet::Input),
+        )
         .add_systems(
             Update,
             (
@@ -352,6 +359,19 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
             }
             Err(e) => println!("Navigation failed: {e}"),
         }
+    }
+}
+
+// We need to update the location of the focused element
+// so that our virtual pointer presses are sent to the correct location.
+//
+// Doing this in an ordinary system (rather than just on navigation change) ensures that it is
+// initialized correctly, and is updated if the focused element moves or is scaled for any reason.
+fn move_pointer_to_focused_element(input_focus: Res<InputFocus>, mut commands: Commands) {
+    if let Some(focused_entity) = input_focus.0 {
+        commands
+            .entity(focused_entity)
+            .emulate_pointer(PointerId::Focus, PointerAction::Moved { delta: Vec2::ZERO });
     }
 }
 
