@@ -9,7 +9,7 @@ use crate::{
 use super::ComputedNode;
 use bevy_ecs::{
     entity::Entity,
-    query::{Changed, With},
+    query::With,
     system::{Commands, Query},
 };
 use bevy_hierarchy::Children;
